@@ -2,9 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { X, Sparkles, CheckCircle } from 'lucide-react';
 import AnimatedModal from './AnimatedModal';
 
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.3.0';
 
 const CHANGELOG = [
+  {
+    version: '1.3.0',
+    date: '10.01.2026',
+    changes: [
+      'Тренерський дашборд (/trainer)',
+      'Real-time моніторинг клієнтів',
+      'Історія харчування по днях',
+      'Підключення тренера через email'
+    ]
+  },
   {
     version: '1.2.1',
     date: '10.01.2026',

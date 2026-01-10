@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, X, Settings, Users, Calendar, ChevronDown, LogOut } from 'lucide-react';
+import { Check, X, Settings, Users, Calendar, ChevronDown, LogOut, UserPlus } from 'lucide-react';
 import { PROFILE_ICONS, MEAL_BADGE_ICONS } from '../data/products';
 
 export default function Header({
@@ -16,7 +16,8 @@ export default function Header({
   onShowAccountSwitch,
   onShowStartDateSetup,
   onShowPortionSettings,
-  onShowDaySelector
+  onShowDaySelector,
+  onShowAddTrainer
 }) {
   const [isEditingWeight, setIsEditingWeight] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -128,6 +129,9 @@ export default function Header({
         </div>
 
         <div className="flex items-center gap-1">
+          <button onClick={onShowAddTrainer} className="p-1.5 hover:bg-gray-100 rounded-full" title="Мій тренер">
+            <UserPlus size={16} className="text-gray-500" />
+          </button>
           <button onClick={onShowAccountSwitch} className="p-1.5 hover:bg-gray-100 rounded-full" title="Змінити акаунт">
             <Users size={16} className="text-gray-500" />
           </button>
