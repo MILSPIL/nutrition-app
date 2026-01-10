@@ -15,3 +15,4 @@ export { default as LoadingScreen } from './LoadingScreen';
 export { ToastProvider, useToast, toast } from './Toast';
 export { default as WelcomeModal, APP_VERSION } from './WelcomeModal';
 export { default as AddTrainerModal } from './client/AddTrainerModal';
+export { default as MeasurementsModal } from './measurements/MeasurementsModal';

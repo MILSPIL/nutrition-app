@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Calendar, ChevronLeft, ChevronRight, Activity, Scale, Utensils } from 'lucide-react';
+import { X, User, Calendar, ChevronLeft, ChevronRight, Activity, Scale, Utensils, TrendingDown, TrendingUp, Minus, Ruler } from 'lucide-react';
 import { doc, getDoc, collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
 import AnimatedModal from '../AnimatedModal';
+
+// Параметри замірів
+const MEASUREMENT_PARAMS = [
+  { key: 'weight', label: 'Вага', unit: 'кг', icon: '⚖️' },
+  { key: 'waist', label: 'Талія', unit: 'см', icon: '📏' },
+  { key: 'hips', label: 'Стегна', unit: 'см', icon: '📏' },
+  { key: 'chest', label: 'Груди', unit: 'см', icon: '📏' },
+  { key: 'arms', label: 'Руки', unit: 'см', icon: '💪' },
+  { key: 'thighs', label: 'Ноги', unit: 'см', icon: '🦵' },
+];
 
 // Назви прийомів їжі
 const MEAL_NAMES = {
@@ -17,6 +27,8 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
   const [dayData, setDayData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [availableDates, setAvailableDates] = useState([]);
+  const [measurements, setMeasurements] = useState([]);
+  const [showMeasurements, setShowMeasurements] = useState(false);
 
   // Форматування дати
   const formatDate = (date) => date.toISOString().split('T')[0];
@@ -24,7 +36,7 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
   // Перевірка чи це сьогодні
   const isToday = formatDate(selectedDate) === formatDate(new Date());
 
-  // Завантажити доступні дати
+  // Завантажити доступні дати та заміри
   useEffect(() => {
     if (!isOpen || !client?.id) return;
 
@@ -41,7 +53,24 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
       }
     };
 
+    const loadMeasurements = async () => {
+      try {
+        const measurementsRef = collection(db, 'users', client.id, 'measurements');
+        const q = query(measurementsRef, orderBy('date', 'asc'));
+        const snapshot = await getDocs(q);
+
+        const data = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setMeasurements(data);
+      } catch (error) {
+        console.error('Error loading measurements:', error);
+      }
+    };
+
     loadAvailableDates();
+    loadMeasurements();
   }, [isOpen, client?.id]);
 
   // Завантажити дані за обрану дату
@@ -104,6 +133,46 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
   const macros = dayData?.totalMacros || { p: 0, f: 0, c: 0, cal: 0 };
   const proteinGoal = 140;
   const proteinPercent = Math.round((macros.p / proteinGoal) * 100);
+
+  // Функції для роботи із замірами
+  const calculateDiff = (current, previous) => {
+    if (current === undefined || previous === undefined) return null;
+    return Math.round((current - previous) * 10) / 10;
+  };
+
+  const formatDiff = (diff) => {
+    if (diff === null || diff === undefined) return { text: '—', color: 'text-gray-400', icon: null };
+
+    if (diff === 0) {
+      return { text: '0', color: 'text-gray-500', icon: <Minus size={12} /> };
+    }
+
+    if (diff < 0) {
+      return {
+        text: `${diff}`,
+        color: 'text-green-600',
+        icon: <TrendingDown size={12} className="text-green-600" />
+      };
+    }
+
+    return {
+      text: `+${diff}`,
+      color: 'text-red-500',
+      icon: <TrendingUp size={12} className="text-red-500" />
+    };
+  };
+
+  const getComparisonData = () => {
+    if (measurements.length === 0) return null;
+
+    const initial = measurements[0];
+    const previous = measurements.length > 1 ? measurements[measurements.length - 2] : null;
+    const current = measurements[measurements.length - 1];
+
+    return { initial, previous, current };
+  };
+
+  const comparisonData = getComparisonData();
 
   return (
     <AnimatedModal isOpen={isOpen} onClose={onClose}>
@@ -250,6 +319,96 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
                 </div>
               )}
 
+              {/* Measurements Section */}
+              {measurements.length > 0 && (
+                <div className="mb-4">
+                  <button
+                    onClick={() => setShowMeasurements(!showMeasurements)}
+                    className="w-full flex items-center justify-between p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Ruler size={18} className="text-green-600" />
+                      <span className="font-medium text-gray-800">Заміри клієнта</span>
+                      <span className="text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded-full">
+                        {measurements.length} записів
+                      </span>
+                    </div>
+                    <ChevronRight
+                      size={18}
+                      className={`text-gray-400 transition-transform ${showMeasurements ? 'rotate-90' : ''}`}
+                    />
+                  </button>
+
+                  {showMeasurements && comparisonData && (
+                    <div className="mt-3 border rounded-lg overflow-hidden">
+                      <div className="bg-green-600 text-white p-2 text-sm font-medium">
+                        📈 Прогрес замірів
+                      </div>
+
+                      {/* Table Header */}
+                      <div className="grid grid-cols-6 gap-1 p-2 bg-gray-50 text-xs font-medium text-gray-500">
+                        <div>Параметр</div>
+                        <div className="text-center">Початок</div>
+                        <div className="text-center">Минулий</div>
+                        <div className="text-center">Зараз</div>
+                        <div className="text-center">Тиждень</div>
+                        <div className="text-center">Загалом</div>
+                      </div>
+
+                      {/* Table Rows */}
+                      {MEASUREMENT_PARAMS.map(param => {
+                        const initial = comparisonData.initial?.[param.key];
+                        const previous = comparisonData.previous?.[param.key];
+                        const current = comparisonData.current?.[param.key];
+
+                        const weekDiff = calculateDiff(current, previous);
+                        const totalDiff = calculateDiff(current, initial);
+
+                        const weekFormat = formatDiff(weekDiff);
+                        const totalFormat = formatDiff(totalDiff);
+
+                        if (initial === undefined && current === undefined) return null;
+
+                        return (
+                          <div
+                            key={param.key}
+                            className="grid grid-cols-6 gap-1 p-2 border-t text-xs items-center"
+                          >
+                            <div className="font-medium text-gray-700 flex items-center gap-1">
+                              <span>{param.icon}</span>
+                              <span>{param.label}</span>
+                            </div>
+                            <div className="text-center text-gray-600">
+                              {initial !== undefined ? initial : '—'}
+                            </div>
+                            <div className="text-center text-gray-600">
+                              {previous !== undefined ? previous : '—'}
+                            </div>
+                            <div className="text-center font-semibold text-gray-800">
+                              {current !== undefined ? current : '—'}
+                            </div>
+                            <div className={`text-center flex items-center justify-center gap-0.5 ${weekFormat.color}`}>
+                              {weekFormat.icon}
+                              <span>{weekFormat.text}</span>
+                            </div>
+                            <div className={`text-center flex items-center justify-center gap-0.5 ${totalFormat.color}`}>
+                              {totalFormat.icon}
+                              <span>{totalFormat.text}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Dates */}
+                      <div className="p-2 bg-gray-50 text-xs text-gray-400 flex justify-between">
+                        <span>Початок: {comparisonData.initial?.date ? new Date(comparisonData.initial.date).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' }) : '—'}</span>
+                        <span>Зараз: {comparisonData.current?.date ? new Date(comparisonData.current.date).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' }) : '—'}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Meals */}
               <div className="space-y-3">
                 <h3 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -259,9 +418,20 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
 
                 {[1, 2, 3, 4].map(mealNum => {
                   const mealData = dayData.meals?.[mealNum] || {};
-                  const products = Object.entries(mealData);
+                  // mealData має формат: { "Б": [products], "В": [products], ... }
+                  const letterEntries = Object.entries(mealData);
 
-                  if (products.length === 0) {
+                  // Зібрати всі продукти з усіх літер
+                  const allProducts = [];
+                  letterEntries.forEach(([letter, products]) => {
+                    if (Array.isArray(products)) {
+                      products.forEach((product, idx) => {
+                        allProducts.push({ ...product, letter, idx });
+                      });
+                    }
+                  });
+
+                  if (allProducts.length === 0) {
                     return (
                       <div key={mealNum} className="bg-gray-50 rounded-lg p-3">
                         <div className="font-medium text-gray-400">{MEAL_NAMES[mealNum]}</div>
@@ -272,12 +442,16 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
 
                   // Підрахунок макросів прийому
                   let mealMacros = { p: 0, f: 0, c: 0, cal: 0 };
-                  products.forEach(([_, product]) => {
-                    mealMacros.p += product.p || 0;
-                    mealMacros.f += product.f || 0;
-                    mealMacros.c += product.c || 0;
-                    mealMacros.cal += product.cal || 0;
+                  allProducts.forEach(product => {
+                    const multiplier = (product.weight || 100) / 100;
+                    mealMacros.p += (product.p || 0) * multiplier;
+                    mealMacros.f += (product.f || 0) * multiplier;
+                    mealMacros.c += (product.c || 0) * multiplier;
                   });
+                  mealMacros.p = Math.round(mealMacros.p * 10) / 10;
+                  mealMacros.f = Math.round(mealMacros.f * 10) / 10;
+                  mealMacros.c = Math.round(mealMacros.c * 10) / 10;
+                  mealMacros.cal = Math.round(mealMacros.p * 4 + mealMacros.c * 4 + mealMacros.f * 9);
 
                   return (
                     <div key={mealNum} className="bg-white border rounded-lg p-3">
@@ -288,18 +462,19 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
                         </span>
                       </div>
                       <div className="space-y-1">
-                        {products.map(([productId, product]) => (
-                          <div key={productId} className="flex justify-between text-sm">
+                        {allProducts.map((product, idx) => (
+                          <div key={`${product.letter}-${idx}`} className="flex justify-between text-sm">
                             <span className="text-gray-600">
+                              <span className="text-gray-400 mr-1">{product.letter})</span>
                               {product.name}
-                              {product.portionLabel && (
-                                <span className="text-gray-400 ml-1">
-                                  ({product.portionLabel})
-                                </span>
-                              )}
+                              <span className="text-gray-400 ml-1">
+                                ({product.weight}г)
+                              </span>
                             </span>
                             <span className="text-gray-400 text-xs">
-                              {product.p}б · {product.f}ж · {product.c}в
+                              {Math.round(product.p * product.weight / 100 * 10) / 10}б ·
+                              {Math.round(product.f * product.weight / 100 * 10) / 10}ж ·
+                              {Math.round(product.c * product.weight / 100 * 10) / 10}в
                             </span>
                           </div>
                         ))}

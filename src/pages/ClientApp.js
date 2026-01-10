@@ -24,7 +24,8 @@ import {
   ToastProvider,
   toast,
   WelcomeModal,
-  AddTrainerModal
+  AddTrainerModal,
+  MeasurementsModal
 } from '../components';
 
 export default function ClientApp() {
@@ -46,6 +47,7 @@ export default function ClientApp() {
   const [showReport, setShowReport] = useState(false);
   const [showAddCustomProduct, setShowAddCustomProduct] = useState(false);
   const [showAddTrainer, setShowAddTrainer] = useState(false);
+  const [showMeasurements, setShowMeasurements] = useState(false);
 
   const [userPortions, setUserPortions] = useState(DEFAULT_PORTIONS);
   const [programDay, setProgramDay] = useState(1);
@@ -707,6 +709,7 @@ export default function ClientApp() {
         onShowPortionSettings={() => setShowPortionSettings(true)}
         onShowDaySelector={() => setShowDaySelector(true)}
         onShowAddTrainer={() => setShowAddTrainer(true)}
+        onShowMeasurements={() => setShowMeasurements(true)}
       />
 
       <MealSection
@@ -820,6 +823,12 @@ export default function ClientApp() {
         onClose={() => setShowAddTrainer(false)}
         firebaseUser={firebaseUser}
         userName={users[currentUser]?.name}
+      />
+
+      <MeasurementsModal
+        isOpen={showMeasurements}
+        onClose={() => setShowMeasurements(false)}
+        firebaseUser={firebaseUser}
       />
     </div>
     </ToastProvider>
