@@ -398,7 +398,7 @@ export default function TrainerDashboard() {
                 onClick={() => setSelectedDate(new Date())}
                 className="text-xs text-blue-600 hover:text-blue-700 font-medium"
               >
-                Сьогодні
+                ← на сьогодні
               </button>
             )}
           </div>
