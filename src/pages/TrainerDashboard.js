@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { auth, googleProvider, db } from '../firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
-import { LogOut, Users, ChevronLeft, Calendar, RefreshCw, Plus } from 'lucide-react';
+import { LogOut, Users, ChevronLeft, Calendar, RefreshCw, Plus, ChevronDown } from 'lucide-react';
 import { LoadingScreen, ToastProvider, toast } from '../components';
 import ClientList from '../components/trainer/ClientList';
 import ClientDetailsModal from '../components/trainer/ClientDetailsModal';
@@ -21,6 +21,7 @@ export default function TrainerDashboard() {
   const [selectedClient, setSelectedClient] = useState(null);
   const [showClientDetails, setShowClientDetails] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Firebase Auth
   useEffect(() => {
@@ -109,28 +110,11 @@ export default function TrainerDashboard() {
     }
   }, [selectedDate]);
 
-  // Генерувати останні 7 днів
-  const getQuickDates = () => {
-    const dates = [];
-    const today = new Date();
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      dates.push(date);
-    }
-    return dates;
-  };
-
-  // Форматування короткої дати
-  const formatShortDate = (date) => {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (formatDate(date) === formatDate(today)) return 'Сьогодні';
-    if (formatDate(date) === formatDate(yesterday)) return 'Вчора';
-
-    return date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+  // Обробка вибору дати з input[type=date]
+  const handleDateChange = (e) => {
+    const newDate = new Date(e.target.value + 'T12:00:00');
+    setSelectedDate(newDate);
+    setShowDatePicker(false);
   };
 
   // Real-time оновлення для клієнтів (тільки для сьогодні)
@@ -401,35 +385,51 @@ export default function TrainerDashboard() {
           </div>
 
           {/* Date Picker */}
-          <div className="mb-4">
-            <div className="flex items-center gap-2 mb-2 text-gray-600">
+          <div className="mb-4 relative">
+            <button
+              onClick={() => setShowDatePicker(!showDatePicker)}
+              className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
+            >
               <Calendar size={18} />
               <span className="font-medium">
-                {selectedDate.toLocaleDateString('uk-UA', {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'long'
-                })}
+                {formatDate(selectedDate) === formatDate(new Date())
+                  ? 'Сьогодні'
+                  : selectedDate.toLocaleDateString('uk-UA', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long'
+                    })
+                }
               </span>
-            </div>
-            <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-              {getQuickDates().map((date, idx) => {
-                const isSelected = formatDate(date) === formatDate(selectedDate);
-                return (
+              <ChevronDown size={16} className={`transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showDatePicker && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowDatePicker(false)}
+                />
+                <div className="absolute top-full left-0 mt-2 z-20 bg-white rounded-xl shadow-lg p-3 border">
+                  <input
+                    type="date"
+                    value={formatDate(selectedDate)}
+                    onChange={handleDateChange}
+                    max={formatDate(new Date())}
+                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                   <button
-                    key={idx}
-                    onClick={() => setSelectedDate(date)}
-                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      isSelected
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white text-gray-600 hover:bg-gray-100'
-                    }`}
+                    onClick={() => {
+                      setSelectedDate(new Date());
+                      setShowDatePicker(false);
+                    }}
+                    className="w-full mt-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg font-medium hover:bg-blue-100 transition-colors"
                   >
-                    {formatShortDate(date)}
+                    Сьогодні
                   </button>
-                );
-              })}
-            </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Pending Requests */}
