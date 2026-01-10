@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { auth, googleProvider, db } from '../firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
-import { LogOut, Users, ChevronLeft, Calendar, RefreshCw } from 'lucide-react';
+import { LogOut, Users, ChevronLeft, Calendar, RefreshCw, Plus } from 'lucide-react';
 import { LoadingScreen, ToastProvider, toast } from '../components';
 import ClientList from '../components/trainer/ClientList';
 import ClientDetailsModal from '../components/trainer/ClientDetailsModal';
@@ -152,6 +152,100 @@ export default function TrainerDashboard() {
     }
   };
 
+  // Створити тестового клієнта (для розробки)
+  const createTestClient = async () => {
+    if (!firebaseUser) return;
+
+    const testClientId = 'test-client-' + Date.now();
+    const testMeasurements = [
+      { date: '2024-11-15', weight: 85.0, waist: 92, hips: 108, chest: 100, arms: 34, thighs: 62 },
+      { date: '2024-11-22', weight: 84.2, waist: 91, hips: 107, chest: 99, arms: 33.5, thighs: 61 },
+      { date: '2024-12-06', weight: 82.8, waist: 88, hips: 105, chest: 98, arms: 32.5, thighs: 59 },
+      { date: '2024-12-20', weight: 80.2, waist: 84, hips: 102, chest: 96, arms: 31.5, thighs: 57 },
+      { date: '2025-01-03', weight: 79.0, waist: 82, hips: 100, chest: 95, arms: 31, thighs: 56 },
+      { date: '2025-01-10', weight: 78.5, waist: 80, hips: 99, chest: 94, arms: 30.5, thighs: 55 },
+    ];
+
+    try {
+      // 1. Створити профіль клієнта
+      const userRef = doc(db, 'users', testClientId);
+      await setDoc(userRef, {
+        users: {
+          [testClientId]: {
+            name: 'Тестова Клієнтка',
+            gender: 'жінка',
+            portions: {},
+            programDay: 57,
+            currentWeight: 78.5,
+            meals: { 1: {}, 2: {}, 3: {}, 4: {} },
+            startDate: '2024-11-15',
+            createdAt: new Date().toISOString()
+          }
+        },
+        trainerId: firebaseUser.uid,
+        trainerEmail: firebaseUser.email,
+        globalCustomProducts: {},
+        createdAt: new Date().toISOString()
+      });
+
+      // 2. Додати заміри
+      for (const m of testMeasurements) {
+        const measurementRef = doc(db, 'users', testClientId, 'measurements', m.date);
+        await setDoc(measurementRef, {
+          ...m,
+          timestamp: new Date(m.date + 'T10:00:00Z').toISOString()
+        });
+      }
+
+      // 3. Додати сьогоднішню історію харчування
+      const today = new Date().toISOString().split('T')[0];
+      const mealHistoryRef = doc(db, 'users', testClientId, 'mealHistory', today);
+      await setDoc(mealHistoryRef, {
+        meals: {
+          1: { 'Б': [{ name: 'Яйця', weight: 120, portion: 100, p: 13, f: 11, c: 1 }] },
+          2: { 'Б': [{ name: 'Куряча грудка', weight: 150, portion: 100, p: 31, f: 4, c: 0 }] },
+          3: { 'Б': [{ name: 'Лосось', weight: 120, portion: 100, p: 20, f: 13, c: 0 }] },
+          4: { 'Е': [{ name: 'Сир', weight: 150, portion: 100, p: 18, f: 5, c: 2 }] }
+        },
+        currentWeight: 78.5,
+        programDay: 57,
+        totalMacros: { p: 98, f: 42, c: 45, cal: 950 },
+        updatedAt: new Date().toISOString()
+      });
+
+      // 4. Додати клієнта до списку тренера
+      const trainerRef = doc(db, 'trainers', firebaseUser.uid);
+      const trainerDoc = await getDoc(trainerRef);
+      const trainerData = trainerDoc.data();
+
+      await setDoc(trainerRef, {
+        ...trainerData,
+        clients: {
+          ...trainerData.clients,
+          [testClientId]: {
+            name: 'Тестова Клієнтка',
+            email: 'test@example.com',
+            addedAt: new Date().toISOString()
+          }
+        }
+      }, { merge: true });
+
+      // Оновити локальний стан
+      const newClient = {
+        id: testClientId,
+        name: 'Тестова Клієнтка',
+        email: 'test@example.com'
+      };
+      setClients(prev => [...prev, newClient]);
+      loadClientsToday([...clients, newClient]);
+
+      toast.success('Тестовий клієнт створений!');
+    } catch (error) {
+      console.error('Error creating test client:', error);
+      toast.error('Помилка створення тестового клієнта');
+    }
+  };
+
   // Loading
   if (loading) {
     return <LoadingScreen />;
@@ -214,6 +308,13 @@ export default function TrainerDashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={createTestClient}
+                  className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                  title="Додати тестового клієнта"
+                >
+                  <Plus size={20} />
+                </button>
                 <button
                   onClick={handleRefresh}
                   className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
