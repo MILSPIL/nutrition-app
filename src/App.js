@@ -370,21 +370,28 @@ export default function NutritionApp() {
 
   // Calculate macros
   const calculateProductMacros = (product, weight) => {
-    if (!product || !product.p || !product.f || !product.c) {
-      return { p: 0, f: 0, c: 0 };
+    if (!product) {
+      return { p: 0, f: 0, c: 0, cal: 0 };
     }
     const multiplier = weight / 100;
+    const p = (product.p || 0) * multiplier;
+    const f = (product.f || 0) * multiplier;
+    const c = (product.c || 0) * multiplier;
+    const cal = product.cal
+      ? product.cal * multiplier
+      : (p * 4 + c * 4 + f * 9);
     return {
-      p: Math.round(product.p * multiplier * 10) / 10,
-      f: Math.round(product.f * multiplier * 10) / 10,
-      c: Math.round(product.c * multiplier * 10) / 10
+      p: Math.round(p * 10) / 10,
+      f: Math.round(f * 10) / 10,
+      c: Math.round(c * 10) / 10,
+      cal: Math.round(cal)
     };
   };
 
   const calculateTotalMacros = () => {
-    if (!currentUser || !meals) return { p: 0, f: 0, c: 0 };
+    if (!currentUser || !meals) return { p: 0, f: 0, c: 0, cal: 0 };
 
-    let totalP = 0, totalF = 0, totalC = 0;
+    let totalP = 0, totalF = 0, totalC = 0, totalCal = 0;
 
     Object.keys(meals).forEach(mealNumber => {
       const meal = meals[mealNumber];
@@ -396,6 +403,7 @@ export default function NutritionApp() {
             totalP += macros.p;
             totalF += macros.f;
             totalC += macros.c;
+            totalCal += macros.cal;
           });
         }
       });
@@ -404,7 +412,8 @@ export default function NutritionApp() {
     return {
       p: Math.round(totalP * 10) / 10,
       f: Math.round(totalF * 10) / 10,
-      c: Math.round(totalC * 10) / 10
+      c: Math.round(totalC * 10) / 10,
+      cal: Math.round(totalCal)
     };
   };
 

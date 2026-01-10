@@ -144,25 +144,29 @@ export default function Header({
         </div>
       </div>
 
-      {/* Показник БЖВ */}
+      {/* Показник БЖВ та калорій */}
       <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="text-sm font-semibold text-gray-700 mb-1">🍖 Білки за день:</div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold" style={{ color: proteinPercent >= 100 ? '#22c55e' : '#ef4444' }}>
-                {macros.p}г
-              </span>
-              <span className="text-sm text-gray-600">/ 140г</span>
-              <span className={`text-sm font-semibold ${proteinPercent >= 100 ? 'text-green-600' : 'text-red-600'}`}>
-                ({proteinPercent}%)
-              </span>
-            </div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-baseline gap-2">
+            <span className="text-sm font-semibold text-gray-700">🍖 Білки:</span>
+            <span className="text-xl font-bold" style={{ color: proteinPercent >= 100 ? '#22c55e' : '#ef4444' }}>
+              {macros.p}г
+            </span>
+            <span className="text-xs text-gray-500">/ 140г</span>
+            <span className={`text-xs font-semibold ${proteinPercent >= 100 ? 'text-green-600' : 'text-red-600'}`}>
+              ({proteinPercent}%)
+            </span>
           </div>
-
-          <div className="text-right text-xs text-gray-600">
-            <div>Ж: {macros.f}г / 70г</div>
-            <div>В: {macros.c}г / 235г</div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-sm font-semibold text-gray-700">🔥</span>
+            <span className="text-xl font-bold text-orange-500">{macros.cal || 0}</span>
+            <span className="text-xs text-gray-500">ккал</span>
+          </div>
+        </div>
+        <div className="flex items-center justify-between text-xs text-gray-600">
+          <div className="flex gap-3">
+            <span>Ж: <strong>{macros.f}г</strong> / 70г</span>
+            <span>В: <strong>{macros.c}г</strong> / 235г</span>
           </div>
         </div>
       </div>

@@ -2,9 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { X, Sparkles, CheckCircle } from 'lucide-react';
 import AnimatedModal from './AnimatedModal';
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 
 const CHANGELOG = [
+  {
+    version: '1.2.1',
+    date: '10.01.2026',
+    changes: [
+      'Показ калорій за день у хедері',
+      'Компактний дизайн БЖВ панелі'
+    ]
+  },
   {
     version: '1.2.0',
     date: '10.01.2026',
