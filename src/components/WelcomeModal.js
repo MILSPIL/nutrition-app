@@ -2,9 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { X, Sparkles, CheckCircle } from 'lucide-react';
 import AnimatedModal from './AnimatedModal';
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 const CHANGELOG = [
+  {
+    version: '1.2.0',
+    date: '10.01.2026',
+    changes: [
+      'Додано калорійність до всіх продуктів',
+      'Редагування БЖВ та калорійності прямо з меню',
+      'Показ БЖВ та ккал під кожним продуктом',
+      'Збереження персональних змін в хмарі',
+      'Можливість скинути до стандартних значень'
+    ]
+  },
   {
     version: '1.1.0',
     date: '09.01.2026',
