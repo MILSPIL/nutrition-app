@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Pencil } from 'lucide-react';
 import { PRODUCTS_DB, CATEGORY_ICONS } from '../data/products';
 import AnimatedModal from './AnimatedModal';
+import EditProductModal from './EditProductModal';
 
 export default function ProductModal({
   isOpen,
@@ -12,12 +13,17 @@ export default function ProductModal({
   onClose,
   getAllProducts,
   getProductPortion,
+  getProductWithOverrides,
+  getOriginalProduct,
   addProduct,
   addProductWithCustomGrams,
   deleteCustomProduct,
-  onShowAddCustomProduct
+  onShowAddCustomProduct,
+  onSaveProductOverride,
+  onResetProductOverride
 }) {
   const [customGrams, setCustomGrams] = useState({});
+  const [editingProduct, setEditingProduct] = useState(null);
 
   if (!currentLetter) return null;
 
@@ -77,25 +83,42 @@ export default function ProductModal({
                             {isMyProduct ? '👤 моє' : `👤 ${product.addedBy}`}
                           </span>
                         )}
+                        {product.isOverridden && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                            змінено
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-gray-600">
                         Порція: {userPortion}г
                         {product.cooked && product.coef !== 1 && ` → ${Math.round(product.cooked * userPortion / product.raw)}г`}
                       </div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        Б:{product.p}г Ж:{product.f}г В:{product.c}г | {product.cal || Math.round(product.p*4 + product.c*4 + product.f*9)} ккал
+                      </div>
                     </div>
-                    {isCustom && (
+                    <div className="flex items-center gap-1">
                       <button
-                        onClick={() => {
-                          const standardCount = PRODUCTS_DB[currentLetter]?.products.length || 0;
-                          const customIndex = idx - standardCount;
-                          deleteCustomProduct(currentLetter, customIndex);
-                        }}
-                        className="text-gray-400 hover:text-red-500 ml-2 transition-colors"
-                        title="Приховати продукт"
+                        onClick={() => setEditingProduct(product)}
+                        className="text-gray-400 hover:text-blue-500 p-1 transition-colors"
+                        title="Редагувати БЖВ"
                       >
-                        <X size={16} />
+                        <Pencil size={16} />
                       </button>
-                    )}
+                      {isCustom && (
+                        <button
+                          onClick={() => {
+                            const standardCount = PRODUCTS_DB[currentLetter]?.products.length || 0;
+                            const customIndex = idx - standardCount;
+                            deleteCustomProduct(currentLetter, customIndex);
+                          }}
+                          className="text-gray-400 hover:text-red-500 p-1 transition-colors"
+                          title="Приховати продукт"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex gap-2 mb-3">
@@ -165,6 +188,23 @@ export default function ProductModal({
           </div>
         </div>
       </div>
+
+      <EditProductModal
+        isOpen={!!editingProduct}
+        onClose={() => setEditingProduct(null)}
+        product={editingProduct}
+        originalProduct={editingProduct ? getOriginalProduct(editingProduct.name) : null}
+        onSave={(newValues) => {
+          if (editingProduct) {
+            onSaveProductOverride(editingProduct.name, newValues);
+          }
+        }}
+        onReset={() => {
+          if (editingProduct) {
+            onResetProductOverride(editingProduct.name);
+          }
+        }}
+      />
     </AnimatedModal>
   );
 }

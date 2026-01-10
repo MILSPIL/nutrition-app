@@ -4,6 +4,7 @@ export { default as MealSection } from './MealSection';
 export { default as ProductModal } from './ProductModal';
 export { default as ReportModal } from './ReportModal';
 export { default as AddCustomProductModal } from './AddCustomProductModal';
+export { default as EditProductModal } from './EditProductModal';
 export { default as PortionSettingsModal } from './PortionSettingsModal';
 export { default as DaySelectorModal } from './DaySelectorModal';
 export { default as StartDateSetupModal } from './StartDateSetupModal';

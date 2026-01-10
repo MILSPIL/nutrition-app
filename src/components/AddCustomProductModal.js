@@ -14,6 +14,7 @@ export default function AddCustomProductModal({
   const [newProductP, setNewProductP] = useState("");
   const [newProductF, setNewProductF] = useState("");
   const [newProductC, setNewProductC] = useState("");
+  const [newProductCal, setNewProductCal] = useState("");
 
   const handleClose = () => {
     setNewProductName("");
@@ -22,7 +23,16 @@ export default function AddCustomProductModal({
     setNewProductP("");
     setNewProductF("");
     setNewProductC("");
+    setNewProductCal("");
     onClose();
+  };
+
+  // Розрахунок калорійності
+  const calculateCalories = () => {
+    const p = parseFloat(newProductP) || 0;
+    const f = parseFloat(newProductF) || 0;
+    const c = parseFloat(newProductC) || 0;
+    return Math.round(p * 4 + c * 4 + f * 9);
   };
 
   const handleSubmit = () => {
@@ -33,14 +43,19 @@ export default function AddCustomProductModal({
 
     const raw = parseInt(newProductRaw);
     const cooked = newProductCooked ? parseInt(newProductCooked) : raw;
+    const p = newProductP ? parseFloat(newProductP) : 0;
+    const f = newProductF ? parseFloat(newProductF) : 0;
+    const c = newProductC ? parseFloat(newProductC) : 0;
+    const cal = newProductCal ? parseFloat(newProductCal) : Math.round(p * 4 + c * 4 + f * 9);
 
     onAddProduct({
       name: newProductName.trim(),
       raw,
       cooked,
-      p: newProductP ? parseFloat(newProductP) : 0,
-      f: newProductF ? parseFloat(newProductF) : 0,
-      c: newProductC ? parseFloat(newProductC) : 0
+      p,
+      f,
+      c,
+      cal
     });
 
     handleClose();
@@ -141,6 +156,30 @@ export default function AddCustomProductModal({
             <p className="text-xs text-gray-500 mt-1">
               💡 Знайдіть БЖВ на упаковці або в інтернеті
             </p>
+
+            <div className="mt-3">
+              <label className="block text-xs text-gray-500 mb-1">Калорійність (ккал/100г)</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={newProductCal}
+                  onChange={(e) => setNewProductCal(e.target.value)}
+                  placeholder={calculateCalories().toString()}
+                  className="flex-1 px-3 py-2 border rounded-lg text-center"
+                />
+                <button
+                  type="button"
+                  onClick={() => setNewProductCal(calculateCalories().toString())}
+                  className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200"
+                >
+                  Авто
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Формула: Б×4 + В×4 + Ж×9 = {calculateCalories()} ккал
+              </p>
+            </div>
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

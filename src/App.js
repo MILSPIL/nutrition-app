@@ -34,6 +34,7 @@ export default function NutritionApp() {
   const [currentUser, setCurrentUser] = useState(null);
   const [users, setUsers] = useState({});
   const [globalCustomProducts, setGlobalCustomProducts] = useState({});
+  const [productOverrides, setProductOverrides] = useState({});
 
   // Modals
   const [showAccountSwitch, setShowAccountSwitch] = useState(false);
@@ -74,6 +75,7 @@ export default function NutritionApp() {
           const data = userDoc.data();
           setUsers(data.users || {});
           setGlobalCustomProducts(data.globalCustomProducts || {});
+          setProductOverrides(data.productOverrides || {});
 
           if (Object.keys(data.users || {}).length > 0) {
             const firstUserId = Object.keys(data.users)[0];
@@ -203,7 +205,7 @@ export default function NutritionApp() {
   };
 
   // Save to Firestore
-  const saveToFirestore = async (newUsers, newGlobalCustomProducts) => {
+  const saveToFirestore = async (newUsers, newGlobalCustomProducts, newProductOverrides) => {
     if (!firebaseUser) return;
 
     try {
@@ -211,6 +213,7 @@ export default function NutritionApp() {
       await setDoc(userDocRef, {
         users: newUsers || users,
         globalCustomProducts: newGlobalCustomProducts || globalCustomProducts,
+        productOverrides: newProductOverrides || productOverrides,
         updatedAt: new Date().toISOString()
       }, { merge: true });
     } catch (error) {
@@ -320,7 +323,49 @@ export default function NutritionApp() {
     const myProducts = getUserCustomProducts()[letter] || [];
     const allCustom = [...globalProducts, ...myProducts];
     const visibleCustom = allCustom.filter(p => !isProductHidden(p.name));
-    return [...standardProducts, ...visibleCustom];
+
+    // Застосовуємо overrides до продуктів
+    const allProducts = [...standardProducts, ...visibleCustom];
+    return allProducts.map(p => {
+      const override = productOverrides[p.name];
+      if (override) {
+        return { ...p, ...override, isOverridden: true };
+      }
+      return p;
+    });
+  };
+
+  // Отримати оригінальний продукт без overrides
+  const getOriginalProduct = (productName) => {
+    // Шукаємо у всіх категоріях
+    for (const letter of Object.keys(PRODUCTS_DB)) {
+      const found = PRODUCTS_DB[letter].products.find(p => p.name === productName);
+      if (found) return found;
+    }
+    // Шукаємо в кастомних продуктах
+    for (const letter of Object.keys(globalCustomProducts)) {
+      const found = globalCustomProducts[letter]?.find(p => p.name === productName);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  // Зберегти override для продукту
+  const saveProductOverride = (productName, values) => {
+    const newOverrides = {
+      ...productOverrides,
+      [productName]: values
+    };
+    setProductOverrides(newOverrides);
+    saveToFirestore(users, globalCustomProducts, newOverrides);
+  };
+
+  // Скинути override для продукту
+  const resetProductOverride = (productName) => {
+    const newOverrides = { ...productOverrides };
+    delete newOverrides[productName];
+    setProductOverrides(newOverrides);
+    saveToFirestore(users, globalCustomProducts, newOverrides);
   };
 
   // Calculate macros
@@ -458,6 +503,7 @@ export default function NutritionApp() {
       p: productData.p,
       f: productData.f,
       c: productData.c,
+      cal: productData.cal || Math.round(productData.p * 4 + productData.c * 4 + productData.f * 9),
       addedBy: users[currentUser].name,
       addedById: currentUser,
       addedAt: new Date().toISOString()
@@ -644,10 +690,13 @@ export default function NutritionApp() {
         onClose={() => setShowProductModal(false)}
         getAllProducts={getAllProducts}
         getProductPortion={getProductPortion}
+        getOriginalProduct={getOriginalProduct}
         addProduct={addProduct}
         addProductWithCustomGrams={addProductWithCustomGrams}
         deleteCustomProduct={deleteCustomProduct}
         onShowAddCustomProduct={() => setShowAddCustomProduct(true)}
+        onSaveProductOverride={saveProductOverride}
+        onResetProductOverride={resetProductOverride}
       />
 
       <AddCustomProductModal
