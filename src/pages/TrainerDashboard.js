@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { auth, googleProvider, db } from '../firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
-import { LogOut, Users, ChevronLeft, RefreshCw, Plus } from 'lucide-react';
+import { LogOut, Users, ChevronLeft, RefreshCw, Plus, Calendar } from 'lucide-react';
 import { LoadingScreen, ToastProvider, toast } from '../components';
 import ClientList from '../components/trainer/ClientList';
 import ClientDetailsModal from '../components/trainer/ClientDetailsModal';
@@ -384,6 +384,7 @@ export default function TrainerDashboard() {
 
           {/* Date Picker - Direct */}
           <div className="mb-4 flex items-center gap-2">
+            <Calendar size={18} className="text-gray-500" />
             <input
               type="date"
               value={formatDate(selectedDate)}
