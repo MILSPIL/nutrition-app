@@ -20,6 +20,7 @@ export default function TrainerDashboard() {
   const [clientMeals, setClientMeals] = useState({});
   const [selectedClient, setSelectedClient] = useState(null);
   const [showClientDetails, setShowClientDetails] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   // Firebase Auth
   useEffect(() => {
@@ -71,14 +72,17 @@ export default function TrainerDashboard() {
     }
   };
 
-  // Завантажити сьогоднішні дані клієнтів
-  const loadClientsToday = async (clientsList) => {
-    const today = new Date().toISOString().split('T')[0];
+  // Форматування дати
+  const formatDate = (date) => date.toISOString().split('T')[0];
+
+  // Завантажити дані клієнтів за обрану дату
+  const loadClientsMeals = async (clientsList, date) => {
+    const dateStr = formatDate(date);
     const mealsData = {};
 
     for (const client of clientsList) {
       try {
-        const historyRef = doc(db, 'users', client.id, 'mealHistory', today);
+        const historyRef = doc(db, 'users', client.id, 'mealHistory', dateStr);
         const historyDoc = await getDoc(historyRef);
 
         if (historyDoc.exists()) {
@@ -95,19 +99,59 @@ export default function TrainerDashboard() {
     setClientMeals(mealsData);
   };
 
-  // Real-time оновлення для клієнтів
+  // Alias для сумісності
+  const loadClientsToday = (clientsList) => loadClientsMeals(clientsList, selectedDate);
+
+  // Завантажити дані при зміні дати
+  useEffect(() => {
+    if (clients.length > 0) {
+      loadClientsMeals(clients, selectedDate);
+    }
+  }, [selectedDate]);
+
+  // Генерувати останні 7 днів
+  const getQuickDates = () => {
+    const dates = [];
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      dates.push(date);
+    }
+    return dates;
+  };
+
+  // Форматування короткої дати
+  const formatShortDate = (date) => {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (formatDate(date) === formatDate(today)) return 'Сьогодні';
+    if (formatDate(date) === formatDate(yesterday)) return 'Вчора';
+
+    return date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+  };
+
+  // Real-time оновлення для клієнтів (тільки для сьогодні)
   useEffect(() => {
     if (clients.length === 0) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date();
+    const isToday = formatDate(selectedDate) === formatDate(today);
+
+    // Real-time тільки для сьогоднішньої дати
+    if (!isToday) return;
+
+    const dateStr = formatDate(selectedDate);
     const unsubscribes = [];
 
     clients.forEach(client => {
-      const historyRef = doc(db, 'users', client.id, 'mealHistory', today);
-      const unsub = onSnapshot(historyRef, (doc) => {
+      const historyRef = doc(db, 'users', client.id, 'mealHistory', dateStr);
+      const unsub = onSnapshot(historyRef, (docSnap) => {
         setClientMeals(prev => ({
           ...prev,
-          [client.id]: doc.exists() ? doc.data() : null
+          [client.id]: docSnap.exists() ? docSnap.data() : null
         }));
       }, (error) => {
         console.error(`Error listening to client ${client.id}:`, error);
@@ -116,7 +160,7 @@ export default function TrainerDashboard() {
     });
 
     return () => unsubscribes.forEach(unsub => unsub());
-  }, [clients]);
+  }, [clients, selectedDate]);
 
   // Google Sign In
   const handleGoogleSignIn = async () => {
@@ -356,16 +400,36 @@ export default function TrainerDashboard() {
             </div>
           </div>
 
-          {/* Today's date */}
-          <div className="flex items-center gap-2 mb-4 text-gray-600">
-            <Calendar size={18} />
-            <span className="font-medium">
-              Сьогодні: {new Date().toLocaleDateString('uk-UA', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long'
+          {/* Date Picker */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2 text-gray-600">
+              <Calendar size={18} />
+              <span className="font-medium">
+                {selectedDate.toLocaleDateString('uk-UA', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long'
+                })}
+              </span>
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              {getQuickDates().map((date, idx) => {
+                const isSelected = formatDate(date) === formatDate(selectedDate);
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedDate(date)}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      isSelected
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {formatShortDate(date)}
+                  </button>
+                );
               })}
-            </span>
+            </div>
           </div>
 
           {/* Pending Requests */}
