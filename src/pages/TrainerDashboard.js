@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { auth, googleProvider, db } from '../firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
-import { LogOut, Users, ChevronLeft, Calendar, RefreshCw, Plus, ChevronDown } from 'lucide-react';
+import { LogOut, Users, ChevronLeft, Calendar, RefreshCw, Plus } from 'lucide-react';
 import { LoadingScreen, ToastProvider, toast } from '../components';
 import ClientList from '../components/trainer/ClientList';
 import ClientDetailsModal from '../components/trainer/ClientDetailsModal';
@@ -21,7 +21,6 @@ export default function TrainerDashboard() {
   const [selectedClient, setSelectedClient] = useState(null);
   const [showClientDetails, setShowClientDetails] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Firebase Auth
   useEffect(() => {
@@ -114,7 +113,6 @@ export default function TrainerDashboard() {
   const handleDateChange = (e) => {
     const newDate = new Date(e.target.value + 'T12:00:00');
     setSelectedDate(newDate);
-    setShowDatePicker(false);
   };
 
   // Real-time оновлення для клієнтів (тільки для сьогодні)
@@ -384,51 +382,26 @@ export default function TrainerDashboard() {
             </div>
           </div>
 
-          {/* Date Picker */}
-          <div className="mb-4 relative">
-            <button
-              onClick={() => setShowDatePicker(!showDatePicker)}
-              className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
-            >
+          {/* Date Picker - Direct */}
+          <div className="mb-4 flex items-center gap-2">
+            <label className="flex items-center gap-2 text-gray-600 cursor-pointer">
               <Calendar size={18} />
-              <span className="font-medium">
-                {formatDate(selectedDate) === formatDate(new Date())
-                  ? 'Сьогодні'
-                  : selectedDate.toLocaleDateString('uk-UA', {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long'
-                    })
-                }
-              </span>
-              <ChevronDown size={16} className={`transition-transform ${showDatePicker ? 'rotate-180' : ''}`} />
-            </button>
-
-            {showDatePicker && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setShowDatePicker(false)}
-                />
-                <div className="absolute top-full left-0 mt-2 z-20 bg-white rounded-xl shadow-lg p-3 border">
-                  <input
-                    type="date"
-                    value={formatDate(selectedDate)}
-                    onChange={handleDateChange}
-                    max={formatDate(new Date())}
-                    className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button
-                    onClick={() => {
-                      setSelectedDate(new Date());
-                      setShowDatePicker(false);
-                    }}
-                    className="w-full mt-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg font-medium hover:bg-blue-100 transition-colors"
-                  >
-                    Сьогодні
-                  </button>
-                </div>
-              </>
+              <input
+                type="date"
+                value={formatDate(selectedDate)}
+                onChange={handleDateChange}
+                max={formatDate(new Date())}
+                className="bg-transparent font-medium text-gray-700 focus:outline-none cursor-pointer"
+                style={{ colorScheme: 'light' }}
+              />
+            </label>
+            {formatDate(selectedDate) !== formatDate(new Date()) && (
+              <button
+                onClick={() => setSelectedDate(new Date())}
+                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Сьогодні
+              </button>
             )}
           </div>
 
