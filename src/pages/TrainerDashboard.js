@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { auth, googleProvider, db } from '../firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
-import { LogOut, Users, ChevronLeft, Calendar, RefreshCw, Plus } from 'lucide-react';
+import { LogOut, Users, ChevronLeft, RefreshCw, Plus } from 'lucide-react';
 import { LoadingScreen, ToastProvider, toast } from '../components';
 import ClientList from '../components/trainer/ClientList';
 import ClientDetailsModal from '../components/trainer/ClientDetailsModal';
@@ -384,17 +384,14 @@ export default function TrainerDashboard() {
 
           {/* Date Picker - Direct */}
           <div className="mb-4 flex items-center gap-2">
-            <label className="flex items-center gap-2 text-gray-600 cursor-pointer">
-              <Calendar size={18} />
-              <input
-                type="date"
-                value={formatDate(selectedDate)}
-                onChange={handleDateChange}
-                max={formatDate(new Date())}
-                className="bg-transparent font-medium text-gray-700 focus:outline-none cursor-pointer"
-                style={{ colorScheme: 'light' }}
-              />
-            </label>
+            <input
+              type="date"
+              value={formatDate(selectedDate)}
+              onChange={handleDateChange}
+              max={formatDate(new Date())}
+              className="bg-transparent font-medium text-gray-700 focus:outline-none cursor-pointer"
+              style={{ colorScheme: 'light' }}
+            />
             {formatDate(selectedDate) !== formatDate(new Date()) && (
               <button
                 onClick={() => setSelectedDate(new Date())}
