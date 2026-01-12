@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { auth, googleProvider, db } from '../firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, orderBy, limit, onSnapshot, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { LogOut, Users, ChevronLeft, RefreshCw, Plus, Calendar } from 'lucide-react';
 import { LoadingScreen, ToastProvider, toast } from '../components';
 import ClientList from '../components/trainer/ClientList';
@@ -11,11 +11,9 @@ import PendingRequests from '../components/trainer/PendingRequests';
 
 export default function TrainerDashboard() {
   const navigate = useNavigate();
-  const { clientId } = useParams();
 
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [trainerData, setTrainerData] = useState(null);
   const [clients, setClients] = useState([]);
   const [clientMeals, setClientMeals] = useState({});
   const [selectedClient, setSelectedClient] = useState(null);
@@ -42,7 +40,6 @@ export default function TrainerDashboard() {
 
       if (trainerDoc.exists()) {
         const data = trainerDoc.data();
-        setTrainerData(data);
 
         // Завантажити клієнтів
         const clientsList = Object.entries(data.clients || {}).map(([id, clientData]) => ({
@@ -63,7 +60,6 @@ export default function TrainerDashboard() {
           },
           clients: {}
         });
-        setTrainerData({ profile: {}, clients: {} });
         setClients([]);
       }
     } catch (error) {
@@ -111,6 +107,11 @@ export default function TrainerDashboard() {
 
   // Обробка вибору дати з input[type=date]
   const handleDateChange = (e) => {
+    // Якщо очищено - повертаємо на сьогодні
+    if (!e.target.value) {
+      setSelectedDate(new Date());
+      return;
+    }
     const newDate = new Date(e.target.value + 'T12:00:00');
     setSelectedDate(newDate);
   };
@@ -281,18 +282,18 @@ export default function TrainerDashboard() {
   if (!firebaseUser) {
     return (
       <ToastProvider>
-        <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: '#f2f0eb' }}>
+        <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: '#F2F2F7' }}>
           <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
-            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Users size={40} className="text-blue-600" />
+            <div className="w-20 h-20 bg-[#007AFF]/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Users size={40} className="text-[#007AFF]" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-2">Тренерський дашборд</h1>
-            <p className="text-gray-600 mb-6">
+            <h1 className="text-[22px] font-bold text-black mb-2">Тренерський дашборд</h1>
+            <p className="text-[15px] text-[#8E8E93] mb-8">
               Увійдіть через Google, щоб переглядати харчування ваших клієнтів у реальному часі
             </p>
             <button
               onClick={handleGoogleSignIn}
-              className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-4 bg-[#007AFF] text-white rounded-xl text-[17px] font-semibold active:opacity-80 transition-colors flex items-center justify-center gap-2"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -304,7 +305,7 @@ export default function TrainerDashboard() {
             </button>
             <button
               onClick={() => navigate('/')}
-              className="mt-4 text-gray-500 hover:text-gray-700 text-sm"
+              className="mt-4 text-[#007AFF] active:opacity-60 text-[15px]"
             >
               ← Назад до додатку
             </button>
@@ -316,41 +317,41 @@ export default function TrainerDashboard() {
 
   return (
     <ToastProvider>
-      <div className="min-h-screen" style={{ fontFamily: 'Montserrat', backgroundColor: '#f2f0eb' }}>
-        {/* Header */}
-        <div className="bg-white shadow-sm">
-          <div className="max-w-4xl mx-auto px-4 py-4">
+      <div className="min-h-screen pb-8 bg-[#F2F2F7]">
+        {/* Header - iOS style */}
+        <div className="bg-white/80 backdrop-blur-xl border-b border-black/5">
+          <div className="max-w-lg mx-auto px-4 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => navigate('/')}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-[#007AFF] active:opacity-60"
                 >
                   <ChevronLeft size={24} />
                 </button>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-800">Тренерський дашборд</h1>
-                  <p className="text-sm text-gray-500">{firebaseUser.email}</p>
+                  <h1 className="text-[17px] font-semibold text-black">Тренерський дашборд</h1>
+                  <p className="text-[13px] text-[#8E8E93]">{firebaseUser.email}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={createTestClient}
-                  className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                  className="p-2.5 text-[#8E8E93] active:bg-[#F2F2F7] rounded-full"
                   title="Додати тестового клієнта"
                 >
                   <Plus size={20} />
                 </button>
                 <button
                   onClick={handleRefresh}
-                  className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  className="p-2.5 text-[#8E8E93] active:bg-[#F2F2F7] rounded-full"
                   title="Оновити"
                 >
                   <RefreshCw size={20} />
                 </button>
                 <button
                   onClick={handleSignOut}
-                  className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  className="p-2.5 text-[#FF3B30] active:bg-[#F2F2F7] rounded-full"
                   title="Вийти"
                 >
                   <LogOut size={20} />
@@ -361,46 +362,54 @@ export default function TrainerDashboard() {
         </div>
 
         {/* Content */}
-        <div className="max-w-4xl mx-auto p-4">
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-              <div className="text-2xl font-bold text-blue-600">{clients.length}</div>
-              <div className="text-sm text-gray-500">Клієнтів</div>
+        <div className="max-w-lg mx-auto px-4 pt-4">
+          {/* Stats - iOS Cards */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="bg-white rounded-2xl p-3 text-center">
+              <div className="text-[22px] font-bold text-[#007AFF]">{clients.length}</div>
+              <div className="text-[13px] text-[#8E8E93]">Клієнтів</div>
             </div>
-            <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-              <div className="text-2xl font-bold text-green-600">
+            <div className="bg-white rounded-2xl p-3 text-center">
+              <div className="text-[22px] font-bold text-[#34C759]">
                 {Object.values(clientMeals).filter(m => m?.totalMacros?.p >= 100).length}
               </div>
-              <div className="text-sm text-gray-500">Виконали норму</div>
+              <div className="text-[13px] text-[#8E8E93]">Норма ✓</div>
             </div>
-            <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-              <div className="text-2xl font-bold text-orange-600">
+            <div className="bg-white rounded-2xl p-3 text-center">
+              <div className="text-[22px] font-bold text-[#FF9500]">
                 {Object.values(clientMeals).filter(m => m && m?.totalMacros?.p < 100).length}
               </div>
-              <div className="text-sm text-gray-500">В процесі</div>
+              <div className="text-[13px] text-[#8E8E93]">В процесі</div>
             </div>
           </div>
 
-          {/* Date Picker - Direct */}
-          <div className="mb-4 flex items-center gap-2">
-            <Calendar size={18} className="text-gray-500" />
-            <input
-              type="date"
-              value={formatDate(selectedDate)}
-              onChange={handleDateChange}
-              max={formatDate(new Date())}
-              className="bg-transparent font-medium text-gray-700 focus:outline-none cursor-pointer"
-              style={{ colorScheme: 'light' }}
-            />
-            {formatDate(selectedDate) !== formatDate(new Date()) && (
-              <button
-                onClick={() => setSelectedDate(new Date())}
-                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-              >
-                ← на сьогодні
-              </button>
-            )}
+          {/* Date Picker - iOS style */}
+          <div className="bg-white rounded-2xl p-4 mb-4">
+            <label className="flex items-center justify-center gap-2 cursor-pointer active:opacity-60">
+              <Calendar size={20} className="text-[#007AFF]" />
+              <span className="text-[17px] font-semibold text-black">
+                {selectedDate.toLocaleDateString('uk-UA', { weekday: 'short', day: 'numeric', month: 'short' })}
+              </span>
+              <input
+                type="date"
+                value={formatDate(selectedDate)}
+                onChange={handleDateChange}
+                max={formatDate(new Date())}
+                className="sr-only"
+              />
+            </label>
+            <div className="text-center mt-2">
+              {formatDate(selectedDate) !== formatDate(new Date()) ? (
+                <button
+                  onClick={() => setSelectedDate(new Date())}
+                  className="text-[13px] text-[#007AFF] font-medium px-3 py-1 bg-[#007AFF]/10 rounded-full active:opacity-60"
+                >
+                  ← Повернутись на сьогодні
+                </button>
+              ) : (
+                <span className="text-[13px] text-[#8E8E93]">Сьогодні</span>
+              )}
+            </div>
           </div>
 
           {/* Pending Requests */}
@@ -422,14 +431,16 @@ export default function TrainerDashboard() {
               onClientClick={handleClientClick}
             />
           ) : (
-            <div className="bg-white rounded-xl p-8 shadow-sm text-center">
-              <Users size={48} className="mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-700 mb-2">Ще немає клієнтів</h3>
-              <p className="text-gray-500 text-sm mb-4">
+            <div className="bg-white rounded-2xl p-8 text-center">
+              <div className="w-16 h-16 bg-[#8E8E93]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users size={32} className="text-[#8E8E93]" />
+              </div>
+              <h3 className="text-[17px] font-semibold text-black mb-2">Ще немає клієнтів</h3>
+              <p className="text-[15px] text-[#8E8E93] mb-4">
                 Клієнти можуть додати вас як тренера, вказавши вашу email адресу:
               </p>
-              <div className="bg-gray-100 rounded-lg px-4 py-2 inline-block">
-                <code className="text-blue-600">{firebaseUser.email}</code>
+              <div className="bg-[#F2F2F7] rounded-xl px-4 py-3 inline-block">
+                <code className="text-[15px] text-[#007AFF]">{firebaseUser.email}</code>
               </div>
             </div>
           )}

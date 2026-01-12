@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, googleProvider, db } from '../firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import {
   PRODUCTS_DB,
   MEAL_LETTERS,
@@ -16,8 +16,8 @@ import {
   AddCustomProductModal,
   PortionSettingsModal,
   DaySelectorModal,
-  StartDateSetupModal,
   AccountSwitchModal,
+  SettingsModal,
   ActivitySection,
   RulesSection,
   LoadingScreen,
@@ -25,7 +25,8 @@ import {
   toast,
   WelcomeModal,
   AddTrainerModal,
-  MeasurementsModal
+  MeasurementsModal,
+  MeasurementReminderModal
 } from '../components';
 
 export default function ClientApp() {
@@ -42,12 +43,13 @@ export default function ClientApp() {
   const [showAccountSwitch, setShowAccountSwitch] = useState(false);
   const [showPortionSettings, setShowPortionSettings] = useState(false);
   const [showDaySelector, setShowDaySelector] = useState(false);
-  const [showStartDateSetup, setShowStartDateSetup] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [showProductModal, setShowProductModal] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showAddCustomProduct, setShowAddCustomProduct] = useState(false);
   const [showAddTrainer, setShowAddTrainer] = useState(false);
   const [showMeasurements, setShowMeasurements] = useState(false);
+  const [showMeasurementReminder, setShowMeasurementReminder] = useState(false);
 
   const [userPortions, setUserPortions] = useState(DEFAULT_PORTIONS);
   const [programDay, setProgramDay] = useState(1);
@@ -59,13 +61,21 @@ export default function ClientApp() {
   const [trainerTelegram, setTrainerTelegram] = useState("chykalina");
   const [currentLetter, setCurrentLetter] = useState(null);
 
-  // Load fonts
+  // Check for Monday measurement reminder
   useEffect(() => {
-    const link = document.createElement('link');
-    link.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap';
-    link.rel = 'stylesheet';
-    document.head.appendChild(link);
-  }, []);
+    const today = new Date();
+    const isMonday = today.getDay() === 1;
+    const todayStr = today.toISOString().split('T')[0];
+    const dismissed = localStorage.getItem('measurementReminderDismissed');
+
+    if (isMonday && dismissed !== todayStr && firebaseUser) {
+      // Show reminder after a short delay
+      const timer = setTimeout(() => {
+        setShowMeasurementReminder(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [firebaseUser]);
 
   // Firebase Auth listener
   useEffect(() => {
@@ -164,7 +174,8 @@ export default function ClientApp() {
     } else {
       setProgramDay(user.programDay || 1);
       if (isNewUser) {
-        setShowStartDateSetup(true);
+        // Показуємо налаштування для встановлення дати
+        setShowSettings(true);
       }
     }
 
@@ -472,26 +483,47 @@ export default function ClientApp() {
     const userPortion = getProductPortion(product.name);
     const weight = Math.round((userPortion * portion) / 100);
 
+    // Перевірка чи категорія калорійна (наприклад, "в" - Вільний вибір)
+    const categoryData = PRODUCTS_DB[letter];
+    const isCalorieBased = categoryData?.isCalorieBased || false;
+    const calorieLimit = categoryData?.calorieLimit || 575;
+
     const newMeals = { ...meals };
     if (!newMeals[selectedMeal][letter]) {
       newMeals[selectedMeal][letter] = [];
     }
 
-    const currentTotal = newMeals[selectedMeal][letter].reduce((sum, p) => sum + p.portion, 0);
-    if (currentTotal + portion > 100) {
-      toast.warning(`Перевищено норму! Вже обрано: ${currentTotal}%. Можна додати максимум: ${100 - currentTotal}%`);
-      return;
+    // Калорії продукту
+    const productCalories = Math.round((product.cal || 0) * weight / 100);
+
+    if (isCalorieBased) {
+      // Для калорійних категорій рахуємо калорії
+      const usedCalories = newMeals[selectedMeal][letter].reduce((sum, p) => sum + (p.calories || 0), 0);
+      if (usedCalories + productCalories > calorieLimit) {
+        toast.warning(`Перевищено ліміт калорій! Спожито: ${usedCalories} ккал. Залишок: ${calorieLimit - usedCalories} ккал`);
+        return;
+      }
+    } else {
+      // Для звичайних категорій - відсоткова логіка
+      const currentTotal = newMeals[selectedMeal][letter].reduce((sum, p) => sum + p.portion, 0);
+      if (currentTotal + portion > 100) {
+        toast.warning(`Перевищено норму! Вже обрано: ${currentTotal}%. Можна додати максимум: ${100 - currentTotal}%`);
+        return;
+      }
     }
 
-    const cookedCalc = product.cooked && product.coef !== 1
-      ? Math.round((product.cooked * portion * userPortion / product.raw) / 100)
+    // Розрахунок готової ваги: сира вага * коефіцієнт збільшення
+    // Наприклад: 50г крупи * 3.2 = 160г готової
+    const cookedCalc = product.coef && product.coef !== 1
+      ? Math.round(weight * product.coef)
       : null;
 
     newMeals[selectedMeal][letter].push({
       name: product.name,
       weight: weight,
-      portion: portion,
+      portion: isCalorieBased ? 0 : portion, // Для калорійних категорій portion не використовується
       cookedWeight: cookedCalc,
+      calories: productCalories, // Зберігаємо калорії для калорійних категорій
       p: product.p || 0,
       f: product.f || 0,
       c: product.c || 0
@@ -507,6 +539,11 @@ export default function ClientApp() {
       return;
     }
 
+    // Перевірка чи категорія калорійна
+    const categoryData = PRODUCTS_DB[letter];
+    const isCalorieBased = categoryData?.isCalorieBased || false;
+    const calorieLimit = categoryData?.calorieLimit || 575;
+
     const portion = Math.round((inputGrams / userPortion) * 100);
 
     const newMeals = { ...meals };
@@ -514,21 +551,36 @@ export default function ClientApp() {
       newMeals[selectedMeal][letter] = [];
     }
 
-    const currentTotal = newMeals[selectedMeal][letter].reduce((sum, p) => sum + p.portion, 0);
-    if (currentTotal + portion > 100) {
-      toast.warning(`Перевищено норму! Вже обрано: ${currentTotal}%. Можна додати максимум: ${100 - currentTotal}% (${Math.round(userPortion * (100 - currentTotal) / 100)}г)`);
-      return;
+    // Калорії продукту
+    const productCalories = Math.round((product.cal || 0) * inputGrams / 100);
+
+    if (isCalorieBased) {
+      // Для калорійних категорій рахуємо калорії
+      const usedCalories = newMeals[selectedMeal][letter].reduce((sum, p) => sum + (p.calories || 0), 0);
+      if (usedCalories + productCalories > calorieLimit) {
+        toast.warning(`Перевищено ліміт калорій! Спожито: ${usedCalories} ккал. Залишок: ${calorieLimit - usedCalories} ккал`);
+        return;
+      }
+    } else {
+      // Для звичайних категорій - відсоткова логіка
+      const currentTotal = newMeals[selectedMeal][letter].reduce((sum, p) => sum + p.portion, 0);
+      if (currentTotal + portion > 100) {
+        toast.warning(`Перевищено норму! Вже обрано: ${currentTotal}%. Можна додати максимум: ${100 - currentTotal}% (${Math.round(userPortion * (100 - currentTotal) / 100)}г)`);
+        return;
+      }
     }
 
-    const cookedCalc = product.cooked && product.coef !== 1
-      ? Math.round((product.cooked * portion * userPortion / product.raw) / 100)
+    // Розрахунок готової ваги: сира вага * коефіцієнт збільшення
+    const cookedCalc = product.coef && product.coef !== 1
+      ? Math.round(inputGrams * product.coef)
       : null;
 
     newMeals[selectedMeal][letter].push({
       name: product.name,
       weight: inputGrams,
-      portion: portion,
+      portion: isCalorieBased ? 0 : portion,
       cookedWeight: cookedCalc,
+      calories: productCalories,
       p: product.p || 0,
       f: product.f || 0,
       c: product.c || 0
@@ -543,6 +595,43 @@ export default function ClientApp() {
     if (newMeals[mealNum][letter].length === 0) {
       delete newMeals[mealNum][letter];
     }
+    setMeals(newMeals);
+  };
+
+  // Оновлення ваги продукту
+  const updateProductWeight = (mealNum, letter, index, newWeight) => {
+    if (newWeight <= 0) return;
+
+    const newMeals = { ...meals };
+    const product = newMeals[mealNum][letter][index];
+    if (!product) return;
+
+    const categoryData = PRODUCTS_DB[letter];
+    const isCalorieBased = categoryData?.isCalorieBased || false;
+
+    // Знаходимо оригінальний продукт для коефіцієнта
+    const originalProduct = getAllProducts(letter).find(p => p.name === product.name);
+    const coef = originalProduct?.coef || 1;
+    const cal = originalProduct?.cal || 0;
+
+    // Оновлюємо вагу та пов'язані дані
+    const oldWeight = product.weight;
+    product.weight = newWeight;
+
+    // Оновлюємо готову вагу якщо є коефіцієнт
+    if (coef && coef !== 1) {
+      product.cookedWeight = Math.round(newWeight * coef);
+    }
+
+    // Оновлюємо калорії
+    product.calories = Math.round(cal * newWeight / 100);
+
+    // Оновлюємо порцію для звичайних категорій
+    if (!isCalorieBased) {
+      const userPortion = getProductPortion(product.name);
+      product.portion = Math.round((newWeight / userPortion) * 100);
+    }
+
     setMeals(newMeals);
   };
 
@@ -672,7 +761,6 @@ export default function ClientApp() {
 
     setUsers(updatedUsers);
     saveToFirestore(updatedUsers, globalCustomProducts);
-    setShowStartDateSetup(false);
     setProgramDay(currentDay);
   };
 
@@ -692,30 +780,26 @@ export default function ClientApp() {
 
   return (
     <ToastProvider>
-    <div className="min-h-screen p-4" style={{ fontFamily: 'Montserrat', backgroundColor: '#f2f0eb' }}>
+    <div className="min-h-screen pb-8 bg-[#F2F2F7]">
       <Header
         user={users[currentUser]}
-        currentUser={currentUser}
         programDay={programDay}
         currentWeight={currentWeight}
         macros={macros}
         selectedMeal={selectedMeal}
-        onSignOut={handleSignOut}
         onWeightChange={setCurrentWeight}
         onNameChange={handleNameChange}
         onMealSelect={setSelectedMeal}
-        onShowAccountSwitch={() => setShowAccountSwitch(true)}
-        onShowStartDateSetup={() => setShowStartDateSetup(true)}
-        onShowPortionSettings={() => setShowPortionSettings(true)}
         onShowDaySelector={() => setShowDaySelector(true)}
-        onShowAddTrainer={() => setShowAddTrainer(true)}
         onShowMeasurements={() => setShowMeasurements(true)}
+        onShowSettings={() => setShowSettings(true)}
       />
 
       <MealSection
         selectedMeal={selectedMeal}
         meals={meals}
         onRemoveProduct={removeProduct}
+        onUpdateProductWeight={updateProductWeight}
         onOpenProductModal={(letter) => {
           setCurrentLetter(letter);
           setShowProductModal(true);
@@ -731,13 +815,12 @@ export default function ClientApp() {
 
       <RulesSection />
 
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-lg mx-auto px-4 mt-4">
         <button
           onClick={() => setShowReport(true)}
-          className="w-full py-3 text-white rounded-lg font-semibold hover:opacity-90"
-          style={{ backgroundColor: '#90bd92' }}
+          className="w-full py-4 bg-[#34C759] text-white rounded-2xl text-[17px] font-semibold active:opacity-80"
         >
-          ✅ ГОТОВО - Звіт
+          Готово — Надіслати звіт
         </button>
       </div>
 
@@ -793,27 +876,31 @@ export default function ClientApp() {
         calculateCurrentDay={calculateCurrentDay}
       />
 
-      <StartDateSetupModal
-        isOpen={showStartDateSetup}
-        onClose={() => setShowStartDateSetup(false)}
-        currentStartDate={users[currentUser]?.startDate}
-        onSave={handleStartDateSave}
-        calculateCurrentDay={calculateCurrentDay}
-      />
-
       <AccountSwitchModal
         isOpen={showAccountSwitch}
         onClose={() => setShowAccountSwitch(false)}
         users={users}
         currentUser={currentUser}
-        onSelectUser={(userId) => {
-          loadUserFromData(userId, users);
-          setShowAccountSwitch(false);
+        firebaseUser={firebaseUser}
+        onSignOut={handleSignOut}
+      />
+
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        firebaseUser={firebaseUser}
+        currentStartDate={users[currentUser]?.startDate}
+        onStartDateSave={handleStartDateSave}
+        calculateCurrentDay={calculateCurrentDay}
+        onShowPortionSettings={() => {
+          setShowSettings(false);
+          setShowPortionSettings(true);
         }}
-        onAddAccount={() => {
-          setShowAccountSwitch(false);
-          // Account setup logic can be added here
+        onShowAddTrainer={() => {
+          setShowSettings(false);
+          setShowAddTrainer(true);
         }}
+        onSignOut={handleSignOut}
       />
 
       <WelcomeModal userName={users[currentUser]?.name} />
@@ -829,6 +916,12 @@ export default function ClientApp() {
         isOpen={showMeasurements}
         onClose={() => setShowMeasurements(false)}
         firebaseUser={firebaseUser}
+      />
+
+      <MeasurementReminderModal
+        isOpen={showMeasurementReminder}
+        onClose={() => setShowMeasurementReminder(false)}
+        onOpenMeasurements={() => setShowMeasurements(true)}
       />
     </div>
     </ToastProvider>

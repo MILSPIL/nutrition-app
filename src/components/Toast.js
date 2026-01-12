@@ -1,34 +1,30 @@
 import React, { useState, useEffect, createContext, useContext, useCallback, useRef } from 'react';
-import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { X, Check, AlertTriangle, Info } from 'lucide-react';
 
 // Глобальний ref для доступу до toast ззовні
 let toastRef = null;
 
-// Toast типи та їх стилі
+// iOS Toast типи та їх стилі
 const TOAST_TYPES = {
   success: {
-    bg: 'bg-green-50 border-green-500',
-    icon: CheckCircle,
-    iconColor: 'text-green-500'
+    bgIcon: 'bg-[#34C759]',
+    icon: Check,
   },
   error: {
-    bg: 'bg-red-50 border-red-500',
-    icon: AlertCircle,
-    iconColor: 'text-red-500'
+    bgIcon: 'bg-[#FF3B30]',
+    icon: X,
   },
   warning: {
-    bg: 'bg-yellow-50 border-yellow-500',
-    icon: AlertCircle,
-    iconColor: 'text-yellow-500'
+    bgIcon: 'bg-[#FF9500]',
+    icon: AlertTriangle,
   },
   info: {
-    bg: 'bg-blue-50 border-blue-500',
+    bgIcon: 'bg-[#007AFF]',
     icon: Info,
-    iconColor: 'text-blue-500'
   }
 };
 
-// Окремий Toast компонент
+// Окремий Toast компонент - iOS style
 function ToastItem({ id, message, type = 'info', onClose }) {
   const [isVisible, setIsVisible] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -55,29 +51,29 @@ function ToastItem({ id, message, type = 'info', onClose }) {
   return (
     <div
       className={`
-        flex items-center gap-3 p-4 rounded-lg border-l-4 shadow-lg bg-white
+        flex items-center gap-3 px-4 py-3
+        bg-white/95 backdrop-blur-xl
+        rounded-2xl shadow-lg border border-black/5
         transition-all duration-300 ease-out
-        ${config.bg}
-        ${isVisible && !isLeaving ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
+        ${isVisible && !isLeaving
+          ? 'translate-y-0 opacity-100 scale-100'
+          : '-translate-y-4 opacity-0 scale-95'}
       `}
-      style={{ minWidth: '280px', maxWidth: '400px' }}
+      style={{ minWidth: '280px', maxWidth: '340px' }}
+      onClick={handleClose}
     >
-      <Icon size={20} className={config.iconColor} />
-      <p className="flex-1 text-sm text-gray-800">{message}</p>
-      <button
-        onClick={handleClose}
-        className="text-gray-400 hover:text-gray-600 transition-colors"
-      >
-        <X size={16} />
-      </button>
+      <div className={`w-8 h-8 ${config.bgIcon} rounded-full flex items-center justify-center flex-shrink-0`}>
+        <Icon size={18} className="text-white" strokeWidth={2.5} />
+      </div>
+      <p className="flex-1 text-[15px] font-medium text-black">{message}</p>
     </div>
   );
 }
 
-// Toast контейнер
+// Toast контейнер - top center для iOS style
 function ToastContainer({ toasts, removeToast }) {
   return (
-    <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2">
+    <div className="fixed top-4 left-0 right-0 z-[100] flex flex-col items-center gap-2 px-4">
       {toasts.map(toast => (
         <ToastItem
           key={toast.id}

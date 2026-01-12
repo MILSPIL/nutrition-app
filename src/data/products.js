@@ -23,7 +23,7 @@ export const PRODUCTS_DB = {
       { name: "молоко 1%", raw: 280, cooked: 280, coef: 1, verified: true, p: 3, f: 1, c: 4.7, cal: 40 },
     ]
   },
-  "в": { name: "Вільний вибір", calories: 575, products: [
+  "в": { name: "Вільний вибір", calories: 575, isCalorieBased: true, calorieLimit: 575, products: [
       { name: "будь-що", raw: 115, cooked: 115, coef: 1, verified: true, p: 2, f: 10, c: 40, cal: 258 },
       { name: "фрукти", raw: 1150, cooked: 1150, coef: 1, verified: true, p: 1, f: 0.3, c: 12, cal: 55 },
       { name: "банани", raw: 690, cooked: 690, coef: 1, verified: true, p: 1.1, f: 0.3, c: 23, cal: 99 },

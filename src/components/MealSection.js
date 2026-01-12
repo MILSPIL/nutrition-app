@@ -1,75 +1,181 @@
-import React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, Trash2, ChevronRight, Pencil, Check, X } from 'lucide-react';
 import { PRODUCTS_DB, MEAL_LETTERS, CATEGORY_ICONS } from '../data/products';
 
 export default function MealSection({
   selectedMeal,
   meals,
   onRemoveProduct,
-  onOpenProductModal
+  onOpenProductModal,
+  onUpdateProductWeight
 }) {
+  const [editingProduct, setEditingProduct] = useState(null); // { letter, index }
+  const [editWeight, setEditWeight] = useState('');
   return (
-    <div className="max-w-4xl mx-auto mb-6 bg-white rounded-lg shadow p-4">
-      <h2 className="text-lg font-semibold mb-4">
-        {['1️⃣', '2️⃣', '3️⃣', '4️⃣'][selectedMeal - 1]} Прийом їжі
-      </h2>
+    <div className="max-w-lg mx-auto px-4 mb-6">
+      {/* iOS Grouped List */}
+      <div className="bg-white rounded-2xl overflow-hidden">
+        {MEAL_LETTERS[selectedMeal].map((letter, index) => {
+          const products = meals[selectedMeal][letter] || [];
+          const categoryData = PRODUCTS_DB[letter];
+          const isCalorieBased = categoryData?.isCalorieBased || false;
+          const calorieLimit = categoryData?.calorieLimit || 575;
 
-      {MEAL_LETTERS[selectedMeal].map(letter => (
-        <div key={letter} className="mb-4">
-          <div className="flex items-start justify-between mb-2">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <img src={CATEGORY_ICONS[letter]} alt={PRODUCTS_DB[letter].name} className="w-12 h-12 object-cover rounded-lg shadow-sm" />
-                <span className="text-4xl font-bold" style={{ color: '#364f3a' }}>{letter.toUpperCase()}</span>
-              </div>
+          // Для калорійних категорій - рахуємо калорії
+          const usedCalories = products.reduce((sum, p) => sum + (p.calories || 0), 0);
+          const remainingCalories = calorieLimit - usedCalories;
+          const caloriePercent = Math.round((usedCalories / calorieLimit) * 100);
 
-              {meals[selectedMeal][letter] && meals[selectedMeal][letter].length > 0 ? (
-                <div className="space-y-1">
-                  {meals[selectedMeal][letter].map((product, idx) => (
-                    <div key={idx} className="flex items-center gap-2 bg-green-50 p-2 rounded">
-                      <span className="flex-1 text-sm">
-                        {product.name} ({product.weight} г)
-                        {product.portion !== 100 && (
-                          <span className="text-gray-500 ml-1">— {product.portion}%</span>
-                        )}
-                      </span>
-                      <button
-                        onClick={() => onRemoveProduct(selectedMeal, letter, idx)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+          // Для звичайних категорій - відсотки
+          const totalPortion = products.reduce((sum, p) => sum + p.portion, 0);
+          const isComplete = isCalorieBased ? usedCalories >= calorieLimit : totalPortion >= 100;
+
+          return (
+            <div
+              key={letter}
+              className={index < MEAL_LETTERS[selectedMeal].length - 1 ? 'border-b border-[#C6C6C8]/30' : ''}
+            >
+              {/* Category Header */}
+              <button
+                onClick={() => onOpenProductModal(letter)}
+                className="w-full px-4 py-3 flex items-center justify-between active:bg-[#F2F2F7] transition-colors"
+              >
+                <div className="flex items-center gap-3 flex-1">
+                  <img
+                    src={CATEGORY_ICONS[letter]}
+                    alt={PRODUCTS_DB[letter].name}
+                    className="w-11 h-11 object-cover rounded-xl flex-shrink-0"
+                  />
+                  <div className="text-left flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[22px] font-bold text-[#007AFF]">{letter.toUpperCase()}</span>
+                      <span className="text-[17px] font-medium text-black">{PRODUCTS_DB[letter].name}</span>
                     </div>
-                  ))}
-                  {(() => {
-                    const total = meals[selectedMeal][letter].reduce((sum, p) => sum + p.portion, 0);
-                    return total < 100 ? (
-                      <div className="text-xs text-blue-600 mt-1">
-                        Використано: {total}% (можна ще {100 - total}%)
+                    {/* Progress bar */}
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="flex-1 h-1.5 bg-[#E5E5EA] rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${isComplete ? 'bg-[#34C759]' : 'bg-[#007AFF]'}`}
+                          style={{ width: `${Math.min(isCalorieBased ? caloriePercent : totalPortion, 100)}%` }}
+                        />
                       </div>
-                    ) : (
-                      <div className="text-xs text-green-600 mt-1">
-                        ✓ Норма виконана (100%)
-                      </div>
-                    );
-                  })()}
+                      <span className={`text-[11px] min-w-[36px] text-right ${isComplete ? 'text-[#34C759]' : 'text-[#8E8E93]'}`}>
+                        {isCalorieBased
+                          ? (isComplete ? '✓' : `${caloriePercent}%`)
+                          : (isComplete ? '✓' : `${totalPortion}%`)
+                        }
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <div className="text-sm text-gray-400">Не обрано</div>
+                <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                  <Plus size={20} className="text-[#007AFF]" />
+                  <ChevronRight size={18} className="text-[#C7C7CC]" />
+                </div>
+              </button>
+
+              {/* Selected Products */}
+              {products.length > 0 && (
+                <div className="px-4 pb-3">
+                  <div className="bg-[#F2F2F7] rounded-xl overflow-hidden">
+                    {products.map((product, idx) => {
+                      const isEditing = editingProduct?.letter === letter && editingProduct?.index === idx;
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`px-3 py-2.5 ${
+                            idx < products.length - 1 ? 'border-b border-[#C6C6C8]/30' : ''
+                          }`}
+                        >
+                          {isEditing ? (
+                            /* Режим редагування */
+                            <div className="flex items-center gap-2">
+                              <span className="text-[15px] text-black flex-shrink-0">{product.name}</span>
+                              <div className="flex items-center gap-2 flex-1">
+                                <div className="relative flex-1">
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    value={editWeight}
+                                    onChange={(e) => setEditWeight(e.target.value)}
+                                    autoFocus
+                                    className="w-full px-3 py-1.5 bg-white rounded-lg text-[15px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
+                                    placeholder={String(product.weight)}
+                                  />
+                                  <span className="absolute right-3 top-1.5 text-[#8E8E93] text-[13px]">г</span>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    const newWeight = parseInt(editWeight);
+                                    if (newWeight > 0) {
+                                      onUpdateProductWeight(selectedMeal, letter, idx, newWeight);
+                                    }
+                                    setEditingProduct(null);
+                                    setEditWeight('');
+                                  }}
+                                  className="p-1.5 text-[#34C759] active:opacity-50"
+                                >
+                                  <Check size={20} />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingProduct(null);
+                                    setEditWeight('');
+                                  }}
+                                  className="p-1.5 text-[#8E8E93] active:opacity-50"
+                                >
+                                  <X size={20} />
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            /* Звичайний режим */
+                            <div className="flex items-center justify-between">
+                              <button
+                                onClick={() => {
+                                  setEditingProduct({ letter, index: idx });
+                                  setEditWeight(String(product.weight));
+                                }}
+                                className="flex-1 text-left active:opacity-60"
+                              >
+                                <span className="text-[15px] text-black">{product.name}</span>
+                                <span className="text-[13px] text-[#007AFF] ml-2">
+                                  {/* Якщо є готова вага і вона відрізняється від сирої - показуємо готову як основну */}
+                                  {product.cookedWeight && product.cookedWeight !== product.weight ? (
+                                    <>
+                                      {product.cookedWeight}г
+                                      <span className="text-[11px] text-[#C7C7CC]"> ({product.weight}г сир.)</span>
+                                    </>
+                                  ) : (
+                                    <>{product.weight}г</>
+                                  )}
+                                  {/* Для калорійних категорій показуємо калорії */}
+                                  {isCalorieBased && product.calories && ` · ${product.calories} ккал`}
+                                </span>
+                                <Pencil size={12} className="inline ml-1.5 text-[#C7C7CC]" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onRemoveProduct(selectedMeal, letter, idx);
+                                }}
+                                className="p-2 text-[#FF3B30] active:opacity-50"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </div>
-
-            <button
-              onClick={() => onOpenProductModal(letter)}
-              className="ml-4 px-3 py-1 text-white rounded hover:opacity-90 flex items-center gap-1"
-              style={{ backgroundColor: '#638666' }}
-            >
-              <Plus size={16} />
-              Вибрати
-            </button>
-          </div>
-        </div>
-      ))}
+          );
+        })}
+      </div>
     </div>
   );
 }

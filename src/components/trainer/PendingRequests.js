@@ -104,24 +104,24 @@ export default function PendingRequests({ trainerEmail, trainerId, onClientAdded
   if (requests.length === 0) return null;
 
   return (
-    <div className="bg-yellow-50 rounded-xl p-4 mb-6">
+    <div className="bg-[#FF9500]/10 rounded-2xl p-4 mb-4">
       <div className="flex items-center gap-2 mb-3">
-        <UserPlus size={20} className="text-yellow-600" />
-        <h3 className="font-semibold text-gray-800">
+        <UserPlus size={20} className="text-[#FF9500]" />
+        <h3 className="text-[17px] font-semibold text-black">
           Нові запити ({requests.length})
         </h3>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {requests.map(request => (
           <div
             key={request.id}
-            className="bg-white rounded-lg p-3 flex items-center justify-between"
+            className="bg-white rounded-xl p-3 flex items-center justify-between"
           >
             <div>
-              <div className="font-medium text-gray-800">{request.clientName}</div>
-              <div className="text-sm text-gray-500">{request.clientEmail}</div>
-              <div className="flex items-center gap-1 text-xs text-gray-400 mt-1">
+              <div className="text-[15px] font-medium text-black">{request.clientName}</div>
+              <div className="text-[13px] text-[#8E8E93]">{request.clientEmail}</div>
+              <div className="flex items-center gap-1 text-[11px] text-[#C7C7CC] mt-1">
                 <Clock size={12} />
                 {new Date(request.createdAt).toLocaleDateString('uk-UA')}
               </div>
@@ -129,19 +129,19 @@ export default function PendingRequests({ trainerEmail, trainerId, onClientAdded
 
             <div className="flex items-center gap-2">
               {processing[request.id] ? (
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#007AFF]"></div>
               ) : (
                 <>
                   <button
                     onClick={() => handleReject(request)}
-                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    className="w-10 h-10 flex items-center justify-center text-[#FF3B30] bg-[#FF3B30]/10 rounded-full active:opacity-60"
                     title="Відхилити"
                   >
                     <X size={20} />
                   </button>
                   <button
                     onClick={() => handleAccept(request)}
-                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                    className="w-10 h-10 flex items-center justify-center text-[#34C759] bg-[#34C759]/10 rounded-full active:opacity-60"
                     title="Прийняти"
                   >
                     <Check size={20} />

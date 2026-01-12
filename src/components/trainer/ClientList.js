@@ -16,13 +16,14 @@ export default function ClientList({ clients, clientMeals, onClientClick }) {
   });
 
   return (
-    <div className="space-y-3">
-      {sortedClients.map(client => (
+    <div className="bg-white rounded-2xl overflow-hidden">
+      {sortedClients.map((client, idx) => (
         <ClientCard
           key={client.id}
           client={client}
           todayMeals={clientMeals[client.id]}
           onClick={() => onClientClick(client)}
+          isLast={idx === sortedClients.length - 1}
         />
       ))}
     </div>

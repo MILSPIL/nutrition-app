@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, RotateCcw } from 'lucide-react';
+import { X, RotateCcw, Pencil, Zap } from 'lucide-react';
 import { toast } from './Toast';
 import AnimatedModal from './AnimatedModal';
 
@@ -76,58 +76,66 @@ export default function EditProductModal({
 
   return (
     <AnimatedModal isOpen={isOpen} onClose={onClose}>
-      <div className="bg-white rounded-lg max-w-md w-full p-5 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Редагувати БЖВ</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+      <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#C6C6C8]/30">
+          <div className="flex items-center gap-2">
+            <Pencil size={20} className="text-[#007AFF]" />
+            <h3 className="text-[17px] font-semibold text-black">Редагувати БЖВ</h3>
+          </div>
+          <button onClick={onClose} className="p-1 text-[#007AFF] active:opacity-50">
             <X size={24} />
           </button>
         </div>
 
-        <div className="bg-gray-50 rounded-lg p-3 mb-4">
-          <div className="font-medium">{product.name}</div>
-          <div className="text-xs text-gray-500">Значення на 100г сирого продукту</div>
-        </div>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Product Info */}
+          <div className="bg-[#F2F2F7] rounded-xl p-4">
+            <div className="text-[17px] font-semibold text-black">{product.name}</div>
+            <div className="text-[13px] text-[#8E8E93] mt-1">Значення на 100г сирого продукту</div>
+          </div>
 
-        <div className="space-y-4">
+          {/* Macros */}
           <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Білки (г)</label>
+            <div className="bg-[#F2F2F7] rounded-xl p-3">
+              <label className="block text-[11px] text-[#8E8E93] mb-1 text-center">Білки (г)</label>
               <input
                 type="number"
                 inputMode="decimal"
                 step="0.1"
                 value={p}
                 onChange={(e) => setP(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-green-500"
+                className="w-full px-2 py-2 bg-white rounded-lg text-[15px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Жири (г)</label>
+            <div className="bg-[#F2F2F7] rounded-xl p-3">
+              <label className="block text-[11px] text-[#8E8E93] mb-1 text-center">Жири (г)</label>
               <input
                 type="number"
                 inputMode="decimal"
                 step="0.1"
                 value={f}
                 onChange={(e) => setF(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-green-500"
+                className="w-full px-2 py-2 bg-white rounded-lg text-[15px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Вуглеводи (г)</label>
+            <div className="bg-[#F2F2F7] rounded-xl p-3">
+              <label className="block text-[11px] text-[#8E8E93] mb-1 text-center">Вуглеводи (г)</label>
               <input
                 type="number"
                 inputMode="decimal"
                 step="0.1"
                 value={c}
                 onChange={(e) => setC(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-green-500"
+                className="w-full px-2 py-2 bg-white rounded-lg text-[15px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
               />
             </div>
           </div>
 
+          {/* Calories */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Калорійність (ккал/100г)</label>
+            <label className="block text-[13px] text-[#8E8E93] mb-2 px-1">Калорійність (ккал/100г)</label>
             <div className="flex gap-2">
               <input
                 type="number"
@@ -135,43 +143,48 @@ export default function EditProductModal({
                 value={cal}
                 onChange={(e) => setCal(e.target.value)}
                 placeholder={calculateCalories().toString()}
-                className="flex-1 px-3 py-2 border rounded-lg text-center focus:ring-2 focus:ring-green-500"
+                className="flex-1 px-4 py-3 bg-[#F2F2F7] rounded-xl text-[15px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
               />
               <button
                 onClick={handleAutoCalc}
-                className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+                className="px-4 py-3 bg-[#007AFF]/10 text-[#007AFF] rounded-xl text-[15px] font-medium flex items-center gap-1.5 active:bg-[#007AFF]/20"
                 title="Авторозрахунок"
               >
+                <Zap size={16} />
                 Авто
               </button>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-[11px] text-[#8E8E93] mt-2 px-1">
               Формула: Б×4 + В×4 + Ж×9 = {calculateCalories()} ккал
             </p>
           </div>
 
+          {/* Original values warning */}
           {originalProduct && hasChanges && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <p className="text-xs text-yellow-800">
-                <strong>Оригінальні значення:</strong><br />
-                Б: {originalProduct.p}г | Ж: {originalProduct.f}г | В: {originalProduct.c}г | {originalProduct.cal} ккал
+            <div className="bg-[#FF9500]/10 rounded-xl p-4">
+              <p className="text-[13px] text-[#FF9500]">
+                <span className="font-semibold">Оригінальні значення:</span><br />
+                Б: {originalProduct.p}г · Ж: {originalProduct.f}г · В: {originalProduct.c}г · {originalProduct.cal} ккал
               </p>
             </div>
           )}
+        </div>
 
-          <div className="flex gap-2 pt-2">
+        {/* Footer */}
+        <div className="flex-shrink-0 p-4 border-t border-[#C6C6C8]/30">
+          <div className="flex gap-3">
             {originalProduct && (
               <button
                 onClick={handleReset}
-                className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
+                className="flex-1 py-3 bg-[#F2F2F7] text-[#8E8E93] rounded-xl text-[17px] font-medium flex items-center justify-center gap-2 active:bg-[#E5E5EA]"
               >
-                <RotateCcw size={16} />
+                <RotateCcw size={18} />
                 Скинути
               </button>
             )}
             <button
               onClick={handleSave}
-              className="flex-1 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors"
+              className="flex-1 py-3 bg-[#34C759] text-white rounded-xl text-[17px] font-semibold active:opacity-80"
             >
               Зберегти
             </button>

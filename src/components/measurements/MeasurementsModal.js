@@ -119,25 +119,25 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
 
   // Форматування різниці
   const formatDiff = (diff) => {
-    if (diff === null || diff === undefined) return { text: '—', color: 'text-gray-400', icon: null };
+    if (diff === null || diff === undefined) return { text: '—', color: 'text-[#C7C7CC]', icon: null };
 
     if (diff === 0) {
-      return { text: '0', color: 'text-gray-500', icon: <Minus size={12} /> };
+      return { text: '0', color: 'text-[#8E8E93]', icon: <Minus size={12} /> };
     }
 
     // Негативне значення - добре (схуднення)
     if (diff < 0) {
       return {
         text: `${diff}`,
-        color: 'text-green-600',
-        icon: <TrendingDown size={12} className="text-green-600" />
+        color: 'text-[#34C759]',
+        icon: <TrendingDown size={12} className="text-[#34C759]" />
       };
     }
 
     return {
       text: `+${diff}`,
-      color: 'text-red-500',
-      icon: <TrendingUp size={12} className="text-red-500" />
+      color: 'text-[#FF3B30]',
+      icon: <TrendingUp size={12} className="text-[#FF3B30]" />
     };
   };
 
@@ -163,43 +163,41 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
 
   return (
     <AnimatedModal isOpen={isOpen} onClose={onClose}>
-      <div className="bg-white rounded-2xl w-full max-h-[85vh] overflow-hidden flex flex-col mx-2">
+      <div className="bg-white rounded-2xl max-w-md w-full max-h-[85vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="p-3 border-b flex items-center justify-between" style={{ backgroundColor: '#f2f0eb' }}>
+        <div className="px-4 py-3 border-b border-[#C6C6C8]/30 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Scale size={20} style={{ color: '#638666' }} />
-            <h2 className="font-bold" style={{ color: '#364f3a' }}>Заміри</h2>
+            <Scale size={20} className="text-[#007AFF]" />
+            <h2 className="text-[17px] font-semibold text-black">Заміри</h2>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+            className="p-1 text-[#007AFF] active:opacity-50"
           >
-            <X size={22} />
+            <X size={24} />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b">
+        <div className="flex p-2 gap-2 bg-[#F2F2F7]">
           <button
             onClick={() => setActiveTab('new')}
-            className={`flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${
+            className={`flex-1 py-2 text-[15px] font-medium flex items-center justify-center gap-1.5 rounded-lg transition-all ${
               activeTab === 'new'
-                ? 'text-white'
-                : 'text-gray-600 hover:bg-gray-50'
+                ? 'bg-white text-[#007AFF] shadow-sm'
+                : 'text-[#8E8E93] active:bg-white/50'
             }`}
-            style={activeTab === 'new' ? { backgroundColor: '#638666' } : {}}
           >
             <Plus size={16} />
-            Новий замір
+            Новий
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-1.5 transition-colors ${
+            className={`flex-1 py-2 text-[15px] font-medium flex items-center justify-center gap-1.5 rounded-lg transition-all ${
               activeTab === 'history'
-                ? 'text-white'
-                : 'text-gray-600 hover:bg-gray-50'
+                ? 'bg-white text-[#007AFF] shadow-sm'
+                : 'text-[#8E8E93] active:bg-white/50'
             }`}
-            style={activeTab === 'history' ? { backgroundColor: '#638666' } : {}}
           >
             <History size={16} />
             Історія
@@ -207,74 +205,83 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto p-4 bg-[#F2F2F7]">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: '#638666' }}></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#007AFF]"></div>
             </div>
           ) : activeTab === 'new' ? (
             /* Форма нового заміру */
             <div className="space-y-3">
-              <div className="text-center text-sm text-gray-500 mb-3">
-                📅 {new Date().toLocaleDateString('uk-UA', {
+              <div className="text-center text-[13px] text-[#8E8E93] mb-4">
+                {new Date().toLocaleDateString('uk-UA', {
                   day: 'numeric',
                   month: 'long',
                   year: 'numeric'
                 })}
               </div>
 
-              {MEASUREMENT_PARAMS.map(param => (
-                <div key={param.key} className="flex items-center gap-2">
-                  <span className="text-lg w-6">{param.icon}</span>
-                  <label className="flex-1 text-gray-700 text-sm font-medium">
-                    {param.label}
-                  </label>
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      step={param.step}
-                      value={formData[param.key]}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        [param.key]: e.target.value
-                      })}
-                      className="w-16 px-2 py-1.5 border rounded-lg text-center text-sm focus:outline-none focus:ring-2 focus:ring-green-200"
-                      placeholder="—"
-                    />
-                    <span className="text-gray-500 text-xs w-6">{param.unit}</span>
+              <div className="bg-white rounded-xl overflow-hidden">
+                {MEASUREMENT_PARAMS.map((param, idx) => (
+                  <div
+                    key={param.key}
+                    className={`flex items-center justify-between px-4 py-3 ${
+                      idx < MEASUREMENT_PARAMS.length - 1 ? 'border-b border-[#C6C6C8]/30' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg">{param.icon}</span>
+                      <label className="text-[15px] text-black">
+                        {param.label}
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step={param.step}
+                        value={formData[param.key]}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          [param.key]: e.target.value
+                        })}
+                        className="w-20 px-3 py-1.5 bg-[#F2F2F7] rounded-lg text-center text-[15px] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
+                        placeholder="—"
+                      />
+                      <span className="text-[13px] text-[#8E8E93] w-6">{param.unit}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
 
               <button
                 onClick={handleSave}
                 disabled={saving || !Object.values(formData).some(v => v !== '')}
-                className="w-full py-2.5 text-white rounded-lg font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed mt-4"
-                style={{ backgroundColor: '#90bd92' }}
+                className="w-full py-3 bg-[#34C759] text-white rounded-xl text-[17px] font-semibold flex items-center justify-center gap-2 active:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed mt-4"
               >
-                <Save size={16} />
+                <Save size={18} />
                 {saving ? 'Зберігаю...' : 'Зберегти'}
               </button>
             </div>
           ) : (
             /* Історія та порівняння */
-            <div className="space-y-3">
+            <div className="space-y-4">
               {measurements.length === 0 ? (
-                <div className="text-center py-8">
-                  <Scale size={40} className="mx-auto text-gray-300 mb-3" />
-                  <p className="text-gray-500 text-sm">Ще немає замірів</p>
-                  <p className="text-gray-400 text-xs mt-1">Додайте перший замір</p>
+                <div className="text-center py-12 bg-white rounded-xl">
+                  <Scale size={40} className="mx-auto text-[#C7C7CC] mb-3" />
+                  <p className="text-[15px] text-[#8E8E93]">Ще немає замірів</p>
+                  <p className="text-[13px] text-[#C7C7CC] mt-1">Додайте перший замір</p>
                 </div>
               ) : (
                 <>
                   {/* Компактна таблиця прогресу */}
-                  <div className="rounded-xl overflow-hidden border" style={{ borderColor: '#e5e5e5' }}>
-                    <div className="px-3 py-2 font-semibold text-white text-sm" style={{ backgroundColor: '#638666' }}>
-                      📈 Прогрес
+                  <div className="bg-white rounded-xl overflow-hidden">
+                    <div className="px-4 py-2.5 bg-[#007AFF]/10 text-[#007AFF] font-semibold text-[15px]">
+                      Прогрес
                     </div>
 
                     {/* Рядки параметрів */}
-                    {comparisonData && MEASUREMENT_PARAMS.map(param => {
+                    {comparisonData && MEASUREMENT_PARAMS.map((param, idx) => {
                       const initial = comparisonData.initial?.[param.key];
                       const current = comparisonData.current?.[param.key];
                       const totalDiff = calculateDiff(current, initial);
@@ -286,23 +293,23 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
                       return (
                         <div
                           key={param.key}
-                          className="flex items-center justify-between px-3 py-2 border-t bg-white"
+                          className="flex items-center justify-between px-4 py-2.5 border-t border-[#C6C6C8]/30"
                         >
                           <div className="flex items-center gap-2">
                             <span className="text-base">{param.icon}</span>
-                            <span className="text-sm text-gray-700">{param.label}</span>
+                            <span className="text-[15px] text-black">{param.label}</span>
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="text-right">
-                              <span className="text-xs text-gray-400">{initial ?? '—'}</span>
-                              <span className="text-gray-300 mx-1">→</span>
-                              <span className="text-sm font-semibold" style={{ color: '#364f3a' }}>
+                              <span className="text-[13px] text-[#8E8E93]">{initial ?? '—'}</span>
+                              <span className="text-[#C7C7CC] mx-1">→</span>
+                              <span className="text-[15px] font-semibold text-black">
                                 {current ?? '—'}
                               </span>
                             </div>
                             <div className={`flex items-center gap-0.5 min-w-[50px] justify-end ${totalFormat.color}`}>
                               {totalFormat.icon}
-                              <span className="text-sm font-medium">{totalFormat.text}</span>
+                              <span className="text-[13px] font-medium">{totalFormat.text}</span>
                             </div>
                           </div>
                         </div>
@@ -311,7 +318,7 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
 
                     {/* Дати */}
                     {comparisonData && (
-                      <div className="px-3 py-2 bg-gray-50 text-xs text-gray-400 flex justify-between border-t">
+                      <div className="px-4 py-2 bg-[#F2F2F7] text-[11px] text-[#8E8E93] flex justify-between border-t border-[#C6C6C8]/30">
                         <span>{formatDate(comparisonData.initial?.date)}</span>
                         <span>→</span>
                         <span>{formatDate(comparisonData.current?.date)}</span>
@@ -320,22 +327,22 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
                   </div>
 
                   {/* Список всіх замірів */}
-                  <div className="mt-4">
-                    <h3 className="font-semibold text-gray-700 text-sm mb-2">Всі заміри</h3>
+                  <div>
+                    <h3 className="font-semibold text-[15px] text-black mb-2 px-1">Всі заміри</h3>
                     <div className="space-y-2">
                       {[...measurements].reverse().map(measurement => (
                         <div
                           key={measurement.id}
-                          className="bg-gray-50 rounded-lg p-2.5"
+                          className="bg-white rounded-xl p-3"
                         >
-                          <div className="text-sm font-medium text-gray-700 mb-1.5">
+                          <div className="text-[15px] font-medium text-black mb-2">
                             {new Date(measurement.date).toLocaleDateString('uk-UA', {
                               day: 'numeric',
                               month: 'long',
                               year: 'numeric'
                             })}
                           </div>
-                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-[#8E8E93]">
                             {MEASUREMENT_PARAMS.map(param => {
                               const value = measurement[param.key];
                               if (value === undefined) return null;

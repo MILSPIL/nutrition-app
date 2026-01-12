@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, Calendar, RotateCcw } from 'lucide-react';
 import AnimatedModal from './AnimatedModal';
 
 export default function DaySelectorModal({
@@ -14,17 +14,25 @@ export default function DaySelectorModal({
 
   return (
     <AnimatedModal isOpen={isOpen} onClose={onClose}>
-      <div className="bg-white rounded-lg max-w-md w-full p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold">📅 Вибір дня</h3>
-          <button onClick={onClose}>
+      <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#C6C6C8]/30">
+          <div className="flex items-center gap-2">
+            <Calendar size={20} className="text-[#007AFF]" />
+            <h3 className="text-[17px] font-semibold text-black">Вибір дня</h3>
+          </div>
+          <button onClick={onClose} className="p-1 text-[#007AFF] active:opacity-50">
             <X size={24} />
           </button>
         </div>
 
-        <div className="space-y-4">
+        {/* Content */}
+        <div className="p-4 space-y-4">
+          {/* Day Input */}
           <div>
-            <label className="block text-sm font-medium mb-2">Перейти на день:</label>
+            <label className="block text-[13px] text-[#8E8E93] mb-2 px-1">
+              Перейти на день
+            </label>
             <input
               type="number"
               inputMode="numeric"
@@ -37,42 +45,47 @@ export default function DaySelectorModal({
                   onDayChange(newDay);
                 }
               }}
-              className="w-full px-4 py-3 border rounded-lg text-center text-2xl font-bold"
+              className="w-full px-4 py-4 bg-[#F2F2F7] rounded-xl text-center text-[28px] font-bold text-black focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
             />
           </div>
 
+          {/* Current Day Info */}
           {startDate && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-sm text-blue-800">
-                💡 <strong>Поточний день:</strong> {calculateCurrentDay(startDate)}<br />
-                🚫 Не можна вибрати майбутні дні
+            <div className="bg-[#007AFF]/10 rounded-xl p-4">
+              <p className="text-[15px] text-[#007AFF]">
+                <span className="font-semibold">Поточний день:</span> {calculateCurrentDay(startDate)}
+              </p>
+              <p className="text-[13px] text-[#007AFF]/70 mt-1">
+                Не можна вибрати майбутні дні
               </p>
             </div>
           )}
 
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-            <p className="text-xs text-yellow-800">
-              ⚠️ <strong>Увага:</strong> Це потрібно лише для виправлення пропущених звітів.<br />
-              Завтра день автоматично оновиться!
+          {/* Warning */}
+          <div className="bg-[#FF9500]/10 rounded-xl p-4">
+            <p className="text-[13px] text-[#FF9500]">
+              <span className="font-semibold">Увага:</span> Це потрібно лише для виправлення пропущених звітів. Завтра день оновиться автоматично!
             </p>
           </div>
 
-          <div className="flex gap-2">
+          {/* Buttons */}
+          <div className="flex gap-3">
             <button
               onClick={() => {
                 if (startDate) {
                   onDayChange(calculateCurrentDay(startDate));
                 }
               }}
-              className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
+              className="flex-1 py-3 bg-[#F2F2F7] text-[#007AFF] rounded-xl text-[17px] font-medium flex items-center justify-center gap-2 active:bg-[#E5E5EA]"
             >
-              🔄 Поточний
+              <RotateCcw size={18} />
+              Поточний
             </button>
             <button
               onClick={onClose}
-              className="flex-1 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700"
+              className="flex-1 py-3 bg-[#34C759] text-white rounded-xl text-[17px] font-semibold active:opacity-80"
             >
-              ✅ Готово
+              Готово
             </button>
           </div>
         </div>

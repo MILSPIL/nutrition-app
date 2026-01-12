@@ -1,25 +1,33 @@
 {
-  "short_name": "Трекер",
-  "name": "Трекер Харчування - Наука та Здоровий Глузд",
+  "short_name": "SciSense",
+  "name": "SciSense - Наука та Здоровий Глузд",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "icons/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
     },
     {
-      "src": "logo192.png",
-      "type": "image/png",
-      "sizes": "192x192"
+      "src": "icons/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
     },
     {
-      "src": "logo512.png",
+      "src": "icons/icon-192x192.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#638666",
-  "background_color": "#f2f0eb"
+  "theme_color": "#007AFF",
+  "background_color": "#F2F2F7",
+  "orientation": "portrait"
 }

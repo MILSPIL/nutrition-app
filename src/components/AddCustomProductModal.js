@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Plus, Zap } from 'lucide-react';
 import { toast } from './Toast';
 import AnimatedModal from './AnimatedModal';
 
@@ -63,61 +63,70 @@ export default function AddCustomProductModal({
 
   return (
     <AnimatedModal isOpen={isOpen} onClose={handleClose}>
-      <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">➕ Додати продукт</h3>
-          <button onClick={handleClose}>
+      <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-[#C6C6C8]/30">
+          <div className="flex items-center gap-2">
+            <Plus size={20} className="text-[#34C759]" />
+            <h3 className="text-[17px] font-semibold text-black">Додати продукт</h3>
+          </div>
+          <button onClick={handleClose} className="p-1 text-[#007AFF] active:opacity-50">
             <X size={24} />
           </button>
         </div>
 
-        <div className="space-y-4">
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* Name */}
           <div>
-            <label className="block text-sm font-medium mb-1">Назва продукту</label>
+            <label className="block text-[13px] text-[#8E8E93] mb-2 px-1">Назва продукту</label>
             <input
               type="text"
               value={newProductName}
               onChange={(e) => setNewProductName(e.target.value)}
               placeholder="Наприклад: Курка на грилі"
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-4 py-3 bg-[#F2F2F7] rounded-xl text-[15px] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
             />
           </div>
 
+          {/* Weight section */}
+          <div className="bg-[#F2F2F7] rounded-xl p-4 space-y-3">
+            <div>
+              <label className="block text-[13px] text-[#8E8E93] mb-2">Вага сирого (г)</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={newProductRaw}
+                onChange={(e) => setNewProductRaw(e.target.value)}
+                placeholder="50"
+                className="w-full px-4 py-3 bg-white rounded-xl text-[15px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[13px] text-[#8E8E93] mb-2">
+                Вага готового (г) <span className="text-[#C7C7CC]">— необов'язково</span>
+              </label>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={newProductCooked}
+                onChange={(e) => setNewProductCooked(e.target.value)}
+                placeholder="Якщо не змінюється — залиште порожнім"
+                className="w-full px-4 py-3 bg-white rounded-xl text-[15px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
+              />
+              <p className="text-[11px] text-[#8E8E93] mt-2 px-1">
+                Якщо продукт не варіться/смажиться — залиште порожнім
+              </p>
+            </div>
+          </div>
+
+          {/* Macros section */}
           <div>
-            <label className="block text-sm font-medium mb-1">Вага сирого (г)</label>
-            <input
-              type="number"
-              inputMode="numeric"
-              value={newProductRaw}
-              onChange={(e) => setNewProductRaw(e.target.value)}
-              placeholder="50"
-              className="w-full px-3 py-2 border rounded-lg"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Вага готового (г)
-              <span className="text-xs text-gray-500 ml-1">(необов'язково)</span>
-            </label>
-            <input
-              type="number"
-              inputMode="numeric"
-              value={newProductCooked}
-              onChange={(e) => setNewProductCooked(e.target.value)}
-              placeholder="Якщо не змінюється - залиште порожнім"
-              className="w-full px-3 py-2 border rounded-lg"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              💡 Якщо продукт не варіться/смажиться - залиште порожнім
-            </p>
-          </div>
-
-          <div className="border-t pt-4">
-            <label className="block text-sm font-medium mb-2">БЖВ на 100г сирого продукту</label>
+            <label className="block text-[13px] text-[#8E8E93] mb-2 px-1">БЖВ на 100г сирого продукту</label>
             <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Білки (г)</label>
+              <div className="bg-[#F2F2F7] rounded-xl p-3">
+                <label className="block text-[11px] text-[#8E8E93] mb-1 text-center">Білки</label>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -125,11 +134,11 @@ export default function AddCustomProductModal({
                   value={newProductP}
                   onChange={(e) => setNewProductP(e.target.value)}
                   placeholder="0"
-                  className="w-full px-3 py-2 border rounded-lg text-center"
+                  className="w-full px-2 py-2 bg-white rounded-lg text-[15px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
                 />
               </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Жири (г)</label>
+              <div className="bg-[#F2F2F7] rounded-xl p-3">
+                <label className="block text-[11px] text-[#8E8E93] mb-1 text-center">Жири</label>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -137,11 +146,11 @@ export default function AddCustomProductModal({
                   value={newProductF}
                   onChange={(e) => setNewProductF(e.target.value)}
                   placeholder="0"
-                  className="w-full px-3 py-2 border rounded-lg text-center"
+                  className="w-full px-2 py-2 bg-white rounded-lg text-[15px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
                 />
               </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Вуглеводи (г)</label>
+              <div className="bg-[#F2F2F7] rounded-xl p-3">
+                <label className="block text-[11px] text-[#8E8E93] mb-1 text-center">Вуглеводи</label>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -149,48 +158,54 @@ export default function AddCustomProductModal({
                   value={newProductC}
                   onChange={(e) => setNewProductC(e.target.value)}
                   placeholder="0"
-                  className="w-full px-3 py-2 border rounded-lg text-center"
+                  className="w-full px-2 py-2 bg-white rounded-lg text-[15px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
                 />
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              💡 Знайдіть БЖВ на упаковці або в інтернеті
+            <p className="text-[11px] text-[#8E8E93] mt-2 px-1">
+              Знайдіть БЖВ на упаковці або в інтернеті
             </p>
+          </div>
 
-            <div className="mt-3">
-              <label className="block text-xs text-gray-500 mb-1">Калорійність (ккал/100г)</label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  value={newProductCal}
-                  onChange={(e) => setNewProductCal(e.target.value)}
-                  placeholder={calculateCalories().toString()}
-                  className="flex-1 px-3 py-2 border rounded-lg text-center"
-                />
-                <button
-                  type="button"
-                  onClick={() => setNewProductCal(calculateCalories().toString())}
-                  className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200"
-                >
-                  Авто
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Формула: Б×4 + В×4 + Ж×9 = {calculateCalories()} ккал
-              </p>
+          {/* Calories */}
+          <div>
+            <label className="block text-[13px] text-[#8E8E93] mb-2 px-1">Калорійність (ккал/100г)</label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                inputMode="numeric"
+                value={newProductCal}
+                onChange={(e) => setNewProductCal(e.target.value)}
+                placeholder={calculateCalories().toString()}
+                className="flex-1 px-4 py-3 bg-[#F2F2F7] rounded-xl text-[15px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
+              />
+              <button
+                type="button"
+                onClick={() => setNewProductCal(calculateCalories().toString())}
+                className="px-4 py-3 bg-[#007AFF]/10 text-[#007AFF] rounded-xl text-[15px] font-medium flex items-center gap-1.5 active:bg-[#007AFF]/20"
+              >
+                <Zap size={16} />
+                Авто
+              </button>
             </div>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-xs text-blue-800">
-              <strong>ℹ️ Увага:</strong> Продукт буде доступний всім користувачам. Інші зможуть приховати його у себе.
+            <p className="text-[11px] text-[#8E8E93] mt-2 px-1">
+              Формула: Б×4 + В×4 + Ж×9 = {calculateCalories()} ккал
             </p>
           </div>
 
+          {/* Info */}
+          <div className="bg-[#007AFF]/10 rounded-xl p-4">
+            <p className="text-[13px] text-[#007AFF]">
+              <span className="font-semibold">Увага:</span> Продукт буде доступний всім користувачам. Інші зможуть приховати його у себе.
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex-shrink-0 p-4 border-t border-[#C6C6C8]/30">
           <button
             onClick={handleSubmit}
-            className="w-full py-3 bg-green-600 text-white rounded-lg font-semibold"
+            className="w-full py-3 bg-[#34C759] text-white rounded-xl text-[17px] font-semibold active:opacity-80"
           >
             Додати продукт
           </button>
