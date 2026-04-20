@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, ChevronRight, Bell, Ruler } from 'lucide-react';
 import AnimatedModal from '../AnimatedModal';
+import { getTodayDateKey } from '../../utils/date';
 
 export default function MeasurementReminderModal({
   isOpen,
@@ -15,7 +16,7 @@ export default function MeasurementReminderModal({
 
   const handleDismiss = () => {
     // Зберігаємо що користувач закрив нагадування
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateKey();
     localStorage.setItem('measurementReminderDismissed', today);
     onClose();
     if (onDismiss) onDismiss();

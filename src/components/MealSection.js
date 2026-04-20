@@ -23,7 +23,6 @@ export default function MealSection({
 
           // Для калорійних категорій - рахуємо калорії
           const usedCalories = products.reduce((sum, p) => sum + (p.calories || 0), 0);
-          const remainingCalories = calorieLimit - usedCalories;
           const caloriePercent = Math.round((usedCalories / calorieLimit) * 100);
 
           // Для звичайних категорій - відсотки

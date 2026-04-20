@@ -18,3 +18,4 @@ export { default as WelcomeModal, APP_VERSION } from './WelcomeModal';
 export { default as AddTrainerModal } from './client/AddTrainerModal';
 export { default as MeasurementsModal } from './measurements/MeasurementsModal';
 export { default as MeasurementReminderModal } from './measurements/MeasurementReminderModal';
+export { default as BarcodeScannerModal } from './BarcodeScannerModal';

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Plus, Zap } from 'lucide-react';
+import { X, Plus, Zap, Scan } from 'lucide-react';
 import { toast } from './Toast';
 import AnimatedModal from './AnimatedModal';
+import BarcodeScannerModal from './BarcodeScannerModal';
 
 export default function AddCustomProductModal({
   isOpen,
@@ -15,6 +16,7 @@ export default function AddCustomProductModal({
   const [newProductF, setNewProductF] = useState("");
   const [newProductC, setNewProductC] = useState("");
   const [newProductCal, setNewProductCal] = useState("");
+  const [showScanner, setShowScanner] = useState(false);
 
   const handleClose = () => {
     setNewProductName("");
@@ -25,6 +27,18 @@ export default function AddCustomProductModal({
     setNewProductC("");
     setNewProductCal("");
     onClose();
+  };
+
+  // Обробка результату сканування
+  const handleBarcodeProduct = (product) => {
+    setNewProductName(product.name);
+    setNewProductRaw(product.raw.toString());
+    setNewProductCooked(product.cooked.toString());
+    setNewProductP(product.p.toString());
+    setNewProductF(product.f.toString());
+    setNewProductC(product.c.toString());
+    setNewProductCal(product.cal.toString());
+    toast.success(`Знайдено: ${product.name}`);
   };
 
   // Розрахунок калорійності
@@ -70,9 +84,18 @@ export default function AddCustomProductModal({
             <Plus size={20} className="text-[#34C759]" />
             <h3 className="text-[17px] font-semibold text-black">Додати продукт</h3>
           </div>
-          <button onClick={handleClose} className="p-1 text-[#007AFF] active:opacity-50">
-            <X size={24} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowScanner(true)}
+              className="p-2 text-[#007AFF] active:opacity-50 bg-[#007AFF]/10 rounded-xl"
+              title="Сканувати штрих-код"
+            >
+              <Scan size={20} />
+            </button>
+            <button onClick={handleClose} className="p-1 text-[#007AFF] active:opacity-50">
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -211,6 +234,14 @@ export default function AddCustomProductModal({
           </button>
         </div>
       </div>
+
+      {/* Barcode Scanner Modal */}
+      <BarcodeScannerModal
+        isOpen={showScanner}
+        onClose={() => setShowScanner(false)}
+        onProductFound={handleBarcodeProduct}
+        toast={toast}
+      />
     </AnimatedModal>
   );
 }
