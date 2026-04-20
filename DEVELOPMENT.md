@@ -104,6 +104,7 @@ trainerRequests/{requestId}
 - Видалено зайвий локальний каталог `node_modules (1)`
 - Додано `CONTRIBUTING.md`, `RELEASE_CHECKLIST.md`, шаблон PR і шаблони issue для порядку в GitHub-процесі
 - У GitHub увімкнено захист default branch: PR перед merge, обов'язковий зелений CI, resolved conversations, linear history, squash/rebase merge і авто-видалення злитих гілок
+- Вирівняно runtime між локальною розробкою і CI через `.nvmrc`, `engines` у `package.json` і `setup-node` по `node-version-file`
 - Перевірено, що `npm run test:ci` і `npm run build` проходять успішно
 - Після `npm audit fix` залишилися вразливості у ланцюжку `react-scripts`; для повного прибирання потрібна міграція з CRA на сучасний toolchain
 

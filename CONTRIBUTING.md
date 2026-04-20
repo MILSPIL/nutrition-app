@@ -10,6 +10,7 @@ This project is small, but it still needs discipline. These rules keep `main` st
 4. Add or update tests when behavior changes.
 5. Update docs when version, behavior, setup, or architecture changes.
 6. Open a pull request instead of pushing straight to `main`.
+7. Use the project runtime from `.nvmrc` before installing dependencies.
 
 ## Branch Naming
 
@@ -46,6 +47,7 @@ Avoid vague messages like `changes`, `update`, or `fix stuff`.
 Before opening or merging a PR, run:
 
 ```bash
+nvm use
 npm run test:ci
 npm run build
 ```

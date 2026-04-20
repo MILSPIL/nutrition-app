@@ -2,6 +2,10 @@
   "name": "nutrition-app",
   "version": "1.5.0",
   "private": true,
+  "engines": {
+    "node": "24.11.x",
+    "npm": "11.x"
+  },
   "dependencies": {
     "firebase": "^12.12.0",
     "html5-qrcode": "^2.3.8",

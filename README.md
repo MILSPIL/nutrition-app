@@ -13,11 +13,18 @@ SciSense is a nutrition tracker for clients and coaches. It helps log meals, tra
 ## Scripts
 
 ```bash
+nvm use
 npm install
 npm start
 npm run build
 npm run test:ci
 ```
+
+## Runtime
+
+- Node.js `24.11.1` via `.nvmrc`
+- npm `11.x`
+- CI uses the same Node version to avoid lockfile drift between local work and GitHub Actions
 
 ## Project Map
 
