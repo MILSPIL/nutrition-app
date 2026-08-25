@@ -1,4 +1,4 @@
-import { buildCatalogForMeal, toMealItems } from './mealParser';
+import { buildCatalogForMeal, toMealItems, parseMealText } from './mealParser';
 
 const entry = (overrides) => ({
   dictated: 'продукт',
@@ -86,5 +86,82 @@ describe('mealParser', () => {
     }, 1);
     expect(result.items).toHaveLength(0);
     expect(result.unparsed).toEqual(['і ще той самий']);
+  });
+
+  describe('parseMealText', () => {
+    const originalEnv = process.env.REACT_APP_MEAL_PARSER_URL;
+
+    beforeEach(() => {
+      delete process.env.REACT_APP_MEAL_PARSER_URL;
+    });
+
+    afterEach(() => {
+      if (originalEnv) {
+        process.env.REACT_APP_MEAL_PARSER_URL = originalEnv;
+      }
+    });
+
+    test('без REACT_APP_MEAL_PARSER_URL кидає Error', async () => {
+      await expect(
+        parseMealText({ text: 'риба 100г', mealNum: 1, idToken: 'token123' })
+      ).rejects.toThrow('REACT_APP_MEAL_PARSER_URL не задано');
+    });
+
+    test('при response.ok=false (статус 401) кидає Error з номером статусу', async () => {
+      process.env.REACT_APP_MEAL_PARSER_URL = 'http://localhost:3001/parse';
+
+      const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: jest.fn()
+      });
+
+      await expect(
+        parseMealText({ text: 'риба 100г', mealNum: 1, idToken: 'token123' })
+      ).rejects.toThrow('Worker відповів 401');
+
+      mockFetch.mockRestore();
+    });
+
+    test('happy path: fetch викликаний з правильним url, method, Authorization, body', async () => {
+      process.env.REACT_APP_MEAL_PARSER_URL = 'http://localhost:3001/parse';
+
+      const mockResponse = {
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          items: [{ name: 'риба', gramsDictated: 100 }],
+          unparsed: []
+        })
+      };
+
+      const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValueOnce(mockResponse);
+
+      const result = await parseMealText({
+        text: 'риба 100г',
+        mealNum: 1,
+        idToken: 'token123'
+      });
+
+      // Перевіряємо результат
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].name).toBe('риба');
+
+      // Перевіряємо що fetch був викликаний правильно
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const callArgs = mockFetch.mock.calls[0];
+
+      expect(callArgs[0]).toBe('http://localhost:3001/parse');
+      expect(callArgs[1].method).toBe('POST');
+      expect(callArgs[1].headers.Authorization).toBe('Bearer token123');
+      expect(callArgs[1].headers['Content-Type']).toBe('application/json');
+
+      // Перевіряємо body
+      const bodyParsed = JSON.parse(callArgs[1].body);
+      expect(bodyParsed.text).toBe('риба 100г');
+      expect(bodyParsed.catalog).toBeDefined();
+      expect(Array.isArray(bodyParsed.catalog)).toBe(true);
+
+      mockFetch.mockRestore();
+    });
   });
 });
