@@ -6,7 +6,8 @@ import {
   canAddCategoryProduct,
   createDefaultClientUser,
   createEmptyMeals,
-  getCategoryProgress
+  getCategoryProgress,
+  getCalorieScaleState
 } from './nutrition';
 
 describe('nutrition service', () => {
@@ -123,5 +124,30 @@ describe('nutrition service', () => {
     expect(result.user1.programDay).toBe(10);
     expect(result.user1.customProducts).toEqual({ а: [{ name: 'свій продукт' }] });
     expect(result.user1.hiddenProducts).toEqual(['майонез']);
+  });
+});
+
+describe('getCalorieScaleState', () => {
+  test('до 85% - рівень ok', () => {
+    expect(getCalorieScaleState(1900, 2305).level).toBe('ok');
+  });
+
+  test('від 85% - рівень warn', () => {
+    expect(getCalorieScaleState(1960, 2305).level).toBe('warn');
+  });
+
+  test('від 100% - рівень over, рахує перевищення', () => {
+    const state = getCalorieScaleState(2500, 2305);
+    expect(state.level).toBe('over');
+    expect(state.percent).toBe(108);
+    expect(state.overAmount).toBe(195);
+  });
+
+  test('від 120% - рівень danger', () => {
+    expect(getCalorieScaleState(2766, 2305).level).toBe('danger');
+  });
+
+  test('нульова або відсутня ціль безпечна', () => {
+    expect(getCalorieScaleState(500, 0)).toEqual({ percent: 0, level: 'ok', overAmount: 0 });
   });
 });

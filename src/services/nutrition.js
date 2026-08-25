@@ -151,3 +151,27 @@ export const buildUserRecord = ({
     hiddenProducts: users[currentUser]?.hiddenProducts || []
   }
 });
+
+// Пороги "шкали здоров'я" у відсотках від денної норми калорій
+export const SCALE_THRESHOLDS = { warn: 85, over: 100, danger: 120 };
+
+// Стан шкали: відсоток НЕ обрізається на 100 - переїдання має бути видно
+export const getCalorieScaleState = (value, target) => {
+  if (!target || target <= 0) {
+    return { percent: 0, level: 'ok', overAmount: 0 };
+  }
+
+  const percent = Math.round((value / target) * 100);
+  const overAmount = Math.max(0, Math.round(value - target));
+
+  let level = 'ok';
+  if (percent >= SCALE_THRESHOLDS.danger) {
+    level = 'danger';
+  } else if (percent >= SCALE_THRESHOLDS.over) {
+    level = 'over';
+  } else if (percent >= SCALE_THRESHOLDS.warn) {
+    level = 'warn';
+  }
+
+  return { percent, level, overAmount };
+};
