@@ -152,6 +152,11 @@ export default function MealSection({
                                 className="flex-1 text-left active:opacity-60"
                               >
                                 <span className="text-[15px] text-black">{product.name}</span>
+                                {product.estimated && (
+                                  <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-[#FF9500]/15 text-[#FF9500] align-middle">
+                                    ≈ AI
+                                  </span>
+                                )}
                                 <span className="text-[13px] text-[#007AFF] ml-2">
                                   {/* Якщо є готова вага і вона відрізняється від сирої - показуємо готову як основну */}
                                   {product.cookedWeight && product.cookedWeight !== product.weight ? (

@@ -1,4 +1,5 @@
 import {
+  appendProductToMeals,
   buildUserRecord,
   calculatePortionPercent,
   calculateMealsMacros,
@@ -149,5 +150,49 @@ describe('getCalorieScaleState', () => {
 
   test('нульова або відсутня ціль безпечна', () => {
     expect(getCalorieScaleState(500, 0)).toEqual({ percent: 0, level: 'ok', overAmount: 0 });
+  });
+});
+
+describe('appendProductToMeals', () => {
+  const potato = { name: 'картопля', raw: 100, coef: 1, p: 2, f: 0.4, c: 16, cal: 76 };
+
+  test('додає продукт у нові meals, не мутуючи вхідні', () => {
+    const meals = createEmptyMeals();
+    const result = appendProductToMeals({
+      meals, mealNum: 1, letter: 'а', product: potato,
+      grams: 200, userPortion: 100, categoryData: {}
+    });
+    expect(result.meals[1]['а']).toHaveLength(1);
+    expect(result.meals[1]['а'][0]).toMatchObject({
+      name: 'картопля', weight: 200, portion: 200, calories: 152, estimated: false
+    });
+    expect(meals[1]['а']).toBeUndefined();
+    expect(result.warning).toBeNull();
+  });
+
+  test('калорійна категорія: переліміт дає попередження, але продукт додається', () => {
+    const sweet = { name: 'зефір', raw: 100, coef: 1, p: 1, f: 0, c: 80, cal: 326 };
+    const categoryData = { isCalorieBased: true, calorieLimit: 575 };
+    const first = appendProductToMeals({
+      meals: createEmptyMeals(), mealNum: 1, letter: 'в', product: sweet,
+      grams: 100, userPortion: 100, categoryData
+    });
+    const second = appendProductToMeals({
+      meals: first.meals, mealNum: 1, letter: 'в', product: sweet,
+      grams: 100, userPortion: 100, categoryData
+    });
+    expect(first.warning).toBeNull();
+    expect(second.warning).toContain('Перевищення');
+    expect(second.meals[1]['в']).toHaveLength(2);
+  });
+
+  test('зберігає прапорець estimated і рахує cookedWeight через coef', () => {
+    const rice = { name: 'рис нешліфований', raw: 50, coef: 3.4, p: 7.5, f: 2, c: 62, cal: 346, estimated: true };
+    const result = appendProductToMeals({
+      meals: createEmptyMeals(), mealNum: 1, letter: 'а', product: rice,
+      grams: 50, userPortion: 50, categoryData: {}
+    });
+    expect(result.meals[1]['а'][0].estimated).toBe(true);
+    expect(result.meals[1]['а'][0].cookedWeight).toBe(170);
   });
 });

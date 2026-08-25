@@ -175,3 +175,46 @@ export const getCalorieScaleState = (value, target) => {
 
   return { percent, level, overAmount };
 };
+
+// Чисте пакетно-безпечне додавання продукту: повертає НОВІ meals і текст
+// попередження про переліміт (або null). Side effects тут заборонені:
+// toast робить викликач ПІСЛЯ setMeals, бо React може виконати updater двічі.
+export const appendProductToMeals = ({ meals, mealNum, letter, product, grams, userPortion, categoryData }) => {
+  const isCalorieBased = categoryData?.isCalorieBased || false;
+  const calorieLimit = categoryData?.calorieLimit || 575;
+
+  const existing = meals[mealNum]?.[letter] || [];
+  const productCalories = Math.round((product.cal || 0) * grams / 100);
+
+  let warning = null;
+  if (isCalorieBased) {
+    const usedCalories = existing.reduce((sum, p) => sum + (p.calories || 0), 0);
+    const validation = canAddCategoryProduct({ isCalorieBased, usedCalories, productCalories, calorieLimit });
+    if (!validation.allowed) {
+      warning = `Перевищення ліміту категорії (${usedCalories + productCalories} з ${calorieLimit} ккал). Записую чесно.`;
+    }
+  }
+
+  const portion = userPortion > 0 ? Math.round((grams / userPortion) * 100) : 0;
+  const cookedWeight = product.coef && product.coef !== 1 ? Math.round(grams * product.coef) : null;
+
+  const item = {
+    name: product.name,
+    weight: grams,
+    portion: isCalorieBased ? 0 : portion,
+    cookedWeight,
+    calories: productCalories,
+    p: product.p || 0,
+    f: product.f || 0,
+    c: product.c || 0,
+    estimated: product.estimated || false
+  };
+
+  return {
+    meals: {
+      ...meals,
+      [mealNum]: { ...meals[mealNum], [letter]: [...existing, item] }
+    },
+    warning
+  };
+};

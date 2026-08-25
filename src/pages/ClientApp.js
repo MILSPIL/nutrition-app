@@ -28,7 +28,9 @@ import {
   MeasurementsModal,
   MeasurementReminderModal
 } from '../components';
+import VoiceInputModal from '../components/VoiceInputModal';
 import {
+  appendProductToMeals,
   buildUserRecord,
   calculatePortionPercent,
   calculateMealsMacros,
@@ -59,6 +61,7 @@ export default function ClientApp() {
   const [showAddTrainer, setShowAddTrainer] = useState(false);
   const [showMeasurements, setShowMeasurements] = useState(false);
   const [showMeasurementReminder, setShowMeasurementReminder] = useState(false);
+  const [showVoiceInput, setShowVoiceInput] = useState(false);
 
   const [userPortions, setUserPortions] = useState(DEFAULT_PORTIONS);
   const [programDay, setProgramDay] = useState(1);
@@ -511,6 +514,34 @@ export default function ClientApp() {
     setMeals(newMeals);
   };
 
+  // Пакетне додавання розібраних голосом продуктів: один setMeals на весь
+  // список, toast після нього (чому - коментар у appendProductToMeals)
+  const addVoiceItems = (items) => {
+    let nextMeals = meals;
+    const warnings = [];
+
+    items.forEach(({ letter, product, grams }) => {
+      const userPortion = userPortions[product.name] || product.raw || 100;
+      const result = appendProductToMeals({
+        meals: nextMeals,
+        mealNum: selectedMeal,
+        letter,
+        product,
+        grams,
+        userPortion,
+        categoryData: PRODUCTS_DB[letter]
+      });
+      nextMeals = result.meals;
+      if (result.warning) {
+        warnings.push(result.warning);
+      }
+    });
+
+    setMeals(nextMeals);
+    warnings.forEach((w) => toast.warning(w));
+    toast.success(`Додано продуктів: ${items.length}`);
+  };
+
   const removeProduct = (mealNum, letter, index) => {
     const newMeals = { ...meals };
     newMeals[mealNum][letter].splice(index, 1);
@@ -714,6 +745,7 @@ export default function ClientApp() {
         onShowDaySelector={() => setShowDaySelector(true)}
         onShowMeasurements={() => setShowMeasurements(true)}
         onShowSettings={() => setShowSettings(true)}
+        onShowVoiceInput={() => setShowVoiceInput(true)}
       />
 
       <MealSection
@@ -843,6 +875,15 @@ export default function ClientApp() {
         isOpen={showMeasurementReminder}
         onClose={() => setShowMeasurementReminder(false)}
         onOpenMeasurements={() => setShowMeasurements(true)}
+      />
+
+      <VoiceInputModal
+        isOpen={showVoiceInput}
+        selectedMeal={selectedMeal}
+        meals={meals}
+        getIdToken={() => firebaseUser.getIdToken()}
+        onAdd={addVoiceItems}
+        onClose={() => setShowVoiceInput(false)}
       />
     </div>
     </ToastProvider>

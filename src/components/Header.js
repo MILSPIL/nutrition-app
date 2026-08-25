@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, X, Settings, ChevronDown, Scale, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
+import { Check, X, Settings, ChevronDown, Scale, Sunrise, Sun, Sunset, Moon, Mic } from 'lucide-react';
 import { getCalorieScaleState } from '../services/nutrition';
 
 // iOS іконки для прийомів їжі
@@ -122,7 +122,8 @@ export default function Header({
   onMealSelect,
   onShowDaySelector,
   onShowMeasurements,
-  onShowSettings
+  onShowSettings,
+  onShowVoiceInput
 }) {
   const [isEditingWeight, setIsEditingWeight] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -232,6 +233,13 @@ export default function Header({
                   </button>
                 </div>
               )}
+              <button
+                onClick={onShowVoiceInput}
+                className="p-2 text-[#007AFF] active:opacity-60"
+                title="Надиктувати їжу"
+              >
+                <Mic size={18} />
+              </button>
               <button
                 onClick={onShowSettings}
                 className="p-2 text-[#8E8E93] active:text-[#007AFF]"
