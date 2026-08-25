@@ -1,0 +1,7 @@
+name = "meal-parser"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ALLOWED_ORIGINS = "https://nutrition-tracker-ua.web.app,http://localhost:3000"
