@@ -92,7 +92,7 @@ export default function VoiceInputModal({ isOpen, selectedMeal, meals, getIdToke
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center" onClick={() => { reset(); onClose(); }}>
       <div
         className="bg-white w-full max-w-lg rounded-t-2xl max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
