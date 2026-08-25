@@ -431,8 +431,7 @@ export default function ClientApp() {
       });
 
       if (!validation.allowed) {
-        toast.warning(`Перевищено ліміт калорій! Спожито: ${usedCalories} ккал. Залишок: ${validation.remainingCalories} ккал`);
-        return;
+        toast.warning(`Перевищення ліміту категорії (${usedCalories + productCalories} з ${calorieLimit} ккал). Записую чесно.`);
       }
     }
 
@@ -489,8 +488,7 @@ export default function ClientApp() {
       });
 
       if (!validation.allowed) {
-        toast.warning(`Перевищено ліміт калорій! Спожито: ${usedCalories} ккал. Залишок: ${validation.remainingCalories} ккал`);
-        return;
+        toast.warning(`Перевищення ліміту категорії (${usedCalories + productCalories} з ${calorieLimit} ккал). Записую чесно.`);
       }
     }
 
