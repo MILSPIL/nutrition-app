@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, googleProvider, db } from '../firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
@@ -8,6 +8,7 @@ import { LoadingScreen, ToastProvider, toast } from '../components';
 import ClientList from '../components/trainer/ClientList';
 import ClientDetailsModal from '../components/trainer/ClientDetailsModal';
 import PendingRequests from '../components/trainer/PendingRequests';
+import { formatLocalDateKey, getTodayDateKey, isSameLocalDate, parseDateInput } from '../utils/date';
 
 export default function TrainerDashboard() {
   const navigate = useNavigate();
@@ -21,19 +22,7 @@ export default function TrainerDashboard() {
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   // Firebase Auth
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setFirebaseUser(user);
-      if (user) {
-        await loadTrainerData(user.uid);
-      }
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // Завантажити дані тренера
-  const loadTrainerData = async (trainerId) => {
+  const loadTrainerData = useCallback(async (trainerId) => {
     try {
       const trainerRef = doc(db, 'trainers', trainerId);
       const trainerDoc = await getDoc(trainerRef);
@@ -47,9 +36,6 @@ export default function TrainerDashboard() {
           ...clientData
         }));
         setClients(clientsList);
-
-        // Завантажити сьогоднішні дані для кожного клієнта
-        loadClientsToday(clientsList);
       } else {
         // Новий тренер - створити профіль
         await setDoc(trainerRef, {
@@ -66,13 +52,24 @@ export default function TrainerDashboard() {
       console.error('Error loading trainer data:', error);
       toast.error('Помилка завантаження даних');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setFirebaseUser(user);
+      if (user) {
+        await loadTrainerData(user.uid);
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, [loadTrainerData]);
 
   // Форматування дати
-  const formatDate = (date) => date.toISOString().split('T')[0];
+  const formatDate = (date) => formatLocalDateKey(date);
 
   // Завантажити дані клієнтів за обрану дату
-  const loadClientsMeals = async (clientsList, date) => {
+  const loadClientsMeals = useCallback(async (clientsList, date) => {
     const dateStr = formatDate(date);
     const mealsData = {};
 
@@ -93,17 +90,14 @@ export default function TrainerDashboard() {
     }
 
     setClientMeals(mealsData);
-  };
-
-  // Alias для сумісності
-  const loadClientsToday = (clientsList) => loadClientsMeals(clientsList, selectedDate);
+  }, []);
 
   // Завантажити дані при зміні дати
   useEffect(() => {
     if (clients.length > 0) {
       loadClientsMeals(clients, selectedDate);
     }
-  }, [selectedDate]);
+  }, [clients, selectedDate, loadClientsMeals]);
 
   // Обробка вибору дати з input[type=date]
   const handleDateChange = (e) => {
@@ -112,7 +106,10 @@ export default function TrainerDashboard() {
       setSelectedDate(new Date());
       return;
     }
-    const newDate = new Date(e.target.value + 'T12:00:00');
+    const newDate = parseDateInput(e.target.value);
+    if (!newDate) {
+      return;
+    }
     setSelectedDate(newDate);
   };
 
@@ -120,8 +117,7 @@ export default function TrainerDashboard() {
   useEffect(() => {
     if (clients.length === 0) return;
 
-    const today = new Date();
-    const isToday = formatDate(selectedDate) === formatDate(today);
+    const isToday = isSameLocalDate(selectedDate, new Date());
 
     // Real-time тільки для сьогоднішньої дати
     if (!isToday) return;
@@ -143,7 +139,7 @@ export default function TrainerDashboard() {
     });
 
     return () => unsubscribes.forEach(unsub => unsub());
-  }, [clients, selectedDate]);
+  }, [clients, selectedDate, loadClientsMeals]);
 
   // Google Sign In
   const handleGoogleSignIn = async () => {
@@ -174,7 +170,7 @@ export default function TrainerDashboard() {
   // Оновити дані
   const handleRefresh = () => {
     if (clients.length > 0) {
-      loadClientsToday(clients);
+      loadClientsMeals(clients, selectedDate);
       toast.success('Дані оновлено');
     }
   };
@@ -225,7 +221,7 @@ export default function TrainerDashboard() {
       }
 
       // 3. Додати сьогоднішню історію харчування
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayDateKey();
       const mealHistoryRef = doc(db, 'users', testClientId, 'mealHistory', today);
       await setDoc(mealHistoryRef, {
         meals: {
@@ -264,7 +260,7 @@ export default function TrainerDashboard() {
         email: 'test@example.com'
       };
       setClients(prev => [...prev, newClient]);
-      loadClientsToday([...clients, newClient]);
+      loadClientsMeals([...clients, newClient], selectedDate);
 
       toast.success('Тестовий клієнт створений!');
     } catch (error) {
@@ -415,13 +411,13 @@ export default function TrainerDashboard() {
           {/* Pending Requests */}
           <PendingRequests
             trainerEmail={firebaseUser.email}
-            trainerId={firebaseUser.uid}
-            onClientAdded={(newClient) => {
-              setClients(prev => [...prev, newClient]);
-              loadClientsToday([...clients, newClient]);
-              toast.success(`${newClient.name} доданий до ваших клієнтів!`);
-            }}
-          />
+              trainerId={firebaseUser.uid}
+              onClientAdded={(newClient) => {
+                setClients(prev => [...prev, newClient]);
+                loadClientsMeals([...clients, newClient], selectedDate);
+                toast.success(`${newClient.name} доданий до ваших клієнтів!`);
+              }}
+            />
 
           {/* Client List */}
           {clients.length > 0 ? (

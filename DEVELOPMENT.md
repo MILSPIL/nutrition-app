@@ -1,186 +1,137 @@
-# NutritionApp - Документація розробки
+# SciSense - Документація розробки
 
 ## Посилання
 
-- **Firebase**: https://nutrition-tracker-ua.web.app
-- **Netlify**: https://sacs.netlify.app
-- **GitHub**: https://github.com/MILSPIL/nutrition-app
+- Firebase Hosting: https://nutrition-tracker-ua.web.app
+- GitHub: https://github.com/MILSPIL/nutrition-app
 
----
+## Поточна версія: 1.5.0
 
-## Поточна версія: 1.2.1
-
-### Команди
+## Команди
 
 ```bash
 # Розробка
 npm start
 
-# Білд
+# Production build
 npm run build
 
-# Деплой на Firebase
+# Тести без watch
+npm run test:ci
+
+# Деплой на Firebase Hosting
 npx firebase-tools deploy --only hosting --project nutrition-tracker-ua
 
-# Git
-git add -A && git commit -m "опис змін" && git push origin main
+# Деплой Firestore rules
+npx firebase-tools deploy --only firestore:rules --project nutrition-tracker-ua
 ```
-
----
 
 ## Структура проекту
 
-```
+```text
 src/
-├── App.js                 # Головний компонент, вся логіка
-├── firebase.js            # Firebase конфігурація
-├── index.js               # Entry point
+├── App.js
+├── firebase.js
+├── index.js
 ├── components/
-│   ├── index.js           # Експорти всіх компонентів
-│   ├── Header.js          # Хедер з БЖВ, калоріями, прийомами їжі
-│   ├── MealSection.js     # Секція прийому їжі
-│   ├── ProductModal.js    # Модалка вибору продукту
-│   ├── EditProductModal.js    # Редагування БЖВ продукту
-│   ├── AddCustomProductModal.js # Додавання кастомного продукту
-│   ├── ReportModal.js     # Звіт для тренера
-│   ├── LoginScreen.js     # Екран входу
-│   ├── LoadingScreen.js   # Екран завантаження
-│   ├── WelcomeModal.js    # Модалка з changelog (APP_VERSION)
-│   ├── AnimatedModal.js   # Базовий анімований модал
-│   ├── Toast.js           # Система повідомлень
-│   ├── PortionSettingsModal.js  # Налаштування порцій
-│   ├── DaySelectorModal.js      # Вибір дня
-│   ├── StartDateSetupModal.js   # Налаштування дати початку
-│   ├── AccountSwitchModal.js    # Перемикання акаунтів
-│   ├── ActivitySection.js       # Секція активності
-│   └── RulesSection.js          # Секція правил
-└── data/
-    └── products.js        # База продуктів з БЖВ та калоріями
+│   ├── BarcodeScannerModal.js
+│   ├── Header.js
+│   ├── MealSection.js
+│   ├── ProductModal.js
+│   ├── SettingsModal.js
+│   ├── WelcomeModal.js
+│   ├── client/
+│   ├── measurements/
+│   └── trainer/
+├── data/
+│   └── products.js
+├── services/
+│   ├── measurements.js
+│   ├── nutrition.js
+│   └── openFoodFacts.js
+└── utils/
+    └── date.js
 ```
 
----
+## Дані
 
-## База даних продуктів
+```text
+users/{uid}
+  users
+  globalCustomProducts
+  productOverrides
+  trainerId
+  trainerEmail
 
-Файл: `src/data/products.js`
-
-### Структура продукту
-
-```javascript
-{
-  name: "куряче філе",      // Назва
-  raw: 190,                 // Вага сирого (г)
-  cooked: 116,              // Вага готового (г)
-  coef: 0.611,              // Коефіцієнт (cooked/raw)
-  verified: true,           // Верифікований продукт
-  p: 23.6,                  // Білки на 100г сирого
-  f: 1.9,                   // Жири на 100г сирого
-  c: 0.4,                   // Вуглеводи на 100г сирого
-  cal: 113                  // Калорії на 100г сирого
-}
+users/{uid}/mealHistory/{YYYY-MM-DD}
+users/{uid}/measurements/{YYYY-MM-DD}
+trainers/{trainerId}
+trainerRequests/{requestId}
 ```
 
-### Формула калорій
-```
-cal = білки × 4 + вуглеводи × 4 + жири × 9
-```
+## Безпека
 
-### Категорії по прийомах їжі
+- `firestore.rules` обмежує доступ до профілю, історії харчування і замірів тільки власнику або прив'язаному тренеру.
+- Запити до тренера читаються тільки клієнтом-власником або тренером з відповідним email.
+- Видалення основних документів з клієнтськими даними правилами заборонено.
 
-```javascript
-MEAL_LETTERS = {
-  1: ["а", "б", "в"],           // Сніданок
-  2: ["г", "д", "е", "є"],      // Обід
-  3: ["ж", "з", "и"],           // Полуденок
-  4: ["і", "ї", "й"]            // Вечеря
-}
-```
+## Якість
 
----
+- Unit-тести лежать у `src/**/*.test.js`
+- CI: `.github/workflows/ci.yml`
+- Production build робиться без sourcemaps через шум від `html5-qrcode` у CRA
 
-## Ключові функції в App.js
+## Версії
 
-### Стейт
+### v1.5.0 (20.04.2026)
+- Додано `src/utils/date.js` з єдиними helper-функціями для локальних дат, `today`, max date для input і розрахунку дня програми
+- Замінено використання `toISOString().split('T')[0]` у клієнтській частині, модалках замірів і тренерському дашборді на локальні дати без UTC-зсуву
+- Додано `src/services/nutrition.js` з логікою створення порожніх прийомів їжі, дефолтного профілю клієнта і розрахунку БЖВ/ккал
+- Додано `src/services/measurements.js` з єдиним списком параметрів замірів і helper-функціями для порівняння прогресу
+- Розвантажено `src/pages/ClientApp.js`: частину бізнес-логіки винесено в `services/` та `utils/`
+- Оновлено `src/pages/TrainerDashboard.js`, `src/components/measurements/MeasurementsModal.js`, `src/components/measurements/MeasurementReminderModal.js` і `src/components/trainer/ClientDetailsModal.js` під нову логіку дат і замірів
+- Додано unit-тести: `src/utils/date.test.js`, `src/services/nutrition.test.js`, `src/services/measurements.test.js`, `src/services/openFoodFacts.test.js`
+- Додано GitHub Actions CI у `.github/workflows/ci.yml` з перевірками `npm run test:ci` і `npm run build`
+- Оновлено `src/services/openFoodFacts.js`: винесено нормалізацію даних, прибрано debug-логи, виправлено обробку `product not found`
+- Додано `firestore.rules` з обмеженнями доступу до профілю, історії харчування, замірів, профілів тренерів і запитів на прив'язку
+- Додано `firestore.indexes.json` і підключено Firestore конфіг у `firebase.json`
+- Синхронізовано версію `1.5.0` у `package.json`, `DEVELOPMENT.md` і `src/components/WelcomeModal.js`
+- Оновлено `README.md` і переписано `DEVELOPMENT.md` під актуальну структуру проекту
+- Оновлено залежності `firebase` до `12.12.0` і `react-router-dom` до `7.14.1`
+- Оновлено npm scripts: версія прокидується через `REACT_APP_VERSION`, production build йде без sourcemaps
+- Прибрано lint warnings у `BarcodeScannerModal`, `MealSection`, `SettingsModal`, `ClientApp` і `TrainerDashboard`
+- Додано `.gitignore` для `.DS_Store` і дубльованих `node_modules*`
+- Видалено зайвий локальний каталог `node_modules (1)`
+- Додано `CONTRIBUTING.md`, `RELEASE_CHECKLIST.md`, шаблон PR і шаблони issue для порядку в GitHub-процесі
+- У GitHub увімкнено захист default branch: PR перед merge, обов'язковий зелений CI, resolved conversations, linear history, squash/rebase merge і авто-видалення злитих гілок
+- Вирівняно runtime між локальною розробкою і CI через `.nvmrc`, `engines` у `package.json` і `setup-node` по `node-version-file`
+- Перевірено, що `npm run test:ci` і `npm run build` проходять успішно
+- Після `npm audit fix` залишилися вразливості у ланцюжку `react-scripts`; для повного прибирання потрібна міграція з CRA на сучасний toolchain
 
-```javascript
-const [firebaseUser, setFirebaseUser] = useState(null);
-const [currentUser, setCurrentUser] = useState(null);
-const [users, setUsers] = useState({});
-const [globalCustomProducts, setGlobalCustomProducts] = useState({});
-const [productOverrides, setProductOverrides] = useState({});
-const [meals, setMeals] = useState({ 1: {}, 2: {}, 3: {}, 4: {} });
-```
+### v1.4.0 (12.01.2026)
+- Сканування штрих-кодів продуктів
+- Автозаповнення БЖВ з Open Food Facts
+- Підтримка EAN-8 та EAN-13
+- Ручне введення штрих-коду
 
-### Основні функції
-
-| Функція | Опис |
-|---------|------|
-| `calculateProductMacros(product, weight)` | Розрахунок БЖВ та калорій для ваги |
-| `calculateTotalMacros()` | Загальні БЖВ та калорії за день |
-| `getAllProducts(letter)` | Отримати всі продукти категорії з overrides |
-| `getOriginalProduct(name)` | Отримати оригінальний продукт без overrides |
-| `saveProductOverride(name, values)` | Зберегти персональні зміни БЖВ |
-| `resetProductOverride(name)` | Скинути до оригіналу |
-| `addProduct(letter, product, portion)` | Додати продукт до прийому їжі |
-| `addCustomProduct(productData)` | Додати кастомний продукт |
-| `saveToFirestore()` | Зберегти в Firebase |
-
----
-
-## Firestore структура
-
-```
-users/
-└── {firebase_uid}/
-    ├── users: {}                    # Профілі користувачів
-    ├── globalCustomProducts: {}     # Кастомні продукти
-    ├── productOverrides: {}         # Персональні зміни БЖВ
-    └── updatedAt: "ISO date"
-```
-
----
-
-## Версії та зміни
-
-### v1.2.1 (10.01.2026)
-- Показ калорій за день у хедері
-- Компактний дизайн БЖВ панелі
-
-### v1.2.0 (10.01.2026)
-- Додано калорійність до всіх продуктів
-- Редагування БЖВ та калорійності прямо з меню
-- Показ БЖВ та ккал під кожним продуктом
-- Збереження персональних змін в хмарі
-- Можливість скинути до стандартних значень
+### v1.3.0 (10.01.2026)
+- Тренерський дашборд
+- Історія харчування по днях
+- Система замірів
+- Підключення тренера через email
 
 ### v1.1.0 (09.01.2026)
-- Додано плавні анімації для всіх вікон
-- Замінено alert на стильні повідомлення
-- Покращено екран завантаження
-- Оптимізовано код додатку
+- Плавні анімації для модалок
+- Toast замість alert
 
 ### v1.0.0 (08.01.2026)
-- Перший реліз додатку
+- Перший реліз
 - Google авторизація
 - Трекінг харчування по прийомах
-- Звіт для тренера в Telegram
 
----
-
-## Оновлення версії
-
-1. Змінити `APP_VERSION` в `src/components/WelcomeModal.js`
-2. Додати новий запис в `CHANGELOG`
-3. `npm run build`
-4. `npx firebase-tools deploy --only hosting --project nutrition-tracker-ua`
-5. `git add -A && git commit -m "опис" && git push origin main`
-
----
-
-## TODO / Ідеї на майбутнє
+## TODO
 
 - [ ] Графіки прогресу ваги
-- [ ] Історія харчування по днях
 - [ ] Експорт даних в Excel
 - [ ] PWA офлайн режим
 - [ ] Push-нотифікації

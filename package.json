@@ -1,19 +1,25 @@
 {
   "name": "nutrition-app",
-  "version": "1.0.0",
+  "version": "1.6.0",
   "private": true,
+  "engines": {
+    "node": "24.11.x",
+    "npm": "11.x"
+  },
   "dependencies": {
-    "firebase": "^12.7.0",
+    "firebase": "^12.12.0",
+    "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.263.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^7.12.0",
+    "react-router-dom": "^7.14.1",
     "react-scripts": "5.0.1"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
+    "start": "REACT_APP_VERSION=$npm_package_version react-scripts start",
+    "build": "REACT_APP_VERSION=$npm_package_version GENERATE_SOURCEMAP=false react-scripts build",
+    "test": "REACT_APP_VERSION=$npm_package_version react-scripts test",
+    "test:ci": "CI=true npm test -- --watchAll=false",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

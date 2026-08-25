@@ -2,16 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { X, User, Utensils, TrendingDown, TrendingUp, Minus, Ruler, ChevronDown, ChevronLeft, Calendar } from 'lucide-react';
 import { doc, getDoc, collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
-
-// Параметри замірів
-const MEASUREMENT_PARAMS = [
-  { key: 'weight', label: 'Вага', unit: 'кг', icon: '⚖️' },
-  { key: 'waist', label: 'Талія', unit: 'см', icon: '📏' },
-  { key: 'hips', label: 'Стегна', unit: 'см', icon: '📏' },
-  { key: 'chest', label: 'Груди', unit: 'см', icon: '📏' },
-  { key: 'arms', label: 'Руки', unit: 'см', icon: '💪' },
-  { key: 'thighs', label: 'Ноги', unit: 'см', icon: '🦵' },
-];
+import {
+  calculateMeasurementDiff,
+  getMeasurementComparison,
+  MEASUREMENT_PARAMS
+} from '../../services/measurements';
+import { formatLocalDateKey, getDateInputMax, isSameLocalDate, parseDateInput } from '../../utils/date';
 
 // Назви прийомів їжі
 const MEAL_NAMES = {
@@ -30,10 +26,10 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
   const [showMeasurements, setShowMeasurements] = useState(false);
 
   // Форматування дати
-  const formatDate = (date) => date.toISOString().split('T')[0];
+  const formatDate = (date) => formatLocalDateKey(date);
 
   // Перевірка чи це сьогодні
-  const isToday = formatDate(selectedDate) === formatDate(new Date());
+  const isToday = isSameLocalDate(selectedDate, new Date());
 
   // Завантажити доступні дати та заміри
   useEffect(() => {
@@ -117,15 +113,11 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
   const macros = dayData?.totalMacros || { p: 0, f: 0, c: 0, cal: 0 };
   const proteinGoal = 140;
   const proteinPercent = Math.round((macros.p / proteinGoal) * 100);
+  const proteinColor = proteinPercent > 100 ? '#FF9500' : (proteinPercent === 100 ? '#34C759' : '#007AFF');
 
   // Функції для роботи із замірами
-  const calculateDiff = (current, previous) => {
-    if (current === undefined || previous === undefined) return null;
-    return Math.round((current - previous) * 10) / 10;
-  };
-
   const formatDiff = (diff) => {
-    if (diff === null || diff === undefined) return { text: '—', color: 'text-[#C7C7CC]', icon: null };
+    if (diff === null || diff === undefined) return { text: 'Немає', color: 'text-[#C7C7CC]', icon: null };
 
     if (diff === 0) {
       return { text: '0', color: 'text-[#8E8E93]', icon: <Minus size={14} /> };
@@ -146,17 +138,7 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
     };
   };
 
-  const getComparisonData = () => {
-    if (measurements.length === 0) return null;
-
-    const initial = measurements[0];
-    const previous = measurements.length > 1 ? measurements[measurements.length - 2] : null;
-    const current = measurements[measurements.length - 1];
-
-    return { initial, previous, current };
-  };
-
-  const comparisonData = getComparisonData();
+  const comparisonData = getMeasurementComparison(measurements);
 
   // Генерувати останні 7 днів для швидкого вибору
   const getQuickDates = () => {
@@ -191,7 +173,10 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
       setSelectedDate(new Date());
       return;
     }
-    const newDate = new Date(e.target.value + 'T12:00:00');
+    const newDate = parseDateInput(e.target.value);
+    if (!newDate) {
+      return;
+    }
     setSelectedDate(newDate);
   };
 
@@ -241,7 +226,7 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
                 type="date"
                 value={formatDate(selectedDate)}
                 onChange={handleDateChange}
-                max={formatDate(new Date())}
+                max={getDateInputMax()}
                 className="bg-transparent font-semibold text-black focus:outline-none cursor-pointer text-[17px]"
                 style={{ colorScheme: 'light' }}
               />
@@ -296,7 +281,7 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <span className="text-[15px] text-[#8E8E93]">Білки: </span>
-                    <span className={`text-[28px] font-bold ${proteinPercent >= 100 ? 'text-[#34C759]' : 'text-[#007AFF]'}`}>
+                    <span className="text-[28px] font-bold" style={{ color: proteinColor }}>
                       {macros.p}
                     </span>
                     <span className="text-[15px] text-[#C7C7CC]">/{proteinGoal}г</span>
@@ -317,11 +302,11 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
                     className="h-full rounded-full transition-all"
                     style={{
                       width: `${Math.min(proteinPercent, 100)}%`,
-                      backgroundColor: proteinPercent >= 100 ? '#34C759' : '#007AFF'
+                      backgroundColor: proteinColor
                     }}
                   />
                 </div>
-                <div className="text-center text-[13px] text-[#8E8E93] mt-1">
+                <div className="text-center text-[13px] mt-1" style={{ color: proteinColor }}>
                   {proteinPercent}% норми білка
                 </div>
               </div>
@@ -373,7 +358,7 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
                         {MEASUREMENT_PARAMS.map(param => {
                           const initial = comparisonData.initial?.[param.key];
                           const current = comparisonData.current?.[param.key];
-                          const totalDiff = calculateDiff(current, initial);
+                          const totalDiff = calculateMeasurementDiff(current, initial);
                           const totalFormat = formatDiff(totalDiff);
 
                           if (initial === undefined && current === undefined) return null;

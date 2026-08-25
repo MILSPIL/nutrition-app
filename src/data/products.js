@@ -134,19 +134,19 @@ export const MEAL_LETTERS = {
 
 // Іконки категорій
 export const CATEGORY_ICONS = {
-  "а": "/icons/category-carbs.png",
-  "б": "/icons/category-dairy.png",
-  "в": "/icons/category-treats.png",
-  "г": "/icons/category-carbs.png",
-  "д": "/icons/category-protein.png",
-  "е": "/icons/category-vegetables.png",
-  "є": "/icons/category-fats.png",
-  "ж": "/icons/category-dairy.png",
-  "з": "/icons/category-fruits.png",
-  "и": "/icons/category-nuts.png",
-  "і": "/icons/category-protein.png",
-  "ї": "/icons/category-vegetables.png",
-  "й": "/icons/category-fats.png"
+  "а": "/icons/category-carbs-v4.png",
+  "б": "/icons/category-dairy-v4.png",
+  "в": "/icons/category-treats-v4.png",
+  "г": "/icons/category-carbs-v4.png",
+  "д": "/icons/category-protein-v4.png",
+  "е": "/icons/category-vegetables-v4.png",
+  "є": "/icons/category-fats-v4.png",
+  "ж": "/icons/category-dairy-v4.png",
+  "з": "/icons/category-fruits-v4.png",
+  "и": "/icons/category-nuts-v4.png",
+  "і": "/icons/category-protein-v4.png",
+  "ї": "/icons/category-vegetables-v4.png",
+  "й": "/icons/category-fats-v4.png"
 };
 
 // Іконки прийомів їжі
