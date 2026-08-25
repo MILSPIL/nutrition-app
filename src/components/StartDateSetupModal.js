@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar, Check } from 'lucide-react';
 import { toast } from './Toast';
 import AnimatedModal from './AnimatedModal';
+import { getDateInputMax } from '../utils/date';
 
 export default function StartDateSetupModal({
   isOpen,
@@ -54,7 +55,7 @@ export default function StartDateSetupModal({
               type="date"
               value={tempStartDate}
               onChange={(e) => setTempStartDate(e.target.value)}
-              max={new Date().toISOString().split('T')[0]}
+              max={getDateInputMax()}
               className="w-full px-4 py-4 bg-[#F2F2F7] rounded-xl text-[17px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
             />
           </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, ChevronRight, Bell, Ruler } from 'lucide-react';
 import AnimatedModal from '../AnimatedModal';
+import { getTodayDateKey } from '../../utils/date';
 
 export default function MeasurementReminderModal({
   isOpen,
@@ -15,7 +16,7 @@ export default function MeasurementReminderModal({
 
   const handleDismiss = () => {
     // Зберігаємо що користувач закрив нагадування
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayDateKey();
     localStorage.setItem('measurementReminderDismissed', today);
     onClose();
     if (onDismiss) onDismiss();
@@ -40,7 +41,7 @@ export default function MeasurementReminderModal({
           Час для замірів!
         </h2>
         <p className="text-[15px] text-white/80">
-          Сьогодні понеділок — час зробити заміри тіла та зважитись
+          Сьогодні понеділок, час зробити заміри тіла та зважитись
         </p>
       </div>
 
@@ -56,7 +57,7 @@ export default function MeasurementReminderModal({
                 Чому це важливо?
               </div>
               <div className="text-[13px] text-[#8E8E93] leading-relaxed">
-                Регулярні заміри допомагають відстежувати прогрес та коригувати програму харчування
+                Регулярні заміри допомагають бачити прогрес і вчасно коригувати харчування
               </div>
             </div>
           </div>

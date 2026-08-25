@@ -3,16 +3,12 @@ import { X, Scale, Plus, TrendingDown, TrendingUp, Minus, Save, History } from '
 import { doc, setDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase';
 import AnimatedModal from '../AnimatedModal';
-
-// Параметри замірів
-const MEASUREMENT_PARAMS = [
-  { key: 'weight', label: 'Вага', unit: 'кг', step: 0.1, icon: '⚖️' },
-  { key: 'waist', label: 'Талія', unit: 'см', step: 1, icon: '📏' },
-  { key: 'hips', label: 'Стегна', unit: 'см', step: 1, icon: '📏' },
-  { key: 'chest', label: 'Груди', unit: 'см', step: 1, icon: '📏' },
-  { key: 'arms', label: 'Руки', unit: 'см', step: 1, icon: '💪' },
-  { key: 'thighs', label: 'Ноги', unit: 'см', step: 1, icon: '🦵' },
-];
+import {
+  calculateMeasurementDiff,
+  getMeasurementComparison,
+  MEASUREMENT_PARAMS
+} from '../../services/measurements';
+import { getTodayDateKey } from '../../utils/date';
 
 export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
   const [activeTab, setActiveTab] = useState('new'); // 'new' | 'history'
@@ -64,7 +60,7 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
 
     setSaving(true);
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayDateKey();
       const measurementRef = doc(db, 'users', firebaseUser.uid, 'measurements', today);
 
       const dataToSave = {
@@ -111,15 +107,9 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
     }
   };
 
-  // Розрахунок різниці
-  const calculateDiff = (current, previous) => {
-    if (current === undefined || previous === undefined) return null;
-    return Math.round((current - previous) * 10) / 10;
-  };
-
   // Форматування різниці
   const formatDiff = (diff) => {
-    if (diff === null || diff === undefined) return { text: '—', color: 'text-[#C7C7CC]', icon: null };
+    if (diff === null || diff === undefined) return { text: 'Немає', color: 'text-[#C7C7CC]', icon: null };
 
     if (diff === 0) {
       return { text: '0', color: 'text-[#8E8E93]', icon: <Minus size={12} /> };
@@ -141,22 +131,11 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
     };
   };
 
-  // Отримати дані для таблиці порівняння
-  const getComparisonData = () => {
-    if (measurements.length === 0) return null;
-
-    const initial = measurements[0];
-    const previous = measurements.length > 1 ? measurements[measurements.length - 2] : null;
-    const current = measurements[measurements.length - 1];
-
-    return { initial, previous, current };
-  };
-
-  const comparisonData = getComparisonData();
+  const comparisonData = getMeasurementComparison(measurements);
 
   // Форматування дати
   const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
+    if (!dateStr) return 'Немає';
     const date = new Date(dateStr);
     return date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
   };
@@ -246,7 +225,7 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
                           [param.key]: e.target.value
                         })}
                         className="w-20 px-3 py-1.5 bg-[#F2F2F7] rounded-lg text-center text-[15px] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
-                        placeholder="—"
+                        placeholder="0"
                       />
                       <span className="text-[13px] text-[#8E8E93] w-6">{param.unit}</span>
                     </div>
@@ -284,7 +263,7 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
                     {comparisonData && MEASUREMENT_PARAMS.map((param, idx) => {
                       const initial = comparisonData.initial?.[param.key];
                       const current = comparisonData.current?.[param.key];
-                      const totalDiff = calculateDiff(current, initial);
+                      const totalDiff = calculateMeasurementDiff(current, initial);
                       const totalFormat = formatDiff(totalDiff);
 
                       // Пропускаємо параметри без даних
@@ -301,10 +280,10 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="text-right">
-                              <span className="text-[13px] text-[#8E8E93]">{initial ?? '—'}</span>
+                              <span className="text-[13px] text-[#8E8E93]">{initial ?? 'Немає'}</span>
                               <span className="text-[#C7C7CC] mx-1">→</span>
                               <span className="text-[15px] font-semibold text-black">
-                                {current ?? '—'}
+                                {current ?? 'Немає'}
                               </span>
                             </div>
                             <div className={`flex items-center gap-0.5 min-w-[50px] justify-end ${totalFormat.color}`}>

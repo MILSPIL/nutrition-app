@@ -64,7 +64,7 @@ export default function DaySelectorModal({
           {/* Warning */}
           <div className="bg-[#FF9500]/10 rounded-xl p-4">
             <p className="text-[13px] text-[#FF9500]">
-              <span className="font-semibold">Увага:</span> Це потрібно лише для виправлення пропущених звітів. Завтра день оновиться автоматично!
+              Використовуйте це, щоб виправити пропущені звіти. Завтра день оновиться сам.
             </p>
           </div>
 

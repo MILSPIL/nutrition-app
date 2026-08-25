@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Calendar, UserMinus, UserPlus, Settings as SettingsIcon, ChevronRight, Check, Clock, Trash2, LogOut, User } from 'lucide-react';
+import { X, Calendar, UserMinus, UserPlus, Settings as SettingsIcon, ChevronRight, Check, Clock, Trash2, LogOut } from 'lucide-react';
 import { doc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import AnimatedModal from './AnimatedModal';
 import { toast } from './Toast';
+import { getDateInputMax } from '../utils/date';
 
 export default function SettingsModal({
   isOpen,
@@ -269,7 +270,7 @@ export default function SettingsModal({
             type="date"
             value={tempStartDate}
             onChange={(e) => setTempStartDate(e.target.value)}
-            max={new Date().toISOString().split('T')[0]}
+            max={getDateInputMax()}
             className="w-full px-4 py-3 bg-[#F2F2F7] rounded-xl text-[17px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
           />
         </div>
