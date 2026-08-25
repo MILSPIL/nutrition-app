@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "nutrition-tracker-ua",
     "public": "build",
     "ignore": [
       "firebase.json",
