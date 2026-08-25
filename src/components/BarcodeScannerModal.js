@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Camera, Loader2, AlertCircle, CheckCircle2, Scan } from 'lucide-react';
-import { getProductByBarcode, isValidBarcode } from '../services/openFoodFacts';
+import { getProductByBarcode, isValidBarcode, normalizeBarcode } from '../services/openFoodFacts';
 import AnimatedModal from './AnimatedModal';
 
 const BarcodeScannerModal = ({ isOpen, onClose, onProductFound, toast }) => {
@@ -34,10 +34,22 @@ const BarcodeScannerModal = ({ isOpen, onClose, onProductFound, toast }) => {
   }, []);
 
   const searchProduct = useCallback(async (barcode) => {
+    const normalizedBarcode = normalizeBarcode(barcode);
+
+    if (!normalizedBarcode) {
+      setError('Введіть штрих-код');
+      return;
+    }
+
+    if (!isValidBarcode(normalizedBarcode)) {
+      setError('Підтримуються EAN-8, EAN-13 та UPC-A коди');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
-    const result = await getProductByBarcode(barcode);
+    const result = await getProductByBarcode(normalizedBarcode);
 
     setIsLoading(false);
 
@@ -162,7 +174,7 @@ const BarcodeScannerModal = ({ isOpen, onClose, onProductFound, toast }) => {
   }, [isOpen]);
 
   const handleManualSearch = async () => {
-    const barcode = manualBarcode.trim();
+    const barcode = normalizeBarcode(manualBarcode);
 
     if (!barcode) {
       toast?.warning('Введіть штрих-код');
@@ -170,7 +182,7 @@ const BarcodeScannerModal = ({ isOpen, onClose, onProductFound, toast }) => {
     }
 
     if (!isValidBarcode(barcode)) {
-      toast?.warning('Невірний формат штрих-коду');
+      toast?.warning('Підтримуються EAN-8, EAN-13 та UPC-A коди');
       return;
     }
 
@@ -206,6 +218,7 @@ const BarcodeScannerModal = ({ isOpen, onClose, onProductFound, toast }) => {
   };
 
   const switchToCamera = async () => {
+    await stopScanner();
     setShowManualInput(false);
     setError(null);
     setTimeout(startScanner, 400);
@@ -226,7 +239,15 @@ const BarcodeScannerModal = ({ isOpen, onClose, onProductFound, toast }) => {
             <Scan size={20} className="text-[#007AFF]" />
             <span className="font-semibold text-[17px] text-black">Сканер</span>
           </div>
-          <div className="min-w-[70px]" />
+          <button
+            onClick={showManualInput ? switchToCamera : () => {
+              stopScanner();
+              setShowManualInput(true);
+            }}
+            className="text-[#007AFF] font-medium text-[15px] min-w-[70px] text-right"
+          >
+            {showManualInput ? 'Камера' : 'Вручну'}
+          </button>
         </div>
 
         {/* Content */}
@@ -344,12 +365,15 @@ const BarcodeScannerModal = ({ isOpen, onClose, onProductFound, toast }) => {
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  placeholder="Наприклад: 4820024790017"
+                  placeholder="Наприклад: 4820024790017 або 036000291452"
                   value={manualBarcode}
                   onChange={(e) => setManualBarcode(e.target.value.replace(/\D/g, ''))}
                   className="w-full px-4 py-3 bg-[#F2F2F7] rounded-xl text-[15px] text-center tracking-wider focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
                   autoFocus
                 />
+                <p className="text-[11px] text-[#8E8E93] mt-2">
+                  Підтримуються EAN-8, EAN-13 та UPC-A коди.
+                </p>
               </div>
 
               <div className="flex gap-3">

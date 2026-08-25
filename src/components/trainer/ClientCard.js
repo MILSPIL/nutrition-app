@@ -12,16 +12,24 @@ export default function ClientCard({ client, todayMeals, onClick, isLast }) {
   let statusBg = 'bg-[#8E8E93]/10';
   let statusColor = 'text-[#8E8E93]';
   let statusText = 'Не почав';
+  let progressColor = '#FF9500';
 
   if (hasActivity) {
-    if (proteinPercent >= 100) {
+    if (proteinPercent > 100) {
+      statusBg = 'bg-[#FF9500]/10';
+      statusColor = 'text-[#FF9500]';
+      statusText = 'Понад норму';
+      progressColor = '#FF9500';
+    } else if (proteinPercent === 100) {
       statusBg = 'bg-[#34C759]/10';
       statusColor = 'text-[#34C759]';
       statusText = 'Виконано';
+      progressColor = '#34C759';
     } else {
       statusBg = 'bg-[#FF9500]/10';
       statusColor = 'text-[#FF9500]';
       statusText = 'В процесі';
+      progressColor = '#FF9500';
     }
   }
 
@@ -55,14 +63,14 @@ export default function ClientCard({ client, todayMeals, onClick, isLast }) {
             <div className="mb-2">
               <div className="flex items-center justify-between text-[13px] text-[#8E8E93] mb-1">
                 <span>Білки: {macros.p}г / 140г</span>
-                <span className={proteinPercent >= 100 ? 'text-[#34C759]' : 'text-[#FF9500]'}>{proteinPercent}%</span>
+                <span style={{ color: progressColor }}>{proteinPercent}%</span>
               </div>
               <div className="h-1.5 bg-[#F2F2F7] rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-300"
                   style={{
                     width: `${Math.min(proteinPercent, 100)}%`,
-                    backgroundColor: proteinPercent >= 100 ? '#34C759' : '#FF9500'
+                    backgroundColor: progressColor
                   }}
                 />
               </div>

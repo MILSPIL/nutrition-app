@@ -5,6 +5,17 @@
 
 const API_BASE_URL = 'https://world.openfoodfacts.org/api/v2/product';
 
+export const normalizeBarcode = (barcode) => {
+  const digits = String(barcode || '').replace(/\D/g, '');
+
+  // UPC-A часто приходить як 12 цифр, а в Open Food Facts стабільніше шукати його як EAN-13.
+  if (/^\d{12}$/.test(digits)) {
+    return `0${digits}`;
+  }
+
+  return digits;
+};
+
 /**
  * Безпечно отримати числове значення з об'єкта nutriments
  */
@@ -124,8 +135,10 @@ export const normalizeOpenFoodFactsProduct = (data, barcode) => {
  */
 export const getProductByBarcode = async (barcode) => {
   try {
+    const normalizedBarcode = normalizeBarcode(barcode);
+
     const response = await fetch(
-      `${API_BASE_URL}/${barcode}.json`,
+      `${API_BASE_URL}/${normalizedBarcode}.json`,
       {
         headers: {
           'User-Agent': 'NutritionApp/1.0 (https://nutrition-tracker-ua.web.app)'
@@ -138,7 +151,7 @@ export const getProductByBarcode = async (barcode) => {
     }
 
     const data = await response.json();
-    return normalizeOpenFoodFactsProduct(data, barcode);
+    return normalizeOpenFoodFactsProduct(data, normalizedBarcode);
   } catch (error) {
     console.error('Open Food Facts API error:', error);
     return {
@@ -156,29 +169,31 @@ export const getProductByBarcode = async (barcode) => {
  * @returns {boolean}
  */
 export const isValidBarcode = (barcode) => {
+  const normalizedBarcode = normalizeBarcode(barcode);
+
   // EAN-8 або EAN-13
-  if (!/^\d{8}$|^\d{13}$/.test(barcode)) {
+  if (!/^\d{8}$|^\d{13}$/.test(normalizedBarcode)) {
     return false;
   }
 
   // Перевірка контрольної суми для EAN-13
-  if (barcode.length === 13) {
+  if (normalizedBarcode.length === 13) {
     let sum = 0;
     for (let i = 0; i < 12; i++) {
-      sum += parseInt(barcode[i]) * (i % 2 === 0 ? 1 : 3);
+      sum += parseInt(normalizedBarcode[i], 10) * (i % 2 === 0 ? 1 : 3);
     }
     const checkDigit = (10 - (sum % 10)) % 10;
-    return checkDigit === parseInt(barcode[12]);
+    return checkDigit === parseInt(normalizedBarcode[12], 10);
   }
 
   // Перевірка контрольної суми для EAN-8
-  if (barcode.length === 8) {
+  if (normalizedBarcode.length === 8) {
     let sum = 0;
     for (let i = 0; i < 7; i++) {
-      sum += parseInt(barcode[i]) * (i % 2 === 0 ? 3 : 1);
+      sum += parseInt(normalizedBarcode[i], 10) * (i % 2 === 0 ? 3 : 1);
     }
     const checkDigit = (10 - (sum % 10)) % 10;
-    return checkDigit === parseInt(barcode[7]);
+    return checkDigit === parseInt(normalizedBarcode[7], 10);
   }
 
   return false;

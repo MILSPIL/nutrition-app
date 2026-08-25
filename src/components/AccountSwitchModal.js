@@ -69,7 +69,7 @@ export default function AccountSwitchModal({
             </div>
             <div className="bg-[#F2F2F7] rounded-xl p-3 text-center">
               <div className="text-[22px] font-bold text-[#34C759]">
-                {user?.currentWeight || '—'}
+                {user?.currentWeight || 'Немає'}
               </div>
               <div className="text-[13px] text-[#8E8E93]">поточна вага</div>
             </div>

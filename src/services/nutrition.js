@@ -41,6 +41,53 @@ export const calculateProductMacros = (product, weight) => {
   };
 };
 
+export const calculatePortionPercent = (weight, basePortion) => {
+  if (!basePortion) {
+    return 0;
+  }
+
+  return Math.round((weight / basePortion) * 100);
+};
+
+export const getCategoryProgress = ({
+  isCalorieBased,
+  usedCalories = 0,
+  calorieLimit = 575,
+  totalPortion = 0
+}) => {
+  const percent = isCalorieBased
+    ? (calorieLimit > 0 ? Math.round((usedCalories / calorieLimit) * 100) : 0)
+    : Math.round(totalPortion);
+
+  return {
+    percent,
+    fillPercent: Math.min(percent, 100),
+    isComplete: percent === 100,
+    isOverTarget: percent > 100
+  };
+};
+
+export const canAddCategoryProduct = ({
+  isCalorieBased,
+  usedCalories = 0,
+  productCalories = 0,
+  calorieLimit = 575
+}) => {
+  if (!isCalorieBased) {
+    return {
+      allowed: true,
+      remainingCalories: null
+    };
+  }
+
+  const nextCalories = usedCalories + productCalories;
+
+  return {
+    allowed: nextCalories <= calorieLimit,
+    remainingCalories: calorieLimit - usedCalories
+  };
+};
+
 export const calculateMealsMacros = (meals) => {
   if (!meals) {
     return { p: 0, f: 0, c: 0, cal: 0 };

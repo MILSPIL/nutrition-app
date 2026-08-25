@@ -113,10 +113,11 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
   const macros = dayData?.totalMacros || { p: 0, f: 0, c: 0, cal: 0 };
   const proteinGoal = 140;
   const proteinPercent = Math.round((macros.p / proteinGoal) * 100);
+  const proteinColor = proteinPercent > 100 ? '#FF9500' : (proteinPercent === 100 ? '#34C759' : '#007AFF');
 
   // Функції для роботи із замірами
   const formatDiff = (diff) => {
-    if (diff === null || diff === undefined) return { text: '—', color: 'text-[#C7C7CC]', icon: null };
+    if (diff === null || diff === undefined) return { text: 'Немає', color: 'text-[#C7C7CC]', icon: null };
 
     if (diff === 0) {
       return { text: '0', color: 'text-[#8E8E93]', icon: <Minus size={14} /> };
@@ -280,7 +281,7 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <span className="text-[15px] text-[#8E8E93]">Білки: </span>
-                    <span className={`text-[28px] font-bold ${proteinPercent >= 100 ? 'text-[#34C759]' : 'text-[#007AFF]'}`}>
+                    <span className="text-[28px] font-bold" style={{ color: proteinColor }}>
                       {macros.p}
                     </span>
                     <span className="text-[15px] text-[#C7C7CC]">/{proteinGoal}г</span>
@@ -301,11 +302,11 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
                     className="h-full rounded-full transition-all"
                     style={{
                       width: `${Math.min(proteinPercent, 100)}%`,
-                      backgroundColor: proteinPercent >= 100 ? '#34C759' : '#007AFF'
+                      backgroundColor: proteinColor
                     }}
                   />
                 </div>
-                <div className="text-center text-[13px] text-[#8E8E93] mt-1">
+                <div className="text-center text-[13px] mt-1" style={{ color: proteinColor }}>
                   {proteinPercent}% норми білка
                 </div>
               </div>

@@ -2,9 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { X, Sparkles, CheckCircle } from 'lucide-react';
 import AnimatedModal from './AnimatedModal';
 
-const APP_VERSION = process.env.REACT_APP_VERSION || '1.5.0';
+const APP_VERSION = process.env.REACT_APP_VERSION || '1.6.0';
 
 const CHANGELOG = [
+  {
+    version: '1.6.0',
+    date: '20.04.2026',
+    changes: [
+      'Оновлений верхній блок з калоріями та БЖВ',
+      'Новий дизайн вікна додавання продукту',
+      'Новий набір іконок для всіх категорій',
+      'Шрифт Montserrat і чистіші тексти в інтерфейсі',
+      'Додаток відкривається на ntzg.fun'
+    ]
+  },
   {
     version: '1.5.0',
     date: '20.04.2026',

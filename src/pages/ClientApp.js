@@ -30,7 +30,9 @@ import {
 } from '../components';
 import {
   buildUserRecord,
+  calculatePortionPercent,
   calculateMealsMacros,
+  canAddCategoryProduct,
   createDefaultClientUser,
   createEmptyMeals
 } from '../services/nutrition';
@@ -337,6 +339,8 @@ export default function ClientApp() {
   const getProductPortion = (productName) => {
     if (userPortions[productName]) return userPortions[productName];
     if (DEFAULT_PORTIONS[productName]) return DEFAULT_PORTIONS[productName];
+    const originalProduct = getOriginalProduct(productName);
+    if (originalProduct?.raw) return originalProduct.raw;
     return 100;
   };
 
@@ -398,7 +402,9 @@ export default function ClientApp() {
 
   // Product management
   const addProduct = (letter, product, portion = 100) => {
-    const userPortion = getProductPortion(product.name);
+    // Для щойно створеного кастомного продукту state ще може не встигнути оновитися,
+    // тому беремо його власну raw-порцію як fallback замість дефолтних 100г.
+    const userPortion = userPortions[product.name] || product.raw || getProductPortion(product.name);
     const weight = Math.round((userPortion * portion) / 100);
 
     // Перевірка чи категорія калорійна (наприклад, "в" - Вільний вибір)
@@ -417,15 +423,15 @@ export default function ClientApp() {
     if (isCalorieBased) {
       // Для калорійних категорій рахуємо калорії
       const usedCalories = newMeals[selectedMeal][letter].reduce((sum, p) => sum + (p.calories || 0), 0);
-      if (usedCalories + productCalories > calorieLimit) {
-        toast.warning(`Перевищено ліміт калорій! Спожито: ${usedCalories} ккал. Залишок: ${calorieLimit - usedCalories} ккал`);
-        return;
-      }
-    } else {
-      // Для звичайних категорій - відсоткова логіка
-      const currentTotal = newMeals[selectedMeal][letter].reduce((sum, p) => sum + p.portion, 0);
-      if (currentTotal + portion > 100) {
-        toast.warning(`Перевищено норму! Вже обрано: ${currentTotal}%. Можна додати максимум: ${100 - currentTotal}%`);
+      const validation = canAddCategoryProduct({
+        isCalorieBased,
+        usedCalories,
+        productCalories,
+        calorieLimit
+      });
+
+      if (!validation.allowed) {
+        toast.warning(`Перевищено ліміт калорій! Спожито: ${usedCalories} ккал. Залишок: ${validation.remainingCalories} ккал`);
         return;
       }
     }
@@ -475,15 +481,15 @@ export default function ClientApp() {
     if (isCalorieBased) {
       // Для калорійних категорій рахуємо калорії
       const usedCalories = newMeals[selectedMeal][letter].reduce((sum, p) => sum + (p.calories || 0), 0);
-      if (usedCalories + productCalories > calorieLimit) {
-        toast.warning(`Перевищено ліміт калорій! Спожито: ${usedCalories} ккал. Залишок: ${calorieLimit - usedCalories} ккал`);
-        return;
-      }
-    } else {
-      // Для звичайних категорій - відсоткова логіка
-      const currentTotal = newMeals[selectedMeal][letter].reduce((sum, p) => sum + p.portion, 0);
-      if (currentTotal + portion > 100) {
-        toast.warning(`Перевищено норму! Вже обрано: ${currentTotal}%. Можна додати максимум: ${100 - currentTotal}% (${Math.round(userPortion * (100 - currentTotal) / 100)}г)`);
+      const validation = canAddCategoryProduct({
+        isCalorieBased,
+        usedCalories,
+        productCalories,
+        calorieLimit
+      });
+
+      if (!validation.allowed) {
+        toast.warning(`Перевищено ліміт калорій! Спожито: ${usedCalories} ккал. Залишок: ${validation.remainingCalories} ккал`);
         return;
       }
     }
@@ -546,7 +552,7 @@ export default function ClientApp() {
     // Оновлюємо порцію для звичайних категорій
     if (!isCalorieBased) {
       const userPortion = getProductPortion(product.name);
-      product.portion = Math.round((newWeight / userPortion) * 100);
+      product.portion = calculatePortionPercent(newWeight, userPortion);
     }
 
     setMeals(newMeals);
@@ -737,7 +743,7 @@ export default function ClientApp() {
           onClick={() => setShowReport(true)}
           className="w-full py-4 bg-[#34C759] text-white rounded-2xl text-[17px] font-semibold active:opacity-80"
         >
-          Готово — Надіслати звіт
+          Надіслати звіт
         </button>
       </div>
 

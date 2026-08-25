@@ -109,7 +109,7 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
 
   // Форматування різниці
   const formatDiff = (diff) => {
-    if (diff === null || diff === undefined) return { text: '—', color: 'text-[#C7C7CC]', icon: null };
+    if (diff === null || diff === undefined) return { text: 'Немає', color: 'text-[#C7C7CC]', icon: null };
 
     if (diff === 0) {
       return { text: '0', color: 'text-[#8E8E93]', icon: <Minus size={12} /> };
@@ -135,7 +135,7 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
 
   // Форматування дати
   const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
+    if (!dateStr) return 'Немає';
     const date = new Date(dateStr);
     return date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
   };
@@ -225,7 +225,7 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
                           [param.key]: e.target.value
                         })}
                         className="w-20 px-3 py-1.5 bg-[#F2F2F7] rounded-lg text-center text-[15px] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
-                        placeholder="—"
+                        placeholder="0"
                       />
                       <span className="text-[13px] text-[#8E8E93] w-6">{param.unit}</span>
                     </div>
@@ -280,10 +280,10 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
                           </div>
                           <div className="flex items-center gap-3">
                             <div className="text-right">
-                              <span className="text-[13px] text-[#8E8E93]">{initial ?? '—'}</span>
+                              <span className="text-[13px] text-[#8E8E93]">{initial ?? 'Немає'}</span>
                               <span className="text-[#C7C7CC] mx-1">→</span>
                               <span className="text-[15px] font-semibold text-black">
-                                {current ?? '—'}
+                                {current ?? 'Немає'}
                               </span>
                             </div>
                             <div className={`flex items-center gap-0.5 min-w-[50px] justify-end ${totalFormat.color}`}>

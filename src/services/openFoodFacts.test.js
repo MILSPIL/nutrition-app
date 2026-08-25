@@ -1,6 +1,7 @@
 import {
   getNumericValue,
   isValidBarcode,
+  normalizeBarcode,
   normalizeOpenFoodFactsProduct
 } from './openFoodFacts';
 
@@ -13,8 +14,14 @@ describe('open food facts service', () => {
   test('validates EAN-13 and EAN-8 barcodes', () => {
     expect(isValidBarcode('5901234123457')).toBe(true);
     expect(isValidBarcode('96385074')).toBe(true);
+    expect(isValidBarcode('036000291452')).toBe(true);
     expect(isValidBarcode('5901234123458')).toBe(false);
     expect(isValidBarcode('123')).toBe(false);
+  });
+
+  test('normalizes UPC-A and strips non-digit characters', () => {
+    expect(normalizeBarcode('036000291452')).toBe('0036000291452');
+    expect(normalizeBarcode(' 5901-2341 23457 ')).toBe('5901234123457');
   });
 
   test('normalizes a product and calculates calories from kJ', () => {

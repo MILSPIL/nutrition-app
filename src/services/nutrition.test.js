@@ -1,9 +1,12 @@
 import {
   buildUserRecord,
+  calculatePortionPercent,
   calculateMealsMacros,
   calculateProductMacros,
+  canAddCategoryProduct,
   createDefaultClientUser,
-  createEmptyMeals
+  createEmptyMeals,
+  getCategoryProgress
 } from './nutrition';
 
 describe('nutrition service', () => {
@@ -29,6 +32,46 @@ describe('nutrition service', () => {
     const macros = calculateProductMacros({ p: 10, f: 5, c: 20 }, 50);
 
     expect(macros).toEqual({ p: 5, f: 2.5, c: 10, cal: 83 });
+  });
+
+  test('calculates portion percent from weight and user portion', () => {
+    expect(calculatePortionPercent(75, 50)).toBe(150);
+    expect(calculatePortionPercent(50, 0)).toBe(0);
+  });
+
+  test('keeps over-target progress visible for regular categories', () => {
+    expect(getCategoryProgress({
+      isCalorieBased: false,
+      totalPortion: 135
+    })).toEqual({
+      percent: 135,
+      fillPercent: 100,
+      isComplete: false,
+      isOverTarget: true
+    });
+  });
+
+  test('allows adding more than 100 percent in regular categories', () => {
+    expect(canAddCategoryProduct({
+      isCalorieBased: false,
+      usedCalories: 0,
+      productCalories: 0
+    })).toEqual({
+      allowed: true,
+      remainingCalories: null
+    });
+  });
+
+  test('still blocks calorie-based categories over the limit', () => {
+    expect(canAddCategoryProduct({
+      isCalorieBased: true,
+      usedCalories: 520,
+      productCalories: 80,
+      calorieLimit: 575
+    })).toEqual({
+      allowed: false,
+      remainingCalories: 55
+    });
   });
 
   test('sums macros across meals', () => {

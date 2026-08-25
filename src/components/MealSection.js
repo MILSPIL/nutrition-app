@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, ChevronRight, Pencil, Check, X } from 'lucide-react';
 import { PRODUCTS_DB, MEAL_LETTERS, CATEGORY_ICONS } from '../data/products';
+import { getCategoryProgress } from '../services/nutrition';
 
 export default function MealSection({
   selectedMeal,
@@ -23,11 +24,18 @@ export default function MealSection({
 
           // Для калорійних категорій - рахуємо калорії
           const usedCalories = products.reduce((sum, p) => sum + (p.calories || 0), 0);
-          const caloriePercent = Math.round((usedCalories / calorieLimit) * 100);
 
           // Для звичайних категорій - відсотки
           const totalPortion = products.reduce((sum, p) => sum + p.portion, 0);
-          const isComplete = isCalorieBased ? usedCalories >= calorieLimit : totalPortion >= 100;
+          const progress = getCategoryProgress({
+            isCalorieBased,
+            usedCalories,
+            calorieLimit,
+            totalPortion
+          });
+          const progressColor = progress.isOverTarget
+            ? '#FF3B30'
+            : (progress.isComplete ? '#34C759' : '#007AFF');
 
           return (
             <div
@@ -40,11 +48,13 @@ export default function MealSection({
                 className="w-full px-4 py-3 flex items-center justify-between active:bg-[#F2F2F7] transition-colors"
               >
                 <div className="flex items-center gap-3 flex-1">
-                  <img
-                    src={CATEGORY_ICONS[letter]}
-                    alt={PRODUCTS_DB[letter].name}
-                    className="w-11 h-11 object-cover rounded-xl flex-shrink-0"
-                  />
+                  <div className="w-11 h-11 rounded-xl bg-[#F2F2F7] border border-[#E9E9EE] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <img
+                      src={CATEGORY_ICONS[letter]}
+                      alt={PRODUCTS_DB[letter].name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                   <div className="text-left flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-[22px] font-bold text-[#007AFF]">{letter.toUpperCase()}</span>
@@ -54,15 +64,18 @@ export default function MealSection({
                     <div className="flex items-center gap-2 mt-1">
                       <div className="flex-1 h-1.5 bg-[#E5E5EA] rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all ${isComplete ? 'bg-[#34C759]' : 'bg-[#007AFF]'}`}
-                          style={{ width: `${Math.min(isCalorieBased ? caloriePercent : totalPortion, 100)}%` }}
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${progress.fillPercent}%`,
+                            backgroundColor: progressColor
+                          }}
                         />
                       </div>
-                      <span className={`text-[11px] min-w-[36px] text-right ${isComplete ? 'text-[#34C759]' : 'text-[#8E8E93]'}`}>
-                        {isCalorieBased
-                          ? (isComplete ? '✓' : `${caloriePercent}%`)
-                          : (isComplete ? '✓' : `${totalPortion}%`)
-                        }
+                      <span
+                        className="text-[11px] min-w-[44px] text-right"
+                        style={{ color: progress.isOverTarget || progress.isComplete ? progressColor : '#8E8E93' }}
+                      >
+                        {progress.percent}%
                       </span>
                     </div>
                   </div>
@@ -89,20 +102,20 @@ export default function MealSection({
                         >
                           {isEditing ? (
                             /* Режим редагування */
-                            <div className="flex items-center gap-2">
-                              <span className="text-[15px] text-black flex-shrink-0">{product.name}</span>
-                              <div className="flex items-center gap-2 flex-1">
-                                <div className="relative flex-1">
+                            <div className="space-y-2">
+                              <div className="text-[15px] text-black break-words">{product.name}</div>
+                              <div className="flex items-center gap-2">
+                                <div className="relative flex-1 min-w-0">
                                   <input
                                     type="number"
                                     inputMode="numeric"
                                     value={editWeight}
                                     onChange={(e) => setEditWeight(e.target.value)}
                                     autoFocus
-                                    className="w-full px-3 py-1.5 bg-white rounded-lg text-[15px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
+                                    className="w-full min-w-0 px-3 py-2 bg-white rounded-lg text-[15px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
                                     placeholder={String(product.weight)}
                                   />
-                                  <span className="absolute right-3 top-1.5 text-[#8E8E93] text-[13px]">г</span>
+                                  <span className="absolute right-3 top-2 text-[#8E8E93] text-[13px]">г</span>
                                 </div>
                                 <button
                                   onClick={() => {
@@ -113,7 +126,7 @@ export default function MealSection({
                                     setEditingProduct(null);
                                     setEditWeight('');
                                   }}
-                                  className="p-1.5 text-[#34C759] active:opacity-50"
+                                  className="p-1.5 text-[#34C759] active:opacity-50 flex-shrink-0"
                                 >
                                   <Check size={20} />
                                 </button>
@@ -122,7 +135,7 @@ export default function MealSection({
                                     setEditingProduct(null);
                                     setEditWeight('');
                                   }}
-                                  className="p-1.5 text-[#8E8E93] active:opacity-50"
+                                  className="p-1.5 text-[#8E8E93] active:opacity-50 flex-shrink-0"
                                 >
                                   <X size={20} />
                                 </button>

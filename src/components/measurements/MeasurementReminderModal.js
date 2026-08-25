@@ -41,7 +41,7 @@ export default function MeasurementReminderModal({
           Час для замірів!
         </h2>
         <p className="text-[15px] text-white/80">
-          Сьогодні понеділок — час зробити заміри тіла та зважитись
+          Сьогодні понеділок, час зробити заміри тіла та зважитись
         </p>
       </div>
 
@@ -57,7 +57,7 @@ export default function MeasurementReminderModal({
                 Чому це важливо?
               </div>
               <div className="text-[13px] text-[#8E8E93] leading-relaxed">
-                Регулярні заміри допомагають відстежувати прогрес та коригувати програму харчування
+                Регулярні заміри допомагають бачити прогрес і вчасно коригувати харчування
               </div>
             </div>
           </div>
