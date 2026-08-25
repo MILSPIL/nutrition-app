@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Check, X, Settings, ChevronDown, Scale, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
+import { getCalorieScaleState } from '../services/nutrition';
 
 // iOS іконки для прийомів їжі
 const MEAL_ICONS = {
@@ -15,7 +16,16 @@ const MACRO_TARGETS = {
   c: 235
 };
 
-const CALORIES_TARGET = (MACRO_TARGETS.p * 4) + (MACRO_TARGETS.f * 9) + (MACRO_TARGETS.c * 4);
+// Офіційна денна норма тренера. НЕ сума з макросів (та дає 2130).
+const CALORIES_TARGET = 2305;
+
+// Кольори рівнів "шкали здоров'я" (як в іграх: зелений -> червоний)
+const SCALE_COLORS = {
+  ok: '#34C759',
+  warn: '#FF9500',
+  over: '#FF3B30',
+  danger: '#8B0000'
+};
 
 const MACRO_PROGRESS = [
   { key: 'p', label: 'Білки', color: '#0A84FF', track: '#DCEBFF' },
@@ -23,13 +33,13 @@ const MACRO_PROGRESS = [
   { key: 'c', label: 'Вугл.', color: '#34C759', track: '#D9F5DF' }
 ];
 
-function ProgressRing({ value, target, color }) {
+function ProgressRing({ percent, color }) {
   const size = 88;
   const stroke = 7;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
-  const percent = target > 0 ? Math.min(value / target, 1) : 0;
-  const dashOffset = circumference * (1 - percent);
+  const fill = Math.min(percent, 100) / 100; // кільце заповнюється раз, далі говорить колір і цифра
+  const dashOffset = circumference * (1 - fill);
 
   return (
     <svg width={size} height={size} className="-rotate-90">
@@ -58,9 +68,12 @@ function ProgressRing({ value, target, color }) {
 }
 
 function MacroProgressRow({ label, value, target, color, track }) {
-  const percent = target > 0 ? Math.min((value / target) * 100, 100) : 0;
+  const rawPercent = target > 0 ? (value / target) * 100 : 0;
+  const percent = Math.min(rawPercent, 100);
+  const over = value > target;
   const remaining = Math.max(target - value, 0);
   const done = value >= target;
+  const barColor = over ? '#FF3B30' : color;
 
   return (
     <div>
@@ -71,8 +84,13 @@ function MacroProgressRow({ label, value, target, color, track }) {
             {value}г
           </span>
         </div>
-        <span className="text-[11px] text-[#A0A0A7] whitespace-nowrap">
-          {done ? 'Ціль закрито' : `${Math.ceil(remaining)}г лишилось`}
+        <span
+          className="text-[11px] whitespace-nowrap"
+          style={{ color: over ? '#FF3B30' : '#A0A0A7' }}
+        >
+          {over
+            ? `+${Math.round(value - target)}г понад`
+            : (done ? 'Ціль закрито' : `${Math.ceil(remaining)}г лишилось`)}
         </span>
       </div>
 
@@ -84,7 +102,7 @@ function MacroProgressRow({ label, value, target, color, track }) {
           className="h-full rounded-full"
           style={{
             width: `${percent}%`,
-            backgroundColor: color,
+            backgroundColor: barColor,
             transition: 'width 0.45s ease'
           }}
         />
@@ -112,6 +130,8 @@ export default function Header({
   const [tempWeight, setTempWeight] = useState(currentWeight);
 
   const caloriesValue = macros.cal || 0;
+  const scale = getCalorieScaleState(caloriesValue, CALORIES_TARGET);
+  const scaleColor = SCALE_COLORS[scale.level];
 
   return (
     <div className="max-w-lg mx-auto">
@@ -229,15 +249,21 @@ export default function Header({
         <div className="px-4 py-3.5">
           <div className="flex items-center gap-3">
             <div className="relative shrink-0">
-              <div className="absolute inset-1 rounded-full bg-[#34C759]/10 blur-md" />
-              <div className="relative w-[88px] h-[88px] flex items-center justify-center">
-                <ProgressRing value={caloriesValue} target={CALORIES_TARGET} color="#34C759" />
+              <div
+                className="absolute inset-1 rounded-full blur-md"
+                style={{ backgroundColor: `${scaleColor}1A` }}
+              />
+              <div className={`relative w-[88px] h-[88px] flex items-center justify-center ${scale.level === 'danger' ? 'animate-pulse' : ''}`}>
+                <ProgressRing percent={scale.percent} color={scaleColor} />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-[24px] leading-none font-bold text-[#34C759]">
+                  <span className="text-[24px] leading-none font-bold" style={{ color: scaleColor }}>
                     {caloriesValue}
                   </span>
-                  <span className="text-[10px] tracking-[0.06em] uppercase text-[#8E8E93] mt-1">
-                    ккал
+                  <span
+                    className="text-[10px] tracking-[0.06em] uppercase mt-1"
+                    style={{ color: scale.percent >= 100 ? scaleColor : '#8E8E93' }}
+                  >
+                    {scale.percent >= 100 ? `${scale.percent}%` : 'ккал'}
                   </span>
                 </div>
               </div>
@@ -256,6 +282,15 @@ export default function Header({
               ))}
             </div>
           </div>
+
+          {scale.overAmount > 0 && (
+            <div
+              className={`mt-3 rounded-xl px-3 py-2 text-center text-[13px] font-semibold text-white ${scale.level === 'danger' ? 'animate-pulse' : ''}`}
+              style={{ backgroundColor: scaleColor }}
+            >
+              Перевищення: +{scale.overAmount} ккал понад норму
+            </div>
+          )}
         </div>
       </div>
 
