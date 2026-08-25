@@ -93,7 +93,7 @@ export default {
     } catch (e) {
       return json({ error: 'bad_request' }, 400, cors);
     }
-    if (!body.text || !Array.isArray(body.catalog)) {
+    if (!body || typeof body !== 'object' || !body.text || !Array.isArray(body.catalog)) {
       return json({ error: 'bad_request' }, 400, cors);
     }
 
