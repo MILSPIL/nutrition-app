@@ -2,9 +2,40 @@ import React, { useState, useEffect } from 'react';
 import { X, Sparkles, CheckCircle } from 'lucide-react';
 import AnimatedModal from './AnimatedModal';
 
-const APP_VERSION = '1.3.0';
+const APP_VERSION = process.env.REACT_APP_VERSION || '1.6.0';
 
 const CHANGELOG = [
+  {
+    version: '1.6.0',
+    date: '20.04.2026',
+    changes: [
+      'Оновлений верхній блок з калоріями та БЖВ',
+      'Новий дизайн вікна додавання продукту',
+      'Новий набір іконок для всіх категорій',
+      'Шрифт Montserrat і чистіші тексти в інтерфейсі',
+      'Додаток відкривається на ntzg.fun'
+    ]
+  },
+  {
+    version: '1.5.0',
+    date: '20.04.2026',
+    changes: [
+      'Єдині локальні дати без зсуву через UTC',
+      'Тести для ключової логіки і CI перевірки',
+      'Firestore rules для клієнта, тренера і запитів',
+      'Оновлена документація та синхронізована версія'
+    ]
+  },
+  {
+    version: '1.4.0',
+    date: '12.01.2026',
+    changes: [
+      'Сканування штрих-кодів продуктів',
+      'Автозаповнення БЖВ з бази Open Food Facts',
+      'Підтримка EAN-8 та EAN-13 кодів',
+      'Ручне введення штрих-коду'
+    ]
+  },
   {
     version: '1.3.0',
     date: '10.01.2026',

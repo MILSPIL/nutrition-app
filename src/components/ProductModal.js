@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Plus, Pencil } from 'lucide-react';
 import { PRODUCTS_DB, CATEGORY_ICONS } from '../data/products';
+import { getCategoryProgress } from '../services/nutrition';
 import AnimatedModal from './AnimatedModal';
 import EditProductModal from './EditProductModal';
 
@@ -13,7 +14,6 @@ export default function ProductModal({
   onClose,
   getAllProducts,
   getProductPortion,
-  getProductWithOverrides,
   getOriginalProduct,
   addProduct,
   addProductWithCustomGrams,
@@ -36,6 +36,13 @@ export default function ProductModal({
   const currentCategoryProducts = meals[selectedMeal]?.[currentLetter] || [];
   const usedCategoryCalories = currentCategoryProducts.reduce((sum, p) => sum + (p.calories || 0), 0);
   const remainingCategoryCalories = calorieLimit - usedCategoryCalories;
+  const currentCategoryPortion = currentCategoryProducts.reduce((sum, p) => sum + (p.portion || 0), 0);
+  const categoryProgress = getCategoryProgress({
+    isCalorieBased: isCalorieBasedCategory,
+    usedCalories: usedCategoryCalories,
+    calorieLimit,
+    totalPortion: currentCategoryPortion
+  });
 
   return (
     <AnimatedModal isOpen={isOpen} onClose={onClose} position="bottom">
@@ -50,11 +57,13 @@ export default function ProductModal({
               Закрити
             </button>
             <div className="flex items-center gap-2">
-              <img
-                src={CATEGORY_ICONS[currentLetter]}
-                alt={PRODUCTS_DB[currentLetter].name}
-                className="w-8 h-8 object-cover rounded-lg"
-              />
+              <div className="w-8 h-8 rounded-lg bg-[#F2F2F7] border border-[#E9E9EE] flex items-center justify-center overflow-hidden">
+                <img
+                  src={CATEGORY_ICONS[currentLetter]}
+                  alt={PRODUCTS_DB[currentLetter].name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
               <span className="font-semibold text-[17px]">{currentLetter}</span>
             </div>
             <div className="min-w-[70px]" />
@@ -74,7 +83,14 @@ export default function ProductModal({
                   <span className="text-[#8E8E93]"> / {calorieLimit} ккал</span>
                 </div>
               ) : (
-                <div className="text-[13px] text-[#8E8E93]">~{categoryData.calories} ккал</div>
+                <div className="text-[13px]">
+                  <span className={categoryProgress.isOverTarget ? 'text-[#FF3B30]' : 'text-[#8E8E93]'}>
+                    Набрано: {categoryProgress.percent}%
+                  </span>
+                  {categoryProgress.isOverTarget && (
+                    <span className="text-[#FF3B30]"> (+{categoryProgress.percent - 100}% понад норму)</span>
+                  )}
+                </div>
               )}
             </div>
             <button
@@ -104,9 +120,8 @@ export default function ProductModal({
                 const remainingCalories = calorieLimit - usedCalories;
 
                 // Для звичайних категорій - відсоткова логіка
-                const currentTotal = currentProducts.reduce((sum, p) => sum + p.portion, 0);
-                const canAdd100 = isCalorieBased ? remainingCalories >= (product.cal * product.raw / 100) : currentTotal === 0;
-                const canAdd50 = isCalorieBased ? remainingCalories >= (product.cal * product.raw / 200) : currentTotal <= 50;
+                const canAdd100 = isCalorieBased ? remainingCalories >= (product.cal * product.raw / 100) : true;
+                const canAdd50 = isCalorieBased ? remainingCalories >= (product.cal * product.raw / 200) : true;
 
                 const userPortion = getProductPortion(product.name);
                 const grams100 = userPortion;

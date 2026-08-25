@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Check, X, Settings, ChevronDown, Scale, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
+import { getCalorieScaleState } from '../services/nutrition';
 
 // iOS іконки для прийомів їжі
 const MEAL_ICONS = {
@@ -8,6 +9,107 @@ const MEAL_ICONS = {
   3: { icon: Sunset, label: 'Вечеря', color: '#FF6B00' },
   4: { icon: Moon, label: 'Перекус', color: '#5856D6' }
 };
+
+const MACRO_TARGETS = {
+  p: 140,
+  f: 70,
+  c: 235
+};
+
+// Офіційна денна норма тренера. НЕ сума з макросів (та дає 2130).
+const CALORIES_TARGET = 2305;
+
+// Кольори рівнів "шкали здоров'я" (як в іграх: зелений -> червоний)
+const SCALE_COLORS = {
+  ok: '#34C759',
+  warn: '#FF9500',
+  over: '#FF3B30',
+  danger: '#8B0000'
+};
+
+const MACRO_PROGRESS = [
+  { key: 'p', label: 'Білки', color: '#0A84FF', track: '#DCEBFF' },
+  { key: 'f', label: 'Жири', color: '#F5A623', track: '#FCE8BF' },
+  { key: 'c', label: 'Вугл.', color: '#34C759', track: '#D9F5DF' }
+];
+
+function ProgressRing({ percent, color }) {
+  const size = 88;
+  const stroke = 7;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const fill = Math.min(percent, 100) / 100; // кільце заповнюється раз, далі говорить колір і цифра
+  const dashOffset = circumference * (1 - fill);
+
+  return (
+    <svg width={size} height={size} className="-rotate-90">
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="rgba(52, 199, 89, 0.14)"
+        strokeWidth={stroke}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke={color}
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={dashOffset}
+        style={{ transition: 'stroke-dashoffset 0.45s ease' }}
+      />
+    </svg>
+  );
+}
+
+function MacroProgressRow({ label, value, target, color, track }) {
+  const rawPercent = target > 0 ? (value / target) * 100 : 0;
+  const percent = Math.min(rawPercent, 100);
+  const over = value > target;
+  const remaining = Math.max(target - value, 0);
+  const done = value >= target;
+  const barColor = over ? '#FF3B30' : color;
+
+  return (
+    <div>
+      <div className="flex items-end justify-between gap-2 mb-1">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-[13px] font-medium text-[#8E8E93]">{label}</span>
+          <span className="text-[14px] font-semibold truncate" style={{ color }}>
+            {value}г
+          </span>
+        </div>
+        <span
+          className="text-[11px] whitespace-nowrap"
+          style={{ color: over ? '#FF3B30' : '#A0A0A7' }}
+        >
+          {over
+            ? `+${Math.round(value - target)}г понад`
+            : (done ? 'Ціль закрито' : `${Math.ceil(remaining)}г лишилось`)}
+        </span>
+      </div>
+
+      <div
+        className="h-[3px] rounded-full overflow-hidden"
+        style={{ backgroundColor: track }}
+      >
+        <div
+          className="h-full rounded-full"
+          style={{
+            width: `${percent}%`,
+            backgroundColor: barColor,
+            transition: 'width 0.45s ease'
+          }}
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function Header({
   user,
@@ -27,7 +129,9 @@ export default function Header({
   const [editingNameValue, setEditingNameValue] = useState("");
   const [tempWeight, setTempWeight] = useState(currentWeight);
 
-  const proteinPercent = Math.round((macros.p / 140) * 100);
+  const caloriesValue = macros.cal || 0;
+  const scale = getCalorieScaleState(caloriesValue, CALORIES_TARGET);
+  const scaleColor = SCALE_COLORS[scale.level];
 
   return (
     <div className="max-w-lg mx-auto">
@@ -141,52 +245,52 @@ export default function Header({
       </div>
 
       {/* Macros Card */}
-      <div className="mx-4 mt-4 bg-white rounded-2xl overflow-hidden">
-        <div className="px-4 py-4">
-          {/* Protein Progress */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-baseline gap-2">
-              <span className="text-[15px] text-[#8E8E93]">Білки</span>
-              <span className={`text-[28px] font-bold ${proteinPercent >= 100 ? 'text-[#34C759]' : 'text-[#007AFF]'}`}>
-                {macros.p}
-              </span>
-              <span className="text-[15px] text-[#C7C7CC]">/ 140г</span>
+      <div className="mx-4 mt-4 bg-white rounded-2xl border border-white/70 shadow-[0_10px_30px_rgba(16,24,40,0.06)] overflow-hidden">
+        <div className="px-4 py-3.5">
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0">
+              <div
+                className="absolute inset-1 rounded-full blur-md"
+                style={{ backgroundColor: `${scaleColor}1A` }}
+              />
+              <div className={`relative w-[88px] h-[88px] flex items-center justify-center ${scale.level === 'danger' ? 'animate-pulse' : ''}`}>
+                <ProgressRing percent={scale.percent} color={scaleColor} />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-[24px] leading-none font-bold" style={{ color: scaleColor }}>
+                    {caloriesValue}
+                  </span>
+                  <span
+                    className="text-[10px] tracking-[0.06em] uppercase mt-1"
+                    style={{ color: scale.percent >= 100 ? scaleColor : '#8E8E93' }}
+                  >
+                    {scale.percent >= 100 ? `${scale.percent}%` : 'ккал'}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className={`px-3 py-1 rounded-full ${proteinPercent >= 100 ? 'bg-[#34C759]/10' : 'bg-[#007AFF]/10'}`}>
-              <span className={`text-[15px] font-semibold ${proteinPercent >= 100 ? 'text-[#34C759]' : 'text-[#007AFF]'}`}>
-                {proteinPercent}%
-              </span>
+
+            <div className="flex-1 min-w-0 space-y-2.5">
+              {MACRO_PROGRESS.map((item) => (
+                <MacroProgressRow
+                  key={item.key}
+                  label={item.label}
+                  value={macros[item.key] || 0}
+                  target={MACRO_TARGETS[item.key]}
+                  color={item.color}
+                  track={item.track}
+                />
+              ))}
             </div>
           </div>
 
-          {/* Progress Bar */}
-          <div className="h-2 bg-[#F2F2F7] rounded-full overflow-hidden mb-4">
+          {scale.overAmount > 0 && (
             <div
-              className="h-full rounded-full transition-all duration-500"
-              style={{
-                width: `${Math.min(proteinPercent, 100)}%`,
-                backgroundColor: proteinPercent >= 100 ? '#34C759' : '#007AFF'
-              }}
-            />
-          </div>
-
-          {/* Other Macros */}
-          <div className="flex items-center justify-between">
-            <div className="flex gap-4">
-              <div className="text-center">
-                <div className="text-[13px] text-[#8E8E93] mb-0.5">Жири</div>
-                <div className="text-[17px] font-semibold">{macros.f}г</div>
-              </div>
-              <div className="text-center">
-                <div className="text-[13px] text-[#8E8E93] mb-0.5">Вуглеводи</div>
-                <div className="text-[17px] font-semibold">{macros.c}г</div>
-              </div>
+              className={`mt-3 rounded-xl px-3 py-2 text-center text-[13px] font-semibold text-white ${scale.level === 'danger' ? 'animate-pulse' : ''}`}
+              style={{ backgroundColor: scaleColor }}
+            >
+              Перевищення: +{scale.overAmount} ккал понад норму
             </div>
-            <div className="text-right">
-              <div className="text-[13px] text-[#8E8E93] mb-0.5">Калорії</div>
-              <div className="text-[22px] font-bold text-[#FF9500]">{macros.cal || 0}</div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -204,8 +308,8 @@ export default function Header({
                 onClick={() => onMealSelect(num)}
                 className={`flex flex-col items-center gap-1 py-3 rounded-xl transition-all ${
                   isSelected
-                    ? 'bg-[#007AFF]/10'
-                    : 'active:bg-[#F2F2F7]'
+                    ? 'bg-white shadow-[0_6px_16px_rgba(16,24,40,0.10)] border border-[#DCEBFF]'
+                    : 'bg-[#F7F7FA] border border-[#ECECF1] active:bg-[#F2F2F7]'
                 }`}
               >
                 <Icon
