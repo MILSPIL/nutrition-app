@@ -11,7 +11,7 @@
 
 Read-only інвентаризація 20 жовтня: xCloud API підтвердив MS-WEB/OpenLiteSpeed/Ubuntu 24.04.4, 4 ядра, 7935 MiB RAM, близько 5262 MiB доступно. Node не встановлений, Supervisor доступний, окремого SciSense-сайту немає. Три сусідні сайти до змін мають HTTPS 200. Запас пам’яті є моментним виміром, а не гарантією швидкості Whisper.
 
-Cloudflare має активну зону, proxied A на погоджений сервер, HTTPS 200 із валідною перевіркою TLS; SSL mode full. Origin certificate/Full(strict) ще не доведені. xCloud git/detect підтвердив public repo, CRA/static/build і native compatibility; це не dry-run створення. Dry-run повернув 403, діагностика прав токена теж 403. Чинний токен не змінювався, потрібен окремий deployment-доступ.
+Cloudflare має активну зону, proxied A на погоджений сервер, HTTPS 200 із валідною перевіркою TLS; SSL mode full. Origin certificate/Full(strict) ще не доведені. xCloud git/detect підтвердив public repo, CRA/static/build і native compatibility; це не dry-run створення. Dry-run повернув 403, діагностика прав токена теж 403. Історичний токен не змінювався. Оновлення 23:39: спільний Keychain-токен і MCP для Codex/Claude перевірені (REST/MCP200, servers.index MS-WEB); dry-run тепер повертає 422 required ssl_certificate/ssl_private_key для custom TLS. Сайт не створено.
 
 ## Варіанти
 

@@ -3,8 +3,8 @@ project: nutrition-app
 domain: deploy
 slot: target
 confidence: 0
-valid_at: "2026-10-20T20:27:01.470281+00:00"
-provenance: Пряме уточнення власника; офіційні xCloud MCP docs; журнал 2026-10-20-2322; незалежне рев’ю доповнення.
+valid_at: "2026-10-20T20:39:16.286395+00:00"
+provenance: Живий Keychain+REST/MCP check; установлені конфіги двох клієнтів; незалежне рев’ю; журнал 2026-10-20-2339.
 ---
 
-Ціль Юрія 2026-10-20: https://ntzg.pp.ua на MS-WEB Server через Cloudflare. Firebase Auth/Firestore лишаються. Read-only: DNS/edge HTTPS 200, SSL full, origin strict ще не перевірено; сайт SciSense/API не створені. Доповнення docs/superpowers/plans/2026-10-20-ntzg-whisper-addendum.md пройшло незалежне Codex рев’ю N01–N05, нове серверне виконання ще до погодження. Єдиний $5 бюджет потребує transfer-marker перед активацією VPS. G04 і D01–D07 перед приватним пілотом/релізом. Юрій уточнив xCloud-токен як спільний для агентів: ms-web-xcloud/api-token у Keychain, read/write servers/sites + read:billing + mcp:invoke; новий токен і підключення ще не перевірені. Чинні MCP-конфігурації не змінено.
+Ціль Юрія: https://ntzg.pp.ua на MS-WEB Server через Cloudflare; Firebase Auth/Firestore лишаються. Спільний xCloud MCP через ms-web-xcloud/api-token у Keychain встановлено в Codex/Claude Code 2026-10-20: initialize/list/servers.index PASS, MS-WEB знайдений, 5 compact tools. Launcher no plaintext/OAuth fallback, 8/8 тестів і незалежний Codex K01–K05 PASS; CLI configs перевірені, потрібні нові активні сесії. Dry-run уже доходить до 422 required ssl_certificate/ssl_private_key для custom TLS; сайт не створено. Node/G04/Origin CA+Full(strict)/release/phone pending. Доповнення docs/superpowers/plans/2026-10-20-ntzg-whisper-addendum.md N01–N05 PASS, серверний код ще до погодження. $5 один, paid0; G04 і D01–D07 перед пілотом.
