@@ -5,7 +5,7 @@
 - Firebase Hosting: https://nutrition-tracker-ua.web.app
 - GitHub: https://github.com/MILSPIL/nutrition-app
 
-## Поточна версія: 1.5.0
+## Поточна версія пакета: 1.6.0
 
 ## Команди
 
@@ -82,6 +82,10 @@ trainerRequests/{requestId}
 - Production build робиться без sourcemaps через шум від `html5-qrcode` у CRA
 
 ## Версії
+
+### Локальна реалізація голосу й фото, 20.10.2026
+
+У codex/voice-photo-entry додано запис з головного екрана, два фото упаковки, спільне прев’ю, транзакційне збереження за датою і знеособлений облік пілоту. Код c9f3ab3 пройшов незалежне рев’ю, 88 тестів застосунку, 17 Worker і 17 сховища. Реальні API та production вимкнені; це не оголошення нового випуску. [Перевірка й відкриті гейти](docs/VOICE-PHOTO-VALIDATION.md).
 
 ### v1.5.0 (20.04.2026)
 - Додано `src/utils/date.js` з єдиними helper-функціями для локальних дат, `today`, max date для input і розрахунку дня програми

@@ -31,10 +31,10 @@ src/services/{mealItems,mealCommands,mealStore,useMealDay,nutrition}.js, ClientA
 Codex voice_storage_api_review. Підтверджені й виправлені: pending action могла повертати успіх іншої команди; recursive merge root лишав старі групи; повний profile міг повернути старі налаштування; portion/raw-cooked display після редагування; LAB hostname міг повернути production; legacy тотожного історичного дня блокувався; metadata могла замінювати історичну вагу/номер дня. Додатково виправлено падіння відкриття каталогу групи voice. Остаточний незалежний вердикт блоку 2: done, відкритих findings 0. Рев’юер сам повторив 37 unit, 3 regression (без ще відсутнього мікрофона), 17 emulator, 12 Worker і 6 RSA/JWT auth-сценаріїв без мережі.
 
 ## Результат
-Блок збереження й сервера пройшов незалежну перевірку. Медіаінтерфейс ще не підключений. Це не завершення V01–V09 або продукту.
+Локальна реалізація голосу й фото пройшла рев’ю та фінальні тести на коді c9f3ab3: 88 Jest,17 Worker,17 emulator, build і dry-run. Це не завершення реального V01–V03/V09 або продукту.
 
 ## Наступні кроки
-Завершити блок 2 і commit/push, блок 3 media/preview/pilot ledger, isolated browser QA, фінальні тести/CI/review і PR. Потім конкретний окремий дозвіл на API/телефон.
+Завершити GitHub CI для фінального PR. Потім окремо погодити конкретний API-прогін; підготувати телефонний канал. G04 і release залишаються гейтами приватного пілоту.
 
 ## Ризики / нотатки
 Немає платних API-викликів, deploy, приватного пілоту чи змін access rules. G04 лишається гейтом. Старі deployed writers ще треба відключити/контрольовано оновити перед релізом. Real phone/API V01–V03/V09 pending; синтетичні fixtures не замінюють ці докази. Сирі медіа, особисті дані й секрети не потрапляли у Git.
@@ -69,3 +69,11 @@ Codex voice_storage_api_review. Підтверджені й виправлені
 
 ## Worker після аудиту
 Wrangler оновлено з 4.43.0 до 4.151.3, audit 0. Новий Miniflare 5 використовує convertV4MiniflareOptions: старий приклад README не відповідав constructor schema, перший runtime-тест відмовив до запуску. Після звірки власних type declarations та converter: Worker 17/17 PASS, включно з реальною SQLite workerd, одночасними резервами, збереженням маркерів/бюджету після dispose і нового process. Тест блокує мережу, вимикає telemetry/cf і прибирає власну теку у finally. compatibility_date 2026-10-19 відповідає встановленому runtime.
+
+## Фінальна локальна перевірка
+- Код c9f3ab3: 88/88 Jest,17/17 Worker,17/17 demo Firestore; npm run build, Worker dry-run і diff check PASS.
+- Повторне незалежне рев’ю Codex знайшло ще один P2: після зовнішнього retry панель не оновлювала pilotVersion. Виправлено лише після ACK, повторна in-memory інтеграція справжніх VoiceInputModal/useMealDay/PilotPanel підтвердила тотожну команду, один item, saved та можливість підтвердити1/1. Остаточний вердикт: локальний PR готовий, відкритих P1/P2 немає.
+- Оновлено PROJECT-INFO, Goal-документ, AGENTS, DEVELOPMENT, інструкції запуску й приймання; .mjs додано до індексованих типів. Раніше погоджений план повторно не запитувався.
+
+- Фінальний browser на c9f3ab3:25/25, сесія d4cadadc464d4129-9z8ntzwi; cleanup_ok=true,removed=true. Артефакти оновлено, manifest verification.json.
+- Code Indexer: Goal active, G01 passed, G02–G11 pending; картки й профілі актуалізовано, обидва експорти успішні. Журнал і код підуть у main лише через PR; прямого push main немає.
