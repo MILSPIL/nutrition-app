@@ -1,0 +1,47 @@
+{
+  "schema_version": 2,
+  "project": "nutrition-app",
+  "phase": {
+    "id": "phase_81834b87789c",
+    "project": "nutrition-app",
+    "product": null,
+    "name": "Відновлення роботи після перевірки 2026-10-20",
+    "goal": "Закрити підтверджені дефекти доступу та підготувати голосове введення до окремого рішення про публікацію.",
+    "success_criteria": "- Правила доступу перевірено на локальному емуляторі.\n- Голосове введення має наскрізну перевірку.\n- Залежності оцінено з урахуванням фактичного використання.\n- Production змінюється лише після окремого дозволу.",
+    "status": "planned",
+    "parent_phase_id": null,
+    "depends_on": [],
+    "order_hint": null,
+    "author": null,
+    "created_at": "2026-10-20T08:27:53.755990+00:00",
+    "updated_at": "2026-10-20T08:27:53.755990+00:00",
+    "valid_from": null,
+    "expires_at": null,
+    "importance": null,
+    "tags": [],
+    "soft_deleted_at": null,
+    "archived_at": null,
+    "source_path": null,
+    "last_exported_at": null,
+    "last_exported_hash": null,
+    "health": null,
+    "health_note": null,
+    "health_updated_at": null
+  },
+  "phase_revisions": [
+    {
+      "id": "rev_3197f7132b14",
+      "phase_id": "phase_81834b87789c",
+      "field": "__create__",
+      "old_value": null,
+      "new_value": "{\"id\":\"phase_81834b87789c\",\"project\":\"nutrition-app\",\"product\":null,\"name\":\"Відновлення роботи після перевірки 2026-10-20\",\"goal\":\"Закрити підтверджені дефекти доступу та підготувати голосове введення до окремого рішення про публікацію.\",\"success_criteria\":\"- Правила доступу перевірено на локальному емуляторі.\\n- Голосове введення має наскрізну перевірку.\\n- Залежності оцінено з урахуванням фактичного використання.\\n- Production змінюється лише після окремого дозволу.\",\"status\":\"planned\",\"parent_phase_id\":null,\"depends_on\":[],\"order_hint\":null,\"author\":null,\"created_at\":\"2026-10-20T08:27:53.755990+00:00\",\"updated_at\":\"2026-10-20T08:27:53.755990+00:00\",\"valid_from\":null,\"expires_at\":null,\"importance\":null,\"tags\":[],\"soft_deleted_at\":null,\"archived_at\":null,\"source_path\":null,\"last_exported_at\":null,\"last_exported_hash\":null,\"health\":null,\"health_note\":null,\"health_updated_at\":null}",
+      "reason": null,
+      "author": null,
+      "actor_client": null,
+      "actor_model": null,
+      "at": "2026-10-20T08:27:53.755990+00:00",
+      "project": "nutrition-app",
+      "product": null
+    }
+  ]
+}

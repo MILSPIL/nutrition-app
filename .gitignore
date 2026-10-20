@@ -74,3 +74,10 @@ node_modules*/
 
 # Build output
 build/
+
+# Локальні налаштування індексатора, звіти й особисті дані
+.indexer.local.toml
+.agents/runtime/
+tmp/codeindexer-audit/
+food-log/
+knowledge/trainer-program.md

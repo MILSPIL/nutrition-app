@@ -1,0 +1,23 @@
+# Індекс поточного робочого дерева SciSense.
+project_name = "nutrition-app"
+ignore_gitignore = false
+index_archives = false
+extensions = ["js", "jsx", "ts", "tsx", "css", "html", "json", "yaml", "yml", "toml", "md", "sh", "rules"]
+
+# Особисті записи, секрети, тимчасові макети та службові копії не є кодом застосунку.
+exclude = [
+  "food-log",
+  "knowledge",
+  "tmp",
+  ".agents/runtime",
+  ".agents/.join-backup-20260707",
+  ".superpowers",
+  ".firebase",
+  ".wrangler",
+  ".env",
+  ".env.local",
+  ".env.development.local",
+  ".env.test.local",
+  ".env.production.local",
+  ".dev.vars",
+]
