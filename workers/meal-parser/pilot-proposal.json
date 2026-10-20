@@ -1,0 +1,53 @@
+{
+  "proposalId": "scisense-phone-api-2026-10-20",
+  "status": "pending_owner_approval",
+  "LIVE_ENABLED": "false",
+  "goalId": "objective_e45aa8ac1aa3",
+  "environment": "local_https_demo_only",
+  "FIREBASE_PROJECT": "demo-scisense",
+  "accountVerification": {
+    "anthropicCreditOrganization": false,
+    "anthropicProjectKey": false,
+    "openaiProjectKey": false,
+    "openaiExistingBalance": false
+  },
+  "candidateA": {
+    "TRANSCRIBE_MODEL": "gpt-4o-mini-transcribe-2025-12-15",
+    "PARSE_MODEL": "claude-haiku-5-5",
+    "PRICING_MODEL_PAIR": "gpt-4o-mini-transcribe-2025-12-15|claude-haiku-5-5",
+    "PRICING_APPROVED_AT": "",
+    "pricingCheckedAt": "2026-10-20",
+    "TRANSCRIBE_INPUT_MICROS_PER_MTOK": 1250000,
+    "TRANSCRIBE_OUTPUT_MICROS_PER_MTOK": 5000000,
+    "INPUT_MICROS_PER_MTOK": 100000,
+    "OUTPUT_MICROS_PER_MTOK": 500000,
+    "PILOT_BUDGET_MICROS": 1000000,
+    "plan": {
+      "transcribe": 10,
+      "analyzeNoPhoto": 10,
+      "analyzeOnePhoto": 5,
+      "analyzeTwoPhotos": 5,
+      "maxSecondsPerRecording": 90,
+      "maxTextUtf8BytesForEstimate": 32000
+    },
+    "liveConfigurationComplete": false,
+    "creditCoverage": "Anthropic only; OpenAI separate, existing balance only, no purchase or auto-reload approved"
+  },
+  "candidateB": {
+    "localTranscription": "whisper.cpp v1.9.5 / large-v3-turbo-q5_0",
+    "PARSE_MODEL": "claude-haiku-5-5",
+    "PILOT_BUDGET_MICROS": 250000,
+    "implemented": false,
+    "creditCoverage": "Anthropic only; local transcription has no API charge"
+  },
+  "sources": {
+    "credits": "https://support.claude.com/en/articles/17154008-monthly-api-credits-for-max-and-team-plans",
+    "haiku": "https://platform.claude.com/docs/en/models/haiku-5-5/overview",
+    "haikuContract": "https://platform.claude.com/docs/en/models/haiku-5-5/migration-guide",
+    "vision": "https://platform.claude.com/docs/en/build-with-claude/vision",
+    "openaiPricing": "https://developers.openai.com/api/docs/pricing",
+    "transcribeCaps": "https://developers.openai.com/api/docs/models/gpt-4o-mini-transcribe",
+    "transcribeRetirement": "https://developers.openai.com/api/docs/deprecations",
+    "whisper": "https://github.com/ggml-org/whisper.cpp/tree/d1be6fde11ac6e0407606b4e42fe72d34add8037"
+  }
+}
