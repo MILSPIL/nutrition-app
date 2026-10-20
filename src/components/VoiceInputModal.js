@@ -253,7 +253,7 @@ export default function VoiceInputModal({
         parsed.items.filter((i) => itemProblems(i).length).length;
       metrics.current.clarifications += questions;
       setPhotoIssue(false);
-      setDirtyText(false);
+      if (!rowId) setDirtyText(false);
       setState("preview");
       retryTask.current = null;
       await track(
@@ -352,9 +352,12 @@ export default function VoiceInputModal({
     }
     if (saving.current) return;
     if (saveUnknown) {
-      setError(
-        "Спочатку перевірте результат збереження. Це запобігає повторному додаванню.",
-      );
+      if (
+        window.confirm(
+          "Результат збереження ще невідомий. Закрити чернетку? На головному екрані натисніть «Повторити» після відновлення зв’язку. Не додавайте цей прийом заново до перевірки.",
+        )
+      )
+        onClose();
       return;
     }
     if (

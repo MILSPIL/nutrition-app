@@ -520,7 +520,7 @@ export default function ClientApp() {
         {!mealDay.ready && <p role="status">Завантажую день…</p>}
         {mealDay.busy && <p role="status">Зберігаю…</p>}
         {mealDay.error && <div role="alert"><p>{mealDay.error}</p>
-          <button onClick={()=>mealDay.hasPending?mealDay.retry().catch(()=>{}):mealDay.reload()} className="p-3 text-[#007AFF]">Повторити</button>
+          <button onClick={()=>mealDay.hasPending?mealDay.retry().then(()=>setPilotVersion(x=>x+1)).catch(()=>{}):mealDay.reload()} className="p-3 text-[#007AFF]">Повторити</button>
           {mealDay.error.includes('іншому сеансі') && <button onClick={mealDay.reload} className="p-3 text-[#007AFF]">Перечитати день</button>}
         </div>}
         {mealDay.day.legacy && <div role="alert" className="p-3 bg-white rounded-xl mt-2">

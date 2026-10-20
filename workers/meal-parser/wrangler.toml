@@ -1,6 +1,6 @@
 name = "scisense-meal-parser"
 main = "src/index.js"
-compatibility_date = "2026-10-20"
+compatibility_date = "2026-10-19"
 [vars]
 LIVE_ENABLED = "false"
 ALLOWED_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"

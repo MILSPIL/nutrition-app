@@ -50,13 +50,23 @@ async function input(request,kind) {
  }
  return {text:body.text,images:body.images};
 }
-// Вартість резервується за верхньою межею: UTF-8 байти як консервативна межа токенів,
-// 2 зображення по 10000 токенів, 4096 output; аудіо завжди за всі 90 с (не довіряємо duration клієнта).
+// Зафіксовані snapshot-и: https://developers.openai.com/api/docs/models/gpt-4o-mini-transcribe
+// До 16000 input та 2000 output токенів. Середня ціна хвилини не є верхньою межею.
+const transcriptionCaps = new Set(['gpt-4o-mini-transcribe-2025-12-15','gpt-4o-mini-transcribe-2025-03-20']);
 export function reservation(kind,payload,env) {
  if(!env.PRICING_APPROVED_AT||!env.PRICING_MODEL_PAIR||env.PRICING_MODEL_PAIR!==`${env.TRANSCRIBE_MODEL}|${env.PARSE_MODEL}`) fail('budget_disabled',503);
- const prices=['AUDIO_MICROS_PER_MINUTE','INPUT_MICROS_PER_MTOK','OUTPUT_MICROS_PER_MTOK'].map(k=>Number(env[k]));
- if(prices.some(x=>!Number.isSafeInteger(x)||x<=0)) fail('budget_disabled',503);
- return kind==='transcribe'?Math.ceil(prices[0]*1.5):Math.ceil(((new TextEncoder().encode(payload.text).length+16000+payload.images.length*10000)*prices[1]+4096*prices[2])/1000000);
+ const price = key => { const value=Number(env[key]); if(!Number.isSafeInteger(value)||value<=0) fail('budget_disabled',503); return value; };
+ let cost;
+ if(kind==='transcribe') {
+  if(!transcriptionCaps.has(env.TRANSCRIBE_MODEL)) fail('budget_disabled',503);
+  cost=Math.ceil((16000*price('TRANSCRIBE_INPUT_MICROS_PER_MTOK')+2000*price('TRANSCRIBE_OUTPUT_MICROS_PER_MTOK'))/1000000);
+ } else {
+  // UTF-8 байти як верхня межа токенів тексту, запас для інструкцій/схеми,
+  // до 10000 токенів на зображення і фактичний max_tokens=4096 для output.
+  cost=Math.ceil(((new TextEncoder().encode(payload.text).length+16000+payload.images.length*10000)*price('INPUT_MICROS_PER_MTOK')+4096*price('OUTPUT_MICROS_PER_MTOK'))/1000000);
+ }
+ if(!Number.isSafeInteger(cost)||cost<=0) fail('budget_disabled',503);
+ return cost;
 }
 export function createHandler(deps={}) {
  return {async fetch(request,env) {

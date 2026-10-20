@@ -53,3 +53,19 @@ Codex voice_storage_api_review. Підтверджені й виправлені
 - Фінальний браузерний прогін: 25/25, сесія 3ea2c8b0a2a74d28-8ihqv2nx, cleanup_ok=true, removed=true. Перевірено синтетичний запис, два фото, 106 ккал, reload, звіт, облік невдач. Дані та скриншоти у docs/evidence/voice-photo-2026-10-20; це тільки fixtures, не реальний API/телефон.
 - Виправлено нестабільність тестового закриття двох послідовних onboarding-вікон через точний selector і очікування закриття. Продуктова поведінка при цьому не змінювалася.
 - npm audit: наявний root має 98 findings (3 critical), новий Worker toolchain має 5 high. Новий інструментарій буде оновлено до виправленої версії; старі залежності залишаються в окремій картці G08.
+
+## Claude: звірка завершена
+Модель з шапки: claude-fable-5-1. Вхід 226, вихід 48588, створення кешу 194556, читання кешу 853408, разом 1096778 токенів; 710.3 с; exit 0; відмов дозволу 0. Рев’ю лише читало код. Сирий звіт лишився в ignored runtime.
+
+| Знахідка Claude | Що перевірив | Вердикт і дія |
+| --- | --- | --- |
+| Фото скидало dirtyText після дописаного продукту | VoiceInputModal.js, analyze з rowId і setDirtyText | Підтверджено; фото зберігає dirtyText, потрібен повний повторний розбір; regression PASS |
+| Будь-яке поле стирало clarification | Обробники quantity/name/basis/nutrients | Підтверджено, вже виправлено за Codex-рев’ю; 4 regression PASS |
+| Unknown save не дозволяв закрити модалку | close, useMealDay pending, ClientApp retry | Підтверджено; дозволено явний вихід з попередженням, frozen command лишається для retry. Після ACK зовнішнього retry оновлюється панель пілоту |
+| Хвилинний резерв не враховував output транскрипції | Worker reservation; офіційні caps моделі 16000/2000 | Підтверджено; окремі input/output ціни та консервативний повний token cap для двох pinned snapshot-ів, невідомі моделі fail closed |
+| Emulator JWT несумісний з production JWT, немає WAV contract test | authenticate/RS256, multipart input, browser route fixtures | Частково: телефонний адаптер навмисно ще pending; додано справжній multipart parser → provider adapter тест і відмову unsigned JWT. Production auth не послаблено |
+
+Додаткові нотатки: стан untracked на момент читання усунуто комітом 58fe087; UI QA локальний через власний launcher і не видається за GitHub browser CI. Firebase Web API config є публічним ідентифікатором, не новим секретом продукту; значення не повторюється у звіті. API restrictions/G04 залишаються релізними гейтами.
+
+## Worker після аудиту
+Wrangler оновлено з 4.43.0 до 4.151.3, audit 0. Новий Miniflare 5 використовує convertV4MiniflareOptions: старий приклад README не відповідав constructor schema, перший runtime-тест відмовив до запуску. Після звірки власних type declarations та converter: Worker 17/17 PASS, включно з реальною SQLite workerd, одночасними резервами, збереженням маркерів/бюджету після dispose і нового process. Тест блокує мережу, вимикає telemetry/cf і прибирає власну теку у finally. compatibility_date 2026-10-19 відповідає встановленому runtime.

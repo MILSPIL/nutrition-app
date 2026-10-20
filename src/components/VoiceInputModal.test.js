@@ -360,3 +360,36 @@ test.each([
     expect(props.onAdd).not.toHaveBeenCalled();
   },
 );
+
+test("фото одного продукту не скасовує повторний розбір зміненого тексту", async () => {
+  await render();
+  await stop();
+  await change("Розпізнаний текст", "Кефір 200 г і хліб 50 г");
+  props.api.analyze.mockResolvedValueOnce(
+    answer([{ ...food(), source: { kind: "label" } }]),
+  );
+  await photo();
+  expect(button("Оновити за текстом")).toBeTruthy();
+  expect(button("Додати").disabled).toBe(true);
+  props.api.analyze.mockResolvedValueOnce(answer([food(), food("Хліб")]));
+  await click("Оновити за текстом");
+  expect(container.querySelectorAll('[data-testid="voice-item"]')).toHaveLength(
+    2,
+  );
+  expect(button("Додати").disabled).toBe(false);
+});
+test("невизначений commit дозволяє свідомий вихід без нового запису чи успіху", async () => {
+  props.onAdd.mockRejectedValueOnce(Error("save_unknown"));
+  await render();
+  await stop();
+  await click("Додати");
+  window.confirm.mockReturnValueOnce(false);
+  await click("Закрити голосову чернетку");
+  expect(props.onClose).not.toHaveBeenCalled();
+  window.confirm.mockReturnValueOnce(true);
+  await click("Закрити голосову чернетку");
+  expect(props.onClose).toHaveBeenCalledTimes(1);
+  expect(props.onAdd).toHaveBeenCalledTimes(1);
+  expect(rows[0].status).toBe("unknown");
+  expect(pilotSummary(rows).successes).toBe(0);
+});
