@@ -13,7 +13,7 @@ export class PilotBudget {
       if (body.action==='finish') { this.sql.exec('UPDATE calls SET finished=? WHERE id=?',Date.now(),body.id); return json({ok:true}); }
       if (body.action!=='reserve' || !/^[a-f0-9]{64}$/.test(body.uid || '')) return json({error:'invalid_request'},400);
       const budget=Number(this.env.PILOT_BUDGET_MICROS),cost=Number(body.cost);
-      if(!Number.isSafeInteger(budget)||budget<=0||!Number.isSafeInteger(cost)||cost<=0) return json({error:'budget_disabled'},503);
+      if(!Number.isSafeInteger(budget)||budget<=0||!Number.isSafeInteger(cost)||cost<0) return json({error:'budget_disabled'},503);
       return this.storage.transactionSync(()=>{
         const now=Date.now(),dayStart=Math.floor(now/86400000)*86400000;
         if(this.sql.exec('SELECT id FROM calls WHERE id=?',body.id).toArray().length) return json({error:'request_reused'},409);

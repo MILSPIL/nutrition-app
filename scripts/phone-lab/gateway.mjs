@@ -79,8 +79,8 @@ function send(res, status, value, type = "application/json") {
 }
 const page = (content) =>
   `<!doctype html><html lang="uk"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>SciSense: лабораторія</title><style>body{font:18px system-ui;max-width:560px;margin:10vh auto;padding:24px}input,button{font:inherit;padding:14px;box-sizing:border-box;width:100%;margin:8px 0}code{font-size:24px}p{line-height:1.5}</style><h1>SciSense: тест із телефона</h1>${content}</html>`;
-const pairPage = page(
-  '<p>Тестова база на Mac. Реальні API поки вимкнені.</p><p>Введіть одноразовий код зі сторінки налаштування на Mac.</p><form method="post" action="/lab/pair"><label>Код сполучення<input name="code" autocomplete="off" required maxlength="24"></label><button>Підключити телефон</button></form>',
+const pairPage = (live) => page(
+  `<p>Тестова база на Mac. ${live ? 'Whisper + Sonnet увімкнені. Ліміт тесту $5.' : 'Реальні API поки вимкнені.'}</p><p>Введіть одноразовий код зі сторінки налаштування на Mac.</p><form method="post" action="/lab/pair"><label>Код сполучення<input name="code" autocomplete="off" required maxlength="24"></label><button>Підключити телефон</button></form>`,
 );
 
 export async function createPhoneGateway({
@@ -93,6 +93,7 @@ export async function createPhoneGateway({
   firestorePort = 8088,
   apiEnv = {},
   provider,
+  localTranscription = false,
   now = Date.now,
 }) {
   if (
@@ -132,6 +133,7 @@ export async function createPhoneGateway({
   };
   const handler = createHandler({
     provider,
+    localTranscription,
     authenticate: async (request) => {
       const token = request.headers
         .get("Authorization")
@@ -188,7 +190,7 @@ export async function createPhoneGateway({
             throw deny("local_only", 403);
           const content =
             pairing && pairExpires > now()
-              ? `<p>На телефоні відкрийте ${origin} і введіть код:</p><code>${pairing}</code><p>Код діє 15 хвилин і лише один раз. API вимкнені.</p>`
+              ? `<p>На телефоні відкрийте ${origin} і введіть код:</p><code>${pairing}</code><p>Код діє 15 хвилин і лише один раз. ${env.LIVE_ENABLED === 'true' ? 'Whisper + Sonnet увімкнені, ліміт $5.' : 'API вимкнені.'}</p>`
               : "<p>Код використано або час сплив. Для нового сполучення перезапустіть лабораторію.</p>";
           return send(res, 200, page(content), "text/html; charset=utf-8");
         }
@@ -221,7 +223,7 @@ export async function createPhoneGateway({
         }
         if (!pairedRequest(req)) {
           if (pathname === "/" && req.method === "GET")
-            return send(res, 200, pairPage, "text/html; charset=utf-8");
+            return send(res, 200, pairPage(env.LIVE_ENABLED === "true"), "text/html; charset=utf-8");
           throw deny();
         }
         if (pathname === "/lab/token" && req.method === "POST") {
@@ -247,6 +249,10 @@ export async function createPhoneGateway({
         if (/^\/meal-api\/(transcribe|analyze)$/.test(pathname)) {
           if (req.method !== "POST" || req.headers.origin !== origin)
             throw deny("origin_forbidden", 403);
+          const controller = new AbortController();
+          const abort = () => { if (!res.writableEnded) controller.abort(); };
+          res.once("close", abort);
+          try {
           const response = await handler.fetch(
             new Request(origin + pathname.replace("/meal-api", ""), {
               method: "POST",
@@ -256,11 +262,13 @@ export async function createPhoneGateway({
                 "Content-Type": req.headers["content-type"] || "",
               },
               body: await bodyOf(req),
+              signal: controller.signal,
             }),
             env,
           );
           res.writeHead(response.status, Object.fromEntries(response.headers));
           return res.end(Buffer.from(await response.arrayBuffer()));
+          } finally { res.off("close", abort); }
         }
         let upstream;
         const database = `projects/${PROJECT}/databases/(default)`;

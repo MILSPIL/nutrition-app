@@ -53,11 +53,13 @@ async function input(request,kind) {
 // Зафіксовані snapshot-и: https://developers.openai.com/api/docs/models/gpt-4o-mini-transcribe
 // До 16000 input та 2000 output токенів. Середня ціна хвилини не є верхньою межею.
 const transcriptionCaps = new Set(['gpt-4o-mini-transcribe-2025-12-15','gpt-4o-mini-transcribe-2025-03-20']);
-export function reservation(kind,payload,env) {
+export const LOCAL_TRANSCRIBE_MODEL='whisper.cpp-v1.9.5-large-v3-turbo-q5_0';
+export function reservation(kind,payload,env,{localTranscription=false}={}) {
  if(!env.PRICING_APPROVED_AT||!env.PRICING_MODEL_PAIR||env.PRICING_MODEL_PAIR!==`${env.TRANSCRIBE_MODEL}|${env.PARSE_MODEL}`) fail('budget_disabled',503);
  const price = key => { const value=Number(env[key]); if(!Number.isSafeInteger(value)||value<=0) fail('budget_disabled',503); return value; };
  let cost;
  if(kind==='transcribe') {
+  if(localTranscription && env.TRANSCRIBE_MODEL===LOCAL_TRANSCRIBE_MODEL) return 0;
   if(!transcriptionCaps.has(env.TRANSCRIBE_MODEL)) fail('budget_disabled',503);
   cost=Math.ceil((16000*price('TRANSCRIBE_INPUT_MICROS_PER_MTOK')+2000*price('TRANSCRIBE_OUTPUT_MICROS_PER_MTOK'))/1000000);
  } else {
@@ -82,12 +84,13 @@ export function createHandler(deps={}) {
    if(!kind) return reply({error:'not_found'},404);
    const uid=await (deps.authenticate||authenticate)(request,env);
    if(!(env.ALLOWED_UIDS||'').split(',').includes(uid)) return reply({error:'pilot_forbidden'},403);
-   if(env.LIVE_ENABLED!=='true'||!env.TRANSCRIBE_MODEL||!env.PARSE_MODEL||!env.OPENAI_API_KEY||!env.ANTHROPIC_API_KEY||!env.PILOT_BUDGET) return reply({error:'live_disabled'},503);
-   const payload=await input(request,kind),cost=reservation(kind,payload,env);
+   const localTranscription=deps.localTranscription===true && env.TRANSCRIBE_MODEL===LOCAL_TRANSCRIBE_MODEL && typeof deps.provider==='function';
+   if(env.LIVE_ENABLED!=='true'||!env.TRANSCRIBE_MODEL||!env.PARSE_MODEL||(!localTranscription&&!env.OPENAI_API_KEY)||!env.ANTHROPIC_API_KEY||!env.PILOT_BUDGET) return reply({error:'live_disabled'},503);
+   const payload=await input(request,kind),cost=reservation(kind,payload,env,{localTranscription});
    budget=env.PILOT_BUDGET.get(env.PILOT_BUDGET.idFromName('pilot-v1'));id=crypto.randomUUID();
    const reserved=await budget.fetch(new Request('https://budget/reserve',{method:'POST',body:JSON.stringify({action:'reserve',id,uid:await digest(uid),cost})}));
    if(!reserved.ok) { id=null; return reply({error:reserved.status===429?'rate_limited':'limiter_unavailable'},reserved.status===429?429:503); }
-   return reply(await (deps.provider||callProvider)(kind,payload,env));
+   return reply(await (deps.provider ? deps.provider(kind,payload,env,{signal:request.signal}) : callProvider(kind,payload,env)));
   } catch(error) {
    const codes=['unauthorized','bad_request','invalid_audio','unsupported_audio','invalid_image','media_too_large','budget_disabled','empty_transcript','upstream_timeout','upstream_limited','invalid_response'];
    return reply({error:codes.includes(error.message)?error.message:'upstream_failed'},error.status||502);

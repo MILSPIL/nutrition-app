@@ -1,4 +1,4 @@
-// Підготовка й запуск лише лабораторії; цей CLI поки не має режиму платних API.
+// Підготовка й запуск ізольованої лабораторії з явно погодженим лімітом.
 import { spawn } from "node:child_process";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { networkInterfaces } from "node:os";
@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { createPhoneGateway, privateHost } from "./phone-lab/gateway.mjs";
 import { generateTls } from "./phone-lab/tls.mjs";
+import { liveRuntime } from "./phone-lab/live.mjs";
+let activeRuntime;
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const dir = path.join(root, "tmp/phone-lab"),
   configFile = path.join(dir, "config.json");
@@ -89,6 +91,13 @@ try {
         live: false,
       }),
     );
+  } else if (command === "enable-live") {
+    const config = JSON.parse(await readFile(configFile, "utf8"));
+    if (config.project !== "demo-scisense" || config.live !== false) throw Error("pilot_already_enabled");
+    activeRuntime = await liveRuntime(root, { initialize: true });
+    await activeRuntime.close(); activeRuntime = null;
+    await writeFile(configFile, JSON.stringify({ ...config, live: true }, null, 2));
+    console.log(JSON.stringify({ live: true, budgetUsd: 5, model: "claude-sonnet-5-5", transcription: "local_whisper" }));
   } else if (command === "start") {
     await readFile(configFile);
     await run(
@@ -106,10 +115,12 @@ try {
     );
   } else if (command === "serve") {
     const config = JSON.parse(await readFile(configFile, "utf8"));
-    if (config.project !== "demo-scisense" || config.live !== false)
+    if (config.project !== "demo-scisense" || typeof config.live !== "boolean")
       throw Error("Непогоджений режим API заборонено.");
+    if (config.live) activeRuntime = await liveRuntime(root);
     const gateway = await createPhoneGateway({
       ...config,
+      ...(activeRuntime || {}),
       key: await keychain("get"),
       cert: await readFile(path.join(dir, "server.crt")),
       buildDir: path.join(dir, "build"),
@@ -119,7 +130,7 @@ try {
       JSON.stringify({
         origin: gateway.origin,
         setup: gateway.origin + "/lab/setup",
-        live: false,
+        live: config.live,
         project: "demo-scisense",
       }),
     );
@@ -128,12 +139,14 @@ try {
       if (closing) return;
       closing = true;
       await gateway.close();
+      await activeRuntime?.close();
       process.exit(0);
     };
     process.on("SIGINT", close);
     process.on("SIGTERM", close);
-  } else throw Error("Команди: prepare [IPv4], start. Реальні API вимкнені.");
+  } else throw Error("Команди: prepare [IPv4], enable-live, start.");
 } catch (error) {
+  await activeRuntime?.close();
   console.error(
     error.message.startsWith("local_")
       ? "Локальна команда не виконана. Секрети не виводяться."

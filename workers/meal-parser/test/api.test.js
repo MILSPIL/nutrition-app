@@ -55,3 +55,15 @@ test('unsigned emulator token не послаблює production JWT-перев�
  const req=request(undefined,{Authorization:'Bearer eyJhbGciOiJub25lIn0.eyJzdWIiOiJvd25lciJ9.'});
  assert.equal((await createHandler().fetch(req,base)).status,401);
 });
+
+test('local Whisper reserves zero but keeps quota; default Worker cannot enable it through env',async()=>{
+ const {LOCAL_TRANSCRIBE_MODEL}=await import('../src/index.js');const events=[];
+ const env={...base,OPENAI_API_KEY:undefined,TRANSCRIBE_MODEL:LOCAL_TRANSCRIBE_MODEL,PRICING_MODEL_PAIR:`${LOCAL_TRANSCRIBE_MODEL}|test-photo`,LOCAL_TRANSCRIPTION:'true',PILOT_BUDGET:{idFromName:x=>x,get:()=>({fetch:async r=>{const b=await r.json();events.push(b.action);if(b.action==='reserve')assert.equal(b.cost,0);return Response.json({ok:true});}})}};
+ const provider=async()=>{events.push('provider');return {text:'Кефір 200 грамів'};};
+ const normal=createHandler({authenticate:async()=> 'owner',provider});
+ assert.equal((await normal.fetch(recording(),env)).status,503);assert.deepEqual(events,[]);
+ assert.throws(()=>reservation('transcribe',{},env),/budget_disabled/);
+ const local=createHandler({authenticate:async()=> 'owner',provider,localTranscription:true});
+ assert.equal((await local.fetch(recording(),env)).status,200);assert.deepEqual(events,['reserve','provider','finish']);
+ assert.throws(()=>reservation('transcribe',{}, {...env,PRICING_APPROVED_AT:''},{localTranscription:true}),/budget_disabled/);
+});
