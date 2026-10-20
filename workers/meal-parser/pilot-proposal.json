@@ -51,5 +51,8 @@
     "whisper": "https://github.com/ggml-org/whisper.cpp/tree/d1be6fde11ac6e0407606b4e42fe72d34add8037"
   },
   "recommendedCandidate": "B",
-  "recommendationReason": "Використати тільки Claude-кредити відповідно до запиту; додатковий локальний аудіоадаптер після вибору."
+  "recommendationReason": "Використати тільки Claude-кредити відповідно до запиту; додатковий локальний аудіоадаптер після вибору.",
+  "requestedCreditProvider": "anthropic",
+  "creditProviderConfirmedByOwner": true,
+  "creditProviderConfirmedAt": "2026-10-20T22:05:05+03:00"
 }
