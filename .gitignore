@@ -74,3 +74,9 @@ node_modules*/
 
 # Build output
 build/
+
+.agents/runtime/
+.indexer.local.toml
+tmp/codeindexer-audit/
+food-log/
+knowledge/trainer-program.md

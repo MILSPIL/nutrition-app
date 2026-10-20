@@ -63,3 +63,7 @@ trainerRequests/{requestId}
 
 - The app version comes from `package.json` and is passed to the client through `REACT_APP_VERSION`.
 - Shared local date helpers replace `toISOString().split('T')[0]` to avoid UTC drift near midnight.
+
+## Продуктова мета
+
+Критерії завершеного випуску SciSense, ролі приймання та зв’язок карток із кінцевим результатом: [PRODUCT-GOAL.md](docs/PRODUCT-GOAL.md). Поточний стан і порядок роботи агентів: [PROJECT-INFO.md](PROJECT-INFO.md), [AGENTS.md](AGENTS.md). Goal і план доступу є пропозиціями до погодження; код і production не змінені.

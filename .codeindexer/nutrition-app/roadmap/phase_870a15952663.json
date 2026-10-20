@@ -1,0 +1,49 @@
+{
+  "schema_version": 2,
+  "project": "nutrition-app",
+  "phase": {
+    "id": "phase_870a15952663",
+    "project": "nutrition-app",
+    "product": "scisense",
+    "name": "2. Наскрізне введення їжі",
+    "goal": "Goal objective_e45aa8ac1aa3: G02, G03, G05, G07. Завершити щоденний цикл і перевірку голосового введення в гілці feat/voice-input.",
+    "success_criteria": "Ручне та надиктоване введення проходять до перечитаного запису; помилки/скасування/дата/повтори перевірені. Реальний AI E2E тільки з окремим дозволом.",
+    "status": "planned",
+    "parent_phase_id": null,
+    "depends_on": [
+      "phase_81834b87789c"
+    ],
+    "order_hint": null,
+    "author": "Codex",
+    "created_at": "2026-10-20T08:46:52.926644+00:00",
+    "updated_at": "2026-10-20T08:46:52.926644+00:00",
+    "valid_from": null,
+    "expires_at": null,
+    "importance": null,
+    "tags": [],
+    "soft_deleted_at": null,
+    "archived_at": null,
+    "source_path": null,
+    "last_exported_at": null,
+    "last_exported_hash": null,
+    "health": null,
+    "health_note": null,
+    "health_updated_at": null
+  },
+  "phase_revisions": [
+    {
+      "id": "rev_5046d1615c31",
+      "phase_id": "phase_870a15952663",
+      "field": "__create__",
+      "old_value": null,
+      "new_value": "{\"id\":\"phase_870a15952663\",\"project\":\"nutrition-app\",\"product\":\"scisense\",\"name\":\"2. Наскрізне введення їжі\",\"goal\":\"Goal objective_e45aa8ac1aa3: G02, G03, G05, G07. Завершити щоденний цикл і перевірку голосового введення в гілці feat/voice-input.\",\"success_criteria\":\"Ручне та надиктоване введення проходять до перечитаного запису; помилки/скасування/дата/повтори перевірені. Реальний AI E2E тільки з окремим дозволом.\",\"status\":\"planned\",\"parent_phase_id\":null,\"depends_on\":[\"phase_81834b87789c\"],\"order_hint\":null,\"author\":\"Codex\",\"created_at\":\"2026-10-20T08:46:52.926644+00:00\",\"updated_at\":\"2026-10-20T08:46:52.926644+00:00\",\"valid_from\":null,\"expires_at\":null,\"importance\":null,\"tags\":[],\"soft_deleted_at\":null,\"archived_at\":null,\"source_path\":null,\"last_exported_at\":null,\"last_exported_hash\":null,\"health\":null,\"health_note\":null,\"health_updated_at\":null}",
+      "reason": null,
+      "author": "Codex",
+      "actor_client": null,
+      "actor_model": null,
+      "at": "2026-10-20T08:46:52.926644+00:00",
+      "project": "nutrition-app",
+      "product": "scisense"
+    }
+  ]
+}
