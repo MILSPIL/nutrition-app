@@ -31,7 +31,7 @@
 - gh pr view13: MERGED, exact SHA, CI2SUCCESS; gh contents на merge SHA + SHA256/byte compare:4/4.
 - xCloud MCP через встановлений Keychain launcher: read inventory/billing/docs; native TLS dry_run=true без confirm:422, не creation.
 - curl https://ntzg.pp.ua:200; /meal-api/health:404 text/html. Цей HTTP200 не є доказом готового API.
-- План у feature-коміті a25fcc87a82d27a1b1d95bb36502051535d38101, запушений у PR8 draft; CI 2/2 успішні. Усі локальні посилання існують, JSON і зміст доказів перевірені, файли непорожні, шаблонів секретів немає; git diff --check PASS. План ще не в main; джерело: https://github.com/MILSPIL/nutrition-app/blob/a25fcc87a82d27a1b1d95bb36502051535d38101/docs/superpowers/plans/2026-10-21-scisense-server-rollout.md .
+- Чернетка до рев’ю у feature-коміті a25fcc87a82d27a1b1d95bb36502051535d38101, запушений у PR8 draft; CI 2/2 успішні. Усі локальні посилання існують, JSON і зміст доказів перевірені, файли непорожні, шаблонів секретів немає; git diff --check PASS. План ще не в main; джерело: https://github.com/MILSPIL/nutrition-app/blob/a25fcc87a82d27a1b1d95bb36502051535d38101/docs/superpowers/plans/2026-10-21-scisense-server-rollout.md .
 - Експорт codeindexer обох project успішний. Context7 monthly quota вичерпана, далі лише первинні docs, без повторних звернень.
 - Поведінка застосунку не змінювалася: повторний широкий прогін старих тестів не є доказом нового сервера й не запускався.
 
@@ -52,7 +52,7 @@
 | Claude L7: Worker може стати другим шляхом витрат | wrangler.toml:5 лише local LIVE_ENABLED=false, не доказ хмарного стану | Частково; Worker не активується у варіанті A, перед серверною активацією потрібна інвентаризація інших шляхів |
 | Незалежний Codex acceptance reviewer | R01–R05 перевірено свіжими gh/byte compare, читанням canonical docs і вихідного коду; R05 повторено після всіх уточнень | PASS, документних дефектів немає; R06 звіряється за remote після перенесення цього журналу |
 
-Claude: модель claude-fable-5-1; 10 зауважень, 5 підтвердились, 4 часткові, 1 застаріле. Токени: вхід 194, вихід 35387, кеш створення 149739, кеш читання 609001, разом 794321; 724.4 секунди, exit 0, permission denials 0. Це CLI-рев’ю через підписку, не генерація з пілотного API-бюджету $5. Сирий результат лишився в ignored runtime.
+Claude: модель claude-fable-5-1; 10 зауважень, 5 підтвердились, 4 часткові, 1 застаріле. Токени: вхід 194, вихід 35387, кеш створення 149739, кеш читання 609001, разом 794321; 724.4 секунди, exit 0, permission denials 0. Це CLI-рев’ю через підписку, не генерація з пілотного API-бюджету $5. Сирий результат лишився в ignored runtime. Остаточний перевірений план після уточнень: https://github.com/MILSPIL/nutrition-app/blob/3b776f9f681fbe757e1e40b23de15f723156c69b/docs/superpowers/plans/2026-10-21-scisense-server-rollout.md .
 
 ## Результат
 
