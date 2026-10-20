@@ -80,3 +80,9 @@ build/
 tmp/codeindexer-audit/
 food-log/
 knowledge/trainer-program.md
+
+# Local voice/photo lab output and Worker secrets
+tmp/
+workers/meal-parser/.wrangler/
+.dev.vars
+.env.local

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, ChevronRight, Pencil, Check, X } from 'lucide-react';
 import { PRODUCTS_DB, MEAL_LETTERS, CATEGORY_ICONS } from '../data/products';
+import { itemMacros, quantityText, sourceText, UNITS } from '../services/mealItems';
 import { getCategoryProgress } from '../services/nutrition';
 
 export default function MealSection({
@@ -16,17 +17,17 @@ export default function MealSection({
     <div className="max-w-lg mx-auto px-4 mb-6">
       {/* iOS Grouped List */}
       <div className="bg-white rounded-2xl overflow-hidden">
-        {MEAL_LETTERS[selectedMeal].map((letter, index) => {
-          const products = meals[selectedMeal][letter] || [];
+        {[...new Set([...MEAL_LETTERS[selectedMeal],...Object.keys(meals[selectedMeal] || {})])].map((letter, index) => {
+          const products = meals[selectedMeal]?.[letter] || [];
           const categoryData = PRODUCTS_DB[letter];
           const isCalorieBased = categoryData?.isCalorieBased || false;
           const calorieLimit = categoryData?.calorieLimit || 575;
 
           // Для калорійних категорій - рахуємо калорії
-          const usedCalories = products.reduce((sum, p) => sum + (p.calories || 0), 0);
+          const usedCalories = products.reduce((sum, p) => sum + (itemMacros(p).cal), 0);
 
           // Для звичайних категорій - відсотки
-          const totalPortion = products.reduce((sum, p) => sum + p.portion, 0);
+          const totalPortion = products.reduce((sum, p) => sum + (p.portion || 0), 0);
           const progress = getCategoryProgress({
             isCalorieBased,
             usedCalories,
@@ -44,21 +45,22 @@ export default function MealSection({
             >
               {/* Category Header */}
               <button
-                onClick={() => onOpenProductModal(letter)}
+                disabled={letter === 'voice'}
+                onClick={() => letter !== 'voice' && onOpenProductModal(letter)}
                 className="w-full px-4 py-3 flex items-center justify-between active:bg-[#F2F2F7] transition-colors"
               >
                 <div className="flex items-center gap-3 flex-1">
                   <div className="w-11 h-11 rounded-xl bg-[#F2F2F7] border border-[#E9E9EE] flex items-center justify-center flex-shrink-0 overflow-hidden">
                     <img
-                      src={CATEGORY_ICONS[letter]}
-                      alt={PRODUCTS_DB[letter].name}
+                      src={CATEGORY_ICONS[letter] || CATEGORY_ICONS[MEAL_LETTERS[selectedMeal][0]]}
+                      alt={(PRODUCTS_DB[letter]?.name || 'Голос і фото')}
                       className="w-full h-full object-cover"
                     />
                   </div>
                   <div className="text-left flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-[22px] font-bold text-[#007AFF]">{letter.toUpperCase()}</span>
-                      <span className="text-[17px] font-medium text-black">{PRODUCTS_DB[letter].name}</span>
+                      <span className="text-[22px] font-bold text-[#007AFF]">{letter === 'voice' ? '' : letter.toUpperCase()}</span>
+                      <span className="text-[17px] font-medium text-black">{(PRODUCTS_DB[letter]?.name || 'Голос і фото')}</span>
                     </div>
                     {/* Progress bar */}
                     <div className="flex items-center gap-2 mt-1">
@@ -80,10 +82,10 @@ export default function MealSection({
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                {letter !== 'voice' && <div className="flex items-center gap-1 ml-2 flex-shrink-0">
                   <Plus size={20} className="text-[#007AFF]" />
                   <ChevronRight size={18} className="text-[#C7C7CC]" />
-                </div>
+                </div>}
               </button>
 
               {/* Selected Products */}
@@ -103,7 +105,7 @@ export default function MealSection({
                           {isEditing ? (
                             /* Режим редагування */
                             <div className="space-y-2">
-                              <div className="text-[15px] text-black break-words">{product.name}</div>
+                              <div className="text-[15px] text-black break-words">{product.name}{product.rawCookedCoef && product.rawCookedCoef !== 1 ? ' · змінюєте сиру вагу' : ''}</div>
                               <div className="flex items-center gap-2">
                                 <div className="relative flex-1 min-w-0">
                                   <input
@@ -113,13 +115,13 @@ export default function MealSection({
                                     onChange={(e) => setEditWeight(e.target.value)}
                                     autoFocus
                                     className="w-full min-w-0 px-3 py-2 bg-white rounded-lg text-[15px] text-center focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30"
-                                    placeholder={String(product.weight)}
+                                    placeholder={String(product.quantity?.value ?? product.weight)}
                                   />
-                                  <span className="absolute right-3 top-2 text-[#8E8E93] text-[13px]">г</span>
+                                  <span className="absolute right-3 top-2 text-[#8E8E93] text-[13px]">{UNITS[product.quantity?.unit] || 'г'}</span>
                                 </div>
                                 <button
                                   onClick={() => {
-                                    const newWeight = parseInt(editWeight);
+                                    const newWeight = Number(editWeight.replace(',', '.'));
                                     if (newWeight > 0) {
                                       onUpdateProductWeight(selectedMeal, letter, idx, newWeight);
                                     }
@@ -147,24 +149,16 @@ export default function MealSection({
                               <button
                                 onClick={() => {
                                   setEditingProduct({ letter, index: idx });
-                                  setEditWeight(String(product.weight));
+                                  setEditWeight(String(product.quantity?.value ?? product.weight));
                                 }}
                                 className="flex-1 text-left active:opacity-60"
                               >
                                 <span className="text-[15px] text-black">{product.name}</span>
                                 <span className="text-[13px] text-[#007AFF] ml-2">
-                                  {/* Якщо є готова вага і вона відрізняється від сирої - показуємо готову як основну */}
-                                  {product.cookedWeight && product.cookedWeight !== product.weight ? (
-                                    <>
-                                      {product.cookedWeight}г
-                                      <span className="text-[11px] text-[#C7C7CC]"> ({product.weight}г сир.)</span>
-                                    </>
-                                  ) : (
-                                    <>{product.weight}г</>
-                                  )}
-                                  {/* Для калорійних категорій показуємо калорії */}
-                                  {isCalorieBased && product.calories && ` · ${product.calories} ккал`}
+                                  {quantityText(product)} · {Math.round(itemMacros(product).cal)} ккал
+
                                 </span>
+                                <span className="block text-[11px] text-[#6B7280]">{sourceText(product)}</span>
                                 <Pencil size={12} className="inline ml-1.5 text-[#C7C7CC]" />
                               </button>
                               <button

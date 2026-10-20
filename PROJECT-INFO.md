@@ -143,3 +143,5 @@ npx firebase-tools deploy --only firestore:rules --project nutrition-tracker-ua
 ## Реалізація голосу й фото, 2026-10-20
 
 Юрій явно погодив план і пороги пілоту. Почато codex/voice-photo-entry від main 3a7034e у прикріпленому дереві scisense-product-goal. Goal активний, G01 passed, інші критерії pending. Доказ: пряме повідомлення користувача; оплачувані API й production не запускалися.
+
+- 2026-10-20: блок 2 голосу/фото пройшов незалежне рев’ю після 8 виправлених findings; 37 unit, 17 emulator, 12 Worker і 6 JWT-сценаріїв. Доказ: журнал 2026-10-20-1600. Медіаінтерфейс є наступним блоком; реальні API й production не запускались.

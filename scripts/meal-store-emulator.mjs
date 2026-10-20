@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import {signInAnonymously,signOut} from 'firebase/auth';
+import {doc,setDoc,getDocFromServer,terminate} from 'firebase/firestore';
+import {auth,db} from '../src/firebase.js';
+import {commitMealDay,loadMealDay,saveProfileSettings,commandHash,readSubmission} from '../src/services/mealStore.js';
+const user=(await signInAnonymously(auth)).user,uid=user.uid,date='2026-10-20';
+const item=id=>({itemId:id,name:'Тестовий кефір',quantity:{value:200,unit:'g'},nutritionBasis:{value:100,unit:'g'},nutrients:{p:2.9,f:2.5,c:4,cal:53},source:{kind:'label'},estimated:false});
+const append=id=>({type:'append',submissionId:id,meal:1,items:[item(id)],updatedAt:new Date().toISOString()});
+try {
+ await setDoc(doc(db,'users',uid),{users:{[uid]:{name:'Синтетичний користувач',meals:{1:{},2:{},3:{},4:{}}}}});
+ const empty=await loadMealDay(uid,uid,date);assert.deepEqual(empty.meals[1],{});
+ const first=append('one');await Promise.all([commitMealDay(uid,uid,date,first),commitMealDay(uid,uid,date,first)]);
+ let day=await loadMealDay(uid,uid,date);assert.equal(day.meals[1].voice.length,1);assert.equal(day.totalMacros.cal,106);
+ await Promise.all([commitMealDay(uid,uid,date,append('two')),commitMealDay(uid,uid,date,append('three'))]);
+ day=await loadMealDay(uid,uid,date);assert.equal(day.meals[1].voice.length,3);assert.equal(day.revision,3);
+ await assert.rejects(()=>commitMealDay(uid,uid,date,{type:'replace',submissionId:'stale',expectedRevision:0,meals:empty.meals,updatedAt:'x'}),/revision_conflict/);
+ await saveProfileSettings(uid,uid,{name:'Змінене ім’я',meals:empty.meals});
+ const root=(await getDocFromServer(doc(db,'users',uid))).data();assert.equal(root.users[uid].meals[1].voice.length,3);assert.equal(root.users[uid].mealsDateKey,date);
+ const marker=await readSubmission(uid,date,'one',await commandHash(first));assert.equal(marker.revision,3);
+ assert.deepEqual((await loadMealDay(uid,uid,'2026-10-21')).meals[1],{});
+ await commitMealDay(uid,uid,date,{type:'quantity',meal:1,letter:'voice',index:0,value:250,expectedRevision:3,submissionId:'edit',updatedAt:'x'});
+ day=await loadMealDay(uid,uid,date);assert.equal(day.totalMacros.cal,345);assert.equal(Object.keys(day.submissionMarkers).length,4);
+ const legacy={1:{a:[{name:'Старий',weight:100,p:1,f:1,c:1,calories:17}]},2:{},3:{},4:{}};
+ await setDoc(doc(db,'users',uid),{users:{[uid]:{name:'Старий',meals:legacy}}});
+ await assert.rejects(()=>commitMealDay(uid,uid,'2026-10-22',append('blocked')),/legacy_date_required/);
+ assert.deepEqual((await loadMealDay(uid,uid,'2026-10-22')).legacy,legacy);
+ const migration={type:'replace',meals:legacy,confirmLegacy:true,expectedRevision:0,submissionId:'legacy',updatedAt:'x'};
+ await commitMealDay(uid,uid,'2026-10-22',migration);await commitMealDay(uid,uid,'2026-10-22',migration);
+ assert.equal((await loadMealDay(uid,uid,'2026-10-22')).totalMacros.cal,17);
+ // Projection must replace the old nested map, even when the next day has another group.
+ await commitMealDay(uid,uid,'2026-10-23',{...append('day-two'),letter:'b'});
+ const nextRoot=(await getDocFromServer(doc(db,'users',uid))).data();
+ assert.deepEqual(Object.keys(nextRoot.users[uid].meals[1]),['b']);
+ await saveProfileSettings(uid,uid,{portions:{test:250}});await saveProfileSettings(uid,uid,{name:'Ще одне ім’я'});
+ assert.deepEqual((await getDocFromServer(doc(db,'users',uid))).data().users[uid].portions,{test:250});
+ await setDoc(doc(db,'users',uid),{users:{[uid]:{name:'Старий',meals:legacy}}});
+ await setDoc(doc(db,'users',uid,'mealHistory','2026-10-24'),{meals:legacy,currentWeight:65,programDay:3});
+ await commitMealDay(uid,uid,'2026-10-24',{...migration,submissionId:'existing-legacy'});
+ await commitMealDay(uid,uid,'2026-10-24',{type:'metadata',metadata:{activity:'Ходьба'},submissionId:'activity',updatedAt:'x'});
+ const history=await loadMealDay(uid,uid,'2026-10-24');assert.equal(history.totalMacros.cal,17);assert.equal(history.currentWeight,65);assert.equal(history.programDay,3);
+ console.log(JSON.stringify({passed:true,checks:17,syntheticOnly:true}));
+} finally {await signOut(auth);await terminate(db);}

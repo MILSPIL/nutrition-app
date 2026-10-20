@@ -1,6 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import Header from '../components/Header';
+import ProductModal from '../components/ProductModal';
 import { calculateMealsMacros } from './nutrition';
 
 const label = { p: 2.9, f: 2.5, c: 4, cal: 53 };
@@ -21,5 +22,9 @@ test('V03: самодостатній продукт із основою 100 м�
 test('V01: головний екран має доступну кнопку голосового введення', () => {
   const html = renderToStaticMarkup(<Header user={{name:'Тест'}} programDay={1}
     macros={{p:0,f:0,c:0,cal:0}} selectedMeal={1} onShowVoiceInput={() => {}} />);
-  expect(html).toContain('aria-label="Додати їжу голосом"');
+  expect(html.includes('aria-label="Додати їжу голосом"')).toBe(true);
+});
+
+test('голосова група не відкриває неіснуючий каталог і не ламає UI',()=>{
+ expect(renderToStaticMarkup(<ProductModal currentLetter="voice" isOpen />)).toBe('');
 });

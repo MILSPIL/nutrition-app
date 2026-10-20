@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { auth, googleProvider, db } from '../firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
@@ -29,14 +29,14 @@ import {
   MeasurementReminderModal
 } from '../components';
 import {
-  buildUserRecord,
-  calculatePortionPercent,
   calculateMealsMacros,
-  canAddCategoryProduct,
-  createDefaultClientUser,
-  createEmptyMeals
+  createDefaultClientUser
 } from '../services/nutrition';
-import { calculateProgramDay, getTodayDateKey } from '../utils/date';
+import { catalogItem, quantityText, itemMacros, sourceText } from '../services/mealItems';
+import { saveProfileSettings } from '../services/mealStore';
+import { hasMeals } from '../services/mealCommands';
+import { useMealDay, saveError } from '../services/useMealDay';
+import { calculateProgramDay, getTodayDateKey, parseDateInput } from '../utils/date';
 
 export default function ClientApp() {
   // Firebase Auth
@@ -64,7 +64,16 @@ export default function ClientApp() {
   const [programDay, setProgramDay] = useState(1);
   const [currentWeight, setCurrentWeight] = useState(null);
   const [selectedMeal, setSelectedMeal] = useState(1);
-  const [meals, setMeals] = useState(createEmptyMeals());
+  const [mealsDateKey, setMealsDateKey] = useState(getTodayDateKey());
+  const mealDay = useMealDay(firebaseUser?.uid, currentUser, mealsDateKey);
+  const meals = mealDay.day.meals;
+  const metadataDirty = useRef(null);
+  const [metadataVersion,setMetadataVersion] = useState(0);
+  const changeMetadata = (key,setter,value) => { metadataDirty.current={...(metadataDirty.current || {}),[key]:value}; setter(value);setMetadataVersion(x=>x+1); };
+  const mutateMeals = async command => {
+    try { return await mealDay.commit(command); }
+    catch(error) { toast.error(saveError(error)); return null; }
+  };
   const [activity, setActivity] = useState("");
   const [otherActivity, setOtherActivity] = useState("");
   const [trainerTelegram, setTrainerTelegram] = useState("chykalina");
@@ -178,7 +187,7 @@ export default function ClientApp() {
     }
 
     setCurrentWeight(user.currentWeight || null);
-    setMeals(user.meals || createEmptyMeals());
+    setMealsDateKey(getTodayDateKey());
     setActivity(user.activity || "");
     setOtherActivity(user.otherActivity || "");
     setTrainerTelegram(user.trainerTelegram || "chykalina");
@@ -203,126 +212,40 @@ export default function ClientApp() {
       setCurrentUser(null);
       setUsers({});
       setGlobalCustomProducts({});
-      setMeals(createEmptyMeals());
+      setMealsDateKey(getTodayDateKey());
     } catch (error) {
       console.error('Error signing out:', error);
     }
   };
 
-  // Save to Firestore
-  const saveToFirestore = async (newUsers, newGlobalCustomProducts, newProductOverrides) => {
-    if (!firebaseUser) return;
-
+  // Профіль не містить записів дня в цьому запиті. Adapter перечитує актуальний root.
+  const saveToFirestore = async (profilePatch = {}, newGlobalCustomProducts, newProductOverrides) => {
+    if (!firebaseUser || !currentUser) return;
     try {
-      const userDocRef = doc(db, 'users', firebaseUser.uid);
-      await setDoc(userDocRef, {
-        users: newUsers || users,
-        globalCustomProducts: newGlobalCustomProducts || globalCustomProducts,
-        productOverrides: newProductOverrides || productOverrides,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-    } catch (error) {
-      console.error('Error saving to Firestore:', error);
-    }
-  };
-
-  // Зберегти історію харчування за день (для тренерського дашборду)
-  const saveMealHistory = async (mealsData, currentMacros) => {
-    if (!firebaseUser) return;
-
-    try {
-      const today = getTodayDateKey();
-      const historyRef = doc(db, 'users', firebaseUser.uid, 'mealHistory', today);
-      await setDoc(historyRef, {
-        meals: mealsData,
-        activity,
-        otherActivity,
-        currentWeight,
-        programDay,
-        totalMacros: currentMacros,
-        updatedAt: new Date().toISOString()
+      await saveProfileSettings(firebaseUser.uid,currentUser,profilePatch,{
+        ...(newGlobalCustomProducts ? {globalCustomProducts:newGlobalCustomProducts}:{}),
+        ...(newProductOverrides ? {productOverrides:newProductOverrides}:{})
       });
-    } catch (error) {
-      console.error('Error saving meal history:', error);
-    }
+    } catch(error) { toast.error(saveError(error)); }
   };
 
-  // Auto-save changes
   useEffect(() => {
-    if (!currentUser) return;
-
-    const newUsers = buildUserRecord({
-      users,
-      currentUser,
-      userPortions,
-      programDay,
-      currentWeight,
-      meals,
-      activity,
-      otherActivity,
-      trainerTelegram
-    });
-
-    setUsers(newUsers);
-
-    localStorage.setItem('nutrition-v2', JSON.stringify({
-      currentUser,
-      users: newUsers,
-      globalCustomProducts: globalCustomProducts,
-      lastSession: { userId: currentUser, timestamp: new Date().toISOString() }
-    }));
-
-    saveToFirestore(newUsers, globalCustomProducts);
-
-    const macros = calculateMealsMacros(meals);
-    saveMealHistory(meals, macros);
+    if (!metadataDirty.current || !mealDay.ready || mealDay.busy || mealDay.hasPending || mealDay.day.legacy) return;
+    const timer=setTimeout(async()=>{
+      const patch=metadataDirty.current;metadataDirty.current=null;
+      await mutateMeals({type:'metadata',metadata:patch});
+    },500);
+    return()=>clearTimeout(timer);
+    // Навмисно лише користувацькі зміни; initial load не запускає запис.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, userPortions, programDay, currentWeight, meals, activity, otherActivity, trainerTelegram]);
+  },[metadataVersion,mealDay.ready,mealDay.busy,mealDay.hasPending,activity,otherActivity,currentWeight,programDay]);
 
-  // Auto-calculate day from startDate
-  useEffect(() => {
-    if (!currentUser || !users[currentUser]) return;
-
-    const user = users[currentUser];
-
-    if (!user.startDate) {
-      return;
-    }
-
-    const currentDay = calculateCurrentDay(user.startDate);
-
-    if (currentDay !== programDay) {
-      setProgramDay(currentDay);
-
-      const updatedUsers = {
-        ...users,
-        [currentUser]: {
-          ...users[currentUser],
-          programDay: currentDay
-        }
-      };
-      setUsers(updatedUsers);
-      localStorage.setItem('nutrition-v2', JSON.stringify({
-        currentUser,
-        users: updatedUsers,
-        globalCustomProducts,
-        lastSession: { userId: currentUser, timestamp: new Date().toISOString() }
-      }));
-    }
+  useEffect(()=>{
+    if(!mealDay.ready)return;
+    setActivity(mealDay.day.activity || '');setOtherActivity(mealDay.day.otherActivity || '');
+    setCurrentWeight(mealDay.day.currentWeight ?? null);setProgramDay(mealDay.day.programDay || calculateProgramDay(users[currentUser]?.startDate,parseDateInput(mealsDateKey)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser]);
-
-  // Save globalCustomProducts
-  useEffect(() => {
-    if (Object.keys(globalCustomProducts).length > 0) {
-      const saved = localStorage.getItem('nutrition-v2');
-      if (saved) {
-        const data = JSON.parse(saved);
-        data.globalCustomProducts = globalCustomProducts;
-        localStorage.setItem('nutrition-v2', JSON.stringify(data));
-      }
-    }
-  }, [globalCustomProducts]);
+  },[mealDay.ready,mealsDateKey]);
 
   // Helper functions
   const getUserCustomProducts = () => {
@@ -384,7 +307,7 @@ export default function ClientApp() {
       [productName]: values
     };
     setProductOverrides(newOverrides);
-    saveToFirestore(users, globalCustomProducts, newOverrides);
+    saveToFirestore({}, undefined, newOverrides);
   };
 
   // Скинути override для продукту
@@ -392,7 +315,7 @@ export default function ClientApp() {
     const newOverrides = { ...productOverrides };
     delete newOverrides[productName];
     setProductOverrides(newOverrides);
-    saveToFirestore(users, globalCustomProducts, newOverrides);
+    saveToFirestore({}, undefined, newOverrides);
   };
 
   const calculateTotalMacros = () => {
@@ -400,161 +323,19 @@ export default function ClientApp() {
     return calculateMealsMacros(meals);
   };
 
-  // Product management
-  const addProduct = (letter, product, portion = 100) => {
-    // Для щойно створеного кастомного продукту state ще може не встигнути оновитися,
-    // тому беремо його власну raw-порцію як fallback замість дефолтних 100г.
-    const userPortion = userPortions[product.name] || product.raw || getProductPortion(product.name);
-    const weight = Math.round((userPortion * portion) / 100);
-
-    // Перевірка чи категорія калорійна (наприклад, "в" - Вільний вибір)
-    const categoryData = PRODUCTS_DB[letter];
-    const isCalorieBased = categoryData?.isCalorieBased || false;
-    const calorieLimit = categoryData?.calorieLimit || 575;
-
-    const newMeals = { ...meals };
-    if (!newMeals[selectedMeal][letter]) {
-      newMeals[selectedMeal][letter] = [];
-    }
-
-    // Калорії продукту
-    const productCalories = Math.round((product.cal || 0) * weight / 100);
-
-    if (isCalorieBased) {
-      // Для калорійних категорій рахуємо калорії
-      const usedCalories = newMeals[selectedMeal][letter].reduce((sum, p) => sum + (p.calories || 0), 0);
-      const validation = canAddCategoryProduct({
-        isCalorieBased,
-        usedCalories,
-        productCalories,
-        calorieLimit
-      });
-
-      if (!validation.allowed) {
-        toast.warning(`Перевищення ліміту категорії (${usedCalories + productCalories} з ${calorieLimit} ккал). Записую чесно.`);
-      }
-    }
-
-    // Розрахунок готової ваги: сира вага * коефіцієнт збільшення
-    // Наприклад: 50г крупи * 3.2 = 160г готової
-    const cookedCalc = product.coef && product.coef !== 1
-      ? Math.round(weight * product.coef)
-      : null;
-
-    newMeals[selectedMeal][letter].push({
-      name: product.name,
-      weight: weight,
-      portion: isCalorieBased ? 0 : portion, // Для калорійних категорій portion не використовується
-      cookedWeight: cookedCalc,
-      calories: productCalories, // Зберігаємо калорії для калорійних категорій
-      p: product.p || 0,
-      f: product.f || 0,
-      c: product.c || 0
-    });
-
-    setMeals(newMeals);
-    setShowProductModal(false);
+  // Усі ручні й голосові записи проходять той самий adapter дня.
+  const addProduct = async (letter, product, portion=100) => {
+    const base=userPortions[product.name] || product.raw || getProductPortion(product.name);
+    const item=catalogItem(product,Math.round(base*portion/100),portion);
+    const result=await mutateMeals({type:'append',meal:selectedMeal,letter,items:[item]});
+    if(result) setShowProductModal(false);
   };
-
-  const addProductWithCustomGrams = (letter, product, inputGrams, userPortion) => {
-    if (inputGrams <= 0) {
-      toast.warning("Введіть вагу більше 0!");
-      return;
-    }
-
-    // Перевірка чи категорія калорійна
-    const categoryData = PRODUCTS_DB[letter];
-    const isCalorieBased = categoryData?.isCalorieBased || false;
-    const calorieLimit = categoryData?.calorieLimit || 575;
-
-    const portion = Math.round((inputGrams / userPortion) * 100);
-
-    const newMeals = { ...meals };
-    if (!newMeals[selectedMeal][letter]) {
-      newMeals[selectedMeal][letter] = [];
-    }
-
-    // Калорії продукту
-    const productCalories = Math.round((product.cal || 0) * inputGrams / 100);
-
-    if (isCalorieBased) {
-      // Для калорійних категорій рахуємо калорії
-      const usedCalories = newMeals[selectedMeal][letter].reduce((sum, p) => sum + (p.calories || 0), 0);
-      const validation = canAddCategoryProduct({
-        isCalorieBased,
-        usedCalories,
-        productCalories,
-        calorieLimit
-      });
-
-      if (!validation.allowed) {
-        toast.warning(`Перевищення ліміту категорії (${usedCalories + productCalories} з ${calorieLimit} ккал). Записую чесно.`);
-      }
-    }
-
-    // Розрахунок готової ваги: сира вага * коефіцієнт збільшення
-    const cookedCalc = product.coef && product.coef !== 1
-      ? Math.round(inputGrams * product.coef)
-      : null;
-
-    newMeals[selectedMeal][letter].push({
-      name: product.name,
-      weight: inputGrams,
-      portion: isCalorieBased ? 0 : portion,
-      cookedWeight: cookedCalc,
-      calories: productCalories,
-      p: product.p || 0,
-      f: product.f || 0,
-      c: product.c || 0
-    });
-
-    setMeals(newMeals);
+  const addProductWithCustomGrams = async (letter,product,grams,base) => {
+    if(!(grams>0)) {toast.warning('Введіть кількість більше 0');return;}
+    await mutateMeals({type:'append',meal:selectedMeal,letter,items:[catalogItem(product,grams,grams/base*100)]});
   };
-
-  const removeProduct = (mealNum, letter, index) => {
-    const newMeals = { ...meals };
-    newMeals[mealNum][letter].splice(index, 1);
-    if (newMeals[mealNum][letter].length === 0) {
-      delete newMeals[mealNum][letter];
-    }
-    setMeals(newMeals);
-  };
-
-  // Оновлення ваги продукту
-  const updateProductWeight = (mealNum, letter, index, newWeight) => {
-    if (newWeight <= 0) return;
-
-    const newMeals = { ...meals };
-    const product = newMeals[mealNum][letter][index];
-    if (!product) return;
-
-    const categoryData = PRODUCTS_DB[letter];
-    const isCalorieBased = categoryData?.isCalorieBased || false;
-
-    // Знаходимо оригінальний продукт для коефіцієнта
-    const originalProduct = getAllProducts(letter).find(p => p.name === product.name);
-    const coef = originalProduct?.coef || 1;
-    const cal = originalProduct?.cal || 0;
-
-    // Оновлюємо вагу та пов'язані дані
-    product.weight = newWeight;
-
-    // Оновлюємо готову вагу якщо є коефіцієнт
-    if (coef && coef !== 1) {
-      product.cookedWeight = Math.round(newWeight * coef);
-    }
-
-    // Оновлюємо калорії
-    product.calories = Math.round(cal * newWeight / 100);
-
-    // Оновлюємо порцію для звичайних категорій
-    if (!isCalorieBased) {
-      const userPortion = getProductPortion(product.name);
-      product.portion = calculatePortionPercent(newWeight, userPortion);
-    }
-
-    setMeals(newMeals);
-  };
+  const removeProduct = (meal,letter,index) => mutateMeals({type:'remove',meal,letter,index});
+  const updateProductWeight = (meal,letter,index,value) => mutateMeals({type:'quantity',meal,letter,index,value});
 
   const addCustomProduct = (productData) => {
     if (!currentLetter || !currentUser) return;
@@ -589,6 +370,7 @@ export default function ClientApp() {
       [newProduct.name]: raw
     };
     setUserPortions(updatedUserPortions);
+    saveToFirestore({portions:updatedUserPortions},updatedGlobalCustomProducts);
 
     addProduct(currentLetter, newProduct, 100);
     setShowAddCustomProduct(false);
@@ -615,23 +397,24 @@ export default function ClientApp() {
     const updatedUserPortions = { ...userPortions };
     delete updatedUserPortions[product.name];
     setUserPortions(updatedUserPortions);
+    saveToFirestore({hiddenProducts:updatedHiddenProducts,portions:updatedUserPortions});
   };
 
   // Report generation
   const generateReport = () => {
     const totalMacros = calculateTotalMacros();
-    let report = `День ${programDay}\n🥕ХАРЧУВАННЯ\n`;
+    let report = `${mealsDateKey} · День ${programDay}\n🥕ХАРЧУВАННЯ\n`;
 
     [1, 2, 3, 4].forEach(mealNum => {
       const mealEmoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'][mealNum - 1];
       report += `${mealEmoji} прийом їжі:\n`;
 
       const mealData = meals[mealNum];
-      const letters = MEAL_LETTERS[mealNum];
+      const letters = [...new Set([...MEAL_LETTERS[mealNum],...Object.keys(mealData || {})])];
 
       letters.forEach(letter => {
         if (mealData[letter] && mealData[letter].length > 0) {
-          const products = mealData[letter].map(p => `${p.name} (${p.weight} г)`).join(', ');
+          const products = mealData[letter].map(p => `${p.name} (${quantityText(p)}; ${Math.round(itemMacros(p).cal)} ккал; ${sourceText(p)})`).join(', ');
           report += `📌${letter}) ${products}\n`;
         }
       });
@@ -652,7 +435,7 @@ export default function ClientApp() {
     report += `\nЖири: ${totalMacros.f}г / 70г (${Math.round(totalMacros.f / 70 * 100)}%)`;
     report += `\nВуглеводи: ${totalMacros.c}г / 235г (${Math.round(totalMacros.c / 235 * 100)}%)`;
 
-    const totalCalories = Math.round(totalMacros.p * 4 + totalMacros.f * 9 + totalMacros.c * 4);
+    const totalCalories = totalMacros.cal;
     report += `\nКалорії: ${totalCalories} ккал / 2305 ккал (${Math.round(totalCalories / 2305 * 100)}%)`;
 
     return report;
@@ -665,7 +448,7 @@ export default function ClientApp() {
       [currentUser]: { ...users[currentUser], name: newName }
     };
     setUsers(updatedUsers);
-    saveToFirestore(updatedUsers, globalCustomProducts);
+    saveToFirestore({name:newName});
   };
 
   const handleStartDateSave = (startDate) => {
@@ -681,7 +464,7 @@ export default function ClientApp() {
     };
 
     setUsers(updatedUsers);
-    saveToFirestore(updatedUsers, globalCustomProducts);
+    saveToFirestore({startDate});
     setProgramDay(currentDay);
   };
 
@@ -708,7 +491,7 @@ export default function ClientApp() {
         currentWeight={currentWeight}
         macros={macros}
         selectedMeal={selectedMeal}
-        onWeightChange={setCurrentWeight}
+        onWeightChange={value=>changeMetadata('currentWeight',setCurrentWeight,value)}
         onNameChange={handleNameChange}
         onMealSelect={setSelectedMeal}
         onShowDaySelector={() => setShowDaySelector(true)}
@@ -716,6 +499,28 @@ export default function ClientApp() {
         onShowSettings={() => setShowSettings(true)}
       />
 
+      <div className="max-w-lg mx-auto px-4 mb-4">
+        <label className="flex items-center justify-between gap-3">Дата записів
+          <input aria-label="Дата записів" type="date" value={mealsDateKey} disabled={mealDay.busy || mealDay.hasPending || !!metadataDirty.current}
+            onChange={e=>e.target.value && setMealsDateKey(e.target.value)} className="p-2 rounded-lg bg-white" />
+        </label>
+        {!mealDay.ready && <p role="status">Завантажую день…</p>}
+        {mealDay.busy && <p role="status">Зберігаю…</p>}
+        {mealDay.error && <div role="alert"><p>{mealDay.error}</p>
+          <button onClick={()=>mealDay.hasPending?mealDay.retry().catch(()=>{}):mealDay.reload()} className="p-3 text-[#007AFF]">Повторити</button>
+          {mealDay.error.includes('іншому сеансі') && <button onClick={mealDay.reload} className="p-3 text-[#007AFF]">Перечитати день</button>}
+        </div>}
+        {mealDay.day.legacy && <div role="alert" className="p-3 bg-white rounded-xl mt-2">
+          Попередні записи не мають дати. Оберіть їхню дату вище, потім підтвердьте перенесення. Дані збережені до підтвердження.
+          {hasMeals(meals) && <p>У вибраному дні вже є записи. Якщо вони тотожні, підтвердження не створить дубля. Якщо різні, перевірте список нижче перед об’єднанням.</p>}
+          <button onClick={()=>mutateMeals({type:'replace',meals:mealDay.day.legacy,confirmLegacy:true})} className="p-3 text-[#007AFF]">Це записи за {mealsDateKey}</button>
+          {hasMeals(meals) && <button className="p-3 text-[#007AFF]" onClick={()=>{
+            if(window.confirm('Додати ВСІ попередні записи до вибраного дня? Однакові продукти можуть повторитися. Перевірте обидва списки.')) mutateMeals({type:'replace',meals:mealDay.day.legacy,confirmLegacy:true,mergeLegacy:true});
+          }}>Об’єднати обидва списки</button>}
+          <ul>{Object.values(mealDay.day.legacy).flatMap(m=>Object.values(m).flat()).map((item,i)=><li key={i}>{item.name}: {quantityText(item)}</li>)}</ul>
+        </div>}
+      </div>
+      <fieldset disabled={!mealDay.ready || mealDay.busy || mealDay.hasPending || !!mealDay.day.legacy}>
       <MealSection
         selectedMeal={selectedMeal}
         meals={meals}
@@ -730,9 +535,11 @@ export default function ClientApp() {
       <ActivitySection
         activity={activity}
         otherActivity={otherActivity}
-        onActivityChange={setActivity}
-        onOtherActivityChange={setOtherActivity}
+        onActivityChange={value=>changeMetadata('activity',setActivity,value)}
+        onOtherActivityChange={value=>changeMetadata('otherActivity',setOtherActivity,value)}
       />
+
+      </fieldset>
 
       <RulesSection />
 
@@ -748,6 +555,7 @@ export default function ClientApp() {
       {/* Modals */}
       <ProductModal
         isOpen={showProductModal}
+        busy={mealDay.busy || mealDay.hasPending || !mealDay.ready}
         currentLetter={currentLetter}
         selectedMeal={selectedMeal}
         meals={meals}
@@ -775,7 +583,7 @@ export default function ClientApp() {
         onClose={() => setShowReport(false)}
         report={generateReport()}
         trainerTelegram={trainerTelegram}
-        onTrainerChange={setTrainerTelegram}
+        onTrainerChange={value=>{setTrainerTelegram(value);saveToFirestore({trainerTelegram:value});}}
         activity={activity}
         otherActivity={otherActivity}
       />
@@ -784,7 +592,7 @@ export default function ClientApp() {
         isOpen={showPortionSettings}
         onClose={() => setShowPortionSettings(false)}
         userPortions={userPortions}
-        onPortionsChange={setUserPortions}
+        onPortionsChange={value=>{setUserPortions(value);saveToFirestore({portions:value});}}
         getUserCustomProducts={getUserCustomProducts}
       />
 
@@ -792,7 +600,7 @@ export default function ClientApp() {
         isOpen={showDaySelector}
         onClose={() => setShowDaySelector(false)}
         programDay={programDay}
-        onDayChange={setProgramDay}
+        onDayChange={value=>changeMetadata('programDay',setProgramDay,value)}
         startDate={users[currentUser]?.startDate}
         calculateCurrentDay={calculateCurrentDay}
       />
