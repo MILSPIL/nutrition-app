@@ -10,7 +10,7 @@
 
 Решту 4 журналів перенесено в main через PR13, merge 0834d48d1e650f4eceb5ac55088a2596127d6e1a; SHA256 кожного збігається з джерелом, обидві CI-перевірки успішні. Поточний план: [SciSense на ntzg.pp.ua](docs/superpowers/plans/2026-10-21-scisense-server-rollout.md). Він охоплює локальний серверний adapter, G04, Linux-пакет і репетиції; привілейований install і production мають окремий конкретний пакет на погодження.
 
-Whisper/Sonnet/$5 і домен уже погоджені. Новий native-TLS dry-run повернув 422 DNS-check, custom TLS потребує certificate/key; рекомендується Origin CA + Full (strict). Свіже API-читання підтвердило OLS і активний Starter, але admin SSH, придатний backup і успішний resolved preview ще не доведені. Враховано спільний OLS reload, перезапис vhost панеллю та глобальний Node major. Публічний хост 200, /meal-api/health 404; нового серверного коду, production-змін і платних генерацій у цій підготовці немає. Докази та рев’ю фіксуються у журналі 2026-10-21.
+Whisper/Sonnet/$5 і домен уже погоджені. Новий native-TLS dry-run повернув 422 DNS-check, custom TLS потребує certificate/key; рекомендується Origin CA + Full (strict). Свіже API-читання підтвердило OLS і активний Starter, але admin SSH, придатний backup і успішний resolved preview ще не доведені. Враховано спільний OLS reload, перезапис vhost панеллю та глобальний Node major. Публічний хост 200, /meal-api/health 404; нового серверного коду, production-змін і платних генерацій у цій підготовці немає. Докази й звірка 10 зауважень Claude записані у журналі 2026-10-21-0036; незалежний Codex підтвердив R01–R05 остаточного плану. План готовий до розгляду Юрієм; документне рев’ю не означає погодження нового коду чи розгортання.
 
 ## Спільний доступ до xCloud перевірено, 2026-10-20
 

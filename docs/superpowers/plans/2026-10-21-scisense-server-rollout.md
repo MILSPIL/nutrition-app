@@ -9,6 +9,7 @@ Goal: objective_e45aa8ac1aa3, G04/G05/G07/G08/G11. Продукт scisense.
 На https://ntzg.pp.ua Юрій входить із телефона, натискає мікрофон на головному екрані, наговорює їжу, додає фото упаковки, перевіряє прев’ю та однією кнопкою «Додати» зберігає прийом. Після reload залишається рівно один запис із правильною датою, порцією, ккал і БЖВ. Mac для роботи не потрібен.
 Уже погоджено: власний MS-WEB Server, цей домен, Whisper, Sonnet замість Haiku, окремий ключ у Default, $5 із Claude-кредитів на весь прогін, пороги пілоту та перенесення журналів. Повторного погодження цих пунктів немає.
 Нове погодження потрібне на локальну реалізацію серверного API, G04 за [планом доступу](2026-10-20-trainer-access.md), Linux-пакет і перевірки. Воно не запускає привілейоване встановлення або production-перемикання: для них після репетиції буде конкретний пакет команд, шляхів, backup і відкату.
+Окремий пункт погодження G04 включає модель canonical request зі [специфікації доступу](../specs/2026-10-20-trainer-access.md): підтверджений запит є доказом зв’язку, прийняття та відкликання атомарні. Погодження цього пункту закриває гейт локального коду плану доступу; production-наслідки ще перевіряються у пакеті кроку 5.
 Наслідок G04: старі зв’язки з тренером без перевірюваного доказу згоди потребуватимуть повторного підключення. Дані власника не видаляються; згоду не вигадуємо.
 
 ## Перевірена база
@@ -34,7 +35,7 @@ Goal: objective_e45aa8ac1aa3, G04/G05/G07/G08/G11. Продукт scisense.
 | C. Статика на MS-WEB, Whisper на Mac | Найменший обсяг нового коду | Залежність від увімкненого Mac і мережевого каналу |
 
 Рекомендую A: він відповідає цілі власного сервера. B додає непотрібну координацію, C не забезпечує незалежність. Firebase Auth/Firestore залишаються на чинній платформі, дані не переносяться у VPS.
-xCloud/OLS керує окремим статичним vhost; systemd є єдиним власником Node/Whisper. Managed SSR/Hybrid та Supervisor для цього API не вмикаються. API і Whisper доступні тільки через loopback; назовні лише HTTPS /meal-api/*.
+xCloud/OLS керує окремим статичним vhost; systemd є єдиним власником Node/Whisper. Managed SSR/Hybrid та Supervisor для цього API не вмикаються. API і Whisper приймають вхідні запити тільки через loopback; зовнішня точка входу API лише HTTPS /meal-api/*. Worker у варіанті A не розгортається й не отримує другого ключа/бюджету. Перед активацією інвентаризація перевіряє відсутність іншого активного шляху витрат; локальний wrangler.toml сам по собі цього не доводить.
 
 ## TLS і runtime
 
@@ -43,19 +44,21 @@ xCloud/OLS керує окремим статичним vhost; systemd є єди
 | Cloudflare Origin CA + Full (strict) | Підходить до чинного проксі, не потребує вимикати його для xCloud DNS-check | Потрібен окремий приватний ключ; браузер напряму origin-сертифікату не довіряє |
 | Native xCloud / ACME | Публічно довірений сертифікат, керування у панелі | Поточний dry-run не проходить DNS-check; спосіб перевірки/поновлення за проксі ще не доведено |
 
-Рекомендую Origin CA. До issuance/installation буде зафіксовано домен/SAN, строк, спосіб поновлення та зберігання приватного ключа з доступом лише TLS-служби/root. Не передавати ключ у чат, argv, Git або журнали. Якщо xCloud вимагає приватний ключ у body, він передається з secret store у пам’яті фіксованого скрипту з вилученням чутливих полів із логів.
+Рекомендую Origin CA. До issuance/installation буде зафіксовано домен/SAN, строк, спосіб поновлення та зберігання серверної копії приватного ключа з доступом лише TLS-служби/root. Не передавати ключ у чат, argv, Git або журнали. Custom TLS API передає приватний ключ також xCloud як керувальній платформі сервера; передавання body не доводить конкретного строку зберігання у xCloud. Цю межу довіри та спосіб видалення/заміни ключа зазначити в TLS-пакеті до надсилання. Передавання тільки з secret store у пам’яті фіксованого скрипту з вилученням чутливих полів із логів.
 Після погодження конкретного TLS-пакета: створення сертифіката → dry-run без створення сайту → перевірка resolved config → окремий реальний provisioning → перевірка origin SNI/chain/SAN → Full (strict) → edge HTTPS. Заборонено -k, автоматичний downgrade TLS або вимкнення Cloudflare proxy як обхід помилки.
 Збірка і API використовують Node 24.11.1 з .nvmrc. Перевага для API: окремий pinned binary у каталозі SciSense, без заміни загального PATH. xCloud керує Node major на весь сервер; не вважати node_version=24 ізольованою зміною. Якщо native provisioning вимагає глобального встановлення/заміни Node, спочатку інвентаризація споживачів та окремий конкретний пакет на погодження. Не обходити це іншим типом сайту навмання.
 
 ## Послідовність виконання після погодження плану
 
-Кроки 1–4 означають локальну реалізацію й репетицію на синтетичних credentials/ledger. Справжній API-key, permanent marker у Keychain, передавання бюджету та серверні зміни виконуються лише у кроці 6 за пакетом кроку 5. Підготовка скриптів transfer не активує їх на чинному бюджеті.
+Кроки 1–4 означають локальну реалізацію й репетицію на тестовому RS256-ключі, синтетичних credentials/ledger і marker поза чинним Keychain budget slot. Справжній API-key, permanent marker у Keychain, передавання бюджету та серверні зміни виконуються лише у кроці 6 за пакетом кроку 5. Підготовка скриптів transfer не активує їх на чинному бюджеті.
 
 ### 1. Відтворюваний локальний API
 - До коду записати нові негативні тести й показати їхній FAIL проти попередньої реалізації. Відсутність майбутнього script не є червоним тестом.
-- Перенести transport навколо чинного createHandler: справжня RS256 Firebase JWT-перевірка issuer/audience/time, дозволені UID, точний origin https://ntzg.pp.ua. Не переносити demo authenticate, emulator flags або unsigned JWT.
+- Серверний manifest використовує FIREBASE_PROJECT=nutrition-tracker-ua та окрему умову активації, що перевіряє погоджений deployment target, UID і receipt бюджету; до конкретного production-дозволу LIVE_ENABLED=false. Не копіювати demo-scisense/local_https_demo_only або approvedSettings без адаптації. proposalId і стеля залишаються спільними, нового бюджету цей manifest не створює.
+- Перенести transport навколо чинного createHandler: справжня RS256 Firebase JWT-перевірка issuer/audience/time, дозволені UID, точний origin https://ntzg.pp.ua. Не переносити demo authenticate, emulator flags або unsigned JWT. Inference POST без Origin або з іншим Origin повертає 403 до upstream; JWT залишається незалежною перевіркою.
 - Маршрути /meal-api/transcribe і /meal-api/analyze, обмеження тіла/частоти/одночасності, скасування клієнтом та незалежні timeouts. Невідомий API-route і missing.js повертають 404, секретні шляхи недоступні; SPA fallback тільки для UI.
-- Довести 401/403/413/429/503 і нуль викликів upstream при відмові, успішні fixtures та очищення ресурсів при abort/timeout. Коміт, push; рев’ю нового transport і auth.
+- Прокинути AbortSignal з transport через provider до Sonnet fetch разом із незалежним 45 s upstream timeout; зараз live.mjs не передає context у callProvider. Тест обриву під час analyze доводить abort upstream і прибирання таймера/listener. Уже надісланий запит може бути оплачений, резерв не повертається автоматично; пізньої відповіді/збереження немає.
+- Довести 401/403/413/429/503 і нуль викликів upstream при відмові, успішні fixtures та очищення ресурсів при abort/timeout. Окремо: потрібний JWKS недоступний і валідного кешу немає → 401/503 без inference; відсутній Origin → 403. Коміт, push; рев’ю нового transport і auth.
 
 ### 2. G04: доступ лише за згодою
 - Виконати A01–A09 з канонічних [специфікації](../specs/2026-10-20-trainer-access.md) та плану: owner/stranger/requested trainer/інший trainer/гість, атомарні accept/revoke, повтори й конкуренція.
@@ -66,15 +69,15 @@ xCloud/OLS керує окремим статичним vhost; systemd є єди
 ### 3. Linux-пакет, ресурси, секрет
 - Підготувати manifest: точний SHA app/API/rules, lockfiles, Node, build config, hashes static assets, whisper.cpp commit d1be6fde11ac6e0407606b4e42fe72d34add8037 і large-v3-turbo-q5_0. Mac-бінарник не копіювати; перевірити архітектуру Linux, source/model hash та ліцензії.
 - Запропоновані каталоги /opt/scisense/releases, /var/lib/scisense і окремий непривілейований service user; це проєктні значення, остаточні шляхи/порти підтвердити інвентаризацією до install. Webroot містить лише статичні файли.
-- Окремий systemd unit: один Whisper-процес/один потік, CPUQuota=100%, MemoryMax=2G, 45 s inference timeout. Перевірити фактичну systemd та hardening без припущення, що latest docs збігаються з установленою версією.
+- Параметризувати threads у createWhisper: чинний Mac adapter має -t 4, серверна конфігурація явно передає -t 1; перевірити фактичні spawn arguments тестом, зберігши локальний сценарій. Окремий systemd unit: один Whisper-процес/один потік, CPUQuota=100%, MemoryMax=2G, 45 s inference timeout. Перевірити фактичну systemd та hardening без припущення, що latest docs збігаються з установленою версією.
 - У Linux-ізоляції перевірити синтетичні UA/RU записи 5/30/90 s, допустимі формати, одночасні запити, timeout/OOM/abort і cleanup. Після тесту не менше 2 GiB доступної RAM; ніяких нових 5xx у сусідів. Фінальний benchmark на MS-WEB лише після дозволеного встановлення. Якщо межі не проходять, зупинка з вимірами; модель/ресурси автоматично не збільшуються.
 - Аудіо обробляється Whisper на сервері; текст і фото передаються Anthropic. Не зберігати медіа або розшифровки в логах/телеметрії/Git; тимчасові файли знищувати на всіх шляхах завершення. Зберігається тільки підтверджений прийом та знеособлені метрики.
-- Anthropic API-key: macOS Keychain → stdin через захищений канал → LoadCredentialEncrypted/systemd-creds. На диску тільки encrypted platform credential, plaintext .env заборонений. Ключ не успадковує subprocess Whisper.
+- Підготувати й відрепетирувати на тестовому ключі шлях для Anthropic API-key: macOS Keychain → stdin через захищений канал → LoadCredentialEncrypted/systemd-creds. На диску тільки encrypted platform credential, plaintext .env заборонений. Ключ не успадковує subprocess Whisper.
 
 ### 4. Один бюджет на весь прогін
 - Точна модель claude-sonnet-5-5; без Haiku/fallback. Whisper не використовує платний STT. $5 є вже погодженою загальною стелею; поточний консервативний резерв 20 викликів Sonnet становить $3.039200, не прогноз рахунку. Ціну/доступність ще раз звірити перед першим платним запитом.
-- Повторно перевірити стан локального ledger без вмісту їжі, зупинити власні lab-процеси. За ненульового usage/активації спочатку offline snapshot/reconcile; не починати сервер із нових $5.
-- Перед передаванням записати permanent transfer-marker у чинний Keychain budget slot: proposalId, cap, consumed, receipt-id, target. Довести, що інший checkout на Mac не може initialize/start; лише після цього дозволити серверну активацію за receipt.
+- На копії відрепетирувати transfer-script; у справжньому виконанні кроку 6 він повторно перевіряє локальний ledger без вмісту їжі й зупиняє власні lab-процеси. За ненульового usage/активації спочатку offline snapshot/reconcile; не починати сервер із нових $5.
+- Підготувати й перевірити на синтетичному marker операцію, яка лише у кроці 6 перед передаванням записує permanent transfer-marker у чинний Keychain budget slot: proposalId, cap, consumed, receipt-id, target. Довести, що інший checkout на Mac не може initialize/start; лише після цього дозволити серверну активацію за receipt.
 - SQLite ledger і root-owned activation marker поза releases/webroot та поза deploy rollback. Restart, missing/corrupt DB, stale receipt, паралельний процес або rollback не додають бюджет; відмовляють до inference. Перерваний transfer лишає inference вимкненим на обох хостах. Повернення на Mac вимагає зупинки сервера і перенесення поточного ledger.
 - Reservation відбувається до upstream; повтори й timeout не повертають резерв автоматично. Ніякого поповнення або другого бюджету за UID/перезапуском.
 
@@ -83,6 +86,8 @@ xCloud/OLS керує окремим статичним vhost; systemd є єди
 - Надати конкретний provisioning/TLS payload із dry_run PASS; automatic AI script, push deploy, Redis/database/add-ons вимкнені. Новий ресурс/платіж не допускається без рішення.
 - Налаштування OLS: External App + Proxy Context для /meal-api/, SPA/static cache policy; не вставляти Nginx snippets. Вимкнути регенерацію тільки SciSense-vhost; зберегти його backup. Перевіряти маршрути після панельних lifecycle-операцій, бо окремі з них можуть примусово регенерувати config.
 - До спільного reload: backup зачеплених config, повний config test /usr/local/lsws/bin/openlitespeed -t і preflight трьох сусідів. Лише за PASS погоджений graceful reload; одразу postflight і відкат при регресії. Чужі vhost, загальні tuning/firewall та несправний невикористовуваний nginx не ремонтуються в цій задачі.
+- Перевірити потрібний вихідний HTTPS до www.googleapis.com для Firebase JWKS і api.anthropic.com для Sonnet; це перевірка досяжності, а не дозвіл змінювати загальний firewall. Завантаження pinned Node/Whisper/model має окремі джерела в маніфесті.
+- До зміни rules read-only порахувати legacy users.trainerId, trainers.clients і trainerRequests із випадковими ID; визначити, кому потрібен reconnect, та зробити адресний backup відповідних метаданих. Приватний перелік лишається поза публічним Git, у звіті лише кількість і спосіб переходу.
 - Перевірити Firebase authorized domain, Google login і backend allowlist. HTML/API: no-store; hashed assets: immutable, попередні assets зберігаються.
 - Додати точну матрицю старий/новий app × API × Firestore rules. Визначити всі чинні writers, включно зі старим Firebase Hosting і вже відкритими вкладками. DNS/сторінка обслуговування/закриття вкладок не є серверним блокуванням Firestore.
 - Запропонований перехід: адресний backup → серверне блокування несумісних writers у погоджене вікно → G04 rules і перевірка фактичного поширення allow/deny та активних listeners → API без доступу користувачів → перевірки → новий frontend і відкриття дозволених записів. Точний fence та захист незбережених чернеток довести на стенді, потім включити в окремий production-дозвіл.
