@@ -42,6 +42,6 @@ npm run dev
 
 Для транскрипції резервується повна верхня межа 16000 вхідних і 2000 вихідних токенів. Підтримано лише snapshot-и gpt-4o-mini-transcribe-2025-12-15 та gpt-4o-mini-transcribe-2025-03-20; невідома модель блокується до перевірки її меж. Джерело меж: [офіційна документація моделі](https://developers.openai.com/api/docs/models/gpt-4o-mini-transcribe), перевірено 2026-10-20. Середня ціна хвилини не використовується як гарантія бюджету. Жоден акаунт, тариф або live-модель цим документом не активовано.
 
-Production JWT-перевірка відхиляє непідписані токени Firebase emulator. Телефонна лабораторія потребує окремого локального адаптера автентифікації з перевіркою demo issuer, без змін у production handler; цей канал ще не створено. Multipart WAV → Worker parser → provider adapter перевірений на синтетичному звуці без мережевого API.
+Production JWT-перевірка відхиляє непідписані токени Firebase emulator. Телефонна лабораторія потребує окремого локального адаптера автентифікації з перевіркою demo issuer, без змін у production handler; локальний канал реалізовано в [PHONE-LAB.md](../../docs/PHONE-LAB.md) і перевірено з підставними моделями. CLI не вмикає реальні API; фізичний телефон і TLS-довіра власника ще pending. Multipart WAV → Worker parser → provider adapter перевірений на синтетичному звуці без мережевого API.
 
 Пакет моделей і бюджету на погодження: [VOICE-PHOTO-LIVE-APPROVAL.md](../../docs/VOICE-PHOTO-LIVE-APPROVAL.md). `pilot-proposal.json` є несекретною пропозицією, не активною конфігурацією.

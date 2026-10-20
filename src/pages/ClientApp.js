@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { auth, googleProvider, db, IS_LOCAL_LAB } from '../firebase';
-import { signInWithPopup, signInAnonymously, signOut, onAuthStateChanged } from 'firebase/auth';
+import { auth, googleProvider, db, IS_LOCAL_LAB, IS_PHONE_LAB } from '../firebase';
+import { signInWithPopup, signInWithCustomToken, signInAnonymously, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import {
   PRODUCTS_DB,
@@ -206,7 +206,11 @@ export default function ClientApp() {
   // Google Sign In
   const handleGoogleSignIn = async () => {
     try {
-      if(IS_LOCAL_LAB) await signInAnonymously(auth);
+      if(IS_PHONE_LAB) {
+        const response = await fetch('/lab/token',{method:'POST'});
+        if(!response.ok) throw Error('Сеанс лабораторії завершився. Підключіть телефон знову.');
+        await signInWithCustomToken(auth,(await response.json()).token);
+      } else if(IS_LOCAL_LAB) await signInAnonymously(auth);
       else await signInWithPopup(auth, googleProvider);
     } catch (error) {
       console.error('Error signing in:', error);

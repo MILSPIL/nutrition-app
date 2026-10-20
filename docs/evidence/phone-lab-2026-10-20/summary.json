@@ -1,0 +1,39 @@
+{
+  "checkedAt": "2026-10-20T17:47:07+03:00",
+  "fixtureOnly": true,
+  "paidCalls": 0,
+  "jest": 88,
+  "nodeIntegrationTests": 3,
+  "browserChecks": 10,
+  "productionBuild": "passed",
+  "labBuild": "passed",
+  "actualLanTls": {
+    "httpStatus": 200,
+    "verifiedWith": "generated CA, no insecure override",
+    "liveEnabled": false,
+    "tlsPrivateKey": "macOS Keychain",
+    "physicalPhoneTrust": "pending"
+  },
+  "cleanup": {
+    "browserReceipt": "launcher.json",
+    "manualLanServer": "SIGINT; app exit 0; wrapper interrupted; lsof 8443/8444/9099/8088 empty"
+  },
+  "review": {
+    "agent": "Codex phone_lab_security_review",
+    "findings": 3,
+    "fixed": 3,
+    "openP1P2": 0,
+    "verdict": "local_preparation_done"
+  },
+  "knownExistingIssues": [
+    "404 category-carbs-v4.png, category-dairy-v4.png, category-treats-v4.png; absent before this change"
+  ],
+  "remaining": [
+    "API route and budget approval",
+    "Console organization and available credits",
+    "project API key",
+    "Whisper adapter if B",
+    "approved live budget binding",
+    "physical phone and owner TLS trust"
+  ]
+}

@@ -23,7 +23,11 @@
     "eject": "react-scripts eject",
     "test:voice-photo": "npm run test:ci -- --runInBand && npm --prefix workers/meal-parser test && npm run test:meal-store",
     "test:meal-store": "node scripts/meal-store-test.mjs",
-    "test:voice-photo-ui": "/Users/user/.local/bin/agent-test-browser run scisense-voice-photo"
+    "test:voice-photo-ui": "/Users/user/.local/bin/agent-test-browser run scisense-voice-photo",
+    "lab:phone:prepare": "node scripts/phone-lab.mjs prepare",
+    "lab:phone": "node scripts/phone-lab.mjs start",
+    "test:phone-lab": "node --test scripts/phone-lab/gateway.test.mjs",
+    "test:phone-lab-ui": "/Users/user/.local/bin/agent-test-browser run scisense-phone-lab"
   },
   "eslintConfig": {
     "extends": [

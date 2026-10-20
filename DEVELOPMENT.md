@@ -7,6 +7,8 @@
 
 ## Поточна версія пакета: 1.6.0
 
+20.10.2026: додано локальний [HTTPS-вхід для телефона](docs/PHONE-LAB.md), команди `lab:phone:prepare`, `lab:phone`, `test:phone-lab` і `test:phone-lab-ui`. Окремі demo Firebase/UID, сполучення, ключ TLS у Keychain; CLI live=false. Автоматизований proof використовує підставні відповіді моделей, реальні API й фізичний телефон потребують окремого приймання.
+
 ## Команди
 
 ```bash
