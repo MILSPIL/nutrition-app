@@ -1,0 +1,63 @@
+{
+  "schema_version": 2,
+  "project": "nutrition-app",
+  "phase": {
+    "id": "phase_58567d7e8d0d",
+    "project": "nutrition-app",
+    "product": "scisense",
+    "name": "4. Пілот і приймання продукту",
+    "goal": "Goal objective_e45aa8ac1aa3: G09, G10. Перевірити корисність у щоденному користуванні й отримати приймання Юрія.",
+    "success_criteria": "Погоджено критерії, проведено пілот, збережено знеособлені докази; Юрій явно прийняв конкретний реліз. Кількість закритих карток не є доказом готовності.",
+    "status": "planned",
+    "parent_phase_id": null,
+    "depends_on": [
+      "phase_1725e5d7c26b"
+    ],
+    "order_hint": null,
+    "author": "Codex",
+    "created_at": "2026-10-20T08:46:58.919713+00:00",
+    "updated_at": "2026-10-20T08:53:54.340225+00:00",
+    "valid_from": null,
+    "expires_at": null,
+    "importance": null,
+    "tags": [],
+    "soft_deleted_at": null,
+    "archived_at": null,
+    "source_path": null,
+    "last_exported_at": null,
+    "last_exported_hash": null,
+    "health": null,
+    "health_note": null,
+    "health_updated_at": null
+  },
+  "phase_revisions": [
+    {
+      "id": "rev_0e7e03d3a717",
+      "phase_id": "phase_58567d7e8d0d",
+      "field": "__create__",
+      "old_value": null,
+      "new_value": "{\"id\":\"phase_58567d7e8d0d\",\"project\":\"nutrition-app\",\"product\":\"scisense\",\"name\":\"4. Пілот і приймання продукту\",\"goal\":\"Goal objective_e45aa8ac1aa3: G01, G09, G10. Перевірити корисність у щоденному користуванні й отримати приймання Юрія.\",\"success_criteria\":\"Погоджено критерії, проведено пілот, збережено знеособлені докази; Юрій явно прийняв конкретний реліз. Кількість закритих карток не є доказом готовності.\",\"status\":\"planned\",\"parent_phase_id\":null,\"depends_on\":[\"phase_1725e5d7c26b\"],\"order_hint\":null,\"author\":\"Codex\",\"created_at\":\"2026-10-20T08:46:58.919713+00:00\",\"updated_at\":\"2026-10-20T08:46:58.919713+00:00\",\"valid_from\":null,\"expires_at\":null,\"importance\":null,\"tags\":[],\"soft_deleted_at\":null,\"archived_at\":null,\"source_path\":null,\"last_exported_at\":null,\"last_exported_hash\":null,\"health\":null,\"health_note\":null,\"health_updated_at\":null}",
+      "reason": null,
+      "author": "Codex",
+      "actor_client": null,
+      "actor_model": null,
+      "at": "2026-10-20T08:46:58.919713+00:00",
+      "project": "nutrition-app",
+      "product": "scisense"
+    },
+    {
+      "id": "rev_75ed9190a21ce7b1",
+      "phase_id": "phase_58567d7e8d0d",
+      "field": "goal",
+      "old_value": "Goal objective_e45aa8ac1aa3: G01, G09, G10. Перевірити корисність у щоденному користуванні й отримати приймання Юрія.",
+      "new_value": "Goal objective_e45aa8ac1aa3: G09, G10. Перевірити корисність у щоденному користуванні й отримати приймання Юрія.",
+      "reason": "G01 погоджується на першій фазі, а не після релізу.",
+      "author": null,
+      "actor_client": null,
+      "actor_model": null,
+      "at": "2026-10-20T08:53:54.340225+00:00",
+      "project": "nutrition-app",
+      "product": "scisense"
+    }
+  ]
+}
