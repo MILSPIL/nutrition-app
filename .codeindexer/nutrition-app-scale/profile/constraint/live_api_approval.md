@@ -3,8 +3,8 @@ project: nutrition-app-scale
 domain: constraint
 slot: live_api_approval
 confidence: 0
-valid_at: "2026-10-20T19:15:47.898630+00:00"
-provenance: Канон nutrition-app/codex/voice-photo-entry, прямий вибір Юрія.
+valid_at: "2026-10-20T20:21:51.719230+00:00"
+provenance: PROJECT-INFO.md і журнал2322 поточної реалізації, прямі погодження Юрія, read-onlyserverpreflight.
 ---
 
-Пошуковий пойнтер, файли старого дерева не змінювалися. 2026-10-20: Юрій підтвердив Claude Code/Anthropic, вибрав Sonnet замість Haiku та окремий ключ SciSense у Default. Keychain scisense-anthropic/api-key існує, Models API GET200 для claude-sonnet-5-5 підтвердив image_input/structured_outputs; генерацій0. Запропоновано B: local Whisper large-v3-turbo-q5_0 + Sonnet5.5; консервативний резерв20analysis calls $3.039200, стеля $5 ще не погоджена. Haiku/$0.25 більше не є поточною пропозицією. Адаптер Sonnet JSON outputs25Worker tests/dry-runPASS; локальний Whisper/live binding ще не реалізовані. CLI live=false. Default відомий зі слів Юрія, організація/залишок/строк кредиту не перевірені. HTTPS/fixture phone lab перевірена раніше; фізичний телефон/довіра pending. G04 до приватного пілоту, Goal active, G05/G07/G11 pending. Канон codex/voice-photo-entry / docs/VOICE-PHOTO-LIVE-APPROVAL.md.
+Канон реалізації в codex/voice-photo-entry / scisense-product-goal. Юрій погодив Whisper + Sonnet5.5 і $5 із Claude-кредитів, баланс підтвердив. b8f7351 localWhisper+budget реалізовані, 27Worker/8NodePASS, реальний syntheticUA2872ms, reviewaccepted; paid0/livefalse. Ціль https://ntzg.pp.ua/MS-WEB безMac, окремогоsiteще0, createpreview403. Сервернийплан/G04/API/phonepending. Не повторювати старі Haiku/$0.25 чи непогоджені$5, не зливати feat/voice-input у поточнийкод.

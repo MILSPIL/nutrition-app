@@ -3,8 +3,8 @@ project: nutrition-app
 domain: constraint
 slot: live_api_approval
 confidence: 0
-valid_at: "2026-10-20T19:15:44.899730+00:00"
-provenance: "Прямі вимоги Юрія: Sonnet, окремий ключ у Default; Keychain discovery/len і читальний Models GET; тести та офіційна документація, 2026-10-20."
+valid_at: "2026-10-20T20:20:33.263859+00:00"
+provenance: Прямі погодження Юрія й уточнення ntzg; власний read-only xCloud/Cloudflare, commit b8f7351, synthetic evidence, незалежний Codex review.
 ---
 
-2026-10-20: Юрій підтвердив Claude Code/Anthropic, вибрав Sonnet замість Haiku та окремий ключ SciSense у Default. Keychain scisense-anthropic/api-key існує, Models API GET200 для claude-sonnet-5-5 підтвердив image_input/structured_outputs; генерацій0. Запропоновано B: local Whisper large-v3-turbo-q5_0 + Sonnet5.5; консервативний резерв20analysis calls $3.039200, стеля $5 ще не погоджена. Haiku/$0.25 більше не є поточною пропозицією. Адаптер Sonnet JSON outputs25Worker tests/dry-runPASS; локальний Whisper/live binding ще не реалізовані. CLI live=false. Default відомий зі слів Юрія, організація/залишок/строк кредиту не перевірені. HTTPS/fixture phone lab перевірена раніше; фізичний телефон/довіра pending. G04 до приватного пілоту, Goal active, G05/G07/G11 pending. Канон codex/voice-photo-entry / docs/VOICE-PHOTO-LIVE-APPROVAL.md.
+2026-10-20: Юрій погодив Whisper + claude-sonnet-5-5 і $5 Claude-кредитів; достатній баланс підтверджено власником. Окремий scisense-anthropic ключ у Default перевірений Models GET200. Whisper/local budget binding реалізовано b8f7351: 27Worker/8Node/build/dry-runPASS; pinned real synthetic UA 2.63s → правильний текст за2872ms; Codexreview P1stdout fixed+accepted. Paidcalls0, LIVEfalse, фінансовий marker ще не створений. Ціль уточнена на https://ntzg.pp.ua / MS-WEB, без залежності від Mac. Read-only inventory: 4cores/8GB,Nodeнеinstalled,siteнемає; gitdetectcompatible, creationdryrun403. Потрібен deploymenttoken, серверний план/G04/realAPI/phonepending. $5 не скидати між середовищами. Канон docs/VOICE-PHOTO-LIVE-APPROVAL.md та журнал2322.
