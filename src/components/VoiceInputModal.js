@@ -1,0 +1,1100 @@
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Mic,
+  Square,
+  Camera,
+  Image as ImageIcon,
+  X,
+  Trash2,
+} from "lucide-react";
+import {
+  createRecorder,
+  normalizeAudio,
+  normalizePhoto,
+} from "../services/voiceMedia";
+import { analyzeFood, transcribeAudio, voiceError } from "../services/voiceApi";
+import {
+  newId,
+  normalizeAnalysis,
+  mergePhotoItem,
+  itemProblems,
+  itemMacros,
+  roundMacros,
+  parseDecimal,
+  UNITS,
+  sourceText,
+} from "../services/mealItems";
+import { saveError } from "../services/useMealDay";
+import "./VoiceInputModal.css";
+const defaultApi = { transcribe: transcribeAudio, analyze: analyzeFood };
+const names = { 1: "Сніданок", 2: "Обід", 3: "Вечеря", 4: "Перекус" };
+// Залишаємо кому під час набору: перетворення в число не повинно з'їдати «0,».
+function DecimalInput({ value, onChange, ...props }) {
+  const [raw, setRaw] = useState(value == null ? "" : String(value));
+  useEffect(() => {
+    if (parseDecimal(raw) !== value) setRaw(value == null ? "" : String(value));
+  }, [value, raw]);
+  return (
+    <input
+      {...props}
+      inputMode="decimal"
+      value={raw}
+      onChange={(e) => {
+        setRaw(e.target.value);
+        onChange(e);
+      }}
+    />
+  );
+}
+
+export default function VoiceInputModal({
+  isOpen,
+  onClose,
+  onAdd,
+  date,
+  meal,
+  activeDate,
+  api = defaultApi,
+  ledger,
+  recorderFactory = createRecorder,
+  audioNormalizer = normalizeAudio,
+  photoNormalizer = normalizePhoto,
+  onSaved,
+  onReturnToDate,
+}) {
+  const [state, setState] = useState("idle"),
+    [seconds, setSeconds] = useState(0),
+    [waiting, setWaiting] = useState(false);
+  const [text, setText] = useState(""),
+    [items, setItems] = useState([]),
+    [unparsed, setUnparsed] = useState([]),
+    [photos, setPhotos] = useState([]);
+  const [target, setTarget] = useState({ date, meal }),
+    [photoTarget, setPhotoTarget] = useState(""),
+    [error, setError] = useState("");
+  const [partial, setPartial] = useState(false),
+    [dirtyText, setDirtyText] = useState(false),
+    [metricError, setMetricError] = useState(false);
+  const [saveUnknown, setSaveUnknown] = useState(false),
+    [photoIssue, setPhotoIssue] = useState(false);
+  const life = useRef({ closed: true, revision: 0 }),
+    recorder = useRef(),
+    request = useRef(),
+    audio = useRef(),
+    attempt = useRef(),
+    submission = useRef(),
+    saved = useRef(false),
+    saving = useRef(false),
+    attemptStatus = useRef("started");
+  const panel = useRef(),
+    cameraInput = useRef(),
+    galleryInput = useRef(),
+    latest = useRef();
+  const metrics = useRef({ actions: 1, corrections: 0, clarifications: 0 }),
+    mediaAt = useRef(0),
+    retryTask = useRef(null);
+  latest.current = {
+    state,
+    items,
+    unparsed,
+    text,
+    photos,
+    target,
+    photoTarget,
+    partial,
+    saveUnknown,
+  };
+  const track = async (patch, id = attempt.current, session = life.current) => {
+    if (id === attempt.current && patch.status)
+      attemptStatus.current = patch.status;
+    if (!id || !ledger?.enabled) return;
+    try {
+      await ledger.update(id, { ...patch });
+    } catch (_) {
+      if (!session.closed && life.current === session) setMetricError(true);
+    }
+  };
+  const action = () => {
+    metrics.current.actions++;
+    void track(metrics.current);
+  };
+  const bump = () => {
+    life.current.revision++;
+    request.current?.abort();
+    submission.current = null;
+    retryTask.current = null;
+    action();
+  };
+  const valid = (session, revision) =>
+    !life.current.closed &&
+    life.current === session &&
+    session.revision === revision;
+  const stopResources = () => {
+    request.current?.abort();
+    recorder.current?.cancel();
+    request.current = null;
+    recorder.current = null;
+    audio.current = null;
+  };
+  const clearDraft = () => {
+    retryTask.current = null;
+    submission.current = null;
+    setText("");
+    setItems([]);
+    setUnparsed([]);
+    setPhotos([]);
+    setPhotoTarget("");
+    setPhotoIssue(false);
+  };
+  const edit = (fn) => {
+    bump();
+    metrics.current.corrections++;
+    void track(metrics.current);
+    fn();
+  };
+  const abandon = () => {
+    if (saved.current || !attempt.current) return;
+    const status =
+      saving.current || latest.current.saveUnknown
+        ? "unknown"
+        : attemptStatus.current === "error"
+          ? "error"
+          : "abandoned";
+    void track({ status, finishedAt: Date.now() });
+  };
+  async function newAttempt(carry = false) {
+    const session = life.current,
+      parent = attempt.current;
+    if (parent && !["error", "abandoned"].includes(attemptStatus.current))
+      await track(
+        { status: "abandoned", finishedAt: Date.now() },
+        parent,
+        session,
+      );
+    if (session.closed || life.current !== session) return false;
+    const previous = metrics.current;
+    metrics.current = {
+      actions: 1,
+      corrections: carry ? previous.corrections : 0,
+      clarifications: carry ? previous.clarifications : 0,
+      manualPfc: carry && !!previous.manualPfc,
+    };
+    let id;
+    try {
+      id = ledger?.enabled ? await ledger.start(parent) : newId();
+    } catch (_) {
+      id = newId();
+      if (!session.closed) setMetricError(true);
+    }
+    if (session.closed || life.current !== session) {
+      if (ledger?.enabled)
+        void track(
+          { status: "abandoned", finishedAt: Date.now() },
+          id,
+          session,
+        );
+      return false;
+    }
+    attempt.current = id;
+    attemptStatus.current = "started";
+    await track({
+      ...metrics.current,
+      hasPhoto: carry && latest.current.photos.length > 0,
+      partial: carry && latest.current.partial,
+    });
+    return !session.closed && life.current === session;
+  }
+  async function retry(task) {
+    if (!task || saving.current) return;
+    setState("processing");
+    bump();
+    if (await newAttempt(true)) {
+      mediaAt.current = Date.now();
+      void task();
+    }
+  }
+  async function analyze(
+    transcript,
+    images = [],
+    rowId = "",
+    session = life.current,
+    revision = session.revision,
+  ) {
+    if (!valid(session, revision)) return;
+    const id = attempt.current;
+    const controller = new AbortController();
+    request.current = controller;
+    setState("processing");
+    setError("");
+    retryTask.current = () => analyze(transcript, images, rowId);
+    try {
+      const row = rowId
+        ? latest.current.items.find((i) => i.itemId === rowId)
+        : null;
+      const prompt = row
+        ? `Уточни тільки цей продукт: ${row.name}. Спожито ${row.quantity.value} ${row.quantity.unit}.\n${transcript}`
+        : transcript;
+      const response = await api.analyze(prompt, images, controller.signal);
+      if (!valid(session, revision)) return;
+      if (rowId) {
+        const updated = mergePhotoItem(row, response);
+        setItems((current) =>
+          current.map((i) => (i.itemId === rowId ? updated : i)),
+        );
+      } else {
+        const parsed = normalizeAnalysis(response);
+        setItems(parsed.items);
+        setUnparsed(parsed.unparsed);
+        setPhotoTarget(parsed.items.length === 1 ? parsed.items[0].itemId : "");
+      }
+      const parsed = normalizeAnalysis(response);
+      const questions =
+        parsed.unparsed.length +
+        parsed.items.filter((i) => itemProblems(i).length).length;
+      metrics.current.clarifications += questions;
+      setPhotoIssue(false);
+      setDirtyText(false);
+      setState("preview");
+      retryTask.current = null;
+      await track(
+        {
+          ...metrics.current,
+          previewMs: Math.max(0, Date.now() - mediaAt.current),
+        },
+        id,
+        session,
+      );
+    } catch (e) {
+      if (!valid(session, revision)) return;
+      setState("preview");
+      setError(voiceError(e));
+      if (rowId) {
+        setPhotoIssue(true);
+        metrics.current.clarifications++;
+      }
+      await track({ ...metrics.current, status: "error" }, id, session);
+    }
+  }
+  async function processAudio(blob, duration) {
+    const session = life.current,
+      revision = session.revision,
+      id = attempt.current;
+    setState("processing");
+    setError("");
+    mediaAt.current = Date.now();
+    retryTask.current = () => processAudio(blob, duration);
+    try {
+      const wav =
+        blob.type === "audio/wav" ? blob : await audioNormalizer(blob);
+      if (!valid(session, revision)) return;
+      audio.current = { blob: wav, duration };
+      const controller = new AbortController();
+      request.current = controller;
+      const response = await api.transcribe(wav, duration, controller.signal);
+      if (!valid(session, revision)) return;
+      if (!response.text?.trim()) throw Error("empty_transcript");
+      setText(response.text);
+      await analyze(response.text, [], "", session, revision);
+    } catch (e) {
+      if (!valid(session, revision)) return;
+      setState("preview");
+      setError(voiceError(e));
+      await track({ status: "error" }, id, session);
+    }
+  }
+  async function start() {
+    const session = life.current;
+    bump();
+    stopResources();
+    setItems([]);
+    setUnparsed([]);
+    setPhotos([]);
+    setText("");
+    setError("");
+    setSeconds(0);
+    setWaiting(false);
+    setPartial(false);
+    setDirtyText(false);
+    setSaveUnknown(false);
+    setPhotoIssue(false);
+    saved.current = false;
+    retryTask.current = null;
+    setState("permission");
+    if (!(await newAttempt())) return;
+    const revision = session.revision;
+    recorder.current = recorderFactory({
+      onState: (next) => {
+        if (valid(session, revision)) setState(next);
+      },
+      onTime: (value) => {
+        if (valid(session, revision)) setSeconds(value);
+      },
+      onWaiting: () => {
+        if (valid(session, revision)) setWaiting(true);
+      },
+      onError: (e) => {
+        if (valid(session, revision)) {
+          setState("preview");
+          setError(voiceError(e));
+          void track({ status: "error" });
+        }
+      },
+      onStop: (blob, duration) => {
+        if (valid(session, revision)) void processAudio(blob, duration);
+      },
+    });
+    void recorder.current.start();
+  }
+  function close() {
+    if (saved.current) {
+      onClose();
+      return;
+    }
+    if (saving.current) return;
+    if (saveUnknown) {
+      setError(
+        "Спочатку перевірте результат збереження. Це запобігає повторному додаванню.",
+      );
+      return;
+    }
+    if (
+      (text || items.length || photos.length || state === "recording") &&
+      !window.confirm("Закрити й видалити незбережену чернетку?")
+    )
+      return;
+    onClose();
+  }
+  useEffect(() => {
+    if (!isOpen) {
+      clearDraft();
+      return;
+    }
+    const session = { closed: false, revision: 0 };
+    life.current = session;
+    attempt.current = null;
+    submission.current = null;
+    saved.current = false;
+    saving.current = false;
+    attemptStatus.current = "started";
+    setTarget({ date, meal });
+    setMetricError(false);
+    const previous = document.activeElement,
+      oldOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const begin = Promise.resolve().then(() => {
+      if (!session.closed) {
+        panel.current?.focus();
+        void start();
+      }
+    });
+    void begin;
+    const onPageHide = () => {
+      abandon();
+      session.closed = true;
+      stopResources();
+      clearDraft();
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      abandon();
+      session.closed = true;
+      stopResources();
+      retryTask.current = null;
+      window.removeEventListener("pagehide", onPageHide);
+      document.body.style.overflow = oldOverflow;
+      previous?.focus?.();
+    };
+    // Одна ізольована сесія на відкриття; StrictMode cleanup скасовує перший microtask до запиту дозволу.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  async function addPhoto(file) {
+    if (!file) return;
+    if (!photoTarget) {
+      setError("Оберіть продукт, якого стосується фото.");
+      return;
+    }
+    if (photos.length >= 2) {
+      setError("Можна додати два фото. Видаліть зайве перед новим.");
+      return;
+    }
+    bump();
+    const session = life.current,
+      revision = session.revision,
+      id = attempt.current;
+    setState("processing");
+    setError("");
+    mediaAt.current = Date.now();
+    try {
+      const photo = await photoNormalizer(file);
+      if (!valid(session, revision)) return;
+      const next = [...photos, photo];
+      setPhotos(next);
+      await track({ hasPhoto: true }, id, session);
+      if (!valid(session, revision)) return;
+      await analyze(text, next, photoTarget, session, revision);
+    } catch (e) {
+      if (!valid(session, revision)) return;
+      setState("preview");
+      setPhotoIssue(true);
+      setError(voiceError(e));
+      await track({ status: "error" }, id, session);
+    }
+  }
+  const changeItem = (id, fn, manualPfc = false) =>
+    edit(() => {
+      setItems((current) =>
+        current.map((item) => (item.itemId === id ? fn(item) : item)),
+      );
+      if (manualPfc) {
+        metrics.current.manualPfc = true;
+        void track({ manualPfc: true });
+      }
+    });
+  async function save() {
+    if (saving.current) return;
+    if (activeDate && activeDate !== target.date) {
+      setError(
+        "Відкрита інша дата. Явно виберіть дату чернетки перед додаванням.",
+      );
+      return;
+    }
+    if (
+      !items.length ||
+      unparsed.length ||
+      dirtyText ||
+      photoIssue ||
+      items.some((i) => itemProblems(i).length)
+    )
+      return;
+    const session = life.current,
+      id = attempt.current;
+    saving.current = true;
+    action();
+    if (!submission.current)
+      submission.current = {
+        type: "append",
+        submissionId: `${target.date}~${newId()}`,
+        meal: target.meal,
+        items,
+        updatedAt: new Date().toISOString(),
+      };
+    setState("saving");
+    setError("");
+    await track(
+      {
+        submissionId: submission.current.submissionId,
+        status: "unknown",
+        partial,
+      },
+      id,
+      session,
+    );
+    try {
+      if (session.closed || life.current !== session) {
+        await track(
+          { status: "abandoned", finishedAt: Date.now() },
+          id,
+          session,
+        );
+        return;
+      }
+      await onAdd(submission.current, target.date);
+      if (session.closed || life.current !== session) return;
+      saved.current = true;
+      setSaveUnknown(false);
+      setState("saved");
+      stopResources();
+      clearDraft();
+      await track(
+        { status: "saved", finishedAt: Date.now(), partial },
+        id,
+        session,
+      );
+      onSaved?.();
+    } catch (e) {
+      if (session.closed || life.current !== session) return;
+      setState("preview");
+      const unknown =
+        [
+          "save_unknown",
+          "unavailable",
+          "deadline-exceeded",
+          "unknown",
+        ].includes(e.message) ||
+        ["unavailable", "deadline-exceeded", "unknown"].includes(e.code);
+      setSaveUnknown(unknown);
+      setError(saveError(e));
+      await track({ status: unknown ? "unknown" : "error" }, id, session);
+    } finally {
+      if (life.current === session) saving.current = false;
+    }
+  }
+  const keyDown = (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      close();
+    }
+    if (e.key !== "Tab") return;
+    const nodes = [
+      ...panel.current.querySelectorAll(
+        'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary,[tabindex="0"]',
+      ),
+    ].filter((n) => n.getClientRects().length);
+    const first = nodes[0],
+      last = nodes[nodes.length - 1];
+    if (
+      e.shiftKey &&
+      (document.activeElement === first ||
+        document.activeElement === panel.current)
+    ) {
+      e.preventDefault();
+      last?.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first?.focus();
+    }
+  };
+  if (!isOpen) return null;
+  const locked =
+    ["permission", "recording", "processing", "saving"].includes(state) ||
+    saveUnknown;
+  const canSave =
+    items.length > 0 &&
+    !unparsed.length &&
+    !dirtyText &&
+    !photoIssue &&
+    items.every((i) => !itemProblems(i).length) &&
+    !["permission", "recording", "processing", "saving"].includes(state);
+  return (
+    <div className="voice-overlay" onKeyDown={keyDown}>
+      <section
+        className="voice-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="voice-title"
+        tabIndex={-1}
+        ref={panel}
+      >
+        <header className="voice-heading">
+          <div>
+            <h2 id="voice-title">Додати їжу</h2>
+            <p>
+              {target.date} · {names[target.meal]}
+            </p>
+          </div>
+          <button
+            aria-label="Закрити голосову чернетку"
+            onClick={close}
+            disabled={state === "saving"}
+            className="voice-icon"
+          >
+            <X size={24} />
+          </button>
+        </header>
+        <div className="voice-body">
+          {state === "permission" && (
+            <div role="status">
+              <p>Дозвольте мікрофон у запиті браузера.</p>
+              {waiting && (
+                <p>
+                  Запит ще очікує відповіді. Можна закрити чернетку й
+                  повернутися пізніше.
+                </p>
+              )}
+            </div>
+          )}
+          {state === "recording" && (
+            <div className="voice-recording" role="status">
+              <Mic size={28} />
+              <strong>Записую · {seconds} с</strong>
+              <p>Скажіть, що з’їли та скільки.</p>
+              <button
+                className="voice-primary"
+                onClick={() => {
+                  action();
+                  recorder.current?.stop();
+                }}
+              >
+                <Square size={18} /> Зупинити запис
+              </button>
+            </div>
+          )}
+          {state === "processing" && (
+            <p role="status">Готую прев’ю… Чернетка залишиться тут.</p>
+          )}
+          {metricError && (
+            <p role="alert">
+              Облік спроб пілоту недоступний. Ці вимірювання не можна вважати
+              повними.
+            </p>
+          )}
+          {activeDate && activeDate !== target.date && (
+            <div role="alert">
+              <p>Відкрита інша дата: {activeDate}.</p>
+              <button
+                className="voice-secondary"
+                disabled={locked}
+                onClick={() => onReturnToDate?.(target.date)}
+              >
+                Повернутися до {target.date}
+              </button>
+              <button
+                className="voice-secondary"
+                disabled={locked}
+                onClick={() =>
+                  edit(() => setTarget({ ...target, date: activeDate }))
+                }
+              >
+                Перенести на {activeDate}
+              </button>
+            </div>
+          )}
+          {error && (
+            <p className="voice-error" role="alert">
+              {error}
+            </p>
+          )}
+          {state === "saved" ? (
+            <div role="status">
+              <h3>Прийом збережено</h3>
+              <p>
+                {target.date} · {names[target.meal]}
+              </p>
+              {ledger?.enabled && (
+                <button
+                  className="voice-secondary"
+                  onClick={async () => {
+                    await track({ correct: true });
+                    onSaved?.();
+                    onClose();
+                  }}
+                >
+                  Запис правильний і повний
+                </button>
+              )}
+              <button className="voice-primary" onClick={onClose}>
+                Готово
+              </button>
+            </div>
+          ) : (
+            <>
+              {text && (
+                <details>
+                  <summary>Розпізнаний текст</summary>
+                  <textarea
+                    aria-label="Розпізнаний текст"
+                    value={text}
+                    disabled={locked}
+                    onChange={(e) =>
+                      edit(() => {
+                        setText(e.target.value);
+                        setDirtyText(true);
+                      })
+                    }
+                  />
+                  {dirtyText && (
+                    <button
+                      className="voice-secondary"
+                      disabled={locked}
+                      onClick={() => {
+                        setPartial(false);
+                        setPhotos([]);
+                        mediaAt.current = Date.now();
+                        void analyze(text);
+                      }}
+                    >
+                      Оновити за текстом
+                    </button>
+                  )}
+                </details>
+              )}
+              {items.map((item, index) => {
+                const problems = itemProblems(item),
+                  totals = problems.length
+                    ? null
+                    : roundMacros(itemMacros(item));
+                return (
+                  <article
+                    className="voice-item"
+                    key={item.itemId}
+                    data-testid="voice-item"
+                  >
+                    <label>
+                      Продукт {index + 1}
+                      <input
+                        aria-label={`Назва продукту ${index + 1}`}
+                        value={item.name}
+                        disabled={locked}
+                        onChange={(e) =>
+                          changeItem(item.itemId, (x) => ({
+                            ...x,
+                            name: e.target.value,
+                            source: { kind: "manual" },
+                          }))
+                        }
+                      />
+                    </label>
+                    <div className="voice-quantity">
+                      <label>
+                        Кількість
+                        <DecimalInput
+                          aria-label={`Кількість продукту ${index + 1}`}
+                          inputMode="decimal"
+                          value={item.quantity.value ?? ""}
+                          disabled={locked}
+                          onChange={(e) =>
+                            changeItem(item.itemId, (x) => ({
+                              ...x,
+                              quantity: {
+                                ...x.quantity,
+                                value: parseDecimal(e.target.value),
+                              },
+                            }))
+                          }
+                        />
+                      </label>
+                      <label>
+                        Одиниця
+                        <select
+                          aria-label={`Одиниця продукту ${index + 1}`}
+                          value={item.quantity.unit}
+                          disabled={locked}
+                          onChange={(e) =>
+                            changeItem(item.itemId, (x) => ({
+                              ...x,
+                              quantity: { ...x.quantity, unit: e.target.value },
+                            }))
+                          }
+                        >
+                          {Object.entries(UNITS).map(([v, label]) => (
+                            <option key={v} value={v}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                    <p className="voice-nutrition">
+                      {totals
+                        ? `${totals.cal} ккал · Б ${totals.p} · Ж ${totals.f} · В ${totals.c}`
+                        : "Потрібне уточнення"}
+                    </p>
+                    <p className="voice-source">{sourceText(item)}</p>
+                    {problems.length > 0 && (
+                      <ul className="voice-error">
+                        {problems.map((p, i) => (
+                          <li key={i}>{p}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <details>
+                      <summary>Основа та харчові значення</summary>
+                      <div className="voice-quantity">
+                        <label>
+                          На кількість
+                          <DecimalInput
+                            aria-label={`Основа продукту ${index + 1}`}
+                            inputMode="decimal"
+                            value={item.nutritionBasis.value ?? ""}
+                            disabled={locked}
+                            onChange={(e) =>
+                              changeItem(
+                                item.itemId,
+                                (x) => ({
+                                  ...x,
+                                  nutritionBasis: {
+                                    ...x.nutritionBasis,
+                                    value: parseDecimal(e.target.value),
+                                  },
+                                  source: { kind: "manual" },
+                                }),
+                                true,
+                              )
+                            }
+                          />
+                        </label>
+                        <label>
+                          Одиниця основи
+                          <select
+                            value={item.nutritionBasis.unit}
+                            disabled={locked}
+                            onChange={(e) =>
+                              changeItem(
+                                item.itemId,
+                                (x) => ({
+                                  ...x,
+                                  nutritionBasis: {
+                                    ...x.nutritionBasis,
+                                    unit: e.target.value,
+                                  },
+                                  source: { kind: "manual" },
+                                }),
+                                true,
+                              )
+                            }
+                          >
+                            {Object.entries(UNITS).map(([v, label]) => (
+                              <option key={v} value={v}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <div className="voice-macros">
+                        {Object.entries({
+                          cal: "ккал",
+                          p: "Білки",
+                          f: "Жири",
+                          c: "Вуглеводи",
+                        }).map(([key, label]) => (
+                          <label key={key}>
+                            {label}
+                            <DecimalInput
+                              aria-label={`${label} на основу продукту ${index + 1}`}
+                              inputMode="decimal"
+                              disabled={locked}
+                              value={item.nutrients[key] ?? ""}
+                              onChange={(e) =>
+                                changeItem(
+                                  item.itemId,
+                                  (x) => ({
+                                    ...x,
+                                    nutrients: {
+                                      ...x.nutrients,
+                                      [key]: parseDecimal(e.target.value),
+                                    },
+                                    source: { kind: "manual" },
+                                  }),
+                                  true,
+                                )
+                              }
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    </details>
+                    <button
+                      className="voice-remove"
+                      aria-label={`Вилучити продукт ${index + 1}`}
+                      disabled={locked}
+                      onClick={() => {
+                        if (window.confirm("Вилучити цей продукт із чернетки?"))
+                          edit(() => {
+                            setItems((current) =>
+                              current.filter((i) => i.itemId !== item.itemId),
+                            );
+                            setPartial(true);
+                          });
+                      }}
+                    >
+                      <Trash2 size={16} /> Вилучити
+                    </button>
+                  </article>
+                );
+              })}
+              {unparsed.map((fragment, index) => (
+                <div className="voice-item" key={index}>
+                  <p>Не розпізнано: {fragment}</p>
+                  <button
+                    disabled={locked}
+                    className="voice-secondary"
+                    onClick={() =>
+                      edit(() => {
+                        setUnparsed((current) =>
+                          current.filter((_, i) => i !== index),
+                        );
+                        setPartial(true);
+                      })
+                    }
+                  >
+                    Вилучити цей фрагмент
+                  </button>
+                  <p>Для повного запису уточніть розпізнаний текст.</p>
+                </div>
+              ))}
+              {!!items.length && (
+                <div className="voice-photos">
+                  <h3>Уточнити за упаковкою</h3>
+                  <p>
+                    Назва спереду та харчова панель. До двох фото одного
+                    продукту.
+                  </p>
+                  <label>
+                    До якого продукту фото
+                    <select
+                      aria-label="Продукт для фото"
+                      value={photoTarget}
+                      disabled={locked || photoIssue}
+                      onChange={(e) => {
+                        if (photoIssue) return;
+                        bump();
+                        setPhotoTarget(e.target.value);
+                        setPhotos([]);
+                        setPhotoIssue(false);
+                        setError("");
+                      }}
+                    >
+                      <option value="">Оберіть продукт</option>
+                      {items.map((i) => (
+                        <option key={i.itemId} value={i.itemId}>
+                          {i.name || "Без назви"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="voice-photo-buttons">
+                    <button
+                      className="voice-secondary"
+                      disabled={locked || photos.length >= 2 || !photoTarget}
+                      onClick={() => {
+                        action();
+                        cameraInput.current?.click();
+                      }}
+                    >
+                      <Camera size={20} /> Сфотографувати
+                    </button>
+                    <button
+                      className="voice-secondary"
+                      disabled={locked || photos.length >= 2 || !photoTarget}
+                      onClick={() => {
+                        action();
+                        galleryInput.current?.click();
+                      }}
+                    >
+                      <ImageIcon size={20} /> З галереї
+                    </button>
+                  </div>
+                  <input
+                    ref={cameraInput}
+                    aria-label="Фото камерою"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    hidden
+                    onChange={(e) => {
+                      void addPhoto(e.target.files[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                  <input
+                    ref={galleryInput}
+                    aria-label="Фото з галереї"
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(e) => {
+                      void addPhoto(e.target.files[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                  <div className="voice-photo-grid">
+                    {photos.map((photo, index) => (
+                      <div key={index}>
+                        <img
+                          alt={`Упаковка, фото ${index + 1}`}
+                          src={photo.preview}
+                        />
+                        <button
+                          disabled={locked}
+                          aria-label={`Видалити фото ${index + 1}`}
+                          onClick={() => {
+                            bump();
+                            const next = photos.filter((_, i) => i !== index);
+                            setPhotos(next);
+                            if (next.length)
+                              void analyze(text, next, photoTarget);
+                          }}
+                        >
+                          Видалити
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {photoIssue && (
+                <div role="alert">
+                  <p>
+                    Фото ще потребує уточнення. Додайте чіткішу харчову панель
+                    або виправте одиницю кількості.
+                  </p>
+                  {!!photos.length && (
+                    <button
+                      className="voice-secondary"
+                      disabled={locked}
+                      onClick={() =>
+                        void retry(() => analyze(text, photos, photoTarget))
+                      }
+                    >
+                      Повторити читання фото
+                    </button>
+                  )}
+                  <button
+                    className="voice-secondary"
+                    disabled={locked}
+                    onClick={() => {
+                      bump();
+                      setPhotoIssue(false);
+                      setPhotos([]);
+                      setError("");
+                    }}
+                  >
+                    Продовжити з попередніми значеннями
+                  </button>
+                </div>
+              )}
+              {partial && (
+                <p role="status">
+                  Чернетку скорочено. У пілоті це частковий запис.
+                </p>
+              )}
+              {state === "preview" && (
+                <div className="voice-retry">
+                  <button
+                    className="voice-secondary"
+                    disabled={saveUnknown}
+                    onClick={() => {
+                      if (
+                        !items.length ||
+                        window.confirm(
+                          "Почати новий запис і замінити чернетку?",
+                        )
+                      )
+                        void start();
+                    }}
+                  >
+                    <Mic size={18} /> Записати ще раз
+                  </button>
+                  {retryTask.current && !photoIssue && (
+                    <button
+                      className="voice-secondary"
+                      disabled={saveUnknown}
+                      onClick={() => void retry(retryTask.current)}
+                    >
+                      Повторити обробку
+                    </button>
+                  )}
+                </div>
+              )}
+              <footer className="voice-footer">
+                <button
+                  className="voice-primary"
+                  disabled={!canSave}
+                  onClick={save}
+                >
+                  {state === "saving"
+                    ? "Зберігаю…"
+                    : saveUnknown
+                      ? "Перевірити збереження"
+                      : "Додати"}
+                </button>
+              </footer>
+            </>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}

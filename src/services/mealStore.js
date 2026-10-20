@@ -19,7 +19,7 @@ export async function loadMealDay(uid, profileId, date) {
 export async function readSubmission(uid,date,submissionId,hash) {
   const snap=await getDocFromServer(refs(uid,date).day);
   const marker=snap.data()?.submissionMarkers?.[submissionId];
-  if (marker && marker !== hash) throw new Error('submission_conflict');
+  if (marker && hash && marker !== hash) throw new Error('submission_conflict');
   return marker ? snap.data() : null;
 }
 

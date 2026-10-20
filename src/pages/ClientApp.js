@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { auth, googleProvider, db } from '../firebase';
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { auth, googleProvider, db, IS_LOCAL_LAB } from '../firebase';
+import { signInWithPopup, signInAnonymously, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import {
   PRODUCTS_DB,
@@ -32,6 +32,9 @@ import {
   calculateMealsMacros,
   createDefaultClientUser
 } from '../services/nutrition';
+import VoiceInputModal from '../components/VoiceInputModal';
+import PilotPanel from '../components/PilotPanel';
+import { createPilotLedger } from '../services/pilotLedger';
 import { catalogItem, quantityText, itemMacros, sourceText } from '../services/mealItems';
 import { saveProfileSettings } from '../services/mealStore';
 import { hasMeals } from '../services/mealCommands';
@@ -47,6 +50,11 @@ export default function ClientApp() {
   const [users, setUsers] = useState({});
   const [globalCustomProducts, setGlobalCustomProducts] = useState({});
   const [productOverrides, setProductOverrides] = useState({});
+
+  const [showVoiceInput,setShowVoiceInput]=useState(false);
+  const [pilotVersion,setPilotVersion]=useState(0);
+  const pilotLedger=useMemo(()=>createPilotLedger(),[]);
+  useEffect(()=>()=>{void pilotLedger.close().catch(()=>{});},[pilotLedger]);
 
   // Modals
   const [showAccountSwitch, setShowAccountSwitch] = useState(false);
@@ -198,7 +206,8 @@ export default function ClientApp() {
   // Google Sign In
   const handleGoogleSignIn = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      if(IS_LOCAL_LAB) await signInAnonymously(auth);
+      else await signInWithPopup(auth, googleProvider);
     } catch (error) {
       console.error('Error signing in:', error);
       toast.error('Помилка входу: ' + error.message);
@@ -208,6 +217,7 @@ export default function ClientApp() {
   // Sign Out
   const handleSignOut = async () => {
     try {
+      setShowVoiceInput(false);
       await signOut(auth);
       setCurrentUser(null);
       setUsers({});
@@ -497,6 +507,9 @@ export default function ClientApp() {
         onShowDaySelector={() => setShowDaySelector(true)}
         onShowMeasurements={() => setShowMeasurements(true)}
         onShowSettings={() => setShowSettings(true)}
+        onShowVoiceInput={()=>setShowVoiceInput(true)}
+        voiceDisabled={!mealDay.ready || mealDay.busy || mealDay.hasPending || !!mealDay.day.legacy}
+
       />
 
       <div className="max-w-lg mx-auto px-4 mb-4">
@@ -552,6 +565,11 @@ export default function ClientApp() {
         </button>
       </div>
 
+      <PilotPanel ledger={pilotLedger} uid={firebaseUser.uid} version={pilotVersion}/>
+      <VoiceInputModal isOpen={showVoiceInput} onClose={()=>{setShowVoiceInput(false);setPilotVersion(x=>x+1);}}
+        date={mealsDateKey} activeDate={mealsDateKey} meal={selectedMeal} ledger={pilotLedger}
+        onReturnToDate={setMealsDateKey} onSaved={()=>setPilotVersion(x=>x+1)}
+        onAdd={async (command,date)=>{if(date!==mealsDateKey)throw Error('date_conflict');return mealDay.commit(command);}}/>
       {/* Modals */}
       <ProductModal
         isOpen={showProductModal}

@@ -22,7 +22,7 @@ export function useMealDay(uid,profileId,date) {
   const promise=commitMealDay(uid,profileId,date,command).then(result=>{
    if(g===generation.current){const next={...result,mealsDateKey:date,legacy:null};dayRef.current=next;setDay(next);pending.current=null;}
    return result;
-  }).catch(e=>{if(g===generation.current){if(['legacy_conflict','legacy_date_required','invalid_item','invalid_quantity'].includes(e.message)) pending.current=null;setError(saveError(e));}throw e;}).finally(()=>{if(g===generation.current){lock.current=null;setBusy(false);}});
+  }).catch(e=>{if(g===generation.current){if((['legacy_conflict','legacy_date_required','invalid_item','invalid_quantity'].includes(e.message)||['permission-denied','invalid-argument','failed-precondition','unauthenticated','aborted'].includes(e.code))) pending.current=null;setError(saveError(e));}throw e;}).finally(()=>{if(g===generation.current){lock.current=null;setBusy(false);}});
   lock.current=promise;return promise;
  },[uid,profileId,date,ready]);
  const commit=useCallback((action)=>{

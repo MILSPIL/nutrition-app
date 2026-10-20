@@ -38,3 +38,18 @@ Codex voice_storage_api_review. Підтверджені й виправлені
 
 ## Ризики / нотатки
 Немає платних API-викликів, deploy, приватного пілоту чи змін access rules. G04 лишається гейтом. Старі deployed writers ще треба відключити/контрольовано оновити перед релізом. Real phone/API V01–V03/V09 pending; синтетичні fixtures не замінюють ці докази. Сирі медіа, особисті дані й секрети не потрапляли у Git.
+
+
+## Блок 3: голос, фото, пілот
+- Storage/server fcb5ce2 запушений. Додано реальний MediaRecorder із cleanup, перетворення в bounded WAV, два фото в одній чернетці, явну прив’язку продукту, editable preview та одну Додати. Медіа очищаються після ACK/закриття; додатковий Guard після async IndexedDB не дозволяє старому фото перейти в новий session.
+- Локальний opt-in IndexedDB ledger рахує всі спроби, повтори й відмови; жодного харчового змісту. Правильність підтверджує учасник. Часткове вилучення/ручні БЖВ не зараховуються в успіх.
+- 82/82 Jest PASS, build PASS до останніх двох guards/CSS. Browser25 PASS, widths375/390/1366: mic y75,h49.5; gutters20/20, delta0; no console errors. Еталон106 зберігається у списку/Header/звіті/reload. API підставні, actual MediaRecorder+WAV+JPEG+Firestore+IndexedDB локальні.
+- Незалежний Codex reviewer відтворив2P2: targetswitch знімав unresolved photo; await ledger дозволяв stalephoto після close/reopen. Обидва виправлено+2regressiontests. Повторне рев’ю триває. Власний screenshot виявив видимий hiddenfileinput черезCSS; виправлено.
+- Launcher sessions прибрані; останній PASS55e8d9fe612f4568-oy76gvaq cleanup_ok=true,removed=true. Перший QA помилявся в сценарії тиші через миттєвий Stop до audiochunk; після350ms очікування перевірено саме APIemptytranscript. Порожній recording коректно не створив їжі.
+- Context7 знову повернув вичерпану квоту; використано офіційні Playwright browser/context/route й MDN IDB close. Keychain discovery scisense found0, значень не читали. Claude Fable code review запущено, результат ще очікується.
+
+## Блок 3 завершено локально
+- 86/86 Jest, 12/12 Worker, 17/17 Firestore emulator, production build і diff check пройдено незалежним Codex voice_photo_code_review. Третій підтверджений P2: числове редагування прибирало семантичне уточнення. Уточнення збережено до нової API-відповіді; додано 4 регресійні тести. Остаточний вердикт рев’юера: локальний код готовий, відкритих P1/P2 немає.
+- Фінальний браузерний прогін: 25/25, сесія 3ea2c8b0a2a74d28-8ihqv2nx, cleanup_ok=true, removed=true. Перевірено синтетичний запис, два фото, 106 ккал, reload, звіт, облік невдач. Дані та скриншоти у docs/evidence/voice-photo-2026-10-20; це тільки fixtures, не реальний API/телефон.
+- Виправлено нестабільність тестового закриття двох послідовних onboarding-вікон через точний selector і очікування закриття. Продуктова поведінка при цьому не змінювалася.
+- npm audit: наявний root має 98 findings (3 critical), новий Worker toolchain має 5 high. Новий інструментарій буде оновлено до виправленої версії; старі залежності залишаються в окремій картці G08.
