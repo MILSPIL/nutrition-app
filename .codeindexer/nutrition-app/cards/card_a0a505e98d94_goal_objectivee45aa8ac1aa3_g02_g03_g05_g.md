@@ -10,10 +10,10 @@ status: open
 importance: high
 review_required: true
 acceptance: "[{\"reviewer_rubric\":\"G02/G03/G05/G07/G08/G11: усі V01–V09 на одному SHA, прямий запис мікрофона, фото упаковки в тій самій чернетці, одне підтвердження і перечитаний прийом. Джерела/основа/одиниці, повтор/конфлікт/збій перевірені; реальний дозволений API й телефон обов’язкові; продукт приймає Юрій.\"}]"
-evidence: "2026-10-20: код c9f3ab3, codex/voice-photo-entry. Локально PASS88 Jest,17 Worker (реальний workerd SQLite restart),17 Firestore emulator, build/dry-run; browser25 fixtures та незалежні Codex/Claude. Докази docs/VOICE-PHOTO-VALIDATION.md і журнал2026-10-20-1600. Це частковий доказ: real phone/API V01–V03/V09, G04, release/CI та пілот ще відкриті. Критерій не passed."
+evidence: "2026-10-20: локальний код c9f3ab3 реалізовано; PR https://github.com/MILSPIL/nutrition-app/pull/8 (draft). 88 Jest,17 Worker,17 Firestore,25 browser PASS; build/dry-run PASS; реальний workerd SQLite restart. Незалежні Codex/Claude, підтверджені P2 виправлено. GitHub push і PR CI пройшли для de07986, src/Worker тотожні c9f3ab3. docs/VOICE-PHOTO-VALIDATION.md, synthetic artifacts і журнал2026-10-20-1600. Картка відкрита: real phone/API V01–V03/V09, окремі акаунти/моделі/тарифи/бюджет/retention; G04 до приватного пілоту. Goal активний, G02/G03/G05/G07/G08/G11 не passed."
 valid_from: "2026-10-20T08:28:38.202240+00:00"
 created_at: "2026-10-20T08:28:38.202240+00:00"
-updated_at: "2026-10-20T13:48:31.125493+00:00"
+updated_at: "2026-10-20T13:53:55.281699+00:00"
 author: Codex
 content_hash: "sha256:619757967ccb3867f7a3a82c20ad04cd4232a6b7709305d360ea4658965917ee"
 ---

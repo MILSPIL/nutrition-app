@@ -2,6 +2,8 @@
 
 Дата: 2026-10-20. Goal objective_e45aa8ac1aa3. Гілка codex/voice-photo-entry, перевірений код c9f3ab3. Node24.11.1, npm11.6.2, Firebase CLI15.2.1, Wrangler4.151.3; lockfiles у Git. Жодного платного API-виклику чи розгортання.
 
+[PR №8](https://github.com/MILSPIL/nutrition-app/pull/8) відкрито як чернетку. Обидва GitHub CI (push і pull_request) пройшли для de07986; src/Worker тотожні перевіреному c9f3ab3. Наступні коміти доказів не змінюють цей код; актуальні перевірки видно в PR.
+
 ## Що пройдено
 
 | Перевірка | Результат | Межа доказу |
