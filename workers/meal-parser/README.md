@@ -45,3 +45,7 @@ npm run dev
 Production JWT-перевірка відхиляє непідписані токени Firebase emulator. Телефонна лабораторія потребує окремого локального адаптера автентифікації з перевіркою demo issuer, без змін у production handler; локальний канал реалізовано в [PHONE-LAB.md](../../docs/PHONE-LAB.md) і перевірено з підставними моделями. CLI не вмикає реальні API; фізичний телефон і TLS-довіра власника ще pending. Multipart WAV → Worker parser → provider adapter перевірений на синтетичному звуці без мережевого API.
 
 Пакет моделей і бюджету на погодження: [VOICE-PHOTO-LIVE-APPROVAL.md](../../docs/VOICE-PHOTO-LIVE-APPROVAL.md). `pilot-proposal.json` є несекретною пропозицією, не активною конфігурацією.
+
+## Sonnet 5.5, 2026-10-20
+
+Для `claude-sonnet-5-5` використовується JSON outputs (`output_config.format`), `thinking.type=between_tools`, effort=medium, без forced tool_choice. Результат зберігає `analysisSchema` і локальну валідацію; невідповідна модель/refusal/truncation відхиляються. Окремий ключ SciSense у Default зберігається в macOS Keychain; платні виклики залишаються вимкненими. Актуальні модель, резерв $3.039200 та непогоджена стеля $5: [пакет](../../docs/VOICE-PHOTO-LIVE-APPROVAL.md).

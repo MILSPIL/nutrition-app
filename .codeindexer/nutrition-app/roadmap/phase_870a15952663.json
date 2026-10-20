@@ -14,7 +14,7 @@
     "order_hint": 0,
     "author": "Codex",
     "created_at": "2026-10-20T08:46:52.926644+00:00",
-    "updated_at": "2026-10-20T14:45:57.293827+00:00",
+    "updated_at": "2026-10-20T19:19:40.611692+00:00",
     "valid_from": null,
     "expires_at": null,
     "importance": null,
@@ -25,8 +25,8 @@
     "last_exported_at": null,
     "last_exported_hash": null,
     "health": "on_track",
-    "health_note": "2026-10-20: пакет API61b24f0 у PR8; локальний HTTPS/test-only Auth/Firestore канал реалізовано. 88Jest/3Node/10browserPASS, Codex review3P2 fixed, actualLAN TLS200 перевірено і власні сервери зупинено. Рекомендація B/$0.25 тільки Claude-кредитів; обраний маршрут, проєктний акаунт, Whisper/live бюджет і фізичний телефон ще pending. G05/G07/G11 не passed.",
-    "health_updated_at": "2026-10-20T14:45:57.293827+00:00"
+    "health_note": "2026-10-20: Юрій обрав Sonnet і окремий ключ SciSense у Default. Keychain та Models GET 200 підтверджені, inference 0. Локальний адаптер Sonnet 5.5: 25 Worker + 88 root тестів, обидві збірки; незалежний Codex S01–S05 passed, підтверджених проблем немає. Резерв $3.0392, стеля $5 ще не погоджена. LIVE_ENABLED=false; credits, Whisper, live binding і фізичний телефон pending. G05/G11 pending; G04 до приватного пілоту/релізу.",
+    "health_updated_at": "2026-10-20T19:19:40.611692+00:00"
   },
   "phase_revisions": [
     {
@@ -236,6 +236,34 @@
       "actor_client": null,
       "actor_model": null,
       "at": "2026-10-20T14:45:57.293827+00:00",
+      "project": "nutrition-app",
+      "product": "scisense"
+    },
+    {
+      "id": "rev_f2dc1025b40b798c",
+      "phase_id": "phase_870a15952663",
+      "field": "health_note",
+      "old_value": "2026-10-20: пакет API61b24f0 у PR8; локальний HTTPS/test-only Auth/Firestore канал реалізовано. 88Jest/3Node/10browserPASS, Codex review3P2 fixed, actualLAN TLS200 перевірено і власні сервери зупинено. Рекомендація B/$0.25 тільки Claude-кредитів; обраний маршрут, проєктний акаунт, Whisper/live бюджет і фізичний телефон ще pending. G05/G07/G11 не passed.",
+      "new_value": "2026-10-20: Юрій вибрав Sonnet/Default/окремий ключ. Keychain і Models GET200 підтверджені, inference0. Sonnet JSON outputs25Worker tests/dry-runPASS; резерв$3.0392, ліміт$5 pending. Незалежне рев’ю адаптера триває. Whisper/live binding, кредити організації та фізичний телефон pending; G05/G07/G11 не passed.",
+      "reason": null,
+      "author": null,
+      "actor_client": null,
+      "actor_model": null,
+      "at": "2026-10-20T19:15:50.488194+00:00",
+      "project": "nutrition-app",
+      "product": "scisense"
+    },
+    {
+      "id": "rev_9f857a97f51a490d",
+      "phase_id": "phase_870a15952663",
+      "field": "health_note",
+      "old_value": "2026-10-20: Юрій вибрав Sonnet/Default/окремий ключ. Keychain і Models GET200 підтверджені, inference0. Sonnet JSON outputs25Worker tests/dry-runPASS; резерв$3.0392, ліміт$5 pending. Незалежне рев’ю адаптера триває. Whisper/live binding, кредити організації та фізичний телефон pending; G05/G07/G11 не passed.",
+      "new_value": "2026-10-20: Юрій обрав Sonnet і окремий ключ SciSense у Default. Keychain та Models GET 200 підтверджені, inference 0. Локальний адаптер Sonnet 5.5: 25 Worker + 88 root тестів, обидві збірки; незалежний Codex S01–S05 passed, підтверджених проблем немає. Резерв $3.0392, стеля $5 ще не погоджена. LIVE_ENABLED=false; credits, Whisper, live binding і фізичний телефон pending. G05/G11 pending; G04 до приватного пілоту/релізу.",
+      "reason": null,
+      "author": null,
+      "actor_client": null,
+      "actor_model": null,
+      "at": "2026-10-20T19:19:40.611692+00:00",
       "project": "nutrition-app",
       "product": "scisense"
     }
