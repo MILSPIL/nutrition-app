@@ -42,10 +42,21 @@ Cloudflare налаштований для нового домену; делег
 1. Замінити паркувальні NS у NIC.UA на видану пару та перевірити делегування/стан active.
 2. Підготувати окремий сайт ntzg.pp.ua у xCloud, сертифікат, маршрути SPA, процедуру викладання й відкату. Перед переносом застосунку погодити конкретний план і release SHA; G04 зберігається гейтом до приватного пілоту/релізу.
 3. Узгодити дозволений домен Firebase Auth, перевірити вхід Google на телефоні. Рекомендація на цьому етапі: залишити Auth/Firestore; заміна backend окремо не запитувалася.
-4. Перенести цей журнал і зміну статусу в main лише після явного «так» Юрія.
+4. Юрій явно погодив перенесення цього журналу й статусу в main; виконати через PR із перевірками згідно з CONTRIBUTING.md.
 
 ## Ризики / нотатки
 
 - Наявні сайти спільного сервера та повідомлення xCloud про його default TLS certificate не входили в задачу.
 - Ключі, cookies, приватні дані й чужі незавершені файли не копіювалися.
 - Джерела: https://developers.cloudflare.com/dns/zone-setups/full-setup/setup/ ; https://developers.cloudflare.com/dns/proxy-status/ ; https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/full-strict/ ; https://firebase.google.com/docs/auth/web/redirect-best-practices .
+
+## Продовження 2026-10-20 16:16: перевірка NS і погоджене перенесення
+
+- Пряме доручення Юрія: «Так, перенеси журнал і статус у main та перевір, чи вже оновилися NS для ntzg.pp.ua».
+- Повторний git fetch: origin/main 3a7034e, гілка містить лише PROJECT-INFO.md і цей журнал. Чужі журнали й незавершена реалізація голосу не входять у перенесення.
+- dig з +norecurse до всіх трьох ns1/ns2/ns3.uadns.com: AUTHORITY містить тільки joyce.ns.cloudflare.com та kayden.ns.cloudflare.com, TTL 600. До обох Cloudflare NS: авторитетна відповідь aa з тією самою парою. Делегування підтверджено незалежно від кешу рекурсивних резолверів.
+- Локальний DNS, Google DNS і Cloudflare DNS через HTTPS поки повертають parked1/parked2.uadns.com. Прямий UDP до 1.1.1.1 не відповів; перевірку Cloudflare DNS виконано через DNS-over-HTTPS.
+- GET зони: pending, activated_on=null; запис A з proxied=true відповідає погодженому серверу. Разова спроба activation_check відхилена 403 через відсутність scope zone.write у підключення; ручну активацію не заявляємо. Нових ключів або розширення прав не було.
+- Для обов’язкового гейту перед PR: фактичний Node v24.11.1 збігається з .nvmrc; npm ci з чинного lockfile; npm run test:ci -- --runInBand: 26/26, 4 suites; npm run build: успішно. Залежності та код не змінювалися. Є попередження старого toolchain про fs.F_OK і застарілі дані Browserslist, збірку вони не зупинили.
+- PROJECT-INFO.md уточнено: делегування вже змінене, публічний кеш і статус Cloudflare ще очікують оновлення. Серверне розгортання не виконувалося.
+- Квитанцію PR/merge, перевірку побайтового збігу файлів у origin/main та останній стан Cloudflare зберегти в локальному runtime цього чату після злиття; не створювати новий незлитий журнал лише заради квитанції.
