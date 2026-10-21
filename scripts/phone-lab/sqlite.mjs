@@ -7,6 +7,7 @@ export function localBudget(file, cap, { initialize = false } = {}) {
   if (initialize) writeFileSync(file, "", { flag: "wx", mode: 0o600 });
   const db = new DatabaseSync(file);
   try {
+    db.exec("PRAGMA synchronous=FULL");
     if (!initialize) {
       const meta = db
         .prepare("SELECT cap,version FROM lab_budget_metadata")

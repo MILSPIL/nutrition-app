@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-21",
+  "goal": "objective_e45aa8ac1aa3",
+  "scope": "synthetic runtime and budget preparation",
+  "sourceHashes": {
+    "scripts/phone-lab/live.mjs": "b89ca4e73a191eacf2634a5b259d18b0f3f699361fb404b1235934c79d5bcdc4",
+    "scripts/phone-lab/sqlite.mjs": "36b707c7c5398e1088a879d4ca1cf9e2209953d58f9026fb94cbeb90f946c592",
+    "scripts/phone-lab/budget-marker.mjs": "a94e8a0ad82c303904c5e0ac885dae48d64b5243fe84dd6605ab32b47a759e62",
+    "scripts/phone-lab/pilot-lock.mjs": "9d9017a0b85f0b72c52cf12c607c40ced32ee7682f0b5cec41ef7747a90441a8",
+    "server/ledger.mjs": "d5036c75709aa6c9b8f7fdd42af739b129e09272951556ff4c31570964c64415",
+    "server/transfer.mjs": "d542489f24ac205683ccbfa853d1f9db4e9b1bfa336840afe3fd78f80f085282",
+    "server/runtime.mjs": "06b9a420f15ae35c6b8445e0aa2aeff923b782c9658a9b1fb05bfeab7896b067",
+    "server/main.mjs": "336be69751e89caf495167fae9badc58abbe4e7fda07762ca55aab09bfd86cdc",
+    "server/deployment.json": "8dbc79aad034b4b59cd6780e5985b1dcf574845121617621c0daf1349fbddf3c",
+    "deploy/scisense-api.service": "a4de87ac890c00c33d779f41dffd913b6185e562da8a9f56e880109a1d9545cd"
+  },
+  "serverTests": {
+    "passed": 20,
+    "failed": 0
+  },
+  "independentReview": {
+    "agent": "budget_runtime_review",
+    "testsPassed": 12,
+    "existingAndFreshTransferRace": "one receipt only",
+    "lockBeforeMarkerRead": "0 reads, 0 writes when locked",
+    "childSIGKILL": "persistent lock prevents restart",
+    "fixedFindings": [
+      "global lifetime lock shared by Mac checkouts and transfer",
+      "disabled unauthenticated API is 401, not 503"
+    ]
+  },
+  "realSecretsUsed": false,
+  "paidCalls": 0,
+  "productionChanged": false,
+  "targetSystemdActivationVerified": false,
+  "remaining": [
+    "actual Keychain to SSH transfer adapter and server activation require the production package",
+    "Whisper CPU benchmark blocks readiness; no resource/model change authorized",
+    "writer fence and server inventory remain pending"
+  ]
+}

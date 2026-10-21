@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "releaseId": "PENDING_VERIFIED_PACKAGE",
+  "liveEnabled": false,
+  "firebaseProject": "nutrition-tracker-ua",
+  "origin": "https://ntzg.pp.ua",
+  "allowedUids": [],
+  "port": 8787,
+  "budgetDirectory": "/var/lib/scisense",
+  "activationFile": "/etc/scisense/activation.json",
+  "credentialName": "anthropic",
+  "whisper": {
+    "binary": "/opt/scisense/whisper/bin/whisper-cli",
+    "model": "/opt/scisense/whisper/models/ggml-large-v3-turbo-q5_0.bin",
+    "sourceCommit": "d1be6fde11ac6e0407606b4e42fe72d34add8037",
+    "modelSha1": "e050f7970618a659205450ad97eb95a18d69c9ee",
+    "threads": 1,
+    "timeoutMs": 45000
+  }
+}

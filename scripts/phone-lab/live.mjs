@@ -5,6 +5,7 @@ import { callProvider } from "../../workers/meal-parser/src/providers.js";
 import { localBudget } from "./sqlite.mjs";
 import { createWhisper, verifyWhisper } from "./whisper.mjs";
 import { keychain } from "./keychain.mjs";
+import {assertLocalMarker} from './budget-marker.mjs';
 const CAP = 5000000;
 const readJson = async file => JSON.parse(await readFile(file, "utf8"));
 export function approvedSettings(proposal) {
@@ -20,7 +21,15 @@ export function approvedSettings(proposal) {
     PRICING_MODEL_PAIR: b.PRICING_MODEL_PAIR, PRICING_APPROVED_AT: b.PRICING_APPROVED_AT,
     INPUT_MICROS_PER_MTOK: b.INPUT_MICROS_PER_MTOK, OUTPUT_MICROS_PER_MTOK: b.OUTPUT_MICROS_PER_MTOK };
 }
-export async function liveRuntime(root, { initialize = false } = {}) {
+import {acquirePilotLock} from './pilot-lock.mjs';
+export async function liveRuntime(root, options) {
+  const unlock=acquirePilotLock();
+  try {
+    const runtime=await unlockedRuntime(root,options);let closed=false;
+    return {...runtime,async close(){if(closed)return;closed=true;await runtime.close();unlock();}};
+  } catch(error) {unlock();throw error;}
+}
+async function unlockedRuntime(root, { initialize = false } = {}) {
   const dir = path.join(root, "tmp/phone-lab"), file = path.join(dir, "pilot-budget.sqlite");
   const proposal = await readJson(path.join(root, "workers/meal-parser/pilot-proposal.json"));
   const settings = approvedSettings(proposal);
@@ -29,7 +38,7 @@ export async function liveRuntime(root, { initialize = false } = {}) {
   const marker = JSON.stringify({ proposal: proposal.proposalId, cap: CAP, file });
   const previous = await keychain("scisense-phone-lab", "pilot-2026-10-20");
   // Втрата runtime/SQLite не може стати новими $5: окремий маркер живе в Keychain.
-  if ((initialize && previous) || (!initialize && previous !== marker)) throw Error("pilot_budget_locked");
+  assertLocalMarker(marker,previous,{initialize});
   const secret = await keychain("scisense-anthropic", "api-key");
   if (!secret.startsWith("sk-ant-") || /\s/.test(secret)) throw Error("keychain_unavailable");
   const budget = localBudget(file, CAP, { initialize });

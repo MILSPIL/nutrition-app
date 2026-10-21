@@ -1,0 +1,42 @@
+[Unit]
+Description=SciSense meal API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=scisense
+Group=scisense
+WorkingDirectory=/opt/scisense/current
+ExecStart=/opt/scisense/node/bin/node /opt/scisense/current/server/main.mjs
+LoadCredentialEncrypted=anthropic:/etc/credstore.encrypted/scisense-anthropic
+Environment=NODE_ENV=production
+UMask=0077
+StateDirectory=scisense
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/scisense
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+CPUQuota=100%
+MemoryMax=2G
+MemorySwapMax=0
+TasksMax=64
+TimeoutStopSec=70s
+KillMode=control-group
+Restart=no
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

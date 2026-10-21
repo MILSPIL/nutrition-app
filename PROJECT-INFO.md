@@ -6,6 +6,12 @@
 - Репозиторій: `nutrition-app`
 - Стан Git визначай свіжими `git status` і `git worktree list`; у сусідніх деревах лишаються окремі незавершені матеріали.
 
+## Поточний стан підготовки, 2026-10-21
+
+Локальні Node API, G04 protocol/UI та синтетичний budget/runtime реалізовані. Докази: server20/20, G04 rules29/29, застосунок99/99, власний браузер request/accept/revoke і незалежні рев’ю; docs/evidence/*-preparation-2026-10-21.json. LIVE=false, UID allowlist порожній, ключі/$5/production не використовувалися.
+
+Linux CI39590783755 зібрав pinned Whisper, але всі6 UA/RU fixtures5/30/90s перевищили45s на1CPU/2GiB. OOM не було, очищення і4 негативні сценарії пройдені, synthetic systemd255 encrypted credential PASS. Це блокер готовності, модель і ресурси не змінено. TLS-переносимість CI виправляється окремо. CLOUD-PREP-01 і G02–G11 не завершені: performance-рішення, writer fence, точний server inventory/deployment package та реальний телефон попереду. Нижче датована історія.
+
 ## Локальна реалізація погодженого серверного пакета, 2026-10-21
 
 Юрій прямо погодив CLOUD-PREP-01 і перенесення журналу. PR15 злитий у main a057bcfce47590c6905d8f0b6f79a327751b6281; source/local/remote journal SHA256 61b1365be545cf4bd8511c32416d9ac7a73fbf60567f365e686569947caabc71, CI 2/2. Codex Cloud повернув environment_repo_access_failed для репозиторію, після чого Юрій прямо обрав локальну розробку. Активна гілка codex/scisense-server-prep від edf4ad8. Серверний API, G04, Linux-перевірки та synthetic budget погоджені; справжні ключі та $5 не чіпати. Хмарну задачу не запущено, Mac потрібен локальному сеансу. Production і merge продуктового коду залишаються за окремим конкретним пакетом. G02–G11 pending.
