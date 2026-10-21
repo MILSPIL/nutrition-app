@@ -1,3 +1,4 @@
+import { groqFreeApproved, transcriptionLanguage, limitedJson } from './groq.js';
 import { analysisSchema,systemPrompt,validateAnalysis } from './schema.js';
 // Sonnet 5.5 не приймає forced tool_choice. JSON outputs зберігають той самий контракт.
 // Непідтримувані grammar-обмеження лишаються в описі; validateAnalysis перевіряє їх локально.
@@ -23,8 +24,14 @@ export async function callProvider(kind,payload,env,fetcher=fetch,{signal,timeou
   if(controller.signal.aborted) throw Error('upstream_timeout');
   let response;
   if(kind==='transcribe') {
-   const form=new FormData();form.set('model',env.TRANSCRIBE_MODEL);form.set('file',payload.file,payload.filename);form.set('response_format','json');
-   response=await fetcher('https://api.openai.com/v1/audio/transcriptions',{method:'POST',headers:{Authorization:`Bearer ${env.OPENAI_API_KEY}`},body:form,signal:controller.signal});
+   const groq=env.TRANSCRIBE_PROVIDER==='groq';
+   if(groq && (!groqFreeApproved(env)||!env.GROQ_API_KEY)) throw Error('budget_disabled');
+   if(env.TRANSCRIBE_PROVIDER && !['groq','openai'].includes(env.TRANSCRIBE_PROVIDER)) throw Error('budget_disabled');
+   const language=transcriptionLanguage(payload.language);
+   const form=new FormData();form.set('model',env.TRANSCRIBE_MODEL);form.set('file',payload.file,'recording.wav');form.set('response_format','json');
+   if(language!=='auto') form.set('language',language);
+   if(groq) form.set('temperature','0');
+   response=await fetcher(groq?'https://api.groq.com/openai/v1/audio/transcriptions':'https://api.openai.com/v1/audio/transcriptions',{method:'POST',redirect:'error',headers:{Authorization:`Bearer ${groq?env.GROQ_API_KEY:env.OPENAI_API_KEY}`},body:form,signal:controller.signal});
   } else {
    const content=(payload.images||[]).map(image=>({type:'image',source:{type:'base64',media_type:image.type,data:image.data}}));
    content.push({type:'text',text:payload.text});
@@ -38,8 +45,13 @@ export async function callProvider(kind,payload,env,fetcher=fetch,{signal,timeou
    }
    response=await fetcher('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':env.ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01'},signal:controller.signal,body:JSON.stringify(body)});
   }
-  if(!response.ok) throw Error(response.status===429?'upstream_limited':'upstream_failed');
-  const data=await response.json();
+  if(!response.ok) {
+   void response.body?.cancel().catch(()=>{});
+   const error=Error(response.status===429?'upstream_limited':'upstream_failed');
+   if(response.status===429){error.status=429;const retry=Number(response.headers.get('retry-after'));if(Number.isSafeInteger(retry)&&retry>0&&retry<=86400)error.retryAfterSeconds=retry;}
+   throw error;
+  }
+  const data=kind==='transcribe'?await limitedJson(response,controller.signal):await response.json();
   if(kind==='transcribe') { if(typeof data.text!=='string'||!data.text.trim()||data.text.length>8000) throw Error('empty_transcript'); return {text:data.text.trim()}; }
   if(structured) {
    if(data.model!==env.PARSE_MODEL||data.stop_reason!=='end_turn'||!Array.isArray(data.content)) throw Error('invalid_response');

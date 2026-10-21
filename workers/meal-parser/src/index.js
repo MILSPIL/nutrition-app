@@ -1,3 +1,4 @@
+import { groqFreeApproved, transcriptionLanguage } from './groq.js';
 import { createFirebaseAuthenticator } from './auth.js';
 import { MAX_AUDIO,MAX_IMAGE,MAX_BODY } from './schema.js';
 import { callProvider } from './providers.js';
@@ -33,7 +34,7 @@ async function input(request,kind) {
   if(audio.length<44||ascii(0,4)!=='RIFF'||ascii(8,12)!=='WAVE'||ascii(12,16)!=='fmt '||ascii(36,40)!=='data'||view.getUint32(16,true)!==16||view.getUint16(20,true)!==1||view.getUint16(22,true)!==1||view.getUint32(24,true)!==16000||view.getUint32(28,true)!==32000||view.getUint16(32,true)!==2||view.getUint16(34,true)!==16||view.getUint32(40,true)!==audio.length-44||view.getUint32(4,true)!==audio.length-8||audio.length%2) fail('invalid_audio',400);
   const actualDuration=(audio.length-44)/32000;
   if(actualDuration<=0||actualDuration>90) fail('invalid_audio',400);
-  return {file,filename:'recording.wav',duration:actualDuration};
+  return {file,filename:'recording.wav',duration:actualDuration,language:transcriptionLanguage(form.get('language') ?? 'auto')};
  }
  let body;try{body=JSON.parse(new TextDecoder().decode(bytes));}catch(_){fail('bad_request',400);}
  if(!body||typeof body.text!=='string'||!body.text.trim()||body.text.length>8000||!Array.isArray(body.images)||body.images.length>2) fail('bad_request',400);
@@ -49,6 +50,7 @@ async function input(request,kind) {
 const transcriptionCaps = new Set(['gpt-4o-mini-transcribe-2025-12-15','gpt-4o-mini-transcribe-2025-03-20']);
 export const LOCAL_TRANSCRIBE_MODEL='whisper.cpp-v1.9.5-large-v3-turbo-q5_0';
 export function reservation(kind,payload,env,{localTranscription=false}={}) {
+ if(kind==='transcribe' && env.TRANSCRIBE_PROVIDER==='groq') {if(!groqFreeApproved(env)) fail('budget_disabled',503);return 0;}
  if(!env.PRICING_APPROVED_AT||!env.PRICING_MODEL_PAIR||env.PRICING_MODEL_PAIR!==`${env.TRANSCRIBE_MODEL}|${env.PARSE_MODEL}`) fail('budget_disabled',503);
  const price = key => { const value=Number(env[key]); if(!Number.isSafeInteger(value)||value<=0) fail('budget_disabled',503); return value; };
  let cost;
@@ -66,16 +68,23 @@ export function reservation(kind,payload,env,{localTranscription=false}={}) {
 }
 export function createHandler(deps={}) {
  const authorize=async(request,env)=>{
+  const mode=env.INFERENCE_MODE||'full',kind=new URL(request.url).pathname;
+  if(!['full','stt_only'].includes(mode)||(mode==='stt_only'&&kind!=='/transcribe')) fail('live_disabled',503);
   const uid=await (deps.authenticate||authenticate)(request,env);
   if(!(env.ALLOWED_UIDS||'').split(',').includes(uid)) fail('pilot_forbidden',403);
   const localTranscription=deps.localTranscription===true && env.TRANSCRIBE_MODEL===LOCAL_TRANSCRIBE_MODEL && typeof deps.provider==='function';
-  if(env.LIVE_ENABLED!=='true'||!env.TRANSCRIBE_MODEL||!env.PARSE_MODEL||(!localTranscription&&!env.OPENAI_API_KEY)||!env.ANTHROPIC_API_KEY||!env.PILOT_BUDGET) fail('live_disabled',503);
+  const groq=env.TRANSCRIBE_PROVIDER==='groq';
+  if(env.LIVE_ENABLED!=='true'||!env.TRANSCRIBE_MODEL||!env.PILOT_BUDGET) fail('live_disabled',503);
+  if(groq ? (!groqFreeApproved(env)||env.GROQ_FREE_LIMITS!=='true'||!env.GROQ_API_KEY) : (!localTranscription&&!env.OPENAI_API_KEY)) fail('live_disabled',503);
+  if(mode==='stt_only'&&!groq) fail('live_disabled',503);
+  // Do not even read the Anthropic credential in the isolated STT mode.
+  if(mode==='full'&&(!env.PARSE_MODEL||!env.ANTHROPIC_API_KEY)) fail('live_disabled',503);
   return {uid,localTranscription};
  };
  return {authorize,async fetch(request,env) {
   const origin=request.headers.get('Origin'),allowed=(env.ALLOWED_ORIGINS||'').split(',');
   const cors={'Vary':'Origin','Cache-Control':'no-store','Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type',...(allowed.includes(origin)?{'Access-Control-Allow-Origin':origin}:{})};
-  const reply=(data,status=200)=>Response.json(data,{status,headers:cors});
+  const reply=(data,status=200,extra={})=>Response.json(data,{status,headers:{...cors,...extra}});
   let budget,id;
   try {
    if(!origin||!allowed.includes(origin)) return reply({error:'origin_forbidden'},403);
@@ -95,7 +104,8 @@ export function createHandler(deps={}) {
    return reply(result);
   } catch(error) {
    const codes=['unauthorized','pilot_forbidden','live_disabled','bad_request','invalid_audio','unsupported_audio','invalid_image','media_too_large','budget_disabled','empty_transcript','upstream_timeout','upstream_limited','invalid_response'];
-   return reply({error:codes.includes(error.message)?error.message:'upstream_failed'},error.status||502);
+   const retry=error.message==='upstream_limited'&&Number.isSafeInteger(error.retryAfterSeconds)&&error.retryAfterSeconds>0&&error.retryAfterSeconds<=86400?error.retryAfterSeconds:null;
+   return reply({error:codes.includes(error.message)?error.message:'upstream_failed',...(retry?{retryAfterSeconds:retry}:{})},error.status||502,retry?{'Retry-After':String(retry)}:{});
   } finally {
    if(budget&&id) {try{await budget.fetch(new Request('https://budget/finish',{method:'POST',body:JSON.stringify({action:'finish',id})}));}catch(_){} }
   }

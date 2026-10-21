@@ -2,7 +2,31 @@
 
 Дата: 2026-10-21. Статус: пропозиція на погодження, код і платні виклики не запускалися. Goal objective_e45aa8ac1aa3; G05/G07/G08/G11, залежності G04/G09/G10. База коду bf8e22d, документний HEAD до цієї пропозиції b48b795.
 
-## Рішення, яке пропоную
+## Погоджена реалізація Groq Free, 2026-10-22
+
+Юрій прямо доручив реалізувати знайдене рішення перед сном. Цей розділ замінює платні припущення нижче; нижній текст збережено як історію перевіреного плану. Погоджено локальну реалізацію та тести. Anthropic, його $5 і сервер залишаються замороженими. Реальну синтетичну пробу Groq вже виконано один раз, її доказ: docs/evidence/groq-whisper-free-2026-10-21.json. Повторні живі виклики зараз не потрібні.
+
+Мета цього етапу: локальний код приймає голос у Groq-адаптер, зберігає контракт прев’ю та дає окремий режим stt_only без читання ключа/виклику Anthropic, з перевіреними відмовами й стійкими квотами. Реальне приймання з телефона ST01/ST02/ST05 залишається окремим етапом.
+
+| Варіант обліку | За | Проти |
+| --- | --- | --- |
+| Чинний ledger, Groq з нульовою сумою та загальними квотами | Зберігає всі старі суми/рядки/маркери, не створює новий бюджет; 6 запитів/хв і 30/UTC-добу по всьому застосунку дають не більше 2700 с аудіо на добу | Спільні ліміти суворіші за Groq Free; виклики Sonnet теж займають слоти |
+| Нова схема з двома платними бюджетами | Підходить для майбутнього платного Groq | Непотрібна міграція й ризик повернення витрат у безкоштовному сценарії |
+
+Обрано перший варіант. Міграція ledger v2 та стеля Groq $0.10 з попередньої пропозиції скасовані: безкоштовному провайдеру не потрібен другий грошовий бюджет. Усі старі й нові рядки рахуються консервативно у спільних квотах Groq; нульова вартість не звільняє від rate limit або маркера перенесення. Серверні receipt/manifest отримують version2 і зв’язок із proposalRevision/configHash, схему SQLite не змінюємо. Старий receipt не активує новий провайдер. Автоматичного переходу на платний тариф, зміни моделі й повторів немає. Безкоштовність залежить від Free-плану акаунта: API не надає перевірки білінгу, потрібне явне підтвердження Free та ZDR перед особистим голосом; зміну тарифу застосунок не може заблокувати в чужій консолі.
+
+Порядок блоків (повний перелік): 1) Groq HTTP-адаптер + валідатори/квоти, 2) runtime/маніфест/лабораторія без Sonnet, 3) мовна перевага та STT-only UI, 4) пакет перевірок/незалежне рев’ю/документи. Виконавець Codex; окремий UI-виконавець працює тільки в погоджених src-файлах, без вкладеної делегації. Рев’юер має чистий контекст і не викликає модельні API. Кожний блок комітиться та пушиться; PR8/16 не зливаються.
+
+Критерії локального етапу (повний перелік):
+- L01: Groq receives only audio, model, temperature, language; fixed HTTPS endpoint, redirect:error, bounded response, 45s deadline/cancel, no retries/fallback. Команда: node --test workers/meal-parser/test/groq.test.js.
+- L02: stt_only rejects analyze before reading Anthropic credential, reserve or network; unapproved config rejects, old activation rejects. Команди: node --test workers/meal-parser/test/groq.test.js scripts/phone-lab/live.test.mjs server/runtime.test.mjs.
+- L03: zero-cost STT reservations preserve nonzero legacy spend, quotas across restart/transfer and anchor rollback; simultaneous requests cannot exceed cap. Команди: node --test server/groq-budget.test.mjs server/ledger.test.mjs server/api.test.mjs.
+- L04: saved auto/uk/ru preference, quota failure retains draft; STT-only has no analyze/save; ordinary voice/photo flow remains. Команда: npm run test:ci -- --runInBand; browser QA.
+- L05: disabled manifest/no secrets, build and regression suites pass; independent reviewer confirms local scope. Команди: npm run build; npm run test:server; npm run test:phone-lab; npm --prefix workers/meal-parser test; npm run test:meal-store; npm run test:rules; git diff --check.
+
+Переклад англійських критеріїв: L01 передає Groq тільки звук/модель/температуру/мову, фіксує HTTPS-адресу, забороняє redirect і повтори, обмежує відповідь та час. L02 ізольований голос не читає ключ Anthropic і не резервує гроші для аналізу. L03 нульова сума не скидає попередні витрати та квоти. L04 мовний вибір зберігається, помилки не гублять чернетку, тест голосу не створює прийом. L05 код зібраний і перевірений, активація вимкнена.
+
+## Історична пропозиція: рішення
 
 Рекомендую `whisper-large-v3` у Groq для голосу та чинний `claude-sonnet-5-5` в Anthropic для продуктів, порцій і фото. Телефон надсилає запис у SciSense на ntzg.pp.ua; сервер передає аудіо Groq, а текст і фото Anthropic. Ключі залишаються на сервері. Після розгортання Mac не бере участі в роботі застосунку.
 
