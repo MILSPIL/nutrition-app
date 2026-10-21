@@ -49,7 +49,9 @@ export function createWhisper({ binary, model, timeoutMs = 45000, threads = 4, s
         };
         const abort = () => stop();
         try {
-          child = spawnProcess(binary, ["-m", model, "-f", "-", "-otxt", "-l", "auto", "-np", "-nt", "-sns", "-t", String(threads)], {
+          // Non-dash basename enables the native stdout callback. No output-format
+          // flag is set, so no file is opened (Node pipes cannot reopen /dev/stdout on Linux).
+          child = spawnProcess(binary, ["-m", model, "-f", "-", "-of", "scisense-stdout", "-l", "auto", "-np", "-nt", "-sns", "-t", String(threads)], {
             stdio: ["pipe", "pipe", "ignore"],
             env: { PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR },
           });

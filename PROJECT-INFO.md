@@ -6,6 +6,10 @@
 - Репозиторій: `nutrition-app`
 - Стан Git визначай свіжими `git status` і `git worktree list`; у сусідніх деревах лишаються окремі незавершені матеріали.
 
+## Погоджена проба Whisper small-q5_1, 2026-10-21
+
+Юрій погодив STT-SMALL-01 із тими самими 2 CPU / 2 GiB / 45s. Готується окремий synthetic allowlist і регресія stdout; результат ще очікується. Ключі, $5 і сервер не використовуються. Журнал попередньої проби повністю перенесено через PR18, merge5dcd96dd564a475b9393deb420ccd73fba710e38; два CI успішні, SHA256 джерела/local main/origin main однаковий:17ddbdaccd7c8120eeb70019c3133dc9a2b0de8a8ea69f7d6bd8381b00e1b85e. Продуктовий код у main не переносився.
+
 ## Поточний стан підготовки, 2026-10-21
 
 Локальні Node API, G04 protocol/UI та синтетичний budget/runtime реалізовані. Докази: server20/20, G04 rules29/29, застосунок99/99, власний браузер request/accept/revoke і незалежні рев’ю; docs/evidence/*-preparation-2026-10-21.json. LIVE=false, UID allowlist порожній, ключі/$5/production не використовувалися.

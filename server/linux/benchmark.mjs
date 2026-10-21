@@ -1,12 +1,14 @@
 import {spawn,spawnSync} from 'node:child_process';
 import {readFile,writeFile,readdir} from 'node:fs/promises';
 import {performance} from 'node:perf_hooks';
-import {createWhisper,verifyWhisper,WHISPER_SOURCE,WHISPER_MODEL_SHA1} from '../../scripts/phone-lab/whisper.mjs';
+import {createWhisper,WHISPER_SOURCE} from '../../scripts/phone-lab/whisper.mjs';
+import {verifyFixtureModel} from './models.mjs';
+import {evaluateTranscript} from './recognition.mjs';
 import {parseThreads,limitsEnforced} from './limits.mjs';
 import {createDiagnostics,cpuUsageDeltaMs} from './telemetry.mjs';
-const [language,durationText,mode='normal',threadsText='1']=process.argv.slice(2),duration=Number(durationText),threads=parseThreads(threadsText);
+const [language,durationText,mode='normal',threadsText='1',modelName='large-v3-turbo-q5_0']=process.argv.slice(2),duration=Number(durationText),threads=parseThreads(threadsText);
 if(process.platform!=='linux'||!['uk','ru'].includes(language)||![5,30,90].includes(duration)||!['normal','abort','timeout','concurrency','oom'].includes(mode))throw Error('test_arguments');
-const runtime={binary:'/whisper/build/bin/whisper-cli',model:'/whisper/model.bin',sourceCommit:WHISPER_SOURCE,modelSha1:WHISPER_MODEL_SHA1};await verifyWhisper(runtime);
+const runtime={binary:'/whisper/build/bin/whisper-cli',model:'/whisper/model.bin',sourceCommit:WHISPER_SOURCE};const modelEvidence=await verifyFixtureModel(modelName,runtime);
 // Synthetic speech is generated in memory; only measurements leave the container.
 const text=language==='uk'?'Я випив кефір, двісті грамів.':'Я выпил кефир, двести граммов.';
 const tts=spawnSync('espeak-ng',['--stdout','-v',language,'-s','170',text],{maxBuffer:1024*1024});if(tts.status!==0)throw Error('tts_failed');
@@ -19,7 +21,7 @@ const audio=Buffer.alloc(44+duration*32000);audio.write('RIFF');audio.writeUInt3
 const owned=new Set(),controller=new AbortController(),diagnostics=createDiagnostics();let timer;
 const spawnProcess=(binary,args,options)=>{const c=spawn(binary,args,{...options,stdio:['pipe','pipe','pipe']});owned.add(c.pid);c.stdin.once('finish',()=>diagnostics.stdinFinished());c.stderr.on('data',chunk=>diagnostics.stderr(chunk));c.stdout.on('data',chunk=>diagnostics.stdout(chunk));c.once('close',(code,signal)=>{owned.delete(c.pid);diagnostics.closed(code,signal);});return c;};
 const whisper=createWhisper({...runtime,threads,spawnProcess,timeoutMs:mode==='timeout'?20:45000});
-const evidence={syntheticOnly:true,language,durationSeconds:duration,mode,threads,timeoutMs:mode==='timeout'?20:45000,sourceCommit:WHISPER_SOURCE,modelSha1:WHISPER_MODEL_SHA1,architecture:process.arch,node:process.version};
+const evidence={syntheticOnly:true,language,durationSeconds:duration,mode,threads,timeoutMs:mode==='timeout'?20:45000,sourceCommit:WHISPER_SOURCE,...modelEvidence,architecture:process.arch,node:process.version};
 const readCgroup=async name=>{try{return (await readFile('/sys/fs/cgroup/'+name,'utf8')).trim();}catch{return 'unavailable';}};
 const cpuBefore=await readCgroup('cpu.stat');
 evidence.cpuMax=await readCgroup('cpu.max');evidence.memoryMax=await readCgroup('memory.max');evidence.oomBefore=await readCgroup('memory.events');
@@ -29,12 +31,12 @@ try{
  const first=whisper.transcribe({file:new Blob([audio],{type:'audio/wav'})},{signal:controller.signal});
  if(mode==='abort')timer=setTimeout(()=>controller.abort(),20);
  if(mode==='concurrency'){await new Promise(r=>setTimeout(r,20));try{await whisper.transcribe({file:new Blob([audio],{type:'audio/wav'})});evidence.concurrentRejected=false;}catch(e){evidence.concurrentRejected=e.message==='upstream_limited';}}
- const result=await first;evidence.recognized=/кеф[іи]р/i.test(result.text);evidence.outputCharacters=result.text.length;evidence.result='success';
+ const result=await first;Object.assign(evidence,evaluateTranscript(result.text));evidence.recognized=evidence.recognizedFood&&evidence.recognizedAmount;evidence.outputCharacters=result.text.length;evidence.result='success';
 }catch(error){evidence.result=error.message;}
 finally{clearTimeout(timer);await whisper.close();audio.fill(0);wav.fill(0);clip.fill(0);evidence.elapsedMs=Math.round(performance.now()-started);evidence.ownedProcesses=owned.size;evidence.memoryPeak=await readCgroup('memory.peak');evidence.oomAfter=await readCgroup('memory.events');evidence.temporaryFiles=(await readdir('/tmp')).filter(x=>x!=='lost+found').length;
  evidence.diagnostics=diagnostics.snapshot();evidence.cpuUsageMs=cpuUsageDeltaMs(cpuBefore,await readCgroup('cpu.stat'));
  const events=value=>Object.fromEntries(value.split('\n').map(line=>line.split(/\s+/).map((x,i)=>i?Number(x):x)));
  evidence.limitsEnforced=limitsEnforced(evidence.cpuMax,evidence.memoryMax,threads,mode);
  evidence.oomKilled=(events(evidence.oomAfter).oom_kill||0)>(events(evidence.oomBefore).oom_kill||0);
- evidence.pass=owned.size===0&&evidence.temporaryFiles===0&&evidence.limitsEnforced&&(mode==='normal'?evidence.result==='success'&&evidence.recognized:mode==='concurrency'?evidence.concurrentRejected&&['success','upstream_timeout'].includes(evidence.result):mode==='oom'?evidence.result==='upstream_failed'&&evidence.oomKilled:evidence.result==='upstream_timeout');
+ evidence.pass=owned.size===0&&evidence.temporaryFiles===0&&evidence.limitsEnforced&&(mode==='normal'?evidence.result==='success'&&evidence.recognized&&evidence.elapsedMs<=45000:mode==='concurrency'?evidence.concurrentRejected&&['success','upstream_timeout'].includes(evidence.result):mode==='oom'?evidence.result==='upstream_failed'&&evidence.oomKilled:evidence.result==='upstream_timeout');
  await writeFile('/out/result.json',JSON.stringify(evidence,null,2)+'\n');}

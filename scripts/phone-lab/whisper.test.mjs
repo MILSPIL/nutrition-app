@@ -13,17 +13,17 @@ function processFactory(mode, captured) {
     child.kill=signal=>{captured.kills.push(signal);queueMicrotask(()=>child.emit('close',null));return true;};
     let bytes=0;child.stdin.on('data',x=>bytes+=x.length);
     child.stdin.on('finish',()=>{captured.bytes=bytes;queueMicrotask(()=>{
-      if(mode==='text' && args.includes('-otxt')) {child.stdout.emit('data',Buffer.from('Випив кефір, 200 грамів'));child.emit('close',0);}
+      if(mode==='text') {child.stdout.emit('data',Buffer.from('Випив кефір, 200 грамів'));child.emit('close',0);}
       if(mode==='empty')child.emit('close',0);
       if(mode==='failure')child.emit('close',1);
       if(mode==='large')child.stdout.emit('data',Buffer.alloc(33000));
     });});return child;
   };
 }
-test('Whisper uses stdin, returns transcript, passes no secrets or output path',async()=>{
+test('Whisper uses stdin, returns transcript, passes no secrets and enables no file writer',async()=>{
  const captured={},w=createWhisper({binary:'/local/whisper',model:'/local/model',spawnProcess:processFactory('text',captured)});
  assert.deepEqual(await w.transcribe(audio()),{text:'Випив кефір, 200 грамів'});
- assert.equal(captured.bytes,32044);assert.equal(captured.args[captured.args.indexOf('-f')+1],'-');assert.ok(captured.args.includes('-otxt'));assert.ok(!captured.args.includes('-of'));
+ assert.equal(captured.bytes,32044);assert.equal(captured.args[captured.args.indexOf('-f')+1],'-');assert.equal(captured.args[captured.args.indexOf('-of')+1],'scisense-stdout');assert.ok(!captured.args.some(x=>['-otxt','-osrt','-ovtt','-ocsv','-oj','-ojf','-olrc','-owts','-ls'].includes(x)));
  assert.deepEqual(Object.keys(captured.options.env).sort(),['HOME','PATH','TMPDIR']);
  await w.close();await assert.rejects(w.transcribe(audio()),/upstream_limited/);
 });
