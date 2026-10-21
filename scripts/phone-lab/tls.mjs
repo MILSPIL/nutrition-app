@@ -4,95 +4,92 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { privateHost } from "./gateway.mjs";
-// Ключі OpenSSL проходять через pipe й пам’ять, не через argv або файли.
-function openssl(args, { input, extraInput } = {}) {
+// OpenSSL's native '-' means stdin/stdout on Linux and macOS. Reopening
+// /dev/fd/N can fail for Node's socket-backed child stdio on Linux.
+// Private keys stay in bounded memory/stdio; only public material uses files.
+function openssl(args, input) {
   return new Promise((resolve, reject) => {
-    const child = spawn("openssl", args, {
-      stdio: ["pipe", "pipe", "ignore", "pipe"],
+    // x509 -CAkey does not support native "-". Give it a real OS pipe:
+    // Node child stdio is a socket on Linux. The shell program is fixed;
+    // all options are positional arguments and the key is only stdin.
+    const child = input
+      ? spawn("/bin/sh", ["-c", 'cat | exec openssl "$@"', "scisense-tls", ...args],
+          { stdio: ["pipe", "pipe", "ignore"], detached: true })
+      : spawn("openssl", args, { stdio: ["pipe", "pipe", "ignore"], detached: true });
+    const kill = (signal) => {
+      if (child.pid) { try { process.kill(-child.pid, signal); } catch {} }
+    };
+    const chunks = [];
+    let size = 0, failed = false, killTimer;
+    const stop = () => {
+      if (failed) return;
+      failed = true;
+      kill("SIGTERM");
+      killTimer = setTimeout(() => kill("SIGKILL"), 1000);
+    };
+    const timer = setTimeout(stop, 20000);
+    child.stdout.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > 32768 || failed) { chunk.fill(0); stop(); }
+      else chunks.push(chunk);
     });
-    const output = [],
-      extra = [];
-    child.stdout.on("data", (chunk) => output.push(chunk));
-    if (extraInput) child.stdio[3].end(extraInput);
-    else child.stdio[3].on("data", (chunk) => extra.push(chunk));
-    child.on("error", reject);
-    child.on("exit", (code) =>
-      code === 0
-        ? resolve({
-            output: Buffer.concat(output),
-            extra: Buffer.concat(extra),
-          })
-        : reject(Error("tls_generation_failed")),
-    );
+    child.stdin.on("error", stop);
+    child.on("error", stop);
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      clearTimeout(killTimer);
+      const output = !failed && code === 0 ? Buffer.concat(chunks) : null;
+      for (const chunk of chunks) chunk.fill(0);
+      if (output) resolve(output);
+      else reject(Error("tls_generation_failed"));
+    });
     child.stdin.end(input);
   });
+}
+function pem(output, label) {
+  const begin = Buffer.from(`-----BEGIN ${label}-----`);
+  const end = Buffer.from(`-----END ${label}-----`);
+  const start = output.indexOf(begin), finish = output.indexOf(end);
+  if (start < 0 || finish <= start || output.indexOf(begin, start + 1) !== -1)
+    throw Error("tls_generation_failed");
+  return Buffer.concat([output.subarray(start, finish + end.length), Buffer.from("\n")]);
 }
 export async function generateTls(host) {
   if (!privateHost(host)) throw Error("Private IPv4 required");
   const dir = await mkdtemp(path.join(tmpdir(), "scisense-tls-"));
+  let caOutput, csrOutput, caKey, serverKey, succeeded = false;
   try {
-    const ca = await openssl([
-      "req",
-      "-x509",
-      "-newkey",
-      "rsa:2048",
-      "-nodes",
-      "-days",
-      "3",
-      "-subj",
-      "/CN=SciSense temporary phone lab",
-      "-addext",
-      "basicConstraints=critical,CA:TRUE",
-      "-addext",
-      "keyUsage=critical,keyCertSign,cRLSign",
-      "-keyout",
-      "/dev/fd/3",
-      "-out",
-      "/dev/stdout",
+    caOutput = await openssl([
+      "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "3",
+      "-subj", "/CN=SciSense temporary phone lab",
+      "-addext", "basicConstraints=critical,CA:TRUE",
+      "-addext", "keyUsage=critical,keyCertSign,cRLSign",
+      "-keyout", "-", "-out", "-",
     ]);
-    const csr = await openssl([
-      "req",
-      "-new",
-      "-newkey",
-      "rsa:2048",
-      "-nodes",
-      "-subj",
-      "/CN=SciSense phone lab",
-      "-keyout",
-      "/dev/fd/3",
-      "-out",
-      "/dev/stdout",
+    caKey = pem(caOutput, "PRIVATE KEY");
+    const ca = pem(caOutput, "CERTIFICATE");
+    csrOutput = await openssl([
+      "req", "-new", "-newkey", "rsa:2048", "-nodes",
+      "-subj", "/CN=SciSense phone lab", "-keyout", "-", "-out", "-",
     ]);
-    await writeFile(path.join(dir, "ca.pem"), ca.output);
+    serverKey = pem(csrOutput, "PRIVATE KEY");
+    await writeFile(path.join(dir, "ca.pem"), ca);
+    await writeFile(path.join(dir, "request.pem"), pem(csrOutput, "CERTIFICATE REQUEST"));
     await writeFile(
       path.join(dir, "extensions"),
-      "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\nsubjectAltName=IP:" +
-        host +
-        "\n",
+      "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\nsubjectAltName=IP:" + host + "\n",
     );
-    const cert = await openssl(
-      [
-        "x509",
-        "-req",
-        "-days",
-        "2",
-        "-in",
-        "/dev/stdin",
-        "-CA",
-        path.join(dir, "ca.pem"),
-        "-CAkey",
-        "/dev/fd/3",
-        "-set_serial",
-        "0x" + randomBytes(16).toString("hex"),
-        "-extfile",
-        path.join(dir, "extensions"),
-        "-out",
-        "/dev/stdout",
-      ],
-      { input: csr.output, extraInput: ca.extra },
-    );
-    return { key: csr.extra, cert: cert.output, ca: ca.output };
+    const cert = await openssl([
+      "x509", "-req", "-days", "2", "-in", path.join(dir, "request.pem"),
+      "-CA", path.join(dir, "ca.pem"), "-CAkey", "/dev/stdin",
+      "-set_serial", "0x" + randomBytes(16).toString("hex"),
+      "-extfile", path.join(dir, "extensions"), "-out", "-",
+    ], caKey);
+    succeeded = true;
+    return { key: serverKey, cert, ca };
   } finally {
+    caOutput?.fill(0); csrOutput?.fill(0); caKey?.fill(0);
+    if (!succeeded) serverKey?.fill(0);
     await rm(dir, { recursive: true, force: true });
   }
 }
