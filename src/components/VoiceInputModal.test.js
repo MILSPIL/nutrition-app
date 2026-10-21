@@ -55,6 +55,7 @@ const photo = async () => {
   );
 };
 beforeEach(() => {
+  localStorage.clear();
   counter = 0;
   Object.defineProperty(global, "crypto", {
     configurable: true,
@@ -392,4 +393,274 @@ test("невизначений commit дозволяє свідомий вихі
   expect(props.onAdd).toHaveBeenCalledTimes(1);
   expect(rows[0].status).toBe("unknown");
   expect(pilotSummary(rows).successes).toBe(0);
+});
+
+
+test("STT-only показує текст без аналізу, фото та збереження прийому", async () => {
+  await render({ mode: "stt_only" });
+  await stop();
+  expect(props.api.transcribe).toHaveBeenCalledTimes(1);
+  expect(props.api.analyze).not.toHaveBeenCalled();
+  const transcript = container.querySelector('[aria-label="Розпізнаний текст"]');
+  expect(transcript.value).toBe("Випив 200 грамів кефіру");
+  expect(transcript.closest("details").open).toBe(true);
+  expect(transcript.readOnly).toBe(true);
+  expect(container.textContent).toContain("Лабораторна перевірка");
+  expect(container.textContent).toContain("Фото, аналіз їжі та додавання прийому");
+  expect(container.querySelector('input[type="file"]')).toBeNull();
+  expect(button("Додати")).toBeUndefined();
+  expect(button("Оновити за текстом")).toBeUndefined();
+  expect(button("Повторити обробку")).toBeUndefined();
+  expect(props.onAdd).not.toHaveBeenCalled();
+  expect(props.onSaved).not.toHaveBeenCalled();
+  expect(rows.some((row) => row.status === "saved")).toBe(false);
+});
+
+test("REACT_APP_STT_ONLY вмикає лабораторію за замовчуванням, явний full має пріоритет", async () => {
+  const previous = process.env.REACT_APP_STT_ONLY;
+  process.env.REACT_APP_STT_ONLY = "1";
+  try {
+    await render();
+    await stop();
+    expect(props.api.analyze).not.toHaveBeenCalled();
+    await render({ isOpen: false });
+    await render({ isOpen: true, mode: "full" });
+    await stop();
+    expect(props.api.analyze).toHaveBeenCalledTimes(1);
+    await click("Додати");
+    expect(props.onAdd).toHaveBeenCalledTimes(1);
+  } finally {
+    if (previous === undefined) delete process.env.REACT_APP_STT_ONLY;
+    else process.env.REACT_APP_STT_ONLY = previous;
+  }
+});
+
+test.each([null, "uk", "ru", "invalid", '"uk"'])(
+  "збережена мова %s читається з дозволеним fallback auto",
+  async (stored) => {
+    if (stored !== null) localStorage.setItem("scisense.voice.language", stored);
+    await render({ mode: "stt_only" });
+    const expected = ["uk", "ru"].includes(stored) ? stored : "auto";
+    const select = container.querySelector('[aria-label="Мова розпізнавання"]');
+    expect(select).toBeTruthy();
+    expect(select.value).toBe(expected);
+    await stop();
+    expect(props.api.transcribe.mock.calls[0][3]).toBe(expected);
+  },
+);
+
+test("зміна мови під час запису діє одразу та зберігає тільки мовну перевагу", async () => {
+  const writes = jest.spyOn(Storage.prototype, "setItem");
+  await render({ mode: "stt_only" });
+  await change("Мова розпізнавання", "ru");
+  await stop();
+  expect(props.api.transcribe.mock.calls[0][3]).toBe("ru");
+  expect(writes.mock.calls).toEqual([["scisense.voice.language", "ru"]]);
+  expect(localStorage.length).toBe(1);
+  await render({ isOpen: false });
+  await render({ isOpen: true });
+  expect(container.querySelector('[aria-label="Мова розпізнавання"]').value).toBe("ru");
+});
+
+test("недоступний localStorage не блокує запис або вибір мови", async () => {
+  jest.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw Error("blocked"); });
+  jest.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw Error("blocked"); });
+  await render({ mode: "stt_only" });
+  expect(container.querySelector('[aria-label="Мова розпізнавання"]').value).toBe("auto");
+  await change("Мова розпізнавання", "uk");
+  await stop();
+  expect(props.api.transcribe.mock.calls[0][3]).toBe("uk");
+  expect(props.api.analyze).not.toHaveBeenCalled();
+});
+
+test("квота STT зберігає аудіо для явного повтору без нового запису та аналізу", async () => {
+  props.api.transcribe.mockRejectedValueOnce(Error("upstream_limited"));
+  await render({ mode: "stt_only" });
+  await change("Мова розпізнавання", "uk");
+  await stop();
+  expect(props.api.transcribe).toHaveBeenCalledTimes(1);
+  const [audio, duration] = props.api.transcribe.mock.calls[0];
+  expect(rows[0].status).toBe("error");
+  await click("Повторити обробку");
+  const retried = props.api.transcribe.mock.calls[1];
+  expect(retried[0]).toBe(audio);
+  expect(retried[1]).toBe(duration);
+  expect(retried[3]).toBe("uk");
+  expect(recorders).toHaveLength(1);
+  expect(props.api.analyze).not.toHaveBeenCalled();
+  expect(props.onAdd).not.toHaveBeenCalled();
+  expect(rows[0].status).toBe("error");
+  expect(rows).toHaveLength(2);
+  expect(container.querySelector('[aria-label="Розпізнаний текст"]').value).toBe("Випив 200 грамів кефіру");
+});
+
+test("скасування обробки зберігає аудіо, повтор не приймає запізнілий текст", async () => {
+  const old = deferred();
+  props.api.transcribe.mockImplementationOnce(() => old.promise);
+  await render({ mode: "stt_only" });
+  await stop();
+  const first = props.api.transcribe.mock.calls[0];
+  await click("Скасувати обробку");
+  expect(first[2].aborted).toBe(true);
+  await click("Повторити обробку");
+  expect(props.api.transcribe.mock.calls[1][0]).toBe(first[0]);
+  expect(recorders).toHaveLength(1);
+  await act(async () => old.resolve({ text: "СТАРЕ" }));
+  expect(container.querySelector('[aria-label="Розпізнаний текст"]').value).toBe("Випив 200 грамів кефіру");
+  expect(props.api.analyze).not.toHaveBeenCalled();
+  expect(props.onAdd).not.toHaveBeenCalled();
+});
+
+test("квота під час фото зберігає текст, фото та рядок для явного повтору", async () => {
+  await render();
+  await stop();
+  props.api.analyze.mockRejectedValueOnce(Error("upstream_limited"));
+  await photo();
+  const transcript = container.querySelector('[aria-label="Розпізнаний текст"]').value;
+  const photoBefore = container.querySelector('.voice-photo-grid img').src;
+  expect(button("Додати").disabled).toBe(true);
+  expect(props.api.transcribe).toHaveBeenCalledTimes(1);
+  props.api.analyze.mockResolvedValueOnce(answer([{ ...food(), source: { kind: "label" } }]));
+  await click("Повторити читання фото");
+  expect(container.querySelector('[aria-label="Розпізнаний текст"]').value).toBe(transcript);
+  expect(container.querySelector('.voice-photo-grid img').src).toBe(photoBefore);
+  expect(container.querySelectorAll('[data-testid="voice-item"]')).toHaveLength(1);
+  expect(props.api.transcribe).toHaveBeenCalledTimes(1);
+  await click("Додати");
+  expect(props.onAdd).toHaveBeenCalledTimes(1);
+});
+
+
+test("скасоване читання фото зберігає чернетку й блокує стару відповідь до повтору", async () => {
+  await render();
+  await stop();
+  const old = deferred();
+  props.api.analyze.mockImplementationOnce(() => old.promise);
+  await photo();
+  const request = props.api.analyze.mock.calls[1];
+  const originalPhoto = container.querySelector('.voice-photo-grid img').src;
+  await click("Скасувати обробку");
+  expect(request[2].aborted).toBe(true);
+  expect(button("Додати").disabled).toBe(true);
+  expect(container.querySelector('[aria-label="Розпізнаний текст"]').value).toBe("Випив 200 грамів кефіру");
+  await act(async () => old.resolve(answer([food("СТАРЕ")])));
+  expect(container.querySelector('[aria-label="Назва продукту 1"]').value).toBe("Тестовий кефір");
+  props.api.analyze.mockResolvedValueOnce(answer([{ ...food(), source: { kind: "label" } }]));
+  await click("Повторити читання фото");
+  expect(props.api.analyze.mock.calls[2][1]).toEqual(request[1]);
+  expect(container.querySelector('.voice-photo-grid img').src).toBe(originalPhoto);
+  expect(button("Додати").disabled).toBe(false);
+  await click("Додати");
+  expect(props.onAdd).toHaveBeenCalledTimes(1);
+});
+
+test("скасування нормалізації не губить початкове аудіо й не запускає старий запит", async () => {
+  const old = deferred();
+  const original = new Blob(["browser recording"], { type: "audio/webm" });
+  const normalized = new Blob(["PCM"], { type: "audio/wav" });
+  props.audioNormalizer = jest.fn()
+    .mockImplementationOnce(() => old.promise)
+    .mockResolvedValueOnce(normalized);
+  props.recorderFactory = (cb) => ({
+    start: () => cb.onState("recording"),
+    cancel: jest.fn(),
+    stop: () => cb.onStop(original, 3),
+  });
+  await render({ mode: "stt_only" });
+  await stop();
+  await click("Скасувати обробку");
+  expect(props.api.transcribe).not.toHaveBeenCalled();
+  await click("Повторити обробку");
+  expect(props.audioNormalizer).toHaveBeenCalledTimes(2);
+  expect(props.audioNormalizer.mock.calls[1][0]).toBe(original);
+  expect(props.api.transcribe.mock.calls[0][0]).toBe(normalized);
+  await act(async () => old.resolve(normalized));
+  expect(props.api.transcribe).toHaveBeenCalledTimes(1);
+  expect(props.api.analyze).not.toHaveBeenCalled();
+  expect(props.onAdd).not.toHaveBeenCalled();
+});
+
+test("відмова від нового запису або закриття зберігає STT-чернетку", async () => {
+  await render({ mode: "stt_only" });
+  await stop();
+  window.confirm.mockReturnValue(false);
+  await click("Записати ще раз");
+  await click("Закрити голосову чернетку");
+  expect(recorders).toHaveLength(1);
+  expect(props.onClose).not.toHaveBeenCalled();
+  expect(container.querySelector('[aria-label="Розпізнаний текст"]').value).toBe("Випив 200 грамів кефіру");
+  expect(props.api.analyze).not.toHaveBeenCalled();
+  expect(props.onAdd).not.toHaveBeenCalled();
+});
+
+
+test("скасування підготовки фото залишає початковий файл для повтору", async () => {
+  await render();
+  await stop();
+  const old = deferred();
+  const prepared = await props.photoNormalizer();
+  props.photoNormalizer = jest.fn()
+    .mockImplementationOnce(() => old.promise)
+    .mockResolvedValueOnce(prepared);
+  await render();
+  await photo();
+  const original = props.photoNormalizer.mock.calls[0][0];
+  await click("Скасувати обробку");
+  expect(button("Додати").disabled).toBe(true);
+  expect(props.api.analyze).toHaveBeenCalledTimes(1);
+  props.api.analyze.mockResolvedValueOnce(answer([{ ...food(), source: { kind: "label" } }]));
+  await click("Повторити обробку");
+  expect(props.photoNormalizer.mock.calls[1][0]).toBe(original);
+  expect(props.api.analyze).toHaveBeenCalledTimes(2);
+  expect(container.querySelectorAll('.voice-photo-grid img')).toHaveLength(1);
+  await act(async () => old.resolve(prepared));
+  expect(props.api.analyze).toHaveBeenCalledTimes(2);
+  expect(container.querySelectorAll('.voice-photo-grid img')).toHaveLength(1);
+  expect(button("Додати").disabled).toBe(false);
+});
+
+
+test("повтор після скасування другого фото зберігає обидва файли", async () => {
+  await render();
+  await stop();
+  props.api.analyze.mockResolvedValue(answer([{ ...food(), source: { kind: "label" } }]));
+  await photo();
+  const old = deferred();
+  const second = { type: "image/jpeg", data: "second", preview: "data:image/jpeg;base64,c2Vjb25k" };
+  props.photoNormalizer = jest.fn()
+    .mockImplementationOnce(() => old.promise)
+    .mockResolvedValueOnce(second);
+  await render();
+  await photo();
+  const original = props.photoNormalizer.mock.calls[0][0];
+  await click("Скасувати обробку");
+  expect(button("Додати").disabled).toBe(true);
+  await click("Повторити читання фото");
+  expect(props.photoNormalizer).toHaveBeenCalledTimes(2);
+  expect(props.photoNormalizer.mock.calls[1][0]).toBe(original);
+  expect(props.api.analyze.mock.calls[2][1].map((image) => image.data)).toEqual(["synthetic", "second"]);
+  expect(container.querySelectorAll('.voice-photo-grid img')).toHaveLength(2);
+  await act(async () => old.resolve(second));
+  expect(props.api.analyze).toHaveBeenCalledTimes(3);
+  expect(container.querySelectorAll('.voice-photo-grid img')).toHaveLength(2);
+  expect(button("Додати").disabled).toBe(false);
+});
+
+test("пізнє створення скасованої спроби не привласнює збереження нового повтору", async () => {
+  props.api.transcribe.mockRejectedValueOnce(Error("upstream_limited"));
+  await render(); await stop();
+  const old = deferred();
+  props.ledger.start.mockImplementationOnce(parent => {
+    rows.push({attemptId: "attempt-2", parentAttemptId: parent, status: "started"});
+    return old.promise;
+  });
+  await click("Повторити обробку");
+  await click("Скасувати обробку");
+  await click("Повторити обробку");
+  expect(props.api.transcribe).toHaveBeenCalledTimes(2);
+  await act(async () => old.resolve("attempt-2"));
+  await click("Додати");
+  expect(rows.find(row => row.attemptId === "attempt-2").status).toBe("abandoned");
+  expect(rows.find(row => row.attemptId === "attempt-3").status).toBe("saved");
+  expect(props.onAdd).toHaveBeenCalledTimes(1);
 });

@@ -27,6 +27,16 @@ import {
 import { saveError } from "../services/useMealDay";
 import "./VoiceInputModal.css";
 const defaultApi = { transcribe: transcribeAudio, analyze: analyzeFood };
+const languageKey = "scisense.voice.language";
+const languages = ["auto", "uk", "ru"];
+function storedLanguage() {
+  try {
+    const value = localStorage.getItem(languageKey);
+    return languages.includes(value) ? value : "auto";
+  } catch (_) {
+    return "auto";
+  }
+}
 const names = { 1: "Сніданок", 2: "Обід", 3: "Вечеря", 4: "Перекус" };
 // Залишаємо кому під час набору: перетворення в число не повинно з'їдати «0,».
 function DecimalInput({ value, onChange, ...props }) {
@@ -55,6 +65,7 @@ export default function VoiceInputModal({
   meal,
   activeDate,
   api = defaultApi,
+  mode = process.env.REACT_APP_STT_ONLY === "1" ? "stt_only" : "full",
   ledger,
   recorderFactory = createRecorder,
   audioNormalizer = normalizeAudio,
@@ -62,6 +73,8 @@ export default function VoiceInputModal({
   onSaved,
   onReturnToDate,
 }) {
+  const sttOnly = mode === "stt_only";
+  const [language, setLanguage] = useState(storedLanguage);
   const [state, setState] = useState("idle"),
     [seconds, setSeconds] = useState(0),
     [waiting, setWaiting] = useState(false);
@@ -95,6 +108,8 @@ export default function VoiceInputModal({
     retryTask = useRef(null);
   latest.current = {
     state,
+    sttOnly,
+    language,
     items,
     unparsed,
     text,
@@ -164,16 +179,15 @@ export default function VoiceInputModal({
   };
   async function newAttempt(carry = false) {
     const session = life.current,
+      revision = session.revision,
       parent = attempt.current;
     if (parent && !["error", "abandoned"].includes(attemptStatus.current))
       await track(
-        { status: "abandoned", finishedAt: Date.now() },
-        parent,
-        session,
+        { status: "abandoned", finishedAt: Date.now() }, parent, session,
       );
-    if (session.closed || life.current !== session) return false;
+    if (!valid(session, revision)) return false;
     const previous = metrics.current;
-    metrics.current = {
+    const nextMetrics = {
       actions: 1,
       corrections: carry ? previous.corrections : 0,
       clarifications: carry ? previous.clarifications : 0,
@@ -184,34 +198,44 @@ export default function VoiceInputModal({
       id = ledger?.enabled ? await ledger.start(parent) : newId();
     } catch (_) {
       id = newId();
-      if (!session.closed) setMetricError(true);
+      if (valid(session, revision)) setMetricError(true);
     }
-    if (session.closed || life.current !== session) {
+    const abandonCreated = () => {
       if (ledger?.enabled)
-        void track(
-          { status: "abandoned", finishedAt: Date.now() },
-          id,
-          session,
-        );
-      return false;
-    }
+        void track({ status: "abandoned", finishedAt: Date.now() }, id, session);
+    };
+    if (!valid(session, revision)) { abandonCreated(); return false; }
+    metrics.current = nextMetrics;
     attempt.current = id;
     attemptStatus.current = "started";
     await track({
-      ...metrics.current,
+      ...nextMetrics,
       hasPhoto: carry && latest.current.photos.length > 0,
       partial: carry && latest.current.partial,
-    });
-    return !session.closed && life.current === session;
+    }, id, session);
+    if (!valid(session, revision)) { abandonCreated(); return false; }
+    return true;
   }
   async function retry(task) {
     if (!task || saving.current) return;
     setState("processing");
     bump();
-    if (await newAttempt(true)) {
+    retryTask.current = task;
+    const session = life.current,
+      revision = session.revision;
+    if ((await newAttempt(true)) && valid(session, revision)) {
       mediaAt.current = Date.now();
       void task();
     }
+  }
+  function cancelProcessing() {
+    const task = retryTask.current;
+    bump();
+    retryTask.current = task;
+    if (latest.current.photos.length) setPhotoIssue(true);
+    setState("preview");
+    setError("Обробку скасовано. Чернетка залишилась. Можна повторити обробку.");
+    void track({ status: "abandoned", finishedAt: Date.now() });
   }
   async function analyze(
     transcript,
@@ -220,7 +244,7 @@ export default function VoiceInputModal({
     session = life.current,
     revision = session.revision,
   ) {
-    if (!valid(session, revision)) return;
+    if (latest.current.sttOnly || !valid(session, revision)) return;
     const id = attempt.current;
     const controller = new AbortController();
     request.current = controller;
@@ -283,6 +307,7 @@ export default function VoiceInputModal({
     setError("");
     mediaAt.current = Date.now();
     retryTask.current = () => processAudio(blob, duration);
+    audio.current = { blob, duration };
     try {
       const wav =
         blob.type === "audio/wav" ? blob : await audioNormalizer(blob);
@@ -290,11 +315,22 @@ export default function VoiceInputModal({
       audio.current = { blob: wav, duration };
       const controller = new AbortController();
       request.current = controller;
-      const response = await api.transcribe(wav, duration, controller.signal);
+      const response = await api.transcribe(
+        wav,
+        duration,
+        controller.signal,
+        latest.current.language,
+      );
       if (!valid(session, revision)) return;
       if (!response.text?.trim()) throw Error("empty_transcript");
       setText(response.text);
-      await analyze(response.text, [], "", session, revision);
+      if (latest.current.sttOnly) {
+        setDirtyText(false);
+        setState("preview");
+        retryTask.current = null;
+      } else {
+        await analyze(response.text, [], "", session, revision);
+      }
     } catch (e) {
       if (!valid(session, revision)) return;
       setState("preview");
@@ -361,7 +397,11 @@ export default function VoiceInputModal({
       return;
     }
     if (
-      (text || items.length || photos.length || state === "recording") &&
+      (text ||
+        items.length ||
+        photos.length ||
+        audio.current ||
+        state === "recording") &&
       !window.confirm("Закрити й видалити незбережену чернетку?")
     )
       return;
@@ -412,7 +452,7 @@ export default function VoiceInputModal({
   }, [isOpen]);
 
   async function addPhoto(file) {
-    if (!file) return;
+    if (latest.current.sttOnly || !file) return;
     if (!photoTarget) {
       setError("Оберіть продукт, якого стосується фото.");
       return;
@@ -428,6 +468,8 @@ export default function VoiceInputModal({
     setState("processing");
     setError("");
     mediaAt.current = Date.now();
+    setPhotoIssue(true);
+    retryTask.current = () => addPhoto(file);
     try {
       const photo = await photoNormalizer(file);
       if (!valid(session, revision)) return;
@@ -455,7 +497,7 @@ export default function VoiceInputModal({
       }
     });
   async function save() {
-    if (saving.current) return;
+    if (latest.current.sttOnly || saving.current) return;
     if (activeDate && activeDate !== target.date) {
       setError(
         "Відкрита інша дата. Явно виберіть дату чернетки перед додаванням.",
@@ -563,6 +605,7 @@ export default function VoiceInputModal({
     ["permission", "recording", "processing", "saving"].includes(state) ||
     saveUnknown;
   const canSave =
+    !sttOnly &&
     items.length > 0 &&
     !unparsed.length &&
     !dirtyText &&
@@ -581,7 +624,9 @@ export default function VoiceInputModal({
       >
         <header className="voice-heading">
           <div>
-            <h2 id="voice-title">Додати їжу</h2>
+            <h2 id="voice-title">
+              {sttOnly ? "Перевірка розпізнавання" : "Додати їжу"}
+            </h2>
             <p>
               {target.date} · {names[target.meal]}
             </p>
@@ -596,6 +641,38 @@ export default function VoiceInputModal({
           </button>
         </header>
         <div className="voice-body">
+          {sttOnly && (
+            <p className="voice-lab-note">
+              Лабораторна перевірка голосу: результатом є лише текст.
+              Фото, аналіз їжі та додавання прийому тут вимкнені.
+            </p>
+          )}
+          {state !== "saved" && (
+            <label>
+              Мова розпізнавання
+              <select
+                aria-label="Мова розпізнавання"
+                value={language}
+                disabled={
+                  ["processing", "saving"].includes(state) || saveUnknown
+                }
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (!languages.includes(value)) return;
+                  setLanguage(value);
+                  try {
+                    localStorage.setItem(languageKey, value);
+                  } catch (_) {
+                    // Заблоковане сховище не заважає поточному запису.
+                  }
+                }}
+              >
+                <option value="auto">Автоматично</option>
+                <option value="uk">Українська</option>
+                <option value="ru">Російська</option>
+              </select>
+            </label>
+          )}
           {state === "permission" && (
             <div role="status">
               <p>Дозвольте мікрофон у запиті браузера.</p>
@@ -624,7 +701,15 @@ export default function VoiceInputModal({
             </div>
           )}
           {state === "processing" && (
-            <p role="status">Готую прев’ю… Чернетка залишиться тут.</p>
+            <>
+              <p role="status">
+                {sttOnly ? "Розпізнаю голос…" : "Готую прев’ю…"} Чернетка
+                залишиться тут.
+              </p>
+              <button className="voice-secondary" onClick={cancelProcessing}>
+                Скасувати обробку
+              </button>
+            </>
           )}
           {metricError && (
             <p role="alert">
@@ -632,7 +717,7 @@ export default function VoiceInputModal({
               повними.
             </p>
           )}
-          {activeDate && activeDate !== target.date && (
+          {!sttOnly && activeDate && activeDate !== target.date && (
             <div role="alert">
               <p>Відкрита інша дата: {activeDate}.</p>
               <button
@@ -683,20 +768,22 @@ export default function VoiceInputModal({
           ) : (
             <>
               {text && (
-                <details>
+                <details open={sttOnly ? true : undefined}>
                   <summary>Розпізнаний текст</summary>
                   <textarea
                     aria-label="Розпізнаний текст"
                     value={text}
+                    readOnly={sttOnly}
                     disabled={locked}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      if (sttOnly) return;
                       edit(() => {
                         setText(e.target.value);
                         setDirtyText(true);
-                      })
-                    }
+                      });
+                    }}
                   />
-                  {dirtyText && (
+                  {!sttOnly && dirtyText && (
                     <button
                       className="voice-secondary"
                       disabled={locked}
@@ -712,7 +799,7 @@ export default function VoiceInputModal({
                   )}
                 </details>
               )}
-              {items.map((item, index) => {
+              {(sttOnly ? [] : items).map((item, index) => {
                 const problems = itemProblems(item),
                   totals = problems.length
                     ? null
@@ -897,7 +984,7 @@ export default function VoiceInputModal({
                   </article>
                 );
               })}
-              {unparsed.map((fragment, index) => (
+              {(sttOnly ? [] : unparsed).map((fragment, index) => (
                 <div className="voice-item" key={index}>
                   <p>Не розпізнано: {fragment}</p>
                   <button
@@ -917,7 +1004,7 @@ export default function VoiceInputModal({
                   <p>Для повного запису уточніть розпізнаний текст.</p>
                 </div>
               ))}
-              {!!items.length && (
+              {!sttOnly && !!items.length && (
                 <div className="voice-photos">
                   <h3>Уточнити за упаковкою</h3>
                   <p>
@@ -1017,7 +1104,7 @@ export default function VoiceInputModal({
                   </div>
                 </div>
               )}
-              {photoIssue && (
+              {!sttOnly && photoIssue && (
                 <div role="alert">
                   <p>
                     Фото ще потребує уточнення. Додайте чіткішу харчову панель
@@ -1028,7 +1115,10 @@ export default function VoiceInputModal({
                       className="voice-secondary"
                       disabled={locked}
                       onClick={() =>
-                        void retry(() => analyze(text, photos, photoTarget))
+                        void retry(
+                          retryTask.current ||
+                            (() => analyze(text, photos, photoTarget)),
+                        )
                       }
                     >
                       Повторити читання фото
@@ -1048,7 +1138,7 @@ export default function VoiceInputModal({
                   </button>
                 </div>
               )}
-              {partial && (
+              {!sttOnly && partial && (
                 <p role="status">
                   Чернетку скорочено. У пілоті це частковий запис.
                 </p>
@@ -1060,7 +1150,7 @@ export default function VoiceInputModal({
                     disabled={saveUnknown}
                     onClick={() => {
                       if (
-                        !items.length ||
+                        !(text || items.length || photos.length || audio.current) ||
                         window.confirm(
                           "Почати новий запис і замінити чернетку?",
                         )
@@ -1070,7 +1160,7 @@ export default function VoiceInputModal({
                   >
                     <Mic size={18} /> Записати ще раз
                   </button>
-                  {retryTask.current && !photoIssue && (
+                  {retryTask.current && (!photoIssue || !photos.length) && (
                     <button
                       className="voice-secondary"
                       disabled={saveUnknown}
@@ -1081,19 +1171,21 @@ export default function VoiceInputModal({
                   )}
                 </div>
               )}
-              <footer className="voice-footer">
-                <button
-                  className="voice-primary"
-                  disabled={!canSave}
-                  onClick={save}
-                >
-                  {state === "saving"
-                    ? "Зберігаю…"
-                    : saveUnknown
-                      ? "Перевірити збереження"
-                      : "Додати"}
-                </button>
-              </footer>
+              {!sttOnly && (
+                <footer className="voice-footer">
+                  <button
+                    className="voice-primary"
+                    disabled={!canSave}
+                    onClick={save}
+                  >
+                    {state === "saving"
+                      ? "Зберігаю…"
+                      : saveUnknown
+                        ? "Перевірити збереження"
+                        : "Додати"}
+                  </button>
+                </footer>
+              )}
             </>
           )}
         </div>

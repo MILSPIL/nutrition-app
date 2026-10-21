@@ -22,6 +22,8 @@ const messages = {
 
   unauthorized: "Сеанс завершився. Увійдіть ще раз.",
   rate_limited: "Досягнуто ліміту спроб. Зачекайте й повторіть пізніше.",
+  upstream_limited:
+    "Сервіс тимчасово досяг ліміту запитів. Спробуйте пізніше. Чернетка залишилась.",
   live_disabled: "Сервіс розпізнавання ще не підключений для цього середовища.",
   budget_disabled: "Обробку ще не ввімкнено: потрібен погоджений бюджет.",
   empty_transcript:
@@ -94,10 +96,11 @@ export async function voiceRequest(path, body, signal, options = {}) {
     signal?.removeEventListener("abort", abort);
   }
 }
-export const transcribeAudio = (audio, duration, signal) => {
+export const transcribeAudio = (audio, duration, signal, language = "auto") => {
   const form = new FormData();
   form.set("audio", audio, "recording.wav");
   form.set("duration", String(duration));
+  form.set("language", language);
   return voiceRequest("transcribe", form, signal);
 };
 export const analyzeFood = (text, images, signal) =>

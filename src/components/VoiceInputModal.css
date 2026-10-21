@@ -44,6 +44,11 @@
   overflow: auto;
   overscroll-behavior: contain;
 }
+.voice-lab-note {
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
 .voice-body label {
   display: block;
   font-size: 13px;
