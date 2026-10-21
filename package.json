@@ -27,7 +27,9 @@
     "lab:phone:prepare": "node scripts/phone-lab.mjs prepare",
     "lab:phone": "node scripts/phone-lab.mjs start",
     "test:phone-lab": "node --test scripts/phone-lab/gateway.test.mjs scripts/phone-lab/whisper.test.mjs",
-    "test:phone-lab-ui": "/Users/user/.local/bin/agent-test-browser run scisense-phone-lab"
+    "test:phone-lab-ui": "/Users/user/.local/bin/agent-test-browser run scisense-phone-lab",
+    "test:server": "node --test server/*.test.mjs",
+    "test:rules": "node scripts/trainer-access-test.mjs"
   },
   "eslintConfig": {
     "extends": [
@@ -45,5 +47,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.2"
   }
 }
