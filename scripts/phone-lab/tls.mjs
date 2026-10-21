@@ -20,12 +20,22 @@ function openssl(args, input) {
       if (child.pid) { try { process.kill(-child.pid, signal); } catch {} }
     };
     const chunks = [];
-    let size = 0, failed = false, killTimer;
+    let size = 0, failed = false, closed = false, cleanupPending = false, exitCode;
+    const finish = () => {
+      if (!closed || cleanupPending) return;
+      const output = !failed && exitCode === 0 ? Buffer.concat(chunks) : null;
+      for (const chunk of chunks) chunk.fill(0);
+      if (output) resolve(output);
+      else reject(Error("tls_generation_failed"));
+    };
     const stop = () => {
       if (failed) return;
       failed = true;
       kill("SIGTERM");
-      killTimer = setTimeout(() => kill("SIGKILL"), 1000);
+      cleanupPending = true;
+      // The leader can close before a TERM-resistant descendant. Keep the
+      // escalation alive and await it before exposing failure to the caller.
+      setTimeout(() => { kill("SIGKILL"); cleanupPending = false; finish(); }, 1000);
     };
     const timer = setTimeout(stop, 20000);
     child.stdout.on("data", (chunk) => {
@@ -37,11 +47,9 @@ function openssl(args, input) {
     child.on("error", stop);
     child.on("close", (code) => {
       clearTimeout(timer);
-      clearTimeout(killTimer);
-      const output = !failed && code === 0 ? Buffer.concat(chunks) : null;
-      for (const chunk of chunks) chunk.fill(0);
-      if (output) resolve(output);
-      else reject(Error("tls_generation_failed"));
+      closed = true; exitCode = code;
+      if (code !== 0) stop();
+      finish();
     });
     child.stdin.end(input);
   });
