@@ -14,7 +14,7 @@
     "order_hint": 0,
     "author": "Codex",
     "created_at": "2026-10-20T08:46:52.926644+00:00",
-    "updated_at": "2026-10-21T15:14:19.364445+00:00",
+    "updated_at": "2026-10-21T19:38:56.148377+00:00",
     "valid_from": null,
     "expires_at": null,
     "importance": null,
@@ -25,8 +25,8 @@
     "last_exported_at": null,
     "last_exported_hash": null,
     "health": "at_risk",
-    "health_note": "2026-10-21: app CI39622897711 PASS, PR16draft. Whisper1CPU і погоджені2CPU:0/6 до45s,2GiB/OOM/4controls/cleanupPASS. Diagnostic39622898172 підтвердив повнийstdin і89.695CPU-s за45.058s. STT-SMALL-01 small-q5_1 запропоновано, чекає рішення; не запускати новумодель автоматично. Ключі/$5/production0; targetserver/phone/writerfence/deploy package pending. Канон docs/SCISENSE-SERVER-PREPARATION.md.",
-    "health_updated_at": "2026-10-21T15:14:19.364445+00:00"
+    "health_note": "2026-10-21: STT-SMALL-01 виконано. CI39662207789/bf8e22d, small-q5_1,2CPU/2GiB/45s:0/6normal (2timeout,1empty,3food/amount not confirmed),4controls/cleanupPASS; peak493.9–531MiB,noOOM. Linux stdout/regression10/10 і app CI39662207602 PASS, independent review done. Синтетичні TTS-фікстури не доводять точність реального голосу. Нового STT-рішення немає. Ключі/$5/production0; server/phone/writerfence/deploy package pending. Канон SERVER-PREPARATION, journal2227.",
+    "health_updated_at": "2026-10-21T19:38:56.148377+00:00"
   },
   "phase_revisions": [
     {
@@ -362,6 +362,20 @@
       "actor_client": null,
       "actor_model": null,
       "at": "2026-10-21T15:14:19.364445+00:00",
+      "project": "nutrition-app",
+      "product": "scisense"
+    },
+    {
+      "id": "rev_f668bdb163ebe508",
+      "phase_id": "phase_870a15952663",
+      "field": "health_note",
+      "old_value": "2026-10-21: app CI39622897711 PASS, PR16draft. Whisper1CPU і погоджені2CPU:0/6 до45s,2GiB/OOM/4controls/cleanupPASS. Diagnostic39622898172 підтвердив повнийstdin і89.695CPU-s за45.058s. STT-SMALL-01 small-q5_1 запропоновано, чекає рішення; не запускати новумодель автоматично. Ключі/$5/production0; targetserver/phone/writerfence/deploy package pending. Канон docs/SCISENSE-SERVER-PREPARATION.md.",
+      "new_value": "2026-10-21: STT-SMALL-01 виконано. CI39662207789/bf8e22d, small-q5_1,2CPU/2GiB/45s:0/6normal (2timeout,1empty,3food/amount not confirmed),4controls/cleanupPASS; peak493.9–531MiB,noOOM. Linux stdout/regression10/10 і app CI39662207602 PASS, independent review done. Синтетичні TTS-фікстури не доводять точність реального голосу. Нового STT-рішення немає. Ключі/$5/production0; server/phone/writerfence/deploy package pending. Канон SERVER-PREPARATION, journal2227.",
+      "reason": null,
+      "author": null,
+      "actor_client": null,
+      "actor_model": null,
+      "at": "2026-10-21T19:38:56.148377+00:00",
       "project": "nutrition-app",
       "product": "scisense"
     }

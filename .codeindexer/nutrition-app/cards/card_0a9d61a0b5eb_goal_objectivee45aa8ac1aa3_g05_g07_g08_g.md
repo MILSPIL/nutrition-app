@@ -1,19 +1,19 @@
 ---
 id: card_0a9d61a0b5eb
 card_type: gotcha
-title: Whisper large-v3-turbo не проходить 45s на 1 або 2 CPU Linux
+title: Синтетичні Linux-проби Whisper не пройшли критерії голосу
 project: nutrition-app
 product: scisense
 phase_id: phase_870a15952663
 status: open
 importance: high
 signal: verification
-evidence: .agents/journal/2026-10-21-1336-codex-gpt-6-local-server-implementation.md; docs/evidence/linux-whisper-2cpu-preparation-2026-10-21.json; docs/evidence/linux-whisper-2cpu-diagnostic-2026-10-21.json; docs/SCISENSE-SERVER-PREPARATION.md
+evidence: .agents/journal/2026-10-21-2227-codex-gpt-6-whisper-small-trial.md; docs/evidence/linux-whisper-small-preparation-2026-10-21.json; docs/SCISENSE-SERVER-PREPARATION.md
 valid_from: "2026-10-21T13:47:18.520657+00:00"
 created_at: "2026-10-21T13:47:18.520657+00:00"
-updated_at: "2026-10-21T15:14:16.054859+00:00"
+updated_at: "2026-10-21T19:38:53.960800+00:00"
 author: Codex
-content_hash: "sha256:98e798bb90bd45cb94703082a15dc0156ee548da9adf24ce225b3b20b49bf177"
+content_hash: "sha256:13a33f7ecc937fe647bce098f1f2d2b32ba6bc5b4c4615e0a8c4435c980c2a85"
 ---
 
-Goal objective_e45aa8ac1aa3, G05/G07/G08/G11. Голос має завершуватися до таймауту. Baseline1CPU та погоджений2CPU CI39620593130:0/6 UA/RU5/30/90s, усі timeout45s;2CPU/2GiB підтверджені,peak774MiB,4controls/cleanupPASS. Diagnostic39622898172: CLI прочитав усі160044bytes, CPU89695ms за45058ms, stdin не завис; coldinit/inference окремо не виміряні. STT-SMALL-01: запропоновано small-q5_1 у тих самих лімітах, ще не погоджено/не завантажено. До наступного повного тесту перевірити ризик stdout reopen. ProductionCPU1, keys/$5/server0, Sonnet незмінний. MS-WEB/телефон не перевірені.
+Goal objective_e45aa8ac1aa3, G05/G07/G08/G11. Потрібний правильний голосовий запис їжі до таймауту. Large-v3-turbo на1/2CPU:0/6, timeout45s. Погоджена STT-SMALL-01 small-q5_1, CI39662207789/bf8e22d, actual2CPU/2GiB/45s:0/6normal (2timeout,1empty,3 без підтверджених продукту/200г),4/4negative/cleanupPASS, peak493.9–531MiB, безOOM. Linux10/10 і app CI39662207602 PASS. Native stdout-дефект виправлено; independent review done. Це eSpeak-ng synthetic fixtures; якість TTS, auto-language та реального голосу не доведені. Нову модель/ресурси не вибрано, ключі/$5/сервер не чіпали, productionCPU1/live=false. Межа: без inference повторів/розгортання; потрібне рішення про наступну перевірку.
