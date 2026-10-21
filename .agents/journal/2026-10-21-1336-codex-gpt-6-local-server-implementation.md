@@ -40,3 +40,15 @@ Playwright1.64.0 pinned. Mac використовує власний agent-test-
 ## Бюджет і runtime
 
 Реалізовано server main/runtime, LIVE=false manifest, окремий root-owned activation, systemd credential template, один SQLite ledger поза releases, стійкий anchor і lock. Synthetic prepare/stage transfer з permanent marker блокує локальні checkouts, не створює другого бюджету. Спочатку дві негативні перевірки FAIL на старому localBudget; після зміни server20/20 PASS. Незалежний budget_runtime_review виявив race із двома transfer receipts і помилковий expected503 замість401; виправлено. Свіжі12/12 і власні existing/fresh races, child SIGKILL, lock-before-marker-read PASS. Невдала або перервана передача лишає inference вимкненим. Код transfer приймає marker adapter; справжній Keychain/SSH adapter та активація входять до майбутнього погодженого production-пакета. Доказ docs/evidence/server-budget-preparation-2026-10-21.json. Справжніх ключів і витрат немає.
+
+## Фактичний Linux-прогін
+
+GitHub Actions39590783755 на c0c334b завершився failure за чесним критерієм performance. Збірка pinned Linux image/Whisper пройшла. Усі6 UA/RU fixtures5/30/90s повернули upstream_timeout за45017–45046ms, peak795369472–810352640bytes, OOM0. Для окремих abort/timeout/concurrency/OOM перевірок4/4 PASS, ownedProcesses0/temporaryFiles0/cleanupOk=true. Synthetic systemd255 encrypt/decrypt, wrong-name і tamper PASS, plaintextFile=false. Після тесту availableRAM15627165696bytes. MS-WEB не перевірявся. Доказ docs/evidence/linux-whisper-preparation-2026-10-21.json. Відповідно до плану модель/ресурси не змінюємо, performance залишається блокером.
+
+## TLS та переносимий CI
+
+CI39590783622 виявив Linux OpenSSL tls_generation_failed: Node stdio використовує socket, який OpenSSL не може повторно відкрити через /dev/fd. Перевірено офіційний OpenSSL3.0 source apps.c/req.c; native '-' працює для req output, але x509 CAkey сприймає '-' як шлях. Заміна: req PEM через stdout у пам’ять, signer отримує реальний pipe через фіксований shell і позиційні аргументи. Приватні ключі не записуються у файли/argv/логи. CI39611260978 на e22be6a SUCCESS: app99/Worker31/storage17/server20/rules29/phone-lab9, три browser flows, build.
+
+Незалежний tls_portability_review відтворив TERM-resistant descendant, якому close скасовував SIGKILL. Окремий regression спочатку FAIL (childAlive=true), після cleanupPending/escalation PASS; node phone-lab10/10. Коміт8ea6f2e. Фінальний повторний review/CI очікуються.
+
+codeindexer 2026-10-21: solutions1 (budget race), нова картка1 (Whisper CPU timeout), оновлено G04-картку, phase health, deployment і scope; exports обох проєктів оновлені. Питання про2CPU synthetic CI надіслано, відповіді ще немає; зміни ресурсів не зроблено.

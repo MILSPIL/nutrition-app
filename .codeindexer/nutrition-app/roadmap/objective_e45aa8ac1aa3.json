@@ -12,9 +12,9 @@
     "status": "active",
     "revision": 3,
     "revision_hash": "0fd3eed7839e6f07021019e35467780034a0e7911e4478114c5d751a077ad525",
-    "autonomy_policy": "2026-10-20 Юрій погодив план voice-photo і пороги пілоту: 7 днів, >=10 голосових спроб, >=5 з фото, >=80% успіху. Окремо погоджено Whisper + claude-sonnet-5-5, один ліміт $5 із Claude-кредитів, ціль ntzg.pp.ua на MS-WEB. Модель, бюджет, домен повторно не погоджувати. 2026-10-21 підготовлено docs/superpowers/plans/2026-10-21-scisense-server-rollout.md: новий серверний adapter, G04 і Linux-пакет ще до погодження коду. Поточна підготовка допускає read-only, документацію, рев’ю, commit/push і перенесення журналів. Реальний budget transfer, credential install, привілейовані команди та production-cutover виконуються лише за окремим конкретним пакетом. G04 обов’язковий перед приватним пілотом. Продукт приймає лише Юрій; агент не видає себе за human actor.",
+    "autonomy_policy": "2026-10-20 Юрій погодив voice-photo і пілот 7 днів / >=10 голосових спроб / >=5 з фото / >=80% успіху; Whisper + claude-sonnet-5-5 і ntzg.pp.ua на MS-WEB. 2026-10-21 прямо погоджено CLOUD-PREP-01 із серверним API, G04, Linux-пакетом, синтетичними тестами бюджету, commit/push/PR та незалежним рев’ю. Після environment_repo_access_failed Юрій прямо змінив місце виконання: продовжити локальну розробку. Чинний план docs/superpowers/plans/2026-10-21-scisense-server-rollout.md; гілка codex/scisense-server-prep від edf4ad8. Повторне погодження коду/G04 не потрібне. Поточна пряма межа: справжні ключі та $5 не чіпати; лише mock Sonnet і synthetic budget. Немає дозволу на merge продуктового коду, deployment, real API, privileged install, credential/budget transfer або зміни production. Для них окремий конкретний пакет після перевірок. Mac потрібен локальному сеансу; хмарну задачу не запущено. G04 до приватного пілоту; фінальне приймання тільки Юрієм.",
     "created_at": "2026-10-20T08:44:18.699984+00:00",
-    "updated_at": "2026-10-20T21:34:07.534435+00:00"
+    "updated_at": "2026-10-21T10:32:43.685868+00:00"
   },
   "criteria": [
     {
