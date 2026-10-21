@@ -1,0 +1,256 @@
+{
+  "date": "2026-10-22",
+  "scope": "approved-local-implementation",
+  "goalId": "objective_e45aa8ac1aa3",
+  "goalCriteria": [
+    "G05",
+    "G07",
+    "G08",
+    "G11"
+  ],
+  "codeSha": "dab68d57139f4d94158fef6bd2aae9230b846a73",
+  "model": {
+    "sttProvider": "groq",
+    "sttModel": "whisper-large-v3",
+    "accountTier": "free",
+    "analysisProvider": "anthropic",
+    "analysisModel": "claude-sonnet-5-5"
+  },
+  "boundaries": {
+    "newLiveGroqCalls": 0,
+    "anthropicCalls": 0,
+    "modelKeyReads": 0,
+    "serverChanges": 0,
+    "firebaseProductionChanges": 0,
+    "liveEnabled": false,
+    "productAcceptance": "pending"
+  },
+  "limits": {
+    "maxConcurrent": 1,
+    "requestsPerMinute": 6,
+    "requestsPerUtcDay": 30,
+    "audioSeconds": 90,
+    "providerTimeoutMs": 45000,
+    "bodyTimeoutMs": 15000,
+    "requestTimeoutMs": 65000,
+    "groqReservedMicros": 0,
+    "existingAnthropicCapMicros": 5000000
+  },
+  "localTests": {
+    "app": {
+      "passed": 123,
+      "suites": 11
+    },
+    "worker": {
+      "passed": 39
+    },
+    "server": {
+      "passed": 27
+    },
+    "phoneLab": {
+      "passed": 17
+    },
+    "productionBuildWithMealApiPath": true
+  },
+  "browser": {
+    "full": {
+      "checksPassed": 28,
+      "providerCalls": {
+        "transcribe": 1,
+        "analyze": 2
+      },
+      "mealCommits": 1,
+      "reservedMicros": 166344,
+      "fixtureOnly": true,
+      "passed": true,
+      "sourceHashes": {
+        "src/components/VoiceInputModal.js": "d1ec28ee6b5bebc28fc106ad6b1de4df6febbb1ddcd86c3855ac3c1f6a0eb5e5",
+        "src/components/VoiceInputModal.css": "c509983316e8e5face81fe4c3c106334fb63942328bbed554b4a3762ade943ae",
+        "src/components/VoiceInputModal.test.js": "637d0545c347ebcdddd2270352f36d75f585e807eabcdc8e1eac1816c000c7fd",
+        "src/services/voiceApi.js": "2c436e9ad436c6125494ba406f3ac8efa267e7d9f21ae7c46bf8a059c1011af1",
+        "src/services/voiceApi.test.js": "4a5871deed4514d6c102737762c02e530acadb0c29f32916656bc8069190119a"
+      },
+      "sourceUnchangedAfterRun": true,
+      "evidenceSha256": "89514a88673ee6f97d39573fa491a4d6a773b6a7da08a05942219280bfa5890d",
+      "cleanup": {
+        "context": true,
+        "browser": true,
+        "gateway": true,
+        "budget": true,
+        "ok": true
+      },
+      "geometry": [
+        {
+          "viewport": {
+            "width": 375,
+            "height": 844
+          },
+          "deltas": {
+            "selectToLabelLeft": 0,
+            "selectToLabelRight": 0,
+            "selectToHeadingLeft": 0,
+            "selectToStopLeft": 0,
+            "selectToStopRight": 0,
+            "selectToBodyContentLeft": 0,
+            "selectToBodyContentRight": 0,
+            "selectToRecordingGap": 10
+          }
+        },
+        {
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "deltas": {
+            "selectToLabelLeft": 0,
+            "selectToLabelRight": 0,
+            "selectToHeadingLeft": 0,
+            "selectToStopLeft": 0,
+            "selectToStopRight": 0,
+            "selectToBodyContentLeft": 0,
+            "selectToBodyContentRight": 0,
+            "selectToRecordingGap": 10
+          }
+        },
+        {
+          "viewport": {
+            "width": 1366,
+            "height": 900
+          },
+          "deltas": {
+            "selectToLabelLeft": 0,
+            "selectToLabelRight": 0,
+            "selectToHeadingLeft": 0,
+            "selectToStopLeft": 0,
+            "selectToStopRight": 0,
+            "selectToBodyContentLeft": 0,
+            "selectToBodyContentRight": 0,
+            "selectToRecordingGap": 10
+          }
+        }
+      ]
+    },
+    "stt_only": {
+      "checksPassed": 25,
+      "providerCalls": {
+        "transcribe": 1,
+        "analyze": 0
+      },
+      "mealCommits": 0,
+      "reservedMicros": 0,
+      "fixtureOnly": true,
+      "passed": true,
+      "sourceHashes": {
+        "src/components/VoiceInputModal.js": "d1ec28ee6b5bebc28fc106ad6b1de4df6febbb1ddcd86c3855ac3c1f6a0eb5e5",
+        "src/components/VoiceInputModal.css": "c509983316e8e5face81fe4c3c106334fb63942328bbed554b4a3762ade943ae",
+        "src/components/VoiceInputModal.test.js": "637d0545c347ebcdddd2270352f36d75f585e807eabcdc8e1eac1816c000c7fd",
+        "src/services/voiceApi.js": "2c436e9ad436c6125494ba406f3ac8efa267e7d9f21ae7c46bf8a059c1011af1",
+        "src/services/voiceApi.test.js": "4a5871deed4514d6c102737762c02e530acadb0c29f32916656bc8069190119a"
+      },
+      "sourceUnchangedAfterRun": true,
+      "evidenceSha256": "0f7acec67ad7476031f912483059ae45c40f068b41922c4debdbd434382c549f",
+      "cleanup": {
+        "context": true,
+        "browser": true,
+        "gateway": true,
+        "budget": true,
+        "ok": true
+      },
+      "geometry": [
+        {
+          "viewport": {
+            "width": 375,
+            "height": 844
+          },
+          "deltas": {
+            "selectToLabelLeft": 0,
+            "selectToLabelRight": 0,
+            "selectToHeadingLeft": 0,
+            "selectToStopLeft": 0,
+            "selectToStopRight": 0,
+            "selectToBodyContentLeft": 0,
+            "selectToBodyContentRight": 0,
+            "selectToRecordingGap": 10
+          }
+        },
+        {
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "deltas": {
+            "selectToLabelLeft": 0,
+            "selectToLabelRight": 0,
+            "selectToHeadingLeft": 0,
+            "selectToStopLeft": 0,
+            "selectToStopRight": 0,
+            "selectToBodyContentLeft": 0,
+            "selectToBodyContentRight": 0,
+            "selectToRecordingGap": 10
+          }
+        },
+        {
+          "viewport": {
+            "width": 1366,
+            "height": 900
+          },
+          "deltas": {
+            "selectToLabelLeft": 0,
+            "selectToLabelRight": 0,
+            "selectToHeadingLeft": 0,
+            "selectToStopLeft": 0,
+            "selectToStopRight": 0,
+            "selectToBodyContentLeft": 0,
+            "selectToBodyContentRight": 0,
+            "selectToRecordingGap": 10
+          }
+        }
+      ]
+    }
+  },
+  "independentReview": {
+    "backend": "passed; bounded transport, zero-cost quotas and transfer",
+    "ui": "passed; delayed ledger.start/update cancellation race and generic quota error fixed",
+    "runtime": "passed; approval revision, body deadline, shutdown ordering and dependency installation fixed"
+  },
+  "ci": {
+    "url": "https://github.com/MILSPIL/nutrition-app/actions/runs/39676485745",
+    "resourceJob": "passed",
+    "fullSuite": "passed",
+    "resourceLimits": {
+      "cpu": 1,
+      "memoryBytes": 2147483648,
+      "providerNetwork": false
+    },
+    "headSha": "dab68d57139f4d94158fef6bd2aae9230b846a73",
+    "jobsPassed": [
+      "test-and-build",
+      "groq-free-resource-check"
+    ],
+    "resourceTestCount": 35,
+    "resourceElapsedMs": 1560,
+    "cpuMax": "100000 100000",
+    "logSha256": "62b6a2f3bff17acdbd31f89cc2552e54b469586673942257f0e23de9c1fba017",
+    "appTests": 123,
+    "workerTests": 39,
+    "serverTests": 27,
+    "rulesTests": 29,
+    "phoneLabTests": 17,
+    "browserFlows": [
+      "trainer-access",
+      "voice-photo",
+      "phone-lab-full",
+      "phone-lab-stt-only"
+    ],
+    "build": "passed",
+    "storageChecks": 17
+  },
+  "knownLimitations": [
+    "No real phone or live combined Groq/Sonnet test in this implementation step",
+    "Free tier and Zero Data Retention require owner confirmation before personal voice",
+    "Three inherited category icons return HTTP 404",
+    "Synthetic TLS/browser checks do not establish physical phone trust",
+    "G02-G11 and owner acceptance remain pending"
+  ],
+  "priorLiveSmoke": "docs/evidence/groq-whisper-free-2026-10-21.json"
+}
