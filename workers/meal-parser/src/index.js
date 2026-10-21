@@ -1,24 +1,18 @@
-import { createRemoteJWKSet,jwtVerify } from 'jose';
+import { createFirebaseAuthenticator } from './auth.js';
 import { MAX_AUDIO,MAX_IMAGE,MAX_BODY } from './schema.js';
 import { callProvider } from './providers.js';
 export { PilotBudget } from './budget.js';
-const jwks=createRemoteJWKSet(new URL('https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'));
+const authenticate=createFirebaseAuthenticator();
 const digest=async text=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))).map(x=>x.toString(16).padStart(2,'0')).join('');
 const fail=(code,status)=>{ const e=Error(code);e.status=status;throw e; };
-async function authenticate(request,env) {
- const token=request.headers.get('Authorization')?.match(/^Bearer (\S+)$/)?.[1];
- if(!token||!env.FIREBASE_PROJECT) fail('unauthorized',401);
- try {const {payload}=await jwtVerify(token,jwks,{algorithms:['RS256'],issuer:`https://securetoken.google.com/${env.FIREBASE_PROJECT}`,audience:env.FIREBASE_PROJECT});
-  if(typeof payload.sub!=='string'||!payload.sub||payload.sub.length>128||typeof payload.auth_time!=='number'||payload.auth_time>Date.now()/1000) fail('unauthorized',401);
-  return payload.sub;
- } catch(_){fail('unauthorized',401);}
-}
 async function limitedBody(request,max) {
  if(Number(request.headers.get('Content-Length'))>max) fail('media_too_large',413);
  const reader=request.body?.getReader();if(!reader) fail('bad_request',400);
  const chunks=[];let size=0;
- try {while(true) {const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>max){await reader.cancel();fail('media_too_large',413);}chunks.push(value);}}
- finally{reader.releaseLock();}
+ const abort=()=>{reader.cancel().catch(()=>{});};
+ request.signal.addEventListener('abort',abort,{once:true});
+ try {while(true) {if(request.signal.aborted) fail('upstream_timeout',504);const {done,value}=await reader.read();if(request.signal.aborted) fail('upstream_timeout',504);if(done)break;size+=value.length;if(size>max){await reader.cancel();fail('media_too_large',413);}chunks.push(value);}}
+ finally{request.signal.removeEventListener('abort',abort);reader.releaseLock();}
  const result=new Uint8Array(size);let offset=0;for(const c of chunks){result.set(c,offset);offset+=c.length;}return result;
 }
 function signature(bytes,type) {
@@ -42,7 +36,7 @@ async function input(request,kind) {
   return {file,filename:'recording.wav',duration:actualDuration};
  }
  let body;try{body=JSON.parse(new TextDecoder().decode(bytes));}catch(_){fail('bad_request',400);}
- if(typeof body.text!=='string'||!body.text.trim()||body.text.length>8000||!Array.isArray(body.images)||body.images.length>2) fail('bad_request',400);
+ if(!body||typeof body.text!=='string'||!body.text.trim()||body.text.length>8000||!Array.isArray(body.images)||body.images.length>2) fail('bad_request',400);
  for(const image of body.images) {
   if(!['image/jpeg','image/png','image/webp'].includes(image.type)||typeof image.data!=='string'||image.data.length>Math.ceil(MAX_IMAGE/3)*4||!/^[A-Za-z0-9+/]+={0,2}$/.test(image.data)) fail('invalid_image',400);
   let decoded;try{decoded=Uint8Array.from(atob(image.data),x=>x.charCodeAt(0));}catch(_){fail('invalid_image',400);}
@@ -71,28 +65,36 @@ export function reservation(kind,payload,env,{localTranscription=false}={}) {
  return cost;
 }
 export function createHandler(deps={}) {
- return {async fetch(request,env) {
+ const authorize=async(request,env)=>{
+  const uid=await (deps.authenticate||authenticate)(request,env);
+  if(!(env.ALLOWED_UIDS||'').split(',').includes(uid)) fail('pilot_forbidden',403);
+  const localTranscription=deps.localTranscription===true && env.TRANSCRIBE_MODEL===LOCAL_TRANSCRIBE_MODEL && typeof deps.provider==='function';
+  if(env.LIVE_ENABLED!=='true'||!env.TRANSCRIBE_MODEL||!env.PARSE_MODEL||(!localTranscription&&!env.OPENAI_API_KEY)||!env.ANTHROPIC_API_KEY||!env.PILOT_BUDGET) fail('live_disabled',503);
+  return {uid,localTranscription};
+ };
+ return {authorize,async fetch(request,env) {
   const origin=request.headers.get('Origin'),allowed=(env.ALLOWED_ORIGINS||'').split(',');
   const cors={'Vary':'Origin','Cache-Control':'no-store','Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type',...(allowed.includes(origin)?{'Access-Control-Allow-Origin':origin}:{})};
   const reply=(data,status=200)=>Response.json(data,{status,headers:cors});
   let budget,id;
   try {
-   if(origin&&!allowed.includes(origin)) return reply({error:'origin_forbidden'},403);
+   if(!origin||!allowed.includes(origin)) return reply({error:'origin_forbidden'},403);
    if(request.method==='OPTIONS') return new Response(null,{status:204,headers:cors});
    if(request.method!=='POST') return reply({error:'method_not_allowed'},405);
    const kind=new URL(request.url).pathname==='/transcribe'?'transcribe':new URL(request.url).pathname==='/analyze'?'analyze':null;
    if(!kind) return reply({error:'not_found'},404);
-   const uid=await (deps.authenticate||authenticate)(request,env);
-   if(!(env.ALLOWED_UIDS||'').split(',').includes(uid)) return reply({error:'pilot_forbidden'},403);
-   const localTranscription=deps.localTranscription===true && env.TRANSCRIBE_MODEL===LOCAL_TRANSCRIBE_MODEL && typeof deps.provider==='function';
-   if(env.LIVE_ENABLED!=='true'||!env.TRANSCRIBE_MODEL||!env.PARSE_MODEL||(!localTranscription&&!env.OPENAI_API_KEY)||!env.ANTHROPIC_API_KEY||!env.PILOT_BUDGET) return reply({error:'live_disabled'},503);
+   const {uid,localTranscription}=await authorize(request,env);
+   if(request.signal.aborted) fail('upstream_timeout',504);
    const payload=await input(request,kind),cost=reservation(kind,payload,env,{localTranscription});
    budget=env.PILOT_BUDGET.get(env.PILOT_BUDGET.idFromName('pilot-v1'));id=crypto.randomUUID();
    const reserved=await budget.fetch(new Request('https://budget/reserve',{method:'POST',body:JSON.stringify({action:'reserve',id,uid:await digest(uid),cost})}));
    if(!reserved.ok) { id=null; return reply({error:reserved.status===429?'rate_limited':'limiter_unavailable'},reserved.status===429?429:503); }
-   return reply(await (deps.provider ? deps.provider(kind,payload,env,{signal:request.signal}) : callProvider(kind,payload,env)));
+   if(request.signal.aborted) fail('upstream_timeout',504);
+   const result=await (deps.provider ? deps.provider(kind,payload,env,{signal:request.signal}) : callProvider(kind,payload,env,fetch,{signal:request.signal}));
+   if(request.signal.aborted) fail('upstream_timeout',504);
+   return reply(result);
   } catch(error) {
-   const codes=['unauthorized','bad_request','invalid_audio','unsupported_audio','invalid_image','media_too_large','budget_disabled','empty_transcript','upstream_timeout','upstream_limited','invalid_response'];
+   const codes=['unauthorized','pilot_forbidden','live_disabled','bad_request','invalid_audio','unsupported_audio','invalid_image','media_too_large','budget_disabled','empty_transcript','upstream_timeout','upstream_limited','invalid_response'];
    return reply({error:codes.includes(error.message)?error.message:'upstream_failed'},error.status||502);
   } finally {
    if(budget&&id) {try{await budget.fetch(new Request('https://budget/finish',{method:'POST',body:JSON.stringify({action:'finish',id})}));}catch(_){} }

@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-21",
+  "scope": "server rollout step 1 transport/auth/provider",
+  "base": "edf4ad84315dfcc1e6cb622452c51fcd6a210ee6",
+  "syntheticOnly": true,
+  "liveInferenceCalls": 0,
+  "tests": {
+    "server": 8,
+    "worker": 31,
+    "phoneLab": 8
+  },
+  "review": {
+    "reviewer": "Codex server_api_review",
+    "verdict": "done for step 1",
+    "fixed": [
+      "chunked oversize cancellation hang",
+      "unauthenticated slow body occupied inference slots"
+    ],
+    "apiSha256": "6a228cc4d3d1b97c10e54afea5be51b6d305d2c397bfd7f7016ba168eeda2824"
+  },
+  "pending": [
+    "G04",
+    "durable server budget and activation",
+    "Linux Whisper",
+    "target server and phone",
+    "production approval"
+  ]
+}

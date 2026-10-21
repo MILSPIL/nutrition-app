@@ -13,10 +13,14 @@ function jsonOutputSchema(value) {
  return result;
 }
 const sonnetSchema=jsonOutputSchema(analysisSchema);
-export async function callProvider(kind,payload,env,fetcher=fetch) {
- const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),45000);
+export async function callProvider(kind,payload,env,fetcher=fetch,{signal,timeoutMs=45000}={}) {
+ const controller=new AbortController(),abort=()=>controller.abort();
+ const timer=setTimeout(abort,timeoutMs);
+ signal?.addEventListener('abort',abort,{once:true});
+ if(signal?.aborted) abort();
  const structured=env.PARSE_MODEL==='claude-sonnet-5-5';
  try {
+  if(controller.signal.aborted) throw Error('upstream_timeout');
   let response;
   if(kind==='transcribe') {
    const form=new FormData();form.set('model',env.TRANSCRIBE_MODEL);form.set('file',payload.file,payload.filename);form.set('response_format','json');
@@ -47,5 +51,5 @@ export async function callProvider(kind,payload,env,fetcher=fetch) {
   if(data.stop_reason==='max_tokens') throw Error('invalid_response');
   return validateAnalysis(data.content?.find(x=>x.type==='tool_use'&&x.name==='food_record')?.input,!!payload.images?.length);
  } catch(error) { if(controller.signal.aborted) throw Error('upstream_timeout'); throw error; }
- finally {clearTimeout(timer);}
+ finally {clearTimeout(timer);signal?.removeEventListener('abort',abort);}
 }

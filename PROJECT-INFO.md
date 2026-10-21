@@ -10,6 +10,10 @@
 
 Юрій прямо погодив CLOUD-PREP-01 і перенесення журналу. PR15 злитий у main a057bcfce47590c6905d8f0b6f79a327751b6281; source/local/remote journal SHA256 61b1365be545cf4bd8511c32416d9ac7a73fbf60567f365e686569947caabc71, CI 2/2. Codex Cloud повернув environment_repo_access_failed для репозиторію, після чого Юрій прямо обрав локальну розробку. Активна гілка codex/scisense-server-prep від edf4ad8. Серверний API, G04, Linux-перевірки та synthetic budget погоджені; справжні ключі та $5 не чіпати. Хмарну задачу не запущено, Mac потрібен локальному сеансу. Production і merge продуктового коду залишаються за окремим конкретним пакетом. G02–G11 pending.
 
+## Серверний API, перший блок, 2026-10-21
+
+Реалізовано loopback Node transport, справжню Firebase JWT-перевірку та ранні Origin/UID/live відмови, межу тіла/конкурентності й передавання скасування до Sonnet. Перевірки: server8/8, Worker31/31, phone-lab8/8; незалежний server_api_review дав done для цього блока після виправлення двох відтворених дефектів chunked body і раннього JWT. Доказ: docs/evidence/server-api-preparation-2026-10-21.json. G04/серверний ledger/Linux/runtime ще не готові; inference, ключі й production не активовані.
+
 ## Оцінка хмарної розробки, 2026-10-21 12:12
 
 Підготовлено один [пакет CLOUD-PREP-01](docs/SCISENSE-CLOUD-PREP.md): реалізація серверного API/G04 та Linux-перевірки в Codex Cloud і GitHub Actions, результатом має бути PR і конкретний пакет розгортання. Публічний repo, code SHA 3d897e13 і успішний Ubuntu CI 39503591637 перевірені повторно. Опубліковане хмарне середовище та task ID ще не підтверджені; поточний чат локальний. Докази й Mac-залежні команди зафіксовано у журналі 2026-10-21-1212. На час цієї оцінки пакет очікував погодження (отримано вище); оцінка не запустила кодову роботу, реальні API, перенесення Keychain чи deployment. Goal/Gxx незмінені.

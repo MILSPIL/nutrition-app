@@ -40,7 +40,7 @@ export async function liveRuntime(root, { initialize = false } = {}) {
     return {
       apiEnv: { ...settings, ANTHROPIC_API_KEY: secret, PILOT_BUDGET: budget.binding },
       localTranscription: true,
-      provider: (kind, payload, env, context) => kind === "transcribe" ? whisper.transcribe(payload, context) : callProvider(kind, payload, env),
+      provider: (kind, payload, env, context) => kind === "transcribe" ? whisper.transcribe(payload, context) : callProvider(kind, payload, env, fetch, context),
       spent: budget.spent,
       async close() { if (closed) return; closed = true; await whisper.close(); budget.close(); },
     };
