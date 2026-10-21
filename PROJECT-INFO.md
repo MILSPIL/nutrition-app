@@ -217,3 +217,7 @@ npx firebase-tools deploy --only firestore:rules --project nutrition-tracker-ua
 Юрій явно погодив план і пороги пілоту. Почато codex/voice-photo-entry від main 3a7034e у прикріпленому дереві scisense-product-goal. Goal активний, G01 passed, інші критерії pending. Доказ: пряме повідомлення користувача; оплачувані API й production не запускалися.
 
 - 2026-10-20: блок 2 голосу/фото пройшов незалежне рев’ю після 8 виправлених findings; 37 unit, 17 emulator, 12 Worker і 6 JWT-сценаріїв. Доказ: журнал 2026-10-20-1600. На той момент медіаінтерфейс був наступним блоком; реальні API й production не запускались.
+
+### 2026-10-21: G04 локальний UI перевірено
+
+Атомарний протокол у 1015846 (29/29 rules + незалежні SDK-проби). Обидва клієнтські вікна використовують спільну згоду й захист повторів; тренерський UI очищає відкликані дані та ігнорує старі відповіді. Незалежний trainer_ui_review: done; Jest 99/99. Браузерний demo-scisense з трьома ізольованими акаунтами підтвердив request/accept/revoke/reconnect/stranger deny, 375/390/1024 px без переповнення. Доказ: docs/evidence/trainer-ui-preparation-2026-10-21.json. G04 кінцевого релізу pending; справжній Firebase не змінено. Далі Linux Whisper і synthetic runtime/budget.

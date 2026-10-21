@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { X, User, Utensils, TrendingDown, TrendingUp, Minus, Ruler, ChevronDown, ChevronLeft, Calendar } from 'lucide-react';
-import { doc, getDoc, collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { doc, collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
 import { calculateMealsMacros } from '../../services/nutrition';
 import { itemMacros,quantityText,sourceText } from '../../services/mealItems';
 import { db } from '../../firebase';
@@ -19,7 +20,7 @@ const MEAL_NAMES = {
   4: 'Перекус'
 };
 
-export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals }) {
+export default function ClientDetailsModal({ isOpen, onClose, client, onAccessLost }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dayData, setDayData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -30,86 +31,45 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
   // Форматування дати
   const formatDate = (date) => formatLocalDateKey(date);
 
-  // Перевірка чи це сьогодні
-  const isToday = isSameLocalDate(selectedDate, new Date());
-
-  // Завантажити доступні дати та заміри
-  useEffect(() => {
-    if (!isOpen || !client?.id) return;
-
-    const loadAvailableDates = async () => {
-      try {
-        const historyRef = collection(db, 'users', client.id, 'mealHistory');
-        const q = query(historyRef, orderBy('updatedAt', 'desc'), limit(30));
-        const snapshot = await getDocs(q);
-
-        const dates = snapshot.docs.map(doc => doc.id);
-        setAvailableDates(dates);
-      } catch (error) {
-        console.error('Error loading available dates:', error);
-      }
-    };
-
-    const loadMeasurements = async () => {
-      try {
-        const measurementsRef = collection(db, 'users', client.id, 'measurements');
-        const q = query(measurementsRef, orderBy('date', 'asc'));
-        const snapshot = await getDocs(q);
-
-        const data = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setMeasurements(data);
-      } catch (error) {
-        console.error('Error loading measurements:', error);
-      }
-    };
-
-    loadAvailableDates();
-    loadMeasurements();
-  }, [isOpen, client?.id]);
-
-  // Завантажити дані за обрану дату
-  useEffect(() => {
-    if (!isOpen || !client?.id) return;
-
-    const loadDayData = async () => {
-      const dateStr = formatDate(selectedDate);
-
-      // Якщо сьогодні - використовуємо передані дані
-      if (isToday && todayMeals) {
-        setDayData(todayMeals);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const historyRef = doc(db, 'users', client.id, 'mealHistory', dateStr);
-        const historyDoc = await getDoc(historyRef);
-
-        if (historyDoc.exists()) {
-          setDayData(historyDoc.data());
-        } else {
-          setDayData(null);
-        }
-      } catch (error) {
-        console.error('Error loading day data:', error);
-        setDayData(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadDayData();
-  }, [isOpen, client?.id, selectedDate, isToday, todayMeals]);
-
-  // Оновити дані коли змінюються todayMeals
-  useEffect(() => {
-    if (isToday && todayMeals) {
-      setDayData(todayMeals);
-    }
-  }, [todayMeals, isToday]);
+  const isToday=isSameLocalDate(selectedDate,new Date());
+  const epoch=useRef(0), revoked=useRef(false), lost=useRef(onAccessLost);
+  lost.current=onAccessLost;
+  const [accessError,setAccessError]=useState('');
+  const clear=()=>{setDayData(null);setAvailableDates([]);setMeasurements([]);setShowMeasurements(false);setLoading(false);};
+  const deny=()=>{
+    revoked.current=true;epoch.current = epoch.current + 1;
+    flushSync(()=>{clear();setAccessError('Дані прибрано: доступ не підтверджено.');});
+    lost.current?.();
+  };
+  const denyRef=useRef(deny);denyRef.current=deny;
+  useEffect(()=>{
+    const version=++epoch.current;let active=true;revoked.current=false;
+    clear();setAccessError('');
+    if(!isOpen||!client?.id)return undefined;
+    const valid=()=>active&&!revoked.current&&epoch.current===version;
+    const fail=()=>{if(valid())denyRef.current();};
+    const options={includeMetadataChanges:true};
+    const offs=[
+      onSnapshot(query(collection(db,'users',client.id,'mealHistory'),orderBy('updatedAt','desc'),limit(30)),options,snapshot=>{
+        if(valid()&&!snapshot.metadata.fromCache)setAvailableDates(snapshot.docs.map(d=>d.id));
+      },fail),
+      onSnapshot(query(collection(db,'users',client.id,'measurements'),orderBy('date','asc')),options,snapshot=>{
+        if(valid()&&!snapshot.metadata.fromCache)setMeasurements(snapshot.docs.map(d=>({...d.data(),id:d.id})));
+      },fail),
+    ];
+    return ()=>{active=false;epoch.current = epoch.current + 1;offs.forEach(off=>off());};
+  },[isOpen,client?.id]);
+  useEffect(()=>{
+    let active=true;const version=epoch.current;
+    setDayData(null);
+    if(!isOpen||!client?.id||revoked.current)return undefined;
+    setLoading(true);
+    const valid=()=>active&&!revoked.current&&epoch.current===version;
+    const off=onSnapshot(doc(db,'users',client.id,'mealHistory',formatLocalDateKey(selectedDate)),{includeMetadataChanges:true},snapshot=>{
+      if(valid()&&!snapshot.metadata.fromCache){setDayData(snapshot.exists()?snapshot.data():null);setLoading(false);}
+    },()=>{if(valid())denyRef.current();});
+    return ()=>{active=false;off();};
+  },[isOpen,client?.id,selectedDate]);
 
   // Підрахувати макроси
   const macros = dayData?.totalMacros || { p: 0, f: 0, c: 0, cal: 0 };
@@ -182,10 +142,11 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
     setSelectedDate(newDate);
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !client) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#F2F2F7]">
+      {accessError&&<p role="alert" className="p-4">{accessError}</p>}
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-xl border-b border-black/5">
         <div className="max-w-4xl mx-auto px-4 py-3">
