@@ -1,8 +1,5 @@
 name: Linux preparation
 on:
-  push:
-    branches: [codex/scisense-server-prep]
-    paths: [server/linux/**, scripts/phone-lab/whisper.mjs, .github/workflows/linux-preparation.yml]
   pull_request:
     paths: [server/linux/**, scripts/phone-lab/whisper.mjs, .github/workflows/linux-preparation.yml]
 permissions:
@@ -17,8 +14,10 @@ jobs:
         run: python3 server/linux/preflight.py
       - name: Build pinned CPU Whisper in isolated image
         run: docker build --file server/linux/Dockerfile --tag scisense-linux-prep .
-      - name: Benchmark synthetic speech and encrypted credentials
-        run: python3 server/linux/run.py
+      - name: Verify CPU and memory limit checks
+        run: docker run --rm --network=none --cpus=1 --memory=256m --read-only --entrypoint=node scisense-linux-prep --test server/linux/limits.test.mjs
+      - name: Benchmark approved synthetic two-CPU trial and encrypted credentials
+        run: python3 server/linux/run.py --cpus 2
       - name: Keep bounded measurements without media or transcripts
         if: always()
         uses: actions/upload-artifact@v4

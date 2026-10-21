@@ -21,12 +21,12 @@
 | Менша багатомовна Whisper-модель у CI | Потенційно менше CPU й RAM | Змінює погоджену модель, точність української й назв продуктів треба виміряти заново |
 | Довший таймаут із1CPU | Зберігає модель і ресурсну межу | Погіршує швидкість додавання їжі та тримає єдиний inference слот довше; може не дати прийнятного результату |
 
-Рекомендація: спочатку погодити синтетичну пробу2CPU з тією самою моделлю й45s. Меншу модель розглядати за її результатом; просто подовжувати очікування суперечить продуктовій меті швидкого запису. Це ще не вибір ресурсів production. Жоден із варіантів у цій сесії не застосовано.
+2026-10-21 Юрій прямо погодив: «Так, перевір2CPU в CI». Готується одна синтетична проба з тією самою моделлю,2GiB RAM і45s; run.py за замовчуванням лишається на1CPU, workflow явно вибирає2. Production deployment.json і systemd лишаються на1CPU. Менша модель, довший таймаут і серверні ресурси цим рішенням не погоджені.
 
 ## Що заважає назвати пакет готовим до встановлення
 
 1. Performance-рішення та повторна Linux-перевірка. Поточний failed benchmark зберігається, не маскується як PASS.
-2. main→feature інтегровано в c2cfecf5cff7c1d128c26a5427f78ffba3e3e8af; build із REACT_APP_MEAL_API_URL=/meal-api і lab flags0 пройшов. Знімок із27 static assets, source archive та app/API/rules/lockfile hashes: docs/evidence/server-preparation-snapshot-2026-10-21.json. Це preparation snapshot з installApproved=false/liveEnabled=false; фінальний CI39617071772 поки у черзі GitHub. Маніфест не є дозволом на встановлення.
+2. main→feature інтегровано в c2cfecf5cff7c1d128c26a5427f78ffba3e3e8af; build із REACT_APP_MEAL_API_URL=/meal-api і lab flags0 пройшов. Знімок із27 static assets, source archive та app/API/rules/lockfile hashes: docs/evidence/server-preparation-snapshot-2026-10-21.json. Це preparation snapshot з installApproved=false/liveEnabled=false; інтегрований CI39617071772 пройшов усі перевірки включно з3 browser flows. Маніфест не є дозволом на встановлення.
 3. Стендова матриця старий/новий frontend × API × rules і server-side writer fence. Поточний writerVersion=2 сам не блокує старі вкладки; DNS і maintenance HTML також не блокують Firestore. До доведення fence запис production не перемикати.
 4. Read-only inventory MS-WEB: admin SSH, точні user/docroot/ports, systemd/Node/OLS versions, адресні backup. За чинною межею ключі/сервер не використовувалися.
 5. Provisioning/TLS payload з dry-run PASS, SAN/renewal/secret storage, OLS proxy/cache config та вплив спільного reload на3 сусідні сайти. Довільні Nginx snippets і глобальний Node upgrade заборонені.

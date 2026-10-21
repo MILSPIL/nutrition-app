@@ -2,7 +2,8 @@ import {spawn,spawnSync} from 'node:child_process';
 import {readFile,writeFile,readdir} from 'node:fs/promises';
 import {performance} from 'node:perf_hooks';
 import {createWhisper,verifyWhisper,WHISPER_SOURCE,WHISPER_MODEL_SHA1} from '../../scripts/phone-lab/whisper.mjs';
-const [language,durationText,mode='normal']=process.argv.slice(2),duration=Number(durationText);
+import {parseThreads,limitsEnforced} from './limits.mjs';
+const [language,durationText,mode='normal',threadsText='1']=process.argv.slice(2),duration=Number(durationText),threads=parseThreads(threadsText);
 if(process.platform!=='linux'||!['uk','ru'].includes(language)||![5,30,90].includes(duration)||!['normal','abort','timeout','concurrency','oom'].includes(mode))throw Error('test_arguments');
 const runtime={binary:'/whisper/build/bin/whisper-cli',model:'/whisper/model.bin',sourceCommit:WHISPER_SOURCE,modelSha1:WHISPER_MODEL_SHA1};await verifyWhisper(runtime);
 // Synthetic speech is generated in memory; only measurements leave the container.
@@ -16,8 +17,8 @@ for(let i=0;i<clipSamples;i++)clip.writeInt16LE(pcm.readInt16LE(Math.min(Math.fl
 const audio=Buffer.alloc(44+duration*32000);audio.write('RIFF');audio.writeUInt32LE(audio.length-8,4);audio.write('WAVEfmt ',8);audio.writeUInt32LE(16,16);audio.writeUInt16LE(1,20);audio.writeUInt16LE(1,22);audio.writeUInt32LE(16000,24);audio.writeUInt32LE(32000,28);audio.writeUInt16LE(2,32);audio.writeUInt16LE(16,34);audio.write('data',36);audio.writeUInt32LE(audio.length-44,40);for(let i=44;i<audio.length;i++)audio[i]=clip[(i-44)%clip.length];
 const owned=new Set(),controller=new AbortController();let timer;
 const spawnProcess=(binary,args,options)=>{const c=spawn(binary,args,options);owned.add(c.pid);c.once('close',()=>owned.delete(c.pid));return c;};
-const whisper=createWhisper({...runtime,threads:1,spawnProcess,timeoutMs:mode==='timeout'?20:45000});
-const evidence={syntheticOnly:true,language,durationSeconds:duration,mode,threads:1,timeoutMs:mode==='timeout'?20:45000,sourceCommit:WHISPER_SOURCE,modelSha1:WHISPER_MODEL_SHA1,architecture:process.arch,node:process.version};
+const whisper=createWhisper({...runtime,threads,spawnProcess,timeoutMs:mode==='timeout'?20:45000});
+const evidence={syntheticOnly:true,language,durationSeconds:duration,mode,threads,timeoutMs:mode==='timeout'?20:45000,sourceCommit:WHISPER_SOURCE,modelSha1:WHISPER_MODEL_SHA1,architecture:process.arch,node:process.version};
 const readCgroup=async name=>{try{return (await readFile('/sys/fs/cgroup/'+name,'utf8')).trim();}catch{return 'unavailable';}};
 evidence.cpuMax=await readCgroup('cpu.max');evidence.memoryMax=await readCgroup('memory.max');evidence.oomBefore=await readCgroup('memory.events');
 await writeFile('/out/result.json',JSON.stringify({...evidence,result:'started'})+'\n');
@@ -30,8 +31,7 @@ try{
 }catch(error){evidence.result=error.message;}
 finally{clearTimeout(timer);await whisper.close();audio.fill(0);wav.fill(0);clip.fill(0);evidence.elapsedMs=Math.round(performance.now()-started);evidence.ownedProcesses=owned.size;evidence.memoryPeak=await readCgroup('memory.peak');evidence.oomAfter=await readCgroup('memory.events');evidence.temporaryFiles=(await readdir('/tmp')).filter(x=>x!=='lost+found').length;
  const events=value=>Object.fromEntries(value.split('\n').map(line=>line.split(/\s+/).map((x,i)=>i?Number(x):x)));
- const cpu=evidence.cpuMax.split(' ').map(Number);
- evidence.limitsEnforced=cpu.length===2&&cpu[0]>0&&cpu[0]===cpu[1]&&Number(evidence.memoryMax)===(mode==='oom'?256:2048)*1024*1024;
+ evidence.limitsEnforced=limitsEnforced(evidence.cpuMax,evidence.memoryMax,threads,mode);
  evidence.oomKilled=(events(evidence.oomAfter).oom_kill||0)>(events(evidence.oomBefore).oom_kill||0);
  evidence.pass=owned.size===0&&evidence.temporaryFiles===0&&evidence.limitsEnforced&&(mode==='normal'?evidence.result==='success'&&evidence.recognized:mode==='concurrency'?evidence.concurrentRejected&&['success','upstream_timeout'].includes(evidence.result):mode==='oom'?evidence.result==='upstream_failed'&&evidence.oomKilled:evidence.result==='upstream_timeout');
  await writeFile('/out/result.json',JSON.stringify(evidence,null,2)+'\n');}

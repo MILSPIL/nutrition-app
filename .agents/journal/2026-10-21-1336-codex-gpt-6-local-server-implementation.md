@@ -56,3 +56,10 @@ codeindexer 2026-10-21: solutions2 (budget race, Linux TLS), нова картк
 ## Інтегрований знімок та PR
 
 Актуальний main a057bcf інтегровано тільки в робочу гілку: c2cfecf5cff7c1d128c26a5427f78ffba3e3e8af. Production build /meal-api, lab flags0, no sourcemaps PASS;27assets із SHA256, source archive11520133bytes перевірений по paths/10sourcehashes; manifest c33662524b9ccd4e9bcfe0196a0e2da224e89d907e924d327c63d3e03d1fbfc9. Артефакти tmp/server-preparation/c2cfecf; публічний manifest у docs/evidence/server-preparation-snapshot-2026-10-21.json. installApproved=false/liveEnabled=false. Створено й прикріплено PR16 draft; PR8 лишається open. CI39617071772 поки queued, попередній portable e22be6a PASS. Два superseded queued CI скасовано, жодні чужі jobs не чіпалися. Журнал підготовлено до окремого перенесення в main за погодженим CLOUD-PREP-01; продуктовий код не зливається.
+
+
+## Погоджена проба двох CPU
+
+2026-10-21: Юрій відповів «Так, перевір2CPU в CI». Це окремий synthetic benchmark тієї самої моделі/2GiB/45s; production1CPU, ключі та$5 без змін. Додано run.py --cpus {1,2} з default1, узгоджений threads і перевірку реального cgroup quota/RAM. Локальні3/3 limit-тести PASS. Linux workflow лишено тільки pull_request, щоб не дублювати один прогін через push. Незалежне рев’ю і фактичний2CPU результат очікуються.
+
+Інтегрований CI39617071772 SUCCESS (99app/31Worker/17storage/20server/29rules/10phone-lab/3browser/build). Журнал попереднього стану перейшов у main через PR17, merge1e30499338ea2999428ecf8f7ef4f15cbbdc44a2, CI2/2SUCCESS; нові записи цього розділу ще лише в робочій гілці. Продуктовий PR16 лишається draft.
