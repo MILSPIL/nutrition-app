@@ -26,7 +26,7 @@
     "test:voice-photo-ui": "node scripts/browser-test.mjs voice-photo",
     "lab:phone:prepare": "node scripts/phone-lab.mjs prepare",
     "lab:phone": "node scripts/phone-lab.mjs start",
-    "test:phone-lab": "node --test scripts/phone-lab/gateway.test.mjs scripts/phone-lab/whisper.test.mjs scripts/phone-lab/tls.test.mjs",
+    "test:phone-lab": "node --test scripts/phone-lab/*.test.mjs",
     "test:phone-lab-ui": "node scripts/browser-test.mjs phone-lab",
     "test:server": "node --test server/*.test.mjs",
     "test:rules": "node scripts/trainer-access-test.mjs",

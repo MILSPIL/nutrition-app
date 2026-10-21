@@ -51,7 +51,7 @@ test('Abort and silence do not become a meal',async()=>{
 });
 test('Approval is exact: no model change, no bigger cap, no missing credit confirmation',async()=>{
  const p=JSON.parse(await readFile(new URL('../../workers/meal-parser/pilot-proposal.json',import.meta.url),'utf8'));
- assert.equal(approvedSettings(p).PARSE_MODEL,'claude-sonnet-5-5');
+ assert.throws(()=>approvedSettings(p),/pilot_not_approved/);
  for(const change of [x=>x.status='pending_owner_approval',x=>x.candidateB.PILOT_BUDGET_MICROS=5000001,x=>x.candidateB.PARSE_MODEL='claude-haiku-5-5',x=>x.candidateB.INPUT_MICROS_PER_MTOK=1,x=>x.accountVerification.creditAvailabilityConfirmedByOwner=false]){
  const modified=structuredClone(p);change(modified);assert.throws(()=>approvedSettings(modified),/pilot_not_approved/);
  }

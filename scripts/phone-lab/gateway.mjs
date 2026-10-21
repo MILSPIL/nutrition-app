@@ -1,3 +1,4 @@
+import {readBody} from '../../server/api.mjs';
 // Лише локальна телефонна лабораторія. Production Worker не імпортує цей модуль.
 import { createServer } from "node:https";
 import { request as httpRequest } from "node:http";
@@ -79,8 +80,9 @@ function send(res, status, value, type = "application/json") {
 }
 const page = (content) =>
   `<!doctype html><html lang="uk"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>SciSense: лабораторія</title><style>body{font:18px system-ui;max-width:560px;margin:10vh auto;padding:24px}input,button{font:inherit;padding:14px;box-sizing:border-box;width:100%;margin:8px 0}code{font-size:24px}p{line-height:1.5}</style><h1>SciSense: тест із телефона</h1>${content}</html>`;
-const pairPage = (live) => page(
-  `<p>Тестова база на Mac. ${live ? 'Whisper + Sonnet увімкнені. Ліміт тесту $5.' : 'Реальні API поки вимкнені.'}</p><p>Введіть одноразовий код зі сторінки налаштування на Mac.</p><form method="post" action="/lab/pair"><label>Код сполучення<input name="code" autocomplete="off" required maxlength="24"></label><button>Підключити телефон</button></form>`,
+const modeText = env => env.LIVE_ENABLED !== 'true' ? 'Реальні API поки вимкнені.' : env.INFERENCE_MODE === 'stt_only' ? 'Перевірка голосу через Groq Free. Аналіз їжі та збереження прийому вимкнені.' : 'Groq Free + Sonnet увімкнені. Залишок ліміту Anthropic береться з чинного бюджету $5.';
+const pairPage = (env) => page(
+  `<p>Тестова база на Mac. ${modeText(env)}</p><p>Введіть одноразовий код зі сторінки налаштування на Mac.</p><form method="post" action="/lab/pair"><label>Код сполучення<input name="code" autocomplete="off" required maxlength="24"></label><button>Підключити телефон</button></form>`,
 );
 
 export async function createPhoneGateway({
@@ -95,8 +97,12 @@ export async function createPhoneGateway({
   provider,
   localTranscription = false,
   now = Date.now,
+  bodyTimeoutMs = 15000,
+  deadlineMs = 65000,
 }) {
   if (
+    !Number.isInteger(bodyTimeoutMs) || bodyTimeoutMs <= 0 || bodyTimeoutMs > 15000 ||
+    !Number.isInteger(deadlineMs) || deadlineMs <= 0 || deadlineMs > 65000 ||
     !privateHost(host) ||
     !Number.isInteger(port) ||
     port < 1024 ||
@@ -118,6 +124,8 @@ export async function createPhoneGateway({
   let attempts = [],
     closed = false;
   const channelIds = new Set();
+  let activeInference = false;
+  const inferenceControllers = new Set(), pendingInference = new Set();
   const pairedRequest = (req) => {
     const value = (req.headers.cookie || "")
       .split(";")
@@ -160,8 +168,8 @@ export async function createPhoneGateway({
       key,
       cert,
       minVersion: "TLSv1.2",
-      requestTimeout: 65000,
-      headersTimeout: 10000,
+      requestTimeout: bodyTimeoutMs,
+      headersTimeout: Math.min(10000, bodyTimeoutMs),
     },
     async (req, res) => {
       res.setHeader("Cache-Control", "no-store");
@@ -190,7 +198,7 @@ export async function createPhoneGateway({
             throw deny("local_only", 403);
           const content =
             pairing && pairExpires > now()
-              ? `<p>На телефоні відкрийте ${origin} і введіть код:</p><code>${pairing}</code><p>Код діє 15 хвилин і лише один раз. ${env.LIVE_ENABLED === 'true' ? 'Whisper + Sonnet увімкнені, ліміт $5.' : 'API вимкнені.'}</p>`
+              ? `<p>На телефоні відкрийте ${origin} і введіть код:</p><code>${pairing}</code><p>Код діє 15 хвилин і лише один раз. ${modeText(env)}</p>`
               : "<p>Код використано або час сплив. Для нового сполучення перезапустіть лабораторію.</p>";
           return send(res, 200, page(content), "text/html; charset=utf-8");
         }
@@ -223,7 +231,7 @@ export async function createPhoneGateway({
         }
         if (!pairedRequest(req)) {
           if (pathname === "/" && req.method === "GET")
-            return send(res, 200, pairPage(env.LIVE_ENABLED === "true"), "text/html; charset=utf-8");
+            return send(res, 200, pairPage(env), "text/html; charset=utf-8");
           throw deny();
         }
         if (pathname === "/lab/token" && req.method === "POST") {
@@ -245,14 +253,27 @@ export async function createPhoneGateway({
             project: PROJECT,
             uid: UID,
             live: env.LIVE_ENABLED === "true",
+            mode: env.INFERENCE_MODE || "full",
           });
         if (/^\/meal-api\/(transcribe|analyze)$/.test(pathname)) {
           if (req.method !== "POST" || req.headers.origin !== origin)
             throw deny("origin_forbidden", 403);
+          if (activeInference) throw deny("rate_limited", 429);
+          if (closed) throw deny('unavailable',503);
+          activeInference = true;
           const controller = new AbortController();
+          inferenceControllers.add(controller);
+          let complete;
+          const completion = new Promise(resolve => {complete=resolve;});
+          pendingInference.add(completion);
+          const timer = setTimeout(() => {
+            if (!res.destroyed && !res.writableEnded) {res.shouldKeepAlive=false;send(res,504,{error:'upstream_timeout'});}
+            controller.abort();
+          },deadlineMs);
           const abort = () => { if (!res.writableEnded) controller.abort(); };
           res.once("close", abort);
           try {
+          await handler.authorize(new Request(origin + pathname.replace('/meal-api',''), {headers: {Authorization: req.headers.authorization || ''}}),env);
           const response = await handler.fetch(
             new Request(origin + pathname.replace("/meal-api", ""), {
               method: "POST",
@@ -261,14 +282,18 @@ export async function createPhoneGateway({
                 Origin: origin,
                 "Content-Type": req.headers["content-type"] || "",
               },
-              body: await bodyOf(req),
+              body: await readBody(req, controller.signal, bodyTimeoutMs),
               signal: controller.signal,
             }),
             env,
           );
+          if (controller.signal.aborted) return;
           res.writeHead(response.status, Object.fromEntries(response.headers));
           return res.end(Buffer.from(await response.arrayBuffer()));
-          } finally { res.off("close", abort); }
+          } finally {
+            clearTimeout(timer);activeInference=false;res.off('close',abort);
+            inferenceControllers.delete(controller);pendingInference.delete(completion);complete();
+          }
         }
         let upstream;
         const database = `projects/${PROJECT}/databases/(default)`;
@@ -480,6 +505,7 @@ export async function createPhoneGateway({
           }[path.extname(file)] || "application/octet-stream";
         return send(res, 200, await readFile(file), type);
       } catch (error) {
+        res.shouldKeepAlive = false;
         if (!res.headersSent)
           send(res, error.status || 404, {
             error: error.status ? error.message : "not_found",
@@ -503,8 +529,10 @@ export async function createPhoneGateway({
       paired = null;
       pairing = null;
       channelIds.clear();
+      for (const controller of inferenceControllers) controller.abort();
       server.closeAllConnections();
       await new Promise((resolve) => server.close(resolve));
+      await Promise.all(pendingInference);
     },
   };
 }

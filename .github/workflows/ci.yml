@@ -46,7 +46,7 @@ jobs:
         run: npx playwright install chromium
 
       - name: Browser flows on isolated demo accounts
-        run: npm run test:trainer-ui && npm run test:voice-photo-ui && npm run test:phone-lab-ui
+        run: npm run test:trainer-ui && npm run test:voice-photo-ui && npm run test:phone-lab-ui && node scripts/phone-lab-ui.mjs --stt-only
 
       - name: Keep synthetic browser evidence
         if: always()
@@ -57,7 +57,18 @@ jobs:
             tmp/trainer-ui-qa/
             tmp/voice-photo-qa/
             tmp/phone-lab-qa/evidence.json
+            tmp/phone-lab-stt-only-qa/evidence.json
           retention-days: 7
 
       - name: Build app
         run: npm run build
+
+  groq-free-resource-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build pinned Node API fixture image
+        run: docker build --file server/groq.Dockerfile --tag scisense-groq-free-check .
+      - name: Verify Groq adapter on 1 CPU and 2 GiB without network or credentials
+        run: docker run --rm --network=none --cpus=1 --memory=2g --memory-swap=2g --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m scisense-groq-free-check

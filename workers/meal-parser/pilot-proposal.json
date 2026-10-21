@@ -1,6 +1,6 @@
 {
   "proposalId": "scisense-phone-api-2026-10-20",
-  "status": "approved_local_pilot",
+  "status": "approved_implementation",
   "LIVE_ENABLED": "false",
   "goalId": "objective_e45aa8ac1aa3",
   "environment": "local_https_demo_only",
@@ -63,8 +63,8 @@
     "sonnet": "https://platform.claude.com/docs/en/models/sonnet-5-5/overview",
     "sonnetContract": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
   },
-  "recommendedCandidate": "B",
-  "recommendationReason": "Юрій погодив Whisper + Sonnet і стелю $5 із Claude-кредитів; ціль розгортання змінено на ntzg.pp.ua на MS-WEB. Локальний запуск не активовано.",
+  "recommendedCandidate": "C",
+  "recommendationReason": "Юрій погодив реалізацію Groq Free whisper-large-v3. Активація Anthropic та сервер залишаються замороженими.",
   "requestedCreditProvider": "anthropic",
   "creditProviderConfirmedByOwner": true,
   "creditProviderConfirmedAt": "2026-10-20T22:05:05+03:00",
@@ -80,13 +80,41 @@
     "inferenceCalls": 0,
     "checkedAt": "2026-10-20T22:15:10+03:00"
   },
-  "approvedAt": "2026-10-20T23:04:32+03:00",
+  "approvedAt": "",
   "approvedBy": "Yurii",
-  "selectedCandidate": "B",
+  "selectedCandidate": "C",
   "deploymentTarget": {
     "origin": "https://ntzg.pp.ua",
     "server": "MS-WEB Server",
     "status": "preparation",
     "apiBindingActive": false
+  },
+  "proposalRevision": 2,
+  "sttApproval": {
+    "approvedAt": "",
+    "freeTierConfirmedAt": "",
+    "zeroDataRetentionConfirmedAt": ""
+  },
+  "candidateC": {
+    "TRANSCRIBE_PROVIDER": "groq",
+    "TRANSCRIBE_MODEL": "whisper-large-v3",
+    "GROQ_ACCOUNT_TIER": "free",
+    "PARSE_MODEL": "claude-sonnet-5-5",
+    "PRICING_MODEL_PAIR": "whisper-large-v3|claude-sonnet-5-5",
+    "PILOT_BUDGET_MICROS": 5000000,
+    "INPUT_MICROS_PER_MTOK": 2000000,
+    "OUTPUT_MICROS_PER_MTOK": 10000000,
+    "MAX_CONCURRENT": 1,
+    "REQUESTS_PER_MINUTE": 6,
+    "REQUESTS_PER_DAY": 30,
+    "MAX_AUDIO_SECONDS": 90,
+    "UPSTREAM_TIMEOUT_MS": 45000,
+    "PRICING_APPROVED_AT": ""
+  },
+  "configHash": "a02935f19acdb01c574136462527450848731c586402cfb6bb00a496ca67ad3e",
+  "fullApproval": {
+    "approvedAt": "",
+    "proposalRevision": 2,
+    "configHash": "a02935f19acdb01c574136462527450848731c586402cfb6bb00a496ca67ad3e"
   }
 }

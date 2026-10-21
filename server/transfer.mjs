@@ -1,3 +1,4 @@
+import {validateProposal} from '../scripts/phone-lab/approval.mjs';
 // Pure filesystem/marker adapters. No Keychain, SSH, provider, activation or live side effects at import.
 import {mkdirSync,readFileSync,copyFileSync,constants,existsSync,chmodSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
@@ -15,13 +16,14 @@ export async function prepareTransfer(options){
  const unlock=acquirePilotLock(options.lockFile);
  try{return await prepareLocked(options);}finally{unlock();}
 }
-async function prepareLocked({sourceFile,proposalId,destination,markerStore}){
+async function prepareLocked({sourceFile,proposalId,proposal,destination,markerStore}){
+ if(proposal){validateProposal(proposal);if(proposal.proposalId!==proposalId)throw Error('transfer_config');}
  if(!proposalId||!path.isAbsolute(sourceFile)||!path.isAbsolute(destination))throw Error('transfer_config');
  const previous=await markerStore.read(),expected=JSON.stringify({proposal:proposalId,cap:PILOT_CAP,file:sourceFile});
  const fresh=!previous&&!existsSync(sourceFile);
  if(!fresh)assertLocalMarker(expected,previous);
  const state=fresh?{consumedMicros:0,reservedCalls:0}:inspectLedger(sourceFile);
- const receipt={version:1,proposalId,capMicros:PILOT_CAP,target:'https://ntzg.pp.ua',receiptId:randomUUID(),...state};
+ const receipt={version:proposal?2:1,...(proposal?{proposalRevision:proposal.proposalRevision,configHash:proposal.configHash}:{}),proposalId,capMicros:PILOT_CAP,target:'https://ntzg.pp.ua',receiptId:randomUUID(),...state};
  const permanent=JSON.stringify({state:'permanently_transferred',...receipt,sourceFile});
  await markerStore.write(permanent);
  if(await markerStore.read()!==permanent)throw Error('marker_unconfirmed');
@@ -37,11 +39,11 @@ async function prepareLocked({sourceFile,proposalId,destination,markerStore}){
 }
 export function stageTransfer({bundle,directory}){
  privateFile(path.join(bundle,'transfer.json'));const receipt=JSON.parse(readFileSync(path.join(bundle,'transfer.json'),'utf8')),source=path.join(bundle,'pilot-budget.sqlite');
- if(receipt.version!==1||receipt.liveEnabled!==false||receipt.capMicros!==PILOT_CAP||receipt.target!=='https://ntzg.pp.ua'||hash(source)!==receipt.ledgerSha256)throw Error('transfer_invalid');
+ if(![1,2].includes(receipt.version)||(receipt.version===2&&(receipt.proposalRevision!==2||!/^[a-f0-9]{64}$/.test(receipt.configHash||'')))||receipt.liveEnabled!==false||receipt.capMicros!==PILOT_CAP||receipt.target!=='https://ntzg.pp.ua'||hash(source)!==receipt.ledgerSha256)throw Error('transfer_invalid');
  const state=inspectLedger(source);if(state.consumedMicros!==receipt.consumedMicros||state.reservedCalls!==receipt.reservedCalls)throw Error('transfer_invalid');
  // Existing state can never be overwritten by another import or a deploy rollback.
  mkdirSync(directory,{mode:0o700});copyFileSync(source,path.join(directory,'pilot-budget.sqlite'),constants.COPYFILE_EXCL);chmodSync(path.join(directory,'pilot-budget.sqlite'),0o600);
- durableJson(path.join(directory,'budget-anchor.json'),{receiptId:receipt.receiptId,...state},{exclusive:true});
+ durableJson(path.join(directory,'budget-anchor.json'),{receiptId:receipt.receiptId,...(receipt.version===2?{proposalRevision:receipt.proposalRevision,configHash:receipt.configHash}:{}),...state},{exclusive:true});
  durableJson(path.join(directory,'activation.pending.json'),receipt,{exclusive:true});
  return receipt;
 }

@@ -38,10 +38,10 @@ export function openServerLedger({directory,receipt,groqFree=false,onFault=()=>{
   const validate=()=>{
    const current=privateFile(file);if(current.ino!==identity.ino||current.dev!==identity.dev)throw Error('ledger_replaced');privateFile(anchorFile);
    const anchor=JSON.parse(readFileSync(anchorFile,'utf8')),state=inspectLedger(file);
-   if(anchor.receiptId!==receipt.receiptId||!Number.isSafeInteger(anchor.consumedMicros)||!Number.isSafeInteger(anchor.reservedCalls)||anchor.consumedMicros<receipt.consumedMicros||anchor.reservedCalls<receipt.reservedCalls||state.consumedMicros<anchor.consumedMicros||state.reservedCalls<anchor.reservedCalls)throw Error('budget_rollback');
+   if((receipt.version===2&&(anchor.configHash!==receipt.configHash||anchor.proposalRevision!==receipt.proposalRevision))||anchor.receiptId!==receipt.receiptId||!Number.isSafeInteger(anchor.consumedMicros)||!Number.isSafeInteger(anchor.reservedCalls)||anchor.consumedMicros<receipt.consumedMicros||anchor.reservedCalls<receipt.reservedCalls||state.consumedMicros<anchor.consumedMicros||state.reservedCalls<anchor.reservedCalls)throw Error('budget_rollback');
    return state;
   };
-  const synchronize=()=>{const state=validate();durableJson(anchorFile,{receiptId:receipt.receiptId,...state});return state;};
+  const synchronize=()=>{const state=validate();durableJson(anchorFile,{receiptId:receipt.receiptId,...(receipt.version===2?{proposalRevision:receipt.proposalRevision,configHash:receipt.configHash}:{}),...state});return state;};
   synchronize();budget=localBudget(file,PILOT_CAP,{groqFree});
   const fetch=async request=>{
    if(closed||faulted)return Response.json({error:'limiter_unavailable'},{status:503});

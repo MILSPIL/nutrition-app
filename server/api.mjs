@@ -4,10 +4,12 @@ import { createFirebaseAuthenticator } from '../workers/meal-parser/src/auth.js'
 import { MAX_BODY } from '../workers/meal-parser/src/schema.js';
 
 // Bound incoming chunks without cancelling a Web stream backed by the HTTP socket.
-function readBody(req, signal) {
+export function readBody(req, signal, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
     const chunks = []; let size = 0;
+    const timer = setTimeout(() => fail('upstream_timeout', 504), timeoutMs);
     const cleanup = () => {
+      clearTimeout(timer);
       req.off('data', data); req.off('end', end); req.off('error', error);
       signal.removeEventListener('abort', abort);
     };
@@ -29,11 +31,12 @@ function readBody(req, signal) {
 }
 
 // OLS owns TLS/static files. This process exposes only the API on loopback.
-export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, maxConcurrent = 2 }) {
+export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, bodyTimeoutMs = 15000, maxConcurrent = 1 }) {
   if (env?.ALLOWED_ORIGINS !== 'https://ntzg.pp.ua' ||
       !/^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(env?.FIREBASE_PROJECT || '') ||
       env.FIREBASE_PROJECT.startsWith('demo-') || !env.ALLOWED_UIDS ||
       !Number.isInteger(maxConcurrent) || maxConcurrent < 1 || maxConcurrent > 2 ||
+      !Number.isInteger(bodyTimeoutMs) || bodyTimeoutMs <= 0 || bodyTimeoutMs > 15000 ||
       !Number.isInteger(deadlineMs) || deadlineMs <= 0 || deadlineMs > 65000)
     throw Error('server_config_invalid');
   const handler = createHandler({
@@ -97,14 +100,14 @@ export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, 
       if (controller.signal.aborted) return;
       const request = new Request(url, {
         method: req.method, headers,
-        ...(req.method === 'POST' ? { body: await readBody(req, controller.signal) } : {}),
+        ...(req.method === 'POST' ? { body: await readBody(req, controller.signal, bodyTimeoutMs) } : {}),
         signal: controller.signal,
       });
       const response = await handler.fetch(request, env);
       if (!controller.signal.aborted)
         send(res, response.status, await response.text(), Object.fromEntries(response.headers));
     } catch (error) {
-      const publicErrors = {unauthorized:401,pilot_forbidden:403,live_disabled:503,media_too_large:413};
+      const publicErrors = {unauthorized:401,pilot_forbidden:403,live_disabled:503,media_too_large:413,upstream_timeout:504};
       if (!controller.signal.aborted) reject(publicErrors[error.message] || 400, publicErrors[error.message] ? error.message : 'bad_request');
     } finally {
       clearTimeout(timer);

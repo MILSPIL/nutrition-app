@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-const allowed = new Set(["scisense-anthropic/api-key", "scisense-phone-lab/tls-key", "scisense-phone-lab/pilot-2026-10-20"]);
+const allowed = new Set(["scisense-groq/api-key", "scisense-anthropic/api-key", "scisense-phone-lab/tls-key", "scisense-phone-lab/pilot-2026-10-20"]);
 export function keychain(service, account, value) {
   if (!allowed.has(`${service}/${account}`)) throw Error("keychain_scope");
   const setting = value !== undefined;

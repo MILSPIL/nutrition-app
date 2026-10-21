@@ -150,7 +150,7 @@ test("HTTPS pairing, origin, expiry, private static files; no unpaired API", asy
     assert.equal((await get("/", "GET", { cookie })).body, "LAB");
     assert.equal(
       (await get("/lab/status", "GET", { cookie })).body,
-      JSON.stringify({ project: PROJECT, uid: UID, live: false }),
+      JSON.stringify({ project: PROJECT, uid: UID, live: false, mode: "full" }),
     );
     assert.equal(
       (

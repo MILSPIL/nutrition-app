@@ -85,3 +85,15 @@ test('unfinished unauthenticated body is rejected before buffering or occupying 
  }
  assert.equal((await post()).status,200);
 });
+
+test('slow upload is bounded independently, without reservation, and releases the slot',async t=>{
+ const {url,state,post}=await fixture(t,{bodyTimeoutMs:30,deadlineMs:500});
+ const status=await new Promise((resolve,reject)=>{const req=httpRequest(url+'/meal-api/analyze',{method:'POST',headers:{Origin:'https://ntzg.pp.ua',Authorization:`Bearer ${jwt()}`,'Transfer-Encoding':'chunked'}},res=>{res.resume();resolve(res.statusCode);req.destroy();});req.on('error',reject);req.setTimeout(1000,()=>req.destroy(Error('upload_timeout_not_enforced')));req.write('{');});
+ assert.equal(status,504);assert.equal(state.reserved,0);assert.equal(state.calls,0);assert.equal((await post()).status,200);
+});
+test('maximum 90-second WAV reaches Groq through HTTP with duration derived from bytes',async t=>{
+ const bytes=new Uint8Array(44+90*32000),v=new DataView(bytes.buffer);for(const [at,s] of [[0,'RIFF'],[8,'WAVE'],[12,'fmt '],[36,'data']])bytes.set(new TextEncoder().encode(s),at);for(const [at,n] of [[4,bytes.length-8],[16,16],[24,16000],[28,32000],[40,bytes.length-44]])v.setUint32(at,n,true);for(const [at,n] of [[20,1],[22,1],[32,2],[34,16]])v.setUint16(at,n,true);
+ const {url,state}=await fixture(t,{env:{TRANSCRIBE_PROVIDER:'groq',TRANSCRIBE_MODEL:'whisper-large-v3',GROQ_ACCOUNT_TIER:'free',GROQ_FREE_LIMITS:'true',GROQ_FREE_APPROVED_AT:'2026-10-21T00:00:00Z',GROQ_API_KEY:'synthetic',ANTHROPIC_API_KEY:undefined,INFERENCE_MODE:'stt_only'},provider:async(kind,p)=>{assert.equal(kind,'transcribe');assert.equal(p.duration,90);assert.equal(p.language,'ru');return {text:'Тест'};}});
+ const form=new FormData();form.set('audio',new Blob([bytes],{type:'audio/wav'}),'private.wav');form.set('duration','1');form.set('language','ru');
+ const res=await fetch(url+'/meal-api/transcribe',{method:'POST',headers:{Origin:'https://ntzg.pp.ua',Authorization:`Bearer ${jwt()}`},body:form});assert.equal(res.status,200);assert.deepEqual(await res.json(),{text:'Тест'});assert.equal(state.reserved,1);
+});
