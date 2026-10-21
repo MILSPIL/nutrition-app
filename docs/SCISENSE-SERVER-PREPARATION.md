@@ -26,7 +26,7 @@
 ## Що заважає назвати пакет готовим до встановлення
 
 1. Performance-рішення та повторна Linux-перевірка. Поточний failed benchmark зберігається, не маскується як PASS.
-2. Інтегрований SHA після main→feature та повний CI, фінальний build config /meal-api, manifest із app/API/rules/lockfiles/static asset hashes. Поточні окремі sourceHashes є доказом перевірки, не manifest готового deployment.
+2. main→feature інтегровано в c2cfecf5cff7c1d128c26a5427f78ffba3e3e8af; build із REACT_APP_MEAL_API_URL=/meal-api і lab flags0 пройшов. Знімок із27 static assets, source archive та app/API/rules/lockfile hashes: docs/evidence/server-preparation-snapshot-2026-10-21.json. Це preparation snapshot з installApproved=false/liveEnabled=false; фінальний CI39617071772 поки у черзі GitHub. Маніфест не є дозволом на встановлення.
 3. Стендова матриця старий/новий frontend × API × rules і server-side writer fence. Поточний writerVersion=2 сам не блокує старі вкладки; DNS і maintenance HTML також не блокують Firestore. До доведення fence запис production не перемикати.
 4. Read-only inventory MS-WEB: admin SSH, точні user/docroot/ports, systemd/Node/OLS versions, адресні backup. За чинною межею ключі/сервер не використовувалися.
 5. Provisioning/TLS payload з dry-run PASS, SAN/renewal/secret storage, OLS proxy/cache config та вплив спільного reload на3 сусідні сайти. Довільні Nginx snippets і глобальний Node upgrade заборонені.
@@ -39,3 +39,5 @@
 Відкат не повертає небезпечні старі правила, не відновлює старий ledger і не створює нові$5. Для першого випуску потрібна перевірена maintenance-сторінка з вимкненим inference та server-side fence. Crash-lock не видаляють автоматично; спершу зупинка власних процесів і reconcile.
 
 На телефоні ще не перевірено: Google login, мікрофон/камера, справжній кефір200г + фото → прев’ю → одна «Додати» → reload без дубля. G04 на production, пілот і фінальне приймання Юрія залишаються pending.
+
+Чернетка перевірки: [PR16](https://github.com/MILSPIL/nutrition-app/pull/16). Незалежне TLS review done;10/10 і власні overflow/timeout/secret-hygiene probes PASS, доказ tls-portability-preparation-2026-10-21.json.
