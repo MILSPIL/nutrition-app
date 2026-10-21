@@ -39,5 +39,25 @@ jobs:
       - name: Run application, Worker and demo storage tests
         run: npm run test:voice-photo
 
+      - name: Server, consent and adapter tests
+        run: npm run test:server && npm run test:rules && npm run test:phone-lab
+
+      - name: Install pinned browser
+        run: npx playwright install chromium
+
+      - name: Browser flows on isolated demo accounts
+        run: npm run test:trainer-ui && npm run test:voice-photo-ui && npm run test:phone-lab-ui
+
+      - name: Keep synthetic browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-evidence
+          path: |
+            tmp/trainer-ui-qa/
+            tmp/voice-photo-qa/
+            tmp/phone-lab-qa/evidence.json
+          retention-days: 7
+
       - name: Build app
         run: npm run build

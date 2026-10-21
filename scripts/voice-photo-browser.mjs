@@ -3,12 +3,9 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-if (!process.env.AGENT_TEST_BROWSER_SESSION)
-  throw Error("Isolated launcher required");
-const { chromium } = await import(
-  pathToFileURL(process.env.AGENT_TEST_PLAYWRIGHT_MODULE).href
-);
+import { fileURLToPath } from "node:url";
+import { browserRuntime } from './browser-runtime.mjs';
+const { chromium } = await browserRuntime();
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url))),
   build = path.join(root, "tmp/voice-photo-build"),
   out = path.join(root, "tmp/voice-photo-qa");

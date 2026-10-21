@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {spawnSync} from 'node:child_process';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {randomBytes} from 'node:crypto';
+const secret=Buffer.from('sk-ant-synthetic-'+randomBytes(24).toString('hex'));
+const run=(args,input)=>spawnSync('systemd-creds',args,{input,encoding:null,timeout:10000});
+const encrypted=run(['--with-key=host','--name=anthropic','encrypt','-','/tmp/anthropic.cred'],secret);assert.equal(encrypted.status,0,'encrypt');
+const bytes=readFileSync('/tmp/anthropic.cred');assert.equal(bytes.includes(secret),false);
+const decrypted=run(['--name=anthropic','decrypt','/tmp/anthropic.cred','-']);assert.equal(decrypted.status,0);assert.deepEqual(decrypted.stdout,secret);
+const wrong=run(['--name=wrong','decrypt','/tmp/anthropic.cred','-']);assert.notEqual(wrong.status,0);
+bytes[50]^=1;writeFileSync('/tmp/broken.cred',bytes);assert.notEqual(run(['--name=anthropic','decrypt','/tmp/broken.cred','-']).status,0);secret.fill(0);decrypted.stdout.fill(0);
+const version=spawnSync('systemd-creds',['--version'],{encoding:'utf8'}).stdout.split('\n')[0];
+console.log(JSON.stringify({syntheticOnly:true,version,encryptedRoundtrip:true,wrongNameDenied:true,tamperDenied:true,plaintextFile:false}));

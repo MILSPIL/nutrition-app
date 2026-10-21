@@ -1,0 +1,28 @@
+name: Linux preparation
+on:
+  push:
+    branches: [codex/scisense-server-prep]
+    paths: [server/linux/**, scripts/phone-lab/whisper.mjs, .github/workflows/linux-preparation.yml]
+  pull_request:
+    paths: [server/linux/**, scripts/phone-lab/whisper.mjs, .github/workflows/linux-preparation.yml]
+permissions:
+  contents: read
+jobs:
+  whisper-and-credentials:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check build resources before downloads
+        run: python3 server/linux/preflight.py
+      - name: Build pinned CPU Whisper in isolated image
+        run: docker build --file server/linux/Dockerfile --tag scisense-linux-prep .
+      - name: Benchmark synthetic speech and encrypted credentials
+        run: python3 server/linux/run.py
+      - name: Keep bounded measurements without media or transcripts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-preparation
+          path: tmp/linux-preparation/
+          retention-days: 7

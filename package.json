@@ -23,13 +23,14 @@
     "eject": "react-scripts eject",
     "test:voice-photo": "npm run test:ci -- --runInBand && npm --prefix workers/meal-parser test && npm run test:meal-store",
     "test:meal-store": "node scripts/meal-store-test.mjs",
-    "test:voice-photo-ui": "/Users/user/.local/bin/agent-test-browser run scisense-voice-photo",
+    "test:voice-photo-ui": "node scripts/browser-test.mjs voice-photo",
     "lab:phone:prepare": "node scripts/phone-lab.mjs prepare",
     "lab:phone": "node scripts/phone-lab.mjs start",
     "test:phone-lab": "node --test scripts/phone-lab/gateway.test.mjs scripts/phone-lab/whisper.test.mjs",
-    "test:phone-lab-ui": "/Users/user/.local/bin/agent-test-browser run scisense-phone-lab",
+    "test:phone-lab-ui": "node scripts/browser-test.mjs phone-lab",
     "test:server": "node --test server/*.test.mjs",
-    "test:rules": "node scripts/trainer-access-test.mjs"
+    "test:rules": "node scripts/trainer-access-test.mjs",
+    "test:trainer-ui": "node scripts/browser-test.mjs trainer-access"
   },
   "eslintConfig": {
     "extends": [
@@ -49,6 +50,7 @@
     ]
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "5.0.2"
+    "@firebase/rules-unit-testing": "5.0.2",
+    "playwright": "1.64.0"
   }
 }

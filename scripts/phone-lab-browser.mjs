@@ -1,15 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { createPhoneGateway, UID } from "./phone-lab/gateway.mjs";
 import { generateTls } from "./phone-lab/tls.mjs";
 import { localBudget } from "./phone-lab/sqlite.mjs";
-if (!process.env.AGENT_TEST_BROWSER_SESSION)
-  throw Error("Isolated launcher required");
-const { chromium } = await import(
-  pathToFileURL(process.env.AGENT_TEST_PLAYWRIGHT_MODULE).href
-);
+import { browserRuntime } from './browser-runtime.mjs';
+const { chromium } = await browserRuntime();
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url))),
   out = path.join(root, "tmp/phone-lab-qa");
 await mkdir(out, { recursive: true });

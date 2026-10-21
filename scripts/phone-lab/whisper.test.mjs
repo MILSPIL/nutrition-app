@@ -57,3 +57,9 @@ test('Approval is exact: no model change, no bigger cap, no missing credit confi
  }
  await assert.rejects(verifyWhisper({}),/whisper_unverified/);
 });
+
+test('Server passes exactly one Whisper thread and rejects invalid thread configuration',async()=>{
+ const captured={},w=createWhisper({binary:'/local/whisper',model:'/local/model',threads:1,spawnProcess:processFactory('text',captured)});
+ await w.transcribe(audio());assert.equal(captured.args[captured.args.indexOf('-t')+1],'1');await w.close();
+ for(const threads of [0,2.5,9,'1'])assert.throws(()=>createWhisper({threads}),/whisper_config/);
+});

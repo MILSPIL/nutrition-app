@@ -14,7 +14,8 @@ export async function verifyWhisper(runtime) {
   if (hash.digest("hex") !== WHISPER_MODEL_SHA1) throw Error("whisper_unverified");
 }
 // Кожен запис має власний процес і контекст. Аудіо лише stdin, результат лише pipe.
-export function createWhisper({ binary, model, timeoutMs = 45000, spawnProcess = spawn }) {
+export function createWhisper({ binary, model, timeoutMs = 45000, threads = 4, spawnProcess = spawn }) {
+  if (!Number.isInteger(threads) || threads < 1 || threads > 8 || !Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 45000) throw Error("whisper_config");
   const active = new Map();
   let closed = false;
   return {
@@ -25,8 +26,8 @@ export function createWhisper({ binary, model, timeoutMs = 45000, spawnProcess =
       // Тиша не повинна перетворюватися на вигаданий продукт Whisper.
       let audible = 0;
       for (let i = 44; i + 1 < bytes.length; i += 2) if (Math.abs(bytes.readInt16LE(i)) > 128) audible++;
-      if (audible < 800) throw Error("empty_transcript");
-      if (closed || active.size) throw Object.assign(Error("upstream_limited"), { status: 429 });
+      if (audible < 800) { bytes.fill(0); throw Error("empty_transcript"); }
+      if (closed || active.size || signal?.aborted) { bytes.fill(0); throw Error(signal?.aborted ? "upstream_timeout" : "upstream_limited"); }
       return new Promise((resolve, reject) => {
         let child, timer, killer, failure, closedResolve, size = 0, settled = false;
         const chunks = [];
@@ -48,7 +49,7 @@ export function createWhisper({ binary, model, timeoutMs = 45000, spawnProcess =
         };
         const abort = () => stop();
         try {
-          child = spawnProcess(binary, ["-m", model, "-f", "-", "-otxt", "-l", "auto", "-np", "-nt", "-sns", "-t", "4"], {
+          child = spawnProcess(binary, ["-m", model, "-f", "-", "-otxt", "-l", "auto", "-np", "-nt", "-sns", "-t", String(threads)], {
             stdio: ["pipe", "pipe", "ignore"],
             env: { PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR },
           });

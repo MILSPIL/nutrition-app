@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-if (!process.env.AGENT_TEST_BROWSER_SESSION)
-  throw Error("Isolated launcher required");
+import { requireIsolatedBrowser } from './browser-runtime.mjs';
+requireIsolatedBrowser();
 const cwd = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const run = (cmd, args, env = process.env) =>
   new Promise((resolve, reject) => {
@@ -22,7 +22,7 @@ await run("npm", ["run", "build"], {
   REACT_APP_PILOT_MODE: "1",
   BUILD_PATH: "tmp/phone-lab-qa-build",
 });
-await run(process.env.FIREBASE_CLI || "/Users/user/.npm-global/bin/firebase", [
+await run(process.env.FIREBASE_CLI || "firebase", [
   "emulators:exec",
   "--config",
   "firebase.lab.json",
