@@ -1,78 +1,175 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
+    function owner(uid) { return request.auth != null && request.auth.uid == uid; }
+    function verified() {
+      return request.auth != null && request.auth.token.get('email_verified', false) == true
+        && request.auth.token.get('email', null) is string;
     }
-
-    function authEmail() {
-      return signedIn() && request.auth.token.email != null
-        ? lower(request.auth.token.email)
-        : null;
+    function email() { return request.auth.token.email.lower(); }
+    function addressed(d) { return verified() && d.trainerEmail == email(); }
+    function text(value, max) { return value is string && value.size() > 0 && value.size() <= max; }
+    function normalizedEmail(value) {
+      return text(value, 254) && value == value.lower() && value.matches('^[^\\s@]+@[^\\s@]+$');
     }
-
-    function isOwner(userId) {
-      return signedIn() && request.auth.uid == userId;
+    function counter(value) { return value is int && value > 0 && value <= 2147483647; }
+    function base(d, uid) {
+      return d.clientId == uid && text(uid, 128) && normalizedEmail(d.clientEmail)
+        && normalizedEmail(d.trainerEmail) && d.clientEmail != d.trainerEmail
+        && text(d.clientName, 120) && counter(d.generation) && counter(d.revision)
+        && d.revision >= d.generation && d.createdAt is timestamp;
     }
-
-    function userDoc(userId) {
-      return get(/databases/$(database)/documents/users/$(userId));
+    function pendingKeys() {
+      return ['clientId','clientEmail','clientName','trainerEmail','status','generation','revision','createdAt'];
     }
-
-    function isAssignedTrainer(userId) {
-      return signedIn() &&
-        userDoc(userId).data.trainerId == request.auth.uid;
+    function acceptedKeys() { return pendingKeys().concat(['trainerId','trainerName','acceptedAt']); }
+    function acceptedFields(d) {
+      return text(d.trainerId, 128) && d.trainerId != d.clientId && text(d.trainerName, 120)
+        && d.acceptedAt is timestamp && d.acceptedAt >= d.createdAt && d.revision > 1
+        && (d.status != 'accepted' || d.revision < 2147483647);
     }
-
-    function isClientOfTrainer(trainerId) {
-      return signedIn() &&
-        userDoc(request.auth.uid).data.trainerId == trainerId;
+    function valid(d, uid) {
+      return d is map && d.keys().hasAll(pendingKeys()) && base(d, uid) && (
+        (d.status == 'pending' && d.keys().hasOnly(pendingKeys())) ||
+        (d.status == 'accepted' && d.keys().hasAll(acceptedKeys()) && d.keys().hasOnly(acceptedKeys()) && acceptedFields(d)) ||
+        (d.status in ['rejected','cancelled'] && d.keys().hasAll(['endedAt']) && d.keys().hasOnly(pendingKeys().concat(['endedAt']))
+          && d.endedAt is timestamp && d.endedAt >= d.createdAt && d.revision > 1) ||
+        (d.status == 'disconnected' && d.keys().hasAll(acceptedKeys().concat(['endedAt'])) && d.keys().hasOnly(acceptedKeys().concat(['endedAt']))
+          && acceptedFields(d) && d.endedAt is timestamp && d.endedAt >= d.acceptedAt));
     }
-
-    function trainerEmailMatches(email) {
-      return authEmail() != null && lower(email) == authEmail();
+    function userPath(uid) { return /databases/$(database)/documents/users/$(uid); }
+    function proofPath(uid) { return /databases/$(database)/documents/trainerRequests/$(uid); }
+    function trainerPath(uid) { return /databases/$(database)/documents/trainers/$(uid); }
+    function acceptedProof(uid) {
+      return exists(proofPath(uid)) && get(proofPath(uid)).data.get('status', '') == 'accepted'
+        && valid(get(proofPath(uid)).data, uid);
     }
-
-    match /users/{userId} {
-      allow create: if isOwner(userId);
-      allow read: if isOwner(userId) || isAssignedTrainer(userId);
-      allow update: if isOwner(userId);
+    function assigned(uid) {
+      return request.auth != null && acceptedProof(uid)
+        && get(proofPath(uid)).data.trainerId == request.auth.uid
+        && get(userPath(uid)).data.get('trainerId', null) == request.auth.uid;
+    }
+    function next(a, b) { return a.revision < 2147483647 && b.revision == a.revision + 1; }
+    function acceptTransition(uid, a, b) {
+      return a.status == 'pending' && b.status == 'accepted'
+        && addressed(a) && b.trainerId == request.auth.uid && b.trainerId != uid && next(a, b)
+        && b.revision < 2147483647
+        && b.acceptedAt == request.time
+        && b.diff(a).affectedKeys().hasOnly(['status','revision','trainerId','trainerName','acceptedAt']);
+    }
+    function acceptTogether(uid, b) {
+      let profile = getAfter(userPath(uid)).data;
+      let entry = getAfter(trainerPath(b.trainerId)).data.clients[uid];
+      return exists(userPath(uid)) && get(userPath(uid)).data.get('trainerId', null) == null
+        && exists(trainerPath(b.trainerId))
+        && profile.trainerId == b.trainerId && profile.trainerEmail == b.trainerEmail
+        && entry.keys().hasOnly(['name','email','addedAt','status','generation'])
+        && entry.name == b.clientName && entry.email == b.clientEmail
+        && entry.addedAt == request.time && entry.status == 'active' && entry.generation == b.generation;
+    }
+    function disconnectTransition(uid, a, b) {
+      return owner(uid) && a.status == 'accepted' && b.status == 'disconnected' && next(a, b)
+        && b.endedAt == request.time && b.diff(a).affectedKeys().hasOnly(['status','revision','endedAt']);
+    }
+    function disconnectTogether(uid, a) {
+      let profile = getAfter(userPath(uid)).data;
+      let roster = exists(trainerPath(a.trainerId)) ? getAfter(trainerPath(a.trainerId)).data.get('clients', {}) : {};
+      return profile.trainerId == null && profile.trainerEmail == null
+        && (!(roster is map) || !(uid in roster));
+    }
+    function newPending(uid, d) {
+      return owner(uid) && verified() && d.status == 'pending' && valid(d, uid)
+        && d.revision <= 2147483645
+        && d.clientEmail == email() && d.createdAt == request.time
+        && exists(userPath(uid)) && get(userPath(uid)).data.get('trainerId', null) == null;
+    }
+    function regularFields() { return ['users','globalCustomProducts','productOverrides','createdAt','updatedAt','writerVersion']; }
+    function writerValid(d) { return d.get('writerVersion', 2) == 2; }
+    function linkChangeOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['trainerId','trainerEmail']);
+    }
+    function linkAccept(uid) {
+      let a = get(proofPath(uid)).data;
+      let b = getAfter(proofPath(uid)).data;
+      return linkChangeOnly() && acceptTransition(uid, a, b)
+        && request.resource.data.trainerId == b.trainerId && request.resource.data.trainerEmail == b.trainerEmail;
+    }
+    function linkDisconnect(uid) {
+      let a = get(proofPath(uid)).data;
+      let b = getAfter(proofPath(uid)).data;
+      return linkChangeOnly() && disconnectTransition(uid, a, b)
+        && request.resource.data.trainerId == null && request.resource.data.trainerEmail == null;
+    }
+    function legacyClear(uid) {
+      return owner(uid) && linkChangeOnly() && !acceptedProof(uid)
+        && request.resource.data.trainerId == null && request.resource.data.trainerEmail == null;
+    }
+    match /users/{uid} {
+      allow get, list: if owner(uid);
+      allow create: if owner(uid) && request.resource.data.keys().hasOnly(regularFields().concat(['trainerId','trainerEmail']))
+        && request.resource.data.get('trainerId', null) == null
+        && request.resource.data.get('trainerEmail', null) == null && writerValid(request.resource.data);
+      allow update: if (owner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(regularFields())
+        && writerValid(request.resource.data)) || legacyClear(uid) || linkAccept(uid) || linkDisconnect(uid);
       allow delete: if false;
-
-      match /mealHistory/{dayId} {
-        allow read: if isOwner(userId) || isAssignedTrainer(userId);
-        allow create, update: if isOwner(userId);
-        allow delete: if false;
+      match /mealHistory/{day} {
+        allow read: if owner(uid) || assigned(uid);
+        allow create, update: if owner(uid);
       }
-
-      match /measurements/{measurementId} {
-        allow read: if isOwner(userId) || isAssignedTrainer(userId);
-        allow create, update: if isOwner(userId);
-        allow delete: if false;
+      match /measurements/{measurement} {
+        allow read: if owner(uid) || assigned(uid);
+        allow create, update: if owner(uid);
       }
     }
-
-    match /trainers/{trainerId} {
-      allow create: if signedIn() && request.auth.uid == trainerId;
-      allow read: if signedIn() &&
-        (request.auth.uid == trainerId || isClientOfTrainer(trainerId));
-      allow update: if signedIn() && request.auth.uid == trainerId;
-      allow delete: if false;
+    match /trainers/{uid} {
+      allow read: if owner(uid);
+      allow create: if owner(uid) && request.resource.data.get('clients', {}) is map;
+      allow update: if (owner(uid) && request.resource.data.get('clients', {}) is map) || clientRemoval(uid);
+      function clientRemoval(trainerId) {
+        let clientId = request.auth.uid;
+        let a = get(proofPath(clientId)).data;
+        let b = getAfter(proofPath(clientId)).data;
+        return disconnectTransition(clientId, a, b) && a.trainerId == trainerId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clients'])
+          && request.resource.data.clients.diff(resource.data.get('clients', {})).affectedKeys().hasOnly([clientId])
+          && disconnectTogether(clientId, a);
+      }
     }
-
-    match /trainerRequests/{requestId} {
-      allow create: if signedIn() &&
-        request.resource.data.clientId == request.auth.uid &&
-        request.resource.data.clientEmail == request.auth.token.email &&
-        request.resource.data.status == 'pending';
-
-      allow read: if signedIn() &&
-        (resource.data.clientId == request.auth.uid ||
-         trainerEmailMatches(resource.data.trainerEmail));
-
-      allow update, delete: if signedIn() &&
-        (resource.data.clientId == request.auth.uid ||
-         trainerEmailMatches(resource.data.trainerEmail));
+    match /trainerRequests/{uid} {
+      allow get: if owner(uid) || party();
+      allow list: if party();
+      function party() {
+        return request.auth != null && (resource.data.clientId == request.auth.uid ||
+          (resource.data.status == 'pending' && addressed(resource.data)) ||
+          (resource.data.status in ['accepted','disconnected'] && resource.data.trainerId == request.auth.uid));
+      }
+      allow create: if newPending(uid, request.resource.data)
+        && request.resource.data.generation == 1 && request.resource.data.revision == 1;
+      allow update: if resource.data.status == 'pending' ? (accept() || finishPending())
+        : (resource.data.status == 'accepted' ? disconnect() : renewal());
+      function renewal() {
+        return resource.data.status in ['rejected','cancelled','disconnected'] && valid(resource.data, uid)
+          && resource.data.generation < 2147483647 && next(resource.data, request.resource.data)
+          && request.resource.data.generation == resource.data.generation + 1
+          && newPending(uid, request.resource.data);
+      }
+      function accept() {
+        return acceptTransition(uid, resource.data, request.resource.data) && valid(resource.data, uid)
+          && acceptedFields(request.resource.data) && acceptTogether(uid, request.resource.data);
+      }
+      function finishPending() {
+        let a = resource.data;
+        let b = request.resource.data;
+        return a.status == 'pending' && b.status in ['cancelled','rejected'] && valid(a, uid) && next(a, b)
+          && b.endedAt == request.time && b.diff(a).affectedKeys().hasOnly(['status','revision','endedAt'])
+          && ((b.status == 'cancelled' && owner(uid)) || (b.status == 'rejected' && addressed(a)));
+      }
+      function disconnect() {
+        return disconnectTransition(uid, resource.data, request.resource.data)
+          && valid(resource.data, uid) && disconnectTogether(uid, resource.data);
+      }
+      allow delete: if !exists(userPath(uid)) && uid != resource.data.clientId && resource.data.status == 'pending'
+        && (owner(resource.data.clientId) || addressed(resource.data));
     }
   }
 }

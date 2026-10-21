@@ -21,4 +21,10 @@
 
 ## Далі
 
-Виправити знахідки незалежного API-рев’ю; commit/push першого блока. G04: спочатку emulator FAIL на старих rules, потім canonical consent і атомарні переходи, UI очищення та A01–A09. Далі Linux Whisper/переносимі CI-перевірки й synthetic budget transfer/rollback. Фінал: перевірений PR та конкретний production-пакет, без його виконання. Поточний журнал створено в робочій гілці, до main ще не перенесений.
+API-блок 3c7c7bf і G04 red tests 0fde00d pushed. G04 rules/service реалізовані, 26/26 emulator PASS; незалежне g04_protocol_review триває. Далі UI очищення та решта A06/A08. Далі Linux Whisper/переносимі CI-перевірки й synthetic budget transfer/rollback. Фінал: перевірений PR та конкретний production-пакет, без його виконання. Поточний журнал створено в робочій гілці, до main ще не перенесений.
+
+## G04, протокол і перевірки
+
+На старих rules baseline 3/10 PASS і 7/10 FAIL. Нові canonical request, monotonic generation/revision, атомарні accept/revoke, приватність root/roster, fallback відсутнього каталогу, контроль повторів: 26/26 PASS у demo-scisense. Mutation на окремому demo-scisense-mutation підтвердив, що assertFails ловить дозвіл самопризначення. Немає тестів/записів у справжній Firebase. Спочатку повторне повне schema validation перевищувало 1000 expressions, тому proof перевіряє повну схему, а пов’язані правила вимагають фактичний узгоджений перехід цього proof. Missing trainer doc у SDK може дати permission-denied; fallback не послаблює rules. Listener deny у емуляторі підтверджений після target update, UI має незалежний roster signal. Детальні синтетичні logs у /private/tmp/scisense-g04-*.log, не публікуються.
+
+Незалежний g04_protocol_review: спочатку3 findings (malformed roster блокував revoke, крайній counter, delete malformed canonical), усі відтворені та виправлені. Повторний вердикт done для протоколу; власний suite29/29 і ще10SDK-probes PASS. Хеші rules/service збережені у evidence. UI і кінцеве G04 не прийняті. CI на попередніх0fde00d і3c7c7bf success, але ще не містив нових G04 tests.

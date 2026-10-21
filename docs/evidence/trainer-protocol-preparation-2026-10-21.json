@@ -1,0 +1,25 @@
+{
+  "syntheticOnly": true,
+  "productionWrites": 0,
+  "paidCalls": 0,
+  "baseline": {
+    "passed": 3,
+    "failed": 7
+  },
+  "protocolTests": 29,
+  "mutationCaught": true,
+  "independentReview": "done for protocol only",
+  "findingsFixed": [
+    "malformed roster cannot block revoke",
+    "revision reserved for revoke",
+    "existing profile UID prevents malformed canonical legacy delete"
+  ],
+  "pending": [
+    "UI A06",
+    "full regression A08",
+    "final integrated G04 acceptance"
+  ],
+  "additionalIndependentProbes": 10,
+  "rulesSha256": "5ad9eeeebaea1a2cbebbddb1db66de85a5ec21d6590c383c40a70c52b308f569",
+  "serviceSha256": "3959d45068031387b14508899333501540020a6ac157ab41cc0afaed702b434c"
+}
