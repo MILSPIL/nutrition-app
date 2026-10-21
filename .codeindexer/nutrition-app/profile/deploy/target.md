@@ -3,8 +3,8 @@ project: nutrition-app
 domain: deploy
 slot: target
 confidence: 1
-valid_at: "2026-10-21T13:47:21.888611+00:00"
-provenance: Погодження CLOUD-PREP-01 і локального виконання; журнал1336; server/CI evidence2026-10-21.
+valid_at: "2026-10-21T15:14:22.753154+00:00"
+provenance: Погодження CPU2 користувачем; CI39620593130/39622898172/39622897711, журнал1336.
 ---
 
-2026-10-21: ціль ntzg.pp.ua на MS-WEB; Firebase Auth/Firestore без міграції. CLOUD-PREP-01 погоджено, після відмови Cloud user обрав локально. У codex/scisense-server-prep реалізовані API, G04 protocol/UI, synthetic budget/runtime, переносимі Linux/CI; live=false, paid0. Linux CI39590783755: pinned Whisper build PASS, всі6 UA/RU5/30/90s timeout45s на1CPU/2GiB; ресурси/модель не змінено, готовність заблокована. Synthetic credential255/negative controls/cleanup PASS. Ключі та $5 не чіпати; production/install/реальний transfer лише за конкретним пакетом. Admin SSH/backup/TLS dry-run/OLS proxy/writer fence/release manifest/реальний телефон pending. Канон docs/SCISENSE-SERVER-PREPARATION.md і PROJECT-INFO.md.
+2026-10-21: SciSense на ntzg.pp.ua/MS-WEB; Firebase Auth/Firestore без міграції. Погоджений CLOUD-PREP-01 виконується локально у codex/scisense-server-prep, PR16 draft. API/G04/budget і app CI39622897711 PASS. Whisper large-v3-turbo-q5_0 на1CPU та погоджених2CPU/2GiB:0/6 UA/RU5/30/90s до45s;4controls/cleanupPASS. Diagnostic39622898172: CLI отримав усе аудіо,89.695CPU-s за45.058s, stdin не завис. STT-SMALL-01 small-q5_1 у тих самих лімітах лише запропоновано, чекає рішення. ProductionCPU1/live=false, keys/$5/paidcalls0. AdminSSH/backup/TLS/provisioning/writerfence/реальнийtransfer/phone pending. Канон docs/SCISENSE-SERVER-PREPARATION.md, PROJECT-INFO.md та журнал1336; не merge/deploy автоматично.

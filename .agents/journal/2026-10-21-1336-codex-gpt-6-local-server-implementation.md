@@ -70,3 +70,12 @@ codeindexer 2026-10-21: solutions2 (budget race, Linux TLS), нова картк
 Погоджений прогін CI39620593130 на c60805d завершено: усі 6 UA/RU записів 5/30/90s завершились за таймером 45016–45027ms; фактичні threads2, cpu.max200000/100000, RAM2GiB підтверджені. Peak796684288–811618304bytes, без OOM. Чотири negative controls, cleanup та synthetic credential PASS. Доказ docs/evidence/linux-whisper-2cpu-preparation-2026-10-21.json. App CI39620593155 SUCCESS.
 
 Незалежний linux_prep_review підтвердив 20 mock-команд, 6 CLI-відмов і незмінні production/model. Причина таймауту ще не доведена: таймер охоплює cold init, stdin та inference. Офіційний pinned CLI читає stdin через fread до EOF; build log підтвердив AVX2/F16C/FMA. Для зняття невизначеності готується одна synthetic UK5s діагностична проба за тими самими2CPU/2GiB/45s/model. Вона зберігає лише cpu.stat delta, кількість байтів і дозволені стани процесу. Сирих stderr/транскриптів/медіа в доказах немає. Окремий потенційний Linux stdout-reopen ризик поки не оголошено причиною таймауту.
+
+
+## Підсумок діагностики й наступна межа
+
+CI39622898172, code0f535827bf2080bbf4511367f2761954094cc236: одна UK5s fixture, stdinFinished=true, audioReadBytes160044, CPU89695ms за45058ms, average1.991CPU; stdout0, SIGTERM від таймера, безOOM, owned0/tmp0/cleanupPASS. Це підтвердило отримання всього аудіо й активні обчислення, але не розділяє cold init/inference.6/6 telemetry/limit tests та незалежне mock/privacy review PASS. App CI39622897711 SUCCESS. Доказ docs/evidence/linux-whisper-2cpu-diagnostic-2026-10-21.json.
+
+Підготовлено конкретну пропозицію STT-SMALL-01 у docs/SCISENSE-SERVER-PREPARATION.md: відтворення stdout-переносимості та synthetic small-q5_1, pinned artifactSHA256/revision, ті самі2CPU/2GiB/45s, продукт+200г,6normal+4negative. Не погоджено, ваги не завантажені. Після двох повних таймаутних проб автоматичної заміни моделі/ресурсів немає. Production/keys/$5 залишилися незмінними,0paidcalls.
+
+codeindexer 2026-10-21: оновлено одну картку Whisper, phase health і deployment slots двох проєктів результатами2CPU/diagnostic та pending STT-SMALL-01; Goal G02–G11 не закриті. Нова модель не погоджена, питання Юрію надіслане.
