@@ -63,3 +63,10 @@ codeindexer 2026-10-21: solutions2 (budget race, Linux TLS), нова картк
 2026-10-21: Юрій відповів «Так, перевір2CPU в CI». Це окремий synthetic benchmark тієї самої моделі/2GiB/45s; production1CPU, ключі та$5 без змін. Додано run.py --cpus {1,2} з default1, узгоджений threads і перевірку реального cgroup quota/RAM. Локальні3/3 limit-тести PASS. Linux workflow лишено тільки pull_request, щоб не дублювати один прогін через push. Незалежне рев’ю і фактичний2CPU результат очікуються.
 
 Інтегрований CI39617071772 SUCCESS (99app/31Worker/17storage/20server/29rules/10phone-lab/3browser/build). Журнал попереднього стану перейшов у main через PR17, merge1e30499338ea2999428ecf8f7ef4f15cbbdc44a2, CI2/2SUCCESS; нові записи цього розділу ще лише в робочій гілці. Продуктовий PR16 лишається draft.
+
+
+## Результат 2 CPU і діагностика
+
+Погоджений прогін CI39620593130 на c60805d завершено: усі 6 UA/RU записів 5/30/90s завершились за таймером 45016–45027ms; фактичні threads2, cpu.max200000/100000, RAM2GiB підтверджені. Peak796684288–811618304bytes, без OOM. Чотири negative controls, cleanup та synthetic credential PASS. Доказ docs/evidence/linux-whisper-2cpu-preparation-2026-10-21.json. App CI39620593155 SUCCESS.
+
+Незалежний linux_prep_review підтвердив 20 mock-команд, 6 CLI-відмов і незмінні production/model. Причина таймауту ще не доведена: таймер охоплює cold init, stdin та inference. Офіційний pinned CLI читає stdin через fread до EOF; build log підтвердив AVX2/F16C/FMA. Для зняття невизначеності готується одна synthetic UK5s діагностична проба за тими самими2CPU/2GiB/45s/model. Вона зберігає лише cpu.stat delta, кількість байтів і дозволені стани процесу. Сирих stderr/транскриптів/медіа в доказах немає. Окремий потенційний Linux stdout-reopen ризик поки не оголошено причиною таймауту.

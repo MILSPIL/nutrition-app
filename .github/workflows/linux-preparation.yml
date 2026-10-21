@@ -15,9 +15,9 @@ jobs:
       - name: Build pinned CPU Whisper in isolated image
         run: docker build --file server/linux/Dockerfile --tag scisense-linux-prep .
       - name: Verify CPU and memory limit checks
-        run: docker run --rm --network=none --cpus=1 --memory=256m --read-only --entrypoint=node scisense-linux-prep --test server/linux/limits.test.mjs
-      - name: Benchmark approved synthetic two-CPU trial and encrypted credentials
-        run: python3 server/linux/run.py --cpus 2
+        run: docker run --rm --network=none --cpus=1 --memory=256m --read-only --entrypoint=node scisense-linux-prep --test server/linux/limits.test.mjs server/linux/telemetry.test.mjs
+      - name: Diagnose one synthetic recording within approved two-CPU limits
+        run: python3 server/linux/run.py --cpus 2 --diagnostic
       - name: Keep bounded measurements without media or transcripts
         if: always()
         uses: actions/upload-artifact@v4

@@ -3,7 +3,9 @@ import argparse, json, os, pathlib, subprocess, sys, uuid
 from types import SimpleNamespace
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--cpus', type=int, choices=(1,2), default=1)
-cpu_count=parser.parse_args().cpus
+parser.add_argument('--diagnostic', action='store_true', help='One synthetic UK 5-second fixture, same limits; not an acceptance suite')
+args=parser.parse_args()
+cpu_count=args.cpus
 out=pathlib.Path('tmp/linux-preparation').resolve();out.mkdir(parents=True,exist_ok=True)
 base=['docker','run','--rm','--network=none',f'--cpus={cpu_count}','--pids-limit=64','--read-only','--tmpfs','/tmp:rw,noexec,nosuid,size=128m']
 results=[]
@@ -27,7 +29,8 @@ def owned_run(args, timeout):
         result.returncode=125
         result.stderr=b'owned_container_cleanup_unconfirmed'
     return result
-for language,duration,mode,memory in [(l,d,'normal','2g') for l in ['uk','ru'] for d in [5,30,90]]+ [('uk',5,'abort','2g'),('uk',5,'timeout','2g'),('uk',5,'concurrency','2g'),('uk',5,'oom','256m')]:
+fixtures=[('uk',5,'normal','2g')] if args.diagnostic else [(l,d,'normal','2g') for l in ['uk','ru'] for d in [5,30,90]]+ [('uk',5,'abort','2g'),('uk',5,'timeout','2g'),('uk',5,'concurrency','2g'),('uk',5,'oom','256m')]
+for language,duration,mode,memory in fixtures:
     dest=out/f'{language}-{duration}-{mode}';dest.mkdir(exist_ok=True);dest.chmod(0o777)
     command=base[2:]+['--memory='+memory,'--memory-swap='+memory,'-v',str(dest)+':/out','scisense-linux-prep',language,str(duration),mode,str(cpu_count)]
     result=owned_run(command,100)
@@ -39,7 +42,7 @@ credential=owned_run(['--rm','--network=none','--memory=256m','--cpus=1','--read
 cred=json.loads(credential.stdout) if credential.returncode==0 else {'pass':False,'error':'credential_rehearsal_failed'}
 (out/'credential.json').write_text(json.dumps(cred,indent=2)+'\n')
 with open('/proc/meminfo') as f: available=next(int(x.split()[1])*1024 for x in f if x.startswith('MemAvailable:'))
-summary={'syntheticOnly':True,'requestedCpus':cpu_count,'paidCalls':0,'fixtures':results,'credential':cred,'hostAvailableBytesAfter':available,'targetServerVerified':False,'pass':all(x.get('pass') and x['containerExit']==0 for x in results) and credential.returncode==0 and available>=2*1024**3}
+summary={'syntheticOnly':True,'requestedCpus':cpu_count,'fixtureSet':'diagnostic' if args.diagnostic else 'full','completeAcceptanceSet':not args.diagnostic,'paidCalls':0,'fixtures':results,'credential':cred,'hostAvailableBytesAfter':available,'targetServerVerified':False,'pass':all(x.get('pass') and x['containerExit']==0 for x in results) and credential.returncode==0 and available>=2*1024**3}
 (out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
 print(json.dumps({'report':str(out/'summary.json'),'pass':summary['pass'],'fixtures':len(results)}))
 sys.exit(0 if summary['pass'] else 1)

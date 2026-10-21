@@ -13,19 +13,22 @@
 
 ## Блокер Whisper
 
-[Linux CI39590783755](https://github.com/MILSPIL/nutrition-app/actions/runs/39590783755) зібрав large-v3-turbo-q5_0, але всі6 UA/RU записів5/30/90s перевищили45s на1CPU. Peak RAM795–811MB, OOM0; негативні сценарії4/4 та cleanup пройшли. Ці виміри стосуються GitHub runner, не MS-WEB. Повний доказ: [JSON](evidence/linux-whisper-preparation-2026-10-21.json).
+Обидва прогони зібрали ту саму pinned large-v3-turbo-q5_0. Модель, 2 GiB RAM і таймаут 45 секунд збережені; друга проба на 2 CPU прямо погоджена Юрієм.
 
-| Наступна проба | За | Проти |
-| --- | --- | --- |
-| Та сама модель,2CPU у синтетичному CI | Зберігає модель і дозволяє виміряти ефект CPU без ключів/production | Не гарантує45s, майбутнє використання двох CPU на MS-WEB потребує перевірки впливу на сусідні сайти |
-| Менша багатомовна Whisper-модель у CI | Потенційно менше CPU й RAM | Змінює погоджену модель, точність української й назв продуктів треба виміряти заново |
-| Довший таймаут із1CPU | Зберігає модель і ресурсну межу | Погіршує швидкість додавання їжі та тримає єдиний inference слот довше; може не дати прийнятного результату |
+| Синтетична конфігурація | UA/RU записи 5/30/90 секунд | Пік пам’яті | Захисні сценарії |
+| --- | --- | --- | --- |
+| 1 CPU, 1 потік | 0/6, усі завершилися за таймером | 758.5–772.8 MiB | 4/4 та очищення пройдені |
+| 2 CPU, 2 потоки | 0/6, усі завершилися за таймером | 759.8–774.0 MiB | 4/4 та очищення пройдені |
 
-2026-10-21 Юрій прямо погодив: «Так, перевір2CPU в CI». Готується одна синтетична проба з тією самою моделлю,2GiB RAM і45s; run.py за замовчуванням лишається на1CPU, workflow явно вибирає2. Production deployment.json і systemd лишаються на1CPU. Менша модель, довший таймаут і серверні ресурси цим рішенням не погоджені.
+Докази: [1 CPU, CI39590783755](https://github.com/MILSPIL/nutrition-app/actions/runs/39590783755), [2 CPU, CI39620593130](https://github.com/MILSPIL/nutrition-app/actions/runs/39620593130), JSON у docs/evidence/linux-whisper{,-2cpu}-preparation-2026-10-21.json. Фактичні cgroups і threads підтверджено; OOM при 2 GiB немає, зашифрований синтетичний credential пройшов перевірку. MS-WEB не вимірювався.
+
+Причина таймауту ще не встановлена. Таймер охоплює ініціалізацію моделі, передавання stdin та inference. Незалежний reviewer не знайшов очевидного блокування stdin у коді; AVX2/F16C/FMA присутні у build log. Наступна одна UK5s діагностична проба зберігає ті самі 2 CPU / 2 GiB / 45s / model, додаючи cpu.stat, завершення stdin і лічильники байтів без медіа або транскриптів. Вона має fixtureSet=diagnostic та не є повною перевіркою приймання.
+
+Production deployment.json і systemd лишаються на 1 CPU. Менша модель, довший таймаут, нові серверні ресурси й paid STT цим рішенням не погоджені. Окремий ризик повторного відкриття stdout у Linux ще не доведено як причину поточного таймауту.
 
 ## Що заважає назвати пакет готовим до встановлення
 
-1. Performance-рішення та повторна Linux-перевірка. Поточний failed benchmark зберігається, не маскується як PASS.
+1. Performance-рішення та повторна Linux-перевірка. Обидва невдалі повні прогони зберігаються; діагностичний запуск їх не замінює.
 2. main→feature інтегровано в c2cfecf5cff7c1d128c26a5427f78ffba3e3e8af; build із REACT_APP_MEAL_API_URL=/meal-api і lab flags0 пройшов. Знімок із27 static assets, source archive та app/API/rules/lockfile hashes: docs/evidence/server-preparation-snapshot-2026-10-21.json. Це preparation snapshot з installApproved=false/liveEnabled=false; інтегрований CI39617071772 пройшов усі перевірки включно з3 browser flows. Маніфест не є дозволом на встановлення.
 3. Стендова матриця старий/новий frontend × API × rules і server-side writer fence. Поточний writerVersion=2 сам не блокує старі вкладки; DNS і maintenance HTML також не блокують Firestore. До доведення fence запис production не перемикати.
 4. Read-only inventory MS-WEB: admin SSH, точні user/docroot/ports, systemd/Node/OLS versions, адресні backup. За чинною межею ключі/сервер не використовувалися.
