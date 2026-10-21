@@ -1,0 +1,170 @@
+{
+  "date": "2026-10-21",
+  "status": "proposed_pending_owner_approval",
+  "goalId": "objective_e45aa8ac1aa3",
+  "baseCodeCommit": "bf8e22d8eb6c20a797c9028d228ce127e44e5e1c",
+  "documentBaseline": "b48b795",
+  "recommendedSttProvider": "groq",
+  "recommendedSttModel": "whisper-large-v3",
+  "parseProvider": "anthropic",
+  "parseModel": "claude-sonnet-5-5",
+  "proposedResources": {
+    "cpuCores": 1,
+    "memoryMaxGiB": 2,
+    "activeRequests": 1,
+    "gpu": false,
+    "localModelWeights": false,
+    "serverVerified": false
+  },
+  "pricesUsd": {
+    "groqPerAudioHour": "0.111",
+    "groqTurboPerAudioHour": "0.04",
+    "minimumBilledSeconds": 10,
+    "sonnetInputPerMillion": "2",
+    "sonnetOutputPerMillion": "10"
+  },
+  "costArithmetic": {
+    "one30s": "0.000925",
+    "hundred30s": "0.0925",
+    "thousand30s": "0.925",
+    "twenty90s": "0.0555",
+    "sttReservationPerAttempt": "0.005",
+    "proposedGroqCeiling": "0.10",
+    "existingAnthropicCeiling": "5.00",
+    "combinedMaximumCeiling": "5.10",
+    "existingSonnetReserve": "3.039200"
+  },
+  "proposedTechnicalTrial": {
+    "labAttempts": 10,
+    "phoneAttempts": 10,
+    "maxProviderCalls": 20,
+    "maxSecondsPerCall": 90,
+    "automaticRetries": false,
+    "sevenDayPilotIncluded": false,
+    "retryAllowance": 0,
+    "phoneScenarioOrder": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      7,
+      8,
+      9,
+      10,
+      6
+    ],
+    "macOffBeforeFreshScenario": 6,
+    "sttCorrectPerStage": "10/10 separately for lab and phone"
+  },
+  "privacy": {
+    "groqReceives": "audio_only",
+    "anthropicReceives": "text_and_label_images",
+    "groqZdrRequiredBeforeRealAudio": true,
+    "accountControlsVerified": false
+  },
+  "publicSources": [
+    {
+      "url": "https://console.groq.com/docs/model/whisper-large-v3",
+      "status": 200,
+      "finalUrl": "https://console.groq.com/docs/model/whisper-large-v3"
+    },
+    {
+      "url": "https://console.groq.com/docs/model/whisper-large-v3-turbo",
+      "status": 200,
+      "finalUrl": "https://console.groq.com/docs/model/whisper-large-v3-turbo"
+    },
+    {
+      "url": "https://console.groq.com/docs/speech-to-text",
+      "status": 200,
+      "finalUrl": "https://console.groq.com/docs/speech-to-text"
+    },
+    {
+      "url": "https://console.groq.com/docs/your-data",
+      "status": 200,
+      "finalUrl": "https://console.groq.com/docs/your-data"
+    },
+    {
+      "url": "https://console.groq.com/docs/spend-limits",
+      "status": 200,
+      "finalUrl": "https://console.groq.com/docs/spend-limits"
+    },
+    {
+      "url": "https://console.groq.com/docs/billing-faqs",
+      "status": 200,
+      "finalUrl": "https://console.groq.com/docs/billing-faqs"
+    },
+    {
+      "url": "https://platform.claude.com/docs/en/models/sonnet-5-5/overview",
+      "status": 200,
+      "finalUrl": "https://platform.claude.com/docs/en/models/sonnet-5-5/overview"
+    },
+    {
+      "url": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "status": 200,
+      "finalUrl": "https://platform.claude.com/docs/en/about-claude/pricing"
+    },
+    {
+      "url": "https://nodejs.org/download/release/v24.11.1/docs/api/http.html#serverrequesttimeout",
+      "status": 200,
+      "finalUrl": "https://nodejs.org/download/release/v24.11.1/docs/api/http.html#serverrequesttimeout"
+    }
+  ],
+  "whisperLanguageMetadata": {
+    "url": "https://huggingface.co/openai/whisper-large-v3/raw/main/generation_config.json",
+    "sha256": "fbdfa70135de9b1d31553393f14e80aaeb1936ea36576b2ba864055943c09d23",
+    "ukToken": 50280,
+    "ruToken": 50263
+  },
+  "boundaries": {
+    "keysRead": false,
+    "keychainRead": false,
+    "inferenceCalls": 0,
+    "applicationApiSpend": "0",
+    "serverAccessed": false,
+    "productionChanged": false,
+    "codeImplemented": false
+  },
+  "review": {
+    "claude": {
+      "model": "claude-fable-5-1",
+      "exitCode": 0,
+      "seconds": 335.6,
+      "tokens": 921589,
+      "inputTokens": 258,
+      "outputTokens": 24529,
+      "cacheCreationTokens": 143521,
+      "cacheReadTokens": 753281,
+      "findings": 9,
+      "confirmed": 5,
+      "partial": 4,
+      "false": 0,
+      "disposition": "checked against source; plan clarified without code changes"
+    },
+    "independent": {
+      "agent": "stt_api_plan_review",
+      "firstPassFindings": 3,
+      "firstPassFindingsFixed": 3,
+      "R01": "pass",
+      "R02": "pass",
+      "R03": "pass",
+      "R04": "pass",
+      "R05": "pass",
+      "finalRecheck": "done; R04/R05 passed after Claude clarifications"
+    }
+  },
+  "documentCriteria": {
+    "R01": "pass",
+    "R02": "pass",
+    "R03": "pass",
+    "R04": "pass",
+    "R05": "pass"
+  },
+  "implementationCriteria": {
+    "ST01": "pending",
+    "ST02": "pending",
+    "ST03": "pending",
+    "ST04": "pending",
+    "ST05": "pending"
+  }
+}
