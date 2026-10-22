@@ -21,11 +21,13 @@
     "apiChecksPassed": 8,
     "externalFetches": 0,
     "independentContentReview": "passed",
-    "extractPermissionCheckRequired": true,
-    "installAllowed": false
+    "extractPermissionCheckRequired": false,
+    "installAllowed": true,
+    "installedSourceCommit": "bad8217421d0eff859b920885d849e3e121cbf72",
+    "extractPermissionCheckPassed": true
   },
   "stageA": {
-    "status": "in_progress",
+    "status": "passed",
     "adminPreflight": "passed",
     "encryptedConfigBackupsRestored": true,
     "firebaseProjectAccess": "verified",
@@ -33,7 +35,7 @@
     "configurationPersistence": "per-site OLS regeneration disabled; saved and refreshed UI verified",
     "postProvisionEncryptedConfigRestoreFiles": 11
   },
-  "stageB": "managed_site_provisioned_application_install_pending",
+  "stageB": "runtime_https_ready_maintenance_pending_firebase_writer_fence",
   "stageC": "not_authorized",
   "modelKeysRead": 0,
   "modelCalls": 0,
@@ -61,5 +63,39 @@
     200,
     200
   ],
-  "cloudflareTransport": "MCP OAuth invalid_client; existing UI and scoped token available; no settings written"
+  "cloudflareTransport": "Existing UI: cache bypass and Full (Strict), saved and refreshed; no permission expansion",
+  "updatedAt": "2026-10-22T21:24:01.215639+00:00",
+  "runtime": {
+    "payloadHashesVerified": 162,
+    "node": "24.22.1",
+    "loopbackOnly": true,
+    "inferenceEnabled": false,
+    "stateDirectoryEmpty": true,
+    "cpu": 1,
+    "memoryBytes": 2147483648,
+    "modelCredentialsInstalled": false
+  },
+  "tlsAndProxy": {
+    "originChainAndHostnameVerified": true,
+    "fullStrictSavedAndRefreshed": true,
+    "olsReloadCount": 1,
+    "globalConfigUnchanged": true,
+    "maintenanceSha256": "c9bf7b96f34cc8ed5e697663bfe4a4a58830fa2a153760828a4cd777912e442b",
+    "htmlAndApiCacheControl": "no-store",
+    "cloudflareCacheStatus": "DYNAMIC",
+    "unknownApiJsonStatus": 404
+  },
+  "firebase": {
+    "ntzgAuthorized": true,
+    "previousDomainsPreserved": true,
+    "rulesPublished": false,
+    "writerFenceVerified": false,
+    "endUserTokenPending": true,
+    "iamExpanded": false
+  },
+  "neighborHttpAfterReload": [
+    200,
+    200,
+    200
+  ]
 }
