@@ -49,14 +49,14 @@ try{
  for(const role of Object.keys(accounts)){
   const context=await browser.newContext({viewport:{width:390,height:844},locale:'uk-UA'});contexts.push(context);
   await context.route('**/*',route=>{const url=new URL(route.request().url());if(['127.0.0.1','localhost','cdn.tailwindcss.com','fonts.googleapis.com','fonts.gstatic.com'].includes(url.hostname))return route.continue();evidence.unexpectedNetwork.push(url.origin);return route.abort();});
-  await context.addInitScript(()=>localStorage.setItem('app_version_seen','1.6.0'));
   const page=await context.newPage();page.setDefaultTimeout(20000);page.on('pageerror',e=>evidence.pageErrors.push(e.message));pages[role]=page;
   await page.goto(origin+'/fixture');await page.waitForFunction(()=>window.fixture);await page.evaluate(email=>window.fixture.login(email),accounts[role].email);
  }
  const {client,trainer,stranger}=pages;
  check('Stranger denied health data',await stranger.evaluate(p=>window.fixture.read(p),['users',uid,'mealHistory',today])==='permission-denied');
  await trainer.goto(origin+'/trainer');await trainer.getByText('Тренерський дашборд',{exact:true}).waitFor();
- await client.goto(origin);await client.getByTitle('Налаштування',{exact:true}).click();
+ await client.goto(origin);await client.getByRole('button',{name:'Закрити новини',exact:true}).click();
+ await client.getByTitle('Налаштування',{exact:true}).click();
  await client.getByRole('button',{name:/Додати тренера/}).click();await client.getByLabel('Email тренера',{exact:true}).waitFor();
  const consent=await client.getByTestId('trainer-consent').textContent();
  for(const width of [375,390,1024]){
