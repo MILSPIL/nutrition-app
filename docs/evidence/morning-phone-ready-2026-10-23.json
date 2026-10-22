@@ -1,0 +1,38 @@
+{
+  "updatedAt": "2026-10-22T21:59:54.848491+00:00",
+  "plan": "MORNING-READY-01",
+  "goal": "objective_e45aa8ac1aa3",
+  "status": "in_progress",
+  "authorization": "User explicitly authorized overnight implementation, narrow deployment and bounded real tests",
+  "budgetCapMicros": 5000000,
+  "modelCalls": 0,
+  "productAcceptance": "pending",
+  "planProbe": {
+    "red": 0,
+    "yellowAddressed": 4
+  },
+  "budgetHistory": {
+    "canonicalLedgerAbsentWorktrees": 4,
+    "markerNotDiscovered": true,
+    "serverStateEmpty": true,
+    "priorPaidPilotEvidence": 0,
+    "syntheticDatabasesExcluded": true
+  },
+  "serverBefore": {
+    "inferenceEnabled": false,
+    "activationPresent": false,
+    "credentialsPresent": false,
+    "importLockPresent": false
+  },
+  "blocker": "Authenticated browser unavailable while Mac is locked; Free/ZDR and final Google sign-in pending",
+  "context7": "Monthly quota unavailable; official Groq and Anthropic documentation read",
+  "officialSources": [
+    "https://console.groq.com/docs/your-data",
+    "https://console.groq.com/docs/rate-limits",
+    "https://platform.claude.com/docs/en/models/sonnet-5-5/overview"
+  ],
+  "cleanup": {
+    "temporaryAdmin": "created_owned_pending_revocation"
+  },
+  "privateDataPublished": false
+}
