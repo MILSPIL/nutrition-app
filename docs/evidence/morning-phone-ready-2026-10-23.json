@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-10-22T21:59:54.848491+00:00",
+  "updatedAt": "2026-10-22T22:35:03.480596+00:00",
   "plan": "MORNING-READY-01",
   "goal": "objective_e45aa8ac1aa3",
-  "status": "in_progress",
+  "status": "ui_published_voice_activation_blocked",
   "authorization": "User explicitly authorized overnight implementation, narrow deployment and bounded real tests",
   "budgetCapMicros": 5000000,
   "modelCalls": 0,
@@ -29,10 +29,252 @@
   "officialSources": [
     "https://console.groq.com/docs/your-data",
     "https://console.groq.com/docs/rate-limits",
-    "https://platform.claude.com/docs/en/models/sonnet-5-5/overview"
+    "https://platform.claude.com/docs/en/models/sonnet-5-5/overview",
+    "https://docs.python.org/3/library/signal.html",
+    "https://man7.org/linux/man-pages/man7/signal.7.html"
   ],
   "cleanup": {
-    "temporaryAdmin": "created_owned_pending_revocation"
+    "temporaryAdmin": "revoked_and_fresh_absence_verified",
+    "temporaryKeychainEntriesRemoved": 3,
+    "modelCredentialsTouched": false,
+    "ownedBrowserProfilesRemoved": true,
+    "ownedBrowserTabsRemaining": 0,
+    "temporaryQaRegistrationRemoved": true
   },
-  "privateDataPublished": false
+  "privateDataPublished": false,
+  "baseline": {
+    "icons": [
+      {
+        "path": "/icons/category-carbs-v4.png",
+        "status": 200,
+        "image": false,
+        "localExists": false
+      },
+      {
+        "path": "/icons/category-dairy-v4.png",
+        "status": 200,
+        "image": false,
+        "localExists": false
+      },
+      {
+        "path": "/icons/category-fats-v4.png",
+        "status": 200,
+        "image": false,
+        "localExists": false
+      },
+      {
+        "path": "/icons/category-fruits-v4.png",
+        "status": 200,
+        "image": false,
+        "localExists": false
+      },
+      {
+        "path": "/icons/category-nuts-v4.png",
+        "status": 200,
+        "image": false,
+        "localExists": false
+      },
+      {
+        "path": "/icons/category-protein-v4.png",
+        "status": 200,
+        "image": false,
+        "localExists": false
+      },
+      {
+        "path": "/icons/category-treats-v4.png",
+        "status": 200,
+        "image": false,
+        "localExists": false
+      },
+      {
+        "path": "/icons/category-vegetables-v4.png",
+        "status": 200,
+        "image": false,
+        "localExists": false
+      }
+    ],
+    "missingLocal": 8,
+    "welcomeStale": true,
+    "reportUsesTelegram": true
+  },
+  "claudeReview": {
+    "model": "claude-fable-5-1",
+    "tokens": 562423,
+    "seconds": 620.5,
+    "exit": 2,
+    "readDenials": 1,
+    "confirmed": 7,
+    "partial": 3,
+    "allFindingsManuallyChecked": true,
+    "notFullPass": true
+  },
+  "serverTests": {
+    "passed": 64,
+    "failed": 0,
+    "node": "24.22.1"
+  },
+  "ui": {
+    "source": "ab19ed005aa6a411ff7df0cc7be498a949946c80",
+    "version": "1.7.0",
+    "jestSuites": 16,
+    "jestPassed": 140,
+    "independentReview": "M01-M03 done after storage-denial fix",
+    "productionPublished": true,
+    "deployedRelease": "f8a11a6c03bd1dc47bd74a444aae5f2846a6bf61"
+  },
+  "browser": {
+    "phoneLabChecks": 49,
+    "voicePhotoChecks": 26,
+    "fixtureOnly": true,
+    "modelCalls": 0,
+    "staticAssetFailures": 0,
+    "decodedCategoryIcons": 8,
+    "reportClipboardVerified": true,
+    "upgradeFrom": [
+      "1.6.0",
+      "bad8217421d0eff859b920885d849e3e121cbf72"
+    ],
+    "savedOnceAfterReload": true,
+    "layoutEdgeDeltasPx": 0,
+    "sharedModalInsetsPx": 16,
+    "reportWidths": [
+      375,
+      390,
+      1366
+    ],
+    "ownedProfilesRemoved": true,
+    "trainerAccessChecks": 7,
+    "sttOnlyChecks": 33,
+    "sttOnlyReservedMicros": 0,
+    "sttOnlyRealAnthropicCalls": 0,
+    "allFourFlowsPassed": true
+  },
+  "package": {
+    "release": "f8a11a6c03bd1dc47bd74a444aae5f2846a6bf61",
+    "payloadFiles": 162,
+    "archiveSha256": "b5d57055a265d829eb5f6c8cef48498db6b410fe57d125696906ca22a5d9396b",
+    "smokePassed": 8,
+    "runtimeAuditVulnerabilities": 0,
+    "disabledBundleValidated": true,
+    "modelCredentialsIncluded": false,
+    "payloadManifestSha256": "dbda3fff3b1c1a3047b03ad2192fcece5b96bdb544e05326319e3c23e0446aa6",
+    "archiveBytes": 11360952
+  },
+  "ci": {
+    "run": 39863603936,
+    "release": "f8a11a6c03bd1dc47bd74a444aae5f2846a6bf61",
+    "conclusion": "success",
+    "jobs": {
+      "test-and-build": "success",
+      "groq-free-resource-check": "success",
+      "systemd-credential-check": "success"
+    },
+    "url": "https://github.com/MILSPIL/nutrition-app/actions/runs/39863603936",
+    "earlierFailure": "Old trainer test hardcoded the previous welcome version; fixed by explicitly closing current welcome and rerun passed"
+  },
+  "upgradeReview": {
+    "model": "claude-fable-5-1",
+    "tokens": 114196,
+    "seconds": 625.2,
+    "exit": 0,
+    "readDenials": 0,
+    "confirmedFindings": 6,
+    "blockingFindingsResolved": true,
+    "independentReviewer": "morning_upgrade_review",
+    "independentVerdict": "PASS",
+    "syntheticTestsPassed": 30,
+    "helperSha256": "b3dc412427716aba20acba7121f34181a02dafe7e9c42be53ac4ff5ef44a2c6c",
+    "remainingNonblocking": "Malformed archive failure can return an exception class before any mutation"
+  },
+  "deployment": {
+    "ok": true,
+    "oldRelease": "bad8217421d0eff859b920885d849e3e121cbf72",
+    "newRelease": "f8a11a6c03bd1dc47bd74a444aae5f2846a6bf61",
+    "payloadFiles": 162,
+    "originEncodingChecks": 3,
+    "inferenceEnabled": false,
+    "stateEmpty": true,
+    "modelsCalled": 0,
+    "olsChanged": false,
+    "unitChanged": false,
+    "reconciliationRequired": false,
+    "remoteExit": 0
+  },
+  "publicVerification": {
+    "passed": true,
+    "matchedFiles": 28,
+    "indexEncodingsMatch": true,
+    "allCategoryImagesHaveImageType": true,
+    "neighborStatuses": [
+      200,
+      200,
+      200
+    ],
+    "health": {
+      "ok": true,
+      "inferenceEnabled": false
+    },
+    "verifiedAfterAdminRevocation": true,
+    "modelCalls": 0
+  },
+  "publicBrowser": {
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "passed": true,
+    "pageErrors": 0,
+    "failedOwnResources": 0,
+    "scrollWidth": 390,
+    "viewportWidth": 390,
+    "loginScreenOnly": true,
+    "externalAuthNotExercised": true,
+    "cleanupOk": true,
+    "launcherCleanupOk": true,
+    "launcherRemoved": true
+  },
+  "criteria": {
+    "M01": "local upgrade and storage-denial tests passed; exact UI release published",
+    "M02": "8 icons decoded locally and exact public images verified",
+    "M03": "preview and actual clipboard passed; no Telegram transport",
+    "M04": "local mobile geometry passed; public login screen 390x844 passed",
+    "M05": "synthetic budget/transfer tests passed; real transfer not started",
+    "M06": "blocked pending actual provider settings and owner sign-in; no real API calls",
+    "M07": "synthetic save/reload exactly once passed; owner phone pending",
+    "M08": "release and cleanup readbacks passed; status, journal and index export recorded in branch; no main transfer"
+  },
+  "activationPreparation": {
+    "productionExecuted": false,
+    "activationHelperSyntheticPassed": 46,
+    "activationHelperIndependentReview": "PASS for local draft; prerequisites pending",
+    "failureCasesFixed": [
+      "Persistent disk allocation failure while restoring disabled manifest",
+      "Recovery time budget starts before stopping service on every failure",
+      "Old or pending alarm cannot terminate during timer replacement"
+    ],
+    "transferContractSyntheticPassed": 29,
+    "transferContractRootReadAndRerun": true,
+    "transferProductionEntrypoint": false,
+    "remaining": [
+      "Actual Groq Free and ZDR setting proof",
+      "Owner Firebase sign-in",
+      "Separate approved C source/release and CI",
+      "Fresh owned access and receiver readiness",
+      "Reviewed durable production orchestrator before irreversible first budget initialization",
+      "Bounded real API voice and photo verification"
+    ],
+    "activationHelperIndependentAdditionalProbes": 8,
+    "activationHelperSha256": "60c83e2ad4bdbf87888ad828de69a76fc124fbd92d7d74272178bf81ea460ad3",
+    "activationTestsSha256": "336f228555fbd92210b167dc7771d9b08fb520c448b08b0f68a6ee462527170a"
+  },
+  "journalTransfer": {
+    "scannerPresent": false,
+    "manualComparison": true,
+    "liveMain": "5a6f335ab7e92dd038b00bf0ff4e557034ed8e5a",
+    "branchOnly": [
+      "2026-10-22-2250-codex-gpt-6-ntzg-deployment-execution.md",
+      "2026-10-23-0105-codex-gpt-6-morning-phone-ready.md"
+    ],
+    "mainChanged": false
+  }
 }

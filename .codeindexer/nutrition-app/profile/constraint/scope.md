@@ -3,8 +3,8 @@ project: nutrition-app
 domain: constraint
 slot: scope
 confidence: 1
-valid_at: "2026-10-21T10:32:46.749109+00:00"
-provenance: "Прямі повідомлення Юрія 2026-10-21 у чаті 01a1585d-ba1e-7da0-a174-903bee0573b3: погодження CLOUD-PREP-01 і продовження локально."
+valid_at: "2026-10-22T22:27:44.320200+00:00"
+provenance: Пряме доручення Юрія 2026-10-23 і перевірені результати поточної сесії.
 ---
 
-2026-10-21 Юрій погодив CLOUD-PREP-01, потім прямо обрав локальну розробку через відсутній GitHub-доступ Codex Cloud. Реалізація серверного API/G04/Linux-пакета у codex/scisense-server-prep від edf4ad8. Дозволені код, synthetic fixtures, unit/emulator/isolated browser QA, GitHub Actions, commit/push/PR і незалежне рев’ю. Повторне погодження G04/технічного плану не потрібне. Справжні ключі та $5 не чіпати: тільки mock Sonnet і synthetic budget. Merge продуктового коду, production, real API, привілейовані зміни і перенесення ключа/бюджету потребують окремого готового пакета. G04 обов’язковий до приватного пілоту. Канон: docs/SCISENSE-CLOUD-PREP.md, server-rollout plan, PROJECT-INFO.md; Goal objective_e45aa8ac1aa3, G01 passed, G02–G11 pending.
+MORNING-READY-01 2026-10-23: UI та вузьке розгортання виконані; C дозволений у межах чинного одного $5. Див. актуальні constraint/live_api_approval і deploy/target. Працювати в codex/scisense-server-prep; без Hermes, злиття main/PR8/16, глобальних server/IAM змін. Канон PROJECT-INFO.md, план і журнал.
