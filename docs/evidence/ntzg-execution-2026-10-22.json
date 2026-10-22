@@ -30,13 +30,18 @@
     "encryptedConfigBackupsRestored": true,
     "firebaseProjectAccess": "verified",
     "individualDocumentsRead": 0,
-    "configurationPersistence": "under_verification"
+    "configurationPersistence": "managed Blank Site route under verification"
   },
-  "stageB": "not_started",
+  "stageB": "draft_site_form_only_not_provisioned",
   "stageC": "not_authorized",
   "modelKeysRead": 0,
   "modelCalls": 0,
   "testBudgetSpend": 0,
   "productAcceptance": "pending",
-  "privateInventoryPublished": false
+  "privateInventoryPublished": false,
+  "pendingUserAction": "select No Database in the prepared xCloud form, without final submission",
+  "temporaryAccess": {
+    "revoked": true,
+    "accountAbsentVerified": true
+  }
 }
