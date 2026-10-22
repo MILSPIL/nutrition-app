@@ -18,7 +18,7 @@ function receiver(proposal){
  const id=kind=>{const r=spawnSync('/usr/bin/id',[kind,'scisense'],{encoding:'utf8',timeout:5000});if(r.status!==0)throw Error();return Number(r.stdout.trim());};
  return {manifest,proposal,directory:'/var/lib/scisense',credentialDirectory:'/etc/credstore.encrypted',workDirectory:'/var/lib/scisense-transfer',activationFile:'/etc/scisense/activation.json',dropInFile:'/etc/systemd/system/scisense-api.service.d/50-live.conf',owner:{uid:id('-u'),gid:id('-g')},
   serviceInactive:()=>{const r=spawnSync('/usr/bin/systemctl',['show','scisense-api.service','--property=LoadState,ActiveState','--value'],{encoding:'utf8',timeout:5000});return r.status===0&&r.stdout.trim().split('\n').sort().join(',')==='inactive,loaded';},
-  encrypt:async(name,input,output)=>{await runPrivateCommand('/usr/bin/systemd-creds',['--with-key=host','--name='+name,'encrypt','-',output],{input});}
+  encrypt:async(name,input,output)=>{process.umask(0o077);await runPrivateCommand('/usr/bin/systemd-creds',['--with-key=host','--name='+name,'encrypt','-',output],{input});}
  };
 }
 try{

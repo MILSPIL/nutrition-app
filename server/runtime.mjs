@@ -1,4 +1,4 @@
-import {openSync,readFileSync,fstatSync,closeSync,constants,realpathSync} from 'node:fs';
+import {openSync,readFileSync,fstatSync,closeSync,constants,realpathSync,lstatSync} from 'node:fs';
 import path from 'node:path';
 import {createMealApi} from './api.mjs';
 import {openServerLedger,PILOT_CAP} from './ledger.mjs';
@@ -19,7 +19,9 @@ export function validateActivation(manifest,receipt,proposal){
 }
 function readProtected(file,{owner,secret=false}={}){
  const fd=openSync(file,constants.O_RDONLY|constants.O_NOFOLLOW);try{
-  const stat=fstatSync(fd);if(!stat.isFile()||stat.size>65536||stat.uid!==owner||(stat.mode&(secret?0o177:0o022))!==0)fail();return readFileSync(fd);
+  // systemd may retain root ownership and grant the service a read-only ACL (mode 0440).
+  const stat=fstatSync(fd),ownerValid=stat.uid===owner||(secret&&stat.uid===0);
+  if(!stat.isFile()||stat.size>65536||!ownerValid||(stat.mode&(secret?0o337:0o022))!==0)fail();return readFileSync(fd);
  }finally{closeSync(fd);}
 }
 export async function createServerRuntime(manifest,{proposal,createApi=createMealApi,fetcher=fetch}={}){
@@ -31,7 +33,9 @@ export async function createServerRuntime(manifest,{proposal,createApi=createMea
   if(manifest.liveEnabled){
    const receipt=validateActivation(manifest,JSON.parse(readProtected(manifest.activationFile,{owner:0}).toString('utf8')),proposal);
    budget=openServerLedger({directory:manifest.budgetDirectory,receipt,groqFree:true,onFault:()=>{env.LIVE_ENABLED='false';}});
-   const dir=process.env.CREDENTIALS_DIRECTORY;if(!dir||!path.isAbsolute(dir)||realpathSync(dir)!==dir)fail();
+   const dir=process.env.CREDENTIALS_DIRECTORY;
+   if(dir!=='/run/credentials/scisense-api.service'||realpathSync(dir)!==dir)fail();
+   const directory=lstatSync(dir);if(!directory.isDirectory()||![0,process.getuid()].includes(directory.uid)||(directory.mode&0o227)!==0)fail();
    for(const name of manifest.credentialNames){
     const bytes=readProtected(path.join(dir,name),{owner:process.getuid(),secret:true});
     try{const secret=bytes.toString('utf8').trim();if(!(name==='groq'?/^gsk_[A-Za-z0-9_-]{16,}$/:/^sk-ant-[A-Za-z0-9_-]{16,}$/).test(secret))fail();env[name==='groq'?'GROQ_API_KEY':'ANTHROPIC_API_KEY']=secret;}finally{bytes.fill(0);}

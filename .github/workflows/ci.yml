@@ -72,3 +72,21 @@ jobs:
         run: docker build --file server/groq.Dockerfile --tag scisense-groq-free-check .
       - name: Verify Groq adapter on 1 CPU and 2 GiB without network or credentials
         run: docker run --rm --network=none --cpus=1 --memory=2g --memory-swap=2g --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m scisense-groq-free-check
+
+  systemd-credential-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Exercise actual systemd unit with synthetic encrypted credentials
+        run: node server/linux/run-systemd.mjs
+      - name: Keep synthetic systemd evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: systemd-evidence
+          path: tmp/systemd-check/evidence.json
+          retention-days: 7

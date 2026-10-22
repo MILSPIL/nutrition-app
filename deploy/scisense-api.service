@@ -9,8 +9,7 @@ User=scisense
 Group=scisense
 WorkingDirectory=/opt/scisense/current
 ExecStart=/opt/scisense/node/bin/node /opt/scisense/current/server/main.mjs
-LoadCredentialEncrypted=groq:/etc/credstore.encrypted/scisense-groq
-LoadCredentialEncrypted=anthropic:/etc/credstore.encrypted/scisense-anthropic
+# Credentials are installed only with the separately approved live drop-in.
 Environment=NODE_ENV=production
 UMask=0077
 StateDirectory=scisense

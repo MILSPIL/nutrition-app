@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-22",
+  "scope": "local preparation only",
+  "goalId": "objective_e45aa8ac1aa3",
+  "journalTransfer": {
+    "pr": "https://github.com/MILSPIL/nutrition-app/pull/22",
+    "mainCommit": "8e57aea00da4a6c11964e1829b8342d52e3299d8",
+    "blob": "f85ab7a9e18a6099eeb985faab4e9856fd89a5c2",
+    "ciRuns": [
+      39769728978,
+      39769714301
+    ],
+    "verified": true
+  },
+  "implementationCommits": {
+    "writer": "d08e43399a28a4752a38caadc25b8f3ad085a01c",
+    "transfer": "35f0976",
+    "systemd": null
+  },
+  "localTests": {
+    "rules": 38,
+    "storage": 26,
+    "application": 123,
+    "server": 47,
+    "transferSubset": 17,
+    "runnerFailureSubset": 3,
+    "build": "passed",
+    "systemdArm64": {
+      "syntheticOnly": true,
+      "modelCalls": 0,
+      "passed": 8,
+      "steps": [
+        "disabled unit starts without credentials; inference denied",
+        "receiver CLI encrypts synthetic keys; paid/free rows retained without activation",
+        "reimport refused; staged credentials do not activate the base unit",
+        "live without credential drop-in refused",
+        "live drop-in with one credential refused by systemd",
+        "corrupt encrypted credential refused by systemd",
+        "two encrypted synthetic credentials start live runtime",
+        "service restart preserves paid/free rows, budget total, receipt and anchor"
+      ],
+      "retained": {
+        "consumedMicros": 123456,
+        "reservedCalls": 2
+      },
+      "systemd": "systemd 255 (255.4-1ubuntu8.18)",
+      "isolation": {
+        "architecture": "aarch64",
+        "platform": "linux/arm64",
+        "dockerTransport": "local-unix",
+        "noHostBinds": true,
+        "noPublishedPorts": true,
+        "network": "none",
+        "cpu": 1,
+        "memoryBytes": 2147483648
+      },
+      "containerName": "scisense-systemd-2957cfc3-51ec-45db-86ed-9da9e21b6b3f",
+      "cleanup": true
+    }
+  },
+  "ci": {
+    "status": "pending",
+    "codeCommit": null
+  },
+  "review": {
+    "writer": "independent Codex passed",
+    "transfer": "independent Codex passed",
+    "systemd": "independent Codex passed; latest resource assertions statically reviewed; x86 CI pending"
+  },
+  "boundaries": {
+    "realKeychainOperations": 0,
+    "liveModelCalls": 0,
+    "budgetSpent": 0,
+    "serverOperations": 0,
+    "productMerged": false,
+    "deploymentLiveFlag": false,
+    "phoneAcceptance": false,
+    "goalCriteria": "G02-G11 pending"
+  }
+}

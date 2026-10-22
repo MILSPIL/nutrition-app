@@ -29,9 +29,9 @@
 
 ## Майбутнє серверне розгортання
 
-Поточний план і незакриті передумови: [NTZG-DEPLOY-02](superpowers/plans/2026-10-22-ntzg-deployment-preparation.md). Шаблон service ще потребує окремого безключового старту; операційний transfer adapter і fence старих writers не завершені. Пакет не встановлювати до їх перевірки.
+Поточний план і незакриті передумови: [NTZG-DEPLOY-02](superpowers/plans/2026-10-22-ntzg-deployment-preparation.md). Три локальні доробки реалізовані: [systemd](SYSTEMD-VALIDATION.md), [операційне перенесення](BUDGET-TRANSFER.md), [захист старих writers](WRITER-TRANSITION.md). Фінальний SHA та CI-докази наведені у файлі local-deployment-fixes-2026-10-22.json в docs/evidence. Серверні передумови й дозвіл на встановлення ще потрібні.
 
-Підготовлено Node API з лімітом 1 CPU / 2 GiB та одним запитом, без GPU і локальних ваг Whisper. Пакет визначають `server/deployment.json`, `deploy/scisense-api.service` та `pilot-proposal.json`. Service читає два systemd encrypted credentials: `groq` і `anthropic`.
+Підготовлено Node API з лімітом 1 CPU / 2 GiB та одним запитом, без GPU і локальних ваг Whisper. Пакет визначають `server/deployment.json`, `deploy/scisense-api.service` та `pilot-proposal.json`. Базовий service працює без ключів; окремий live drop-in підключає два systemd encrypted credentials: `groq` і `anthropic`.
 
 До встановлення потрібно перевірити серверні шляхи, backup, TLS/OLS, G04 rules та UID Юрія, потім отримати дозвіл на конкретний пакет. `prepareTransfer` має отримати актуальний `proposal` для receipt v2. Активація окремо задає `active`, `approvedReleases`, `allowedUids`, `pricingConfirmedAt`, `sttApprovedAt`; усі значення мають відповідати погодженню. Відкат вимикає обробку, зберігаючи ledger/anchor та витрати. Продуктові PR8/16 залишаються чернетками.
 

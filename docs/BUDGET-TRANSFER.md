@@ -12,7 +12,7 @@
 
 Приймач працює від root тільки після окремого дозволу. Він перевіряє вимкнений manifest із точним release SHA, неактивну службу, відсутність activation/drop-in/credentials і порожній або відсутній StateDirectory. Пакет обмежений 8 MiB; SQLite обмежений 4 MiB. Перевіряються proposal, cap, hash, counts та receipt усередині SQLite.
 
-Ключі шифрує `systemd-creds --with-key=host` зі stdin, із прив’язкою до імені credential. На диск потрапляють лише ciphertext. Перед підтвердженням файли стану й ciphertext синхронізуються з диском. Новий стан атомарно замінює лише порожню директорію, створену systemd; наявний ledger не перезаписується. Credentials копіюються з `COPYFILE_EXCL`, зокрема між різними файловими системами. Приймач лишає activation.pending.json, не створює activation.json/live drop-in і не запускає службу.
+Ключі шифрує `systemd-creds --with-key=host` зі stdin з umask 0077, із прив’язкою до імені credential. На диск потрапляють лише ciphertext. Перед підтвердженням файли стану й ciphertext синхронізуються з диском. Новий стан атомарно замінює лише порожню директорію, створену systemd; наявний ledger не перезаписується. Credentials копіюються з `COPYFILE_EXCL`, зокрема між різними файловими системами. Приймач лишає activation.pending.json, не створює activation.json/live drop-in і не запускає службу.
 
 Після звичайної помилки власні staging-файли прибираються. Аварійне завершення процесу може залишити import.lock або staging, що потребує ручної звірки. Повторний імпорт не видаляє та не замінює їх.
 
@@ -46,6 +46,6 @@
 
 ## Перевірки й джерела
 
-`node --test server/*.test.mjs` включає happy path, current paid+free rows, shared/stale lock, marker read-back failure, перерваний upload, hash/receipt mismatch, missing keys, partial encryption/install, lost ack, повтор, symlinks, fsync failure, restart і rollback. Жодного модельного виклику. Реальний системний цикл перевіряється окремим disposable Docker/CI.
+`node --test server/*.test.mjs` включає happy path, current paid+free rows, shared/stale lock, marker read-back failure, перерваний upload, hash/receipt mismatch, missing keys, partial encryption/install, lost ack, повтор, symlinks, fsync failure, restart і rollback. Жодного модельного виклику. Справжній CLI receive із systemd-creds додатково пройшов наскрізний Linux-тест у disposable Docker; [SYSTEMD-VALIDATION](SYSTEMD-VALIDATION.md).
 
 Context7 вичерпав місячну квоту. Використані офіційні [systemd credentials](https://www.freedesktop.org/software/systemd/man/255/systemd.exec.html), [systemd-creds](https://www.freedesktop.org/software/systemd/man/255/systemd-creds.html), [SSH](https://man.openbsd.org/ssh.1) і [Node filesystem](https://nodejs.org/docs/latest-v24.x/api/fs.html).
