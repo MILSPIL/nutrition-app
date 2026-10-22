@@ -39,9 +39,17 @@
   "testBudgetSpend": 0,
   "productAcceptance": "pending",
   "privateInventoryPublished": false,
-  "pendingUserAction": "select No Database in the prepared xCloud form, without final submission",
+  "pendingUserAction": "action-time browser confirmation before Start creates the site and its system user; No Database already verified",
   "temporaryAccess": {
     "revoked": true,
     "accountAbsentVerified": true
+  },
+  "xcloudDraft": {
+    "noDatabaseVerified": true,
+    "deployScriptEmpty": true,
+    "finalReviewReached": true,
+    "startPressed": false,
+    "state": "migration_init/filling",
+    "progressPercentage": 0
   }
 }
