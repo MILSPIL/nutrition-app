@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Scale, Plus, TrendingDown, TrendingUp, Minus, Save, History } from 'lucide-react';
 import { doc, setDoc, collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { writerStamp } from '../../services/writerFence';
 import AnimatedModal from '../AnimatedModal';
 import {
   calculateMeasurementDiff,
@@ -64,6 +65,7 @@ export default function MeasurementsModal({ isOpen, onClose, firebaseUser }) {
       const measurementRef = doc(db, 'users', firebaseUser.uid, 'measurements', today);
 
       const dataToSave = {
+        ...writerStamp(),
         date: today,
         timestamp: new Date().toISOString(),
       };

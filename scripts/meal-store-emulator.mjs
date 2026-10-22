@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
+import {initializeTestEnvironment} from '@firebase/rules-unit-testing';
 import {signInAnonymously,signOut} from 'firebase/auth';
 import {doc,setDoc,getDocFromServer,terminate} from 'firebase/firestore';
+import {writerStamp} from '../src/services/writerFence.js';
 import {auth,db} from '../src/firebase.js';
 import {commitMealDay,loadMealDay,saveProfileSettings,commandHash,readSubmission} from '../src/services/mealStore.js';
 const user=(await signInAnonymously(auth)).user,uid=user.uid,date='2026-10-20';
+const fixtures=await initializeTestEnvironment({projectId:'demo-scisense',firestore:{host:'127.0.0.1',port:8088}});
+const legacySeed=(segments,data)=>fixtures.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),...segments),data));
 const item=id=>({itemId:id,name:'Тестовий кефір',quantity:{value:200,unit:'g'},nutritionBasis:{value:100,unit:'g'},nutrients:{p:2.9,f:2.5,c:4,cal:53},source:{kind:'label'},estimated:false});
 const append=id=>({type:'append',submissionId:id,meal:1,items:[item(id)],updatedAt:new Date().toISOString()});
 try {
- await setDoc(doc(db,'users',uid),{users:{[uid]:{name:'Синтетичний користувач',meals:{1:{},2:{},3:{},4:{}}}}});
+ await setDoc(doc(db,'users',uid),{...writerStamp(),users:{[uid]:{name:'Синтетичний користувач',meals:{1:{},2:{},3:{},4:{}}}}});
  const empty=await loadMealDay(uid,uid,date);assert.deepEqual(empty.meals[1],{});
  const first=append('one');await Promise.all([commitMealDay(uid,uid,date,first),commitMealDay(uid,uid,date,first)]);
  let day=await loadMealDay(uid,uid,date);assert.equal(day.meals[1].voice.length,1);assert.equal(day.totalMacros.cal,106);
@@ -17,11 +21,19 @@ try {
  await saveProfileSettings(uid,uid,{name:'Змінене ім’я',meals:empty.meals});
  const root=(await getDocFromServer(doc(db,'users',uid))).data();assert.equal(root.users[uid].meals[1].voice.length,3);assert.equal(root.users[uid].mealsDateKey,date);
  const marker=await readSubmission(uid,date,'one',await commandHash(first));assert.equal(marker.revision,3);
+ const fenceBefore=(await getDocFromServer(doc(db,'users',uid,'mealHistory',date))).data();
+ await commitMealDay(uid,uid,date,first);
+ assert.deepEqual((await getDocFromServer(doc(db,'users',uid,'mealHistory',date))).data(),fenceBefore);
+ await assert.rejects(()=>commitMealDay(uid,uid,date,{...first,items:[item('changed')]}),/submission_conflict/);
+ await assert.rejects(()=>setDoc(doc(db,'users',uid),{users:{[uid]:{meals:empty.meals}}},{merge:true}),e=>e.code==='permission-denied');
+ await assert.rejects(()=>setDoc(doc(db,'users',uid,'mealHistory',date),{meals:empty.meals}),e=>e.code==='permission-denied');
+ assert.deepEqual((await getDocFromServer(doc(db,'users',uid,'mealHistory',date))).data(),fenceBefore);
+
  assert.deepEqual((await loadMealDay(uid,uid,'2026-10-21')).meals[1],{});
  await commitMealDay(uid,uid,date,{type:'quantity',meal:1,letter:'voice',index:0,value:250,expectedRevision:3,submissionId:'edit',updatedAt:'x'});
  day=await loadMealDay(uid,uid,date);assert.equal(day.totalMacros.cal,345);assert.equal(Object.keys(day.submissionMarkers).length,4);
  const legacy={1:{a:[{name:'Старий',weight:100,p:1,f:1,c:1,calories:17}]},2:{},3:{},4:{}};
- await setDoc(doc(db,'users',uid),{users:{[uid]:{name:'Старий',meals:legacy}}});
+ await legacySeed(['users',uid],{users:{[uid]:{name:'Старий',meals:legacy}}});
  await assert.rejects(()=>commitMealDay(uid,uid,'2026-10-22',append('blocked')),/legacy_date_required/);
  assert.deepEqual((await loadMealDay(uid,uid,'2026-10-22')).legacy,legacy);
  const migration={type:'replace',meals:legacy,confirmLegacy:true,expectedRevision:0,submissionId:'legacy',updatedAt:'x'};
@@ -33,10 +45,15 @@ try {
  assert.deepEqual(Object.keys(nextRoot.users[uid].meals[1]),['b']);
  await saveProfileSettings(uid,uid,{portions:{test:250}});await saveProfileSettings(uid,uid,{name:'Ще одне ім’я'});
  assert.deepEqual((await getDocFromServer(doc(db,'users',uid))).data().users[uid].portions,{test:250});
- await setDoc(doc(db,'users',uid),{users:{[uid]:{name:'Старий',meals:legacy}}});
- await setDoc(doc(db,'users',uid,'mealHistory','2026-10-24'),{meals:legacy,currentWeight:65,programDay:3});
+ await legacySeed(['users',uid],{users:{[uid]:{name:'Старий',meals:legacy}}});
+ await legacySeed(['users',uid,'mealHistory','2026-10-24'],{meals:legacy,currentWeight:65,programDay:3});
  await commitMealDay(uid,uid,'2026-10-24',{...migration,submissionId:'existing-legacy'});
  await commitMealDay(uid,uid,'2026-10-24',{type:'metadata',metadata:{activity:'Ходьба'},submissionId:'activity',updatedAt:'x'});
+ const upgraded=(await getDocFromServer(doc(db,'users',uid,'mealHistory','2026-10-24'))).data();assert.equal(upgraded.writerVersion,2);assert.ok(upgraded.writerNonce);
  const history=await loadMealDay(uid,uid,'2026-10-24');assert.equal(history.totalMacros.cal,17);assert.equal(history.currentWeight,65);assert.equal(history.programDay,3);
- console.log(JSON.stringify({passed:true,checks:17,syntheticOnly:true}));
-} finally {await signOut(auth);await terminate(db);}
+ await Promise.all([saveProfileSettings(uid,uid,{name:'Паралельні налаштування'}),commitMealDay(uid,uid,'2026-10-25',append('parallel'))]);
+ const finalRoot=(await getDocFromServer(doc(db,'users',uid))).data();
+ assert.equal(finalRoot.users[uid].name,'Паралельні налаштування');assert.equal(finalRoot.users[uid].meals[1].voice.length,1);
+ assert.equal(finalRoot.writerVersion,2);assert.match(finalRoot.writerNonce,/^[a-f0-9-]{36}$/);
+ console.log(JSON.stringify({passed:true,checks:26,syntheticOnly:true}));
+} finally {await fixtures.cleanup();await signOut(auth);await terminate(db);}

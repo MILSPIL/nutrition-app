@@ -1,5 +1,6 @@
 import { before, after, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
+import {writerStamp} from '../src/services/writerFence.js';
 import { readFile } from 'node:fs/promises';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, query, where, serverTimestamp, Timestamp, writeBatch, onSnapshot, deleteField, FieldPath } from 'firebase/firestore';
@@ -79,7 +80,7 @@ test('A03 accepted proof plus pointer permits only meal and measurements reads',
 });
 test('A05 owner settings remain writable but unknown protocol fields are closed',async()=>{
  const ref=doc(actor('client'),'users','client');
- await assertSucceeds(updateDoc(ref,{users:{client:{name:'Нове ім’я'}},writerVersion:2}));
+ await assertSucceeds(updateDoc(ref,{users:{client:{name:'Нове ім’я'}},...writerStamp()}));
  await assertFails(updateDoc(ref,{unexpectedProtocol:true}));
 });
 test('A07 legacy pointer can be cleared without reading missing trainer directory',async()=>{
@@ -156,7 +157,7 @@ test('A04 simultaneous accepts and two clients retain a complete roster',async()
   service('trainer').accept(user('trainer'),'client',connectionVersion(p)),
   service('trainer').accept(user('trainer'),'client',connectionVersion(p)),
   service('trainer').accept(user('trainer'),'client2',connectionVersion(p2)),
-  updateDoc(doc(actor('client'),'users','client'),{users:{client:{name:'Збережено паралельно'}}})
+  updateDoc(doc(actor('client'),'users','client'),{users:{client:{name:'Збережено паралельно'}},...writerStamp()})
  ]);
  assert.equal(results.filter(r=>r?.alreadyApplied===true).length,1);
  const roster=(await getDoc(doc(actor('trainer'),'trainers','trainer'))).data().clients;
@@ -175,7 +176,7 @@ test('A04 stale operations after reconnect cannot mutate the new cycle',async()=
  const oldPending=await start();await service('trainer').accept(user('trainer'),'client',connectionVersion(oldPending));
  const oldAccepted=(await state()).request;
  await Promise.all([service('client').disconnect(user('client'),connectionVersion(oldAccepted)),
-  updateDoc(doc(actor('client'),'users','client'),{productOverrides:{saved:true}})]);
+  updateDoc(doc(actor('client'),'users','client'),{productOverrides:{saved:true},...writerStamp()})]);
  const p=await start('client',connectionVersion((await state()).request));
  for(const op of [()=>service('trainer').accept(user('trainer'),'client',connectionVersion(oldPending)),
   ()=>service('trainer').finishPending(user('trainer'),'client',connectionVersion(oldPending),'rejected'),
@@ -232,7 +233,7 @@ test('A06 live meal listener is denied after revocation and receives no later fo
   await service('client').disconnect(user('client'),connectionVersion(a));
   await assertFails(getDoc(doc(actor('trainer'),'users','client','mealHistory','2026-10-21')));
   // The emulator reevaluates the listener on a target update; the UI separately observes the roster.
-  await updateDoc(doc(actor('client'),'users','client','mealHistory','2026-10-21'),{afterRevoke:true});
+  await updateDoc(doc(actor('client'),'users','client','mealHistory','2026-10-21'),{afterRevoke:true,...writerStamp()});
   await next;assert.equal(w.events.at(-1).error,'permission-denied');
   const length=w.events.length;
   await new Promise(r=>setTimeout(r,100));assert.equal(w.events.length,length);

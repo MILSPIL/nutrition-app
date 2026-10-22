@@ -1,5 +1,6 @@
 import { doc, getDocFromServer, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase';
+import { writerStamp } from './writerFence';
 import { applyDayCommand, hasMeals, isDateKey, selectDay, stableJson } from './mealCommands';
 
 export const commandHash = async command => {
@@ -25,7 +26,7 @@ export async function readSubmission(uid,date,submissionId,hash) {
 
 // У callback немає мережі провайдерів, генерації ID або змін React: Firestore може повторити його.
 export async function commitMealDay(uid, profileId, date, command) {
-  const ref=refs(uid,date), hash=await commandHash(command);
+  const ref=refs(uid,date), hash=await commandHash(command), stamp=writerStamp();
   try {
     return await runTransaction(db, async tx => {
       const ownerSnap=await tx.get(ref.owner);
@@ -51,8 +52,8 @@ export async function commitMealDay(uid, profileId, date, command) {
       if (legacy) { projection.legacyMeals=legacy; projection.legacyMealsDateKey=date; }
       if (command.confirmLegacy) projection.legacyMeals=null;
       for (const key of ['activity','otherActivity','currentWeight','programDay']) if (command.metadata?.[key] !== undefined) projection[key]=command.metadata[key];
-      tx.set(ref.day,result.day);
-      tx.set(ref.owner,{ users:{ ...root.users,[profileId]:projection },writerVersion:2,updatedAt:command.updatedAt },{mergeFields:['users','writerVersion','updatedAt']});
+      tx.set(ref.day,{...result.day,...stamp});
+      tx.set(ref.owner,{ users:{ ...root.users,[profileId]:projection },...stamp,updatedAt:command.updatedAt },{mergeFields:['users','writerVersion','writerNonce','updatedAt']});
       return result.day;
     });
   } catch (error) {
@@ -67,12 +68,12 @@ export async function commitMealDay(uid, profileId, date, command) {
 
 // Налаштування ніколи не відправляють застарілий users.*.meals поверх транзакції дня.
 export async function saveProfileSettings(uid, profileId, patch, globalPatch={}) {
-  const ref=doc(db,'users',uid);
+  const ref=doc(db,'users',uid), stamp=writerStamp();
   const safe={};
   for (const key of ['name','startDate','portions','trainerTelegram','customProducts','hiddenProducts']) if(patch?.[key]!==undefined) safe[key]=patch[key];
   return runTransaction(db,async tx=>{
     const snap=await tx.get(ref),root=snap.data();
     if(!root?.users?.[profileId]) throw new Error('profile_missing');
-    tx.set(ref,{...globalPatch,users:{...root.users,[profileId]:{...root.users[profileId],...safe}}},{mergeFields:['users',...Object.keys(globalPatch)]});
+    tx.set(ref,{...globalPatch,users:{...root.users,[profileId]:{...root.users[profileId],...safe}},...stamp},{mergeFields:[...new Set(['users',...Object.keys(globalPatch),'writerVersion','writerNonce'])]});
   });
 }

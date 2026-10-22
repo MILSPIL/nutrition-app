@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { auth, googleProvider, db, IS_LOCAL_LAB, IS_PHONE_LAB } from '../firebase';
 import { signInWithPopup, signInWithCustomToken, signInAnonymously, signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { writerStamp } from '../services/writerFence';
 import {
   PRODUCTS_DB,
   MEAL_LETTERS,
@@ -160,6 +161,7 @@ export default function ClientApp() {
 
     if (isNew) {
       await setDoc(userDocRef, {
+        ...writerStamp(),
         users: newUsers,
         globalCustomProducts: {},
         createdAt: new Date().toISOString()
@@ -167,6 +169,7 @@ export default function ClientApp() {
       setGlobalCustomProducts({});
     } else {
       await setDoc(userDocRef, {
+        ...writerStamp(),
         users: newUsers,
         globalCustomProducts: {},
         updatedAt: new Date().toISOString()

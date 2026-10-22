@@ -83,8 +83,16 @@ service cloud.firestore {
         && d.clientEmail == email() && d.createdAt == request.time
         && exists(userPath(uid)) && get(userPath(uid)).data.get('trainerId', null) == null;
     }
-    function regularFields() { return ['users','globalCustomProducts','productOverrides','createdAt','updatedAt','writerVersion']; }
-    function writerValid(d) { return d.get('writerVersion', 2) == 2; }
+    function regularFields() { return ['users','globalCustomProducts','productOverrides','createdAt','updatedAt','writerVersion','writerNonce']; }
+    function writerValid(d) {
+      return d.get('writerVersion', 0) is int && d.get('writerVersion', 0) == 2
+        && d.get('writerNonce', '') is string
+        && d.get('writerNonce', '').matches('^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$');
+    }
+    function writerChanged() {
+      return writerValid(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasAny(['writerNonce']);
+    }
     function linkChangeOnly() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['trainerId','trainerEmail']);
     }
@@ -110,15 +118,17 @@ service cloud.firestore {
         && request.resource.data.get('trainerId', null) == null
         && request.resource.data.get('trainerEmail', null) == null && writerValid(request.resource.data);
       allow update: if (owner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(regularFields())
-        && writerValid(request.resource.data)) || legacyClear(uid) || linkAccept(uid) || linkDisconnect(uid);
+        && writerChanged()) || legacyClear(uid) || linkAccept(uid) || linkDisconnect(uid);
       allow delete: if false;
       match /mealHistory/{day} {
         allow read: if owner(uid) || assigned(uid);
-        allow create, update: if owner(uid);
+        allow create: if owner(uid) && writerValid(request.resource.data);
+        allow update: if owner(uid) && writerChanged();
       }
       match /measurements/{measurement} {
         allow read: if owner(uid) || assigned(uid);
-        allow create, update: if owner(uid);
+        allow create: if owner(uid) && writerValid(request.resource.data);
+        allow update: if owner(uid) && writerChanged();
       }
     }
     match /trainers/{uid} {
