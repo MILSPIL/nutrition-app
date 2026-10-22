@@ -3,7 +3,7 @@ ARG UBUNTU_IMAGE=ubuntu:24.04@sha256:a2d43bffc46670d7108bb3c0468c67c5557c4c92e83
 FROM ${UBUNTU_IMAGE}
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends systemd systemd-sysv dbus ca-certificates curl xz-utils && rm -rf /var/lib/apt/lists/*
 ARG TARGETARCH
-RUN case "$TARGETARCH" in amd64) node_arch=x64; node_sha=60e3b0a8500819514aca603487c254298cd776de0698d3cd08f11dba5b8289a8 ;; arm64) node_arch=arm64; node_sha=6b0863fb9f627bf4a6c5948dce1de4398174a2e05dbe717503d828e211ca01f0 ;; *) exit 1 ;; esac && mkdir -p /opt/scisense/node && curl -fL "https://nodejs.org/dist/v24.11.1/node-v24.11.1-linux-${node_arch}.tar.xz" -o /tmp/node.tar.xz && echo "$node_sha  /tmp/node.tar.xz" | sha256sum -c - && tar -xJf /tmp/node.tar.xz -C /opt/scisense/node --strip-components=1 && rm /tmp/node.tar.xz
+RUN case "$TARGETARCH" in amd64) node_arch=x64; node_sha=6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6 ;; arm64) node_arch=arm64; node_sha=dbabf7a1cbf947e6059ffad2c27b80041db97dea1e553b62afdee7f13fca336e ;; *) exit 1 ;; esac && mkdir -p /opt/scisense/node && curl -fL "https://nodejs.org/dist/v24.22.1/node-v24.22.1-linux-${node_arch}.tar.xz" -o /tmp/node.tar.xz && echo "$node_sha  /tmp/node.tar.xz" | sha256sum -c - && tar -xJf /tmp/node.tar.xz -C /opt/scisense/node --strip-components=1 && rm /tmp/node.tar.xz
 ENV PATH=/opt/scisense/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ENV container=docker
 WORKDIR /opt/scisense/current

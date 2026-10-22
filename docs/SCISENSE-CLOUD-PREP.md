@@ -38,7 +38,7 @@ CLOUD-PREP-01 ще не завершено: Linux Whisper на погоджен�
 
 | Частина | Потрібно у хмарі | Як перевіряти |
 | --- | --- | --- |
-| Застосунок і серверні тести | Node 24.11.1, npm 11, обидва npm ci | test:voice-photo, test:phone-lab, build; нові тести adapter/budget після реалізації |
+| Застосунок і серверні тести | Node 24.22.1, npm 11, обидва npm ci | test:voice-photo, test:phone-lab, build; нові тести adapter/budget після реалізації |
 | G04 і сховище | Java 21, firebase-tools 15.2.1, Auth/Firestore emulators, demo-scisense | Лише синтетичні користувачі; жодної Firebase production-авторизації |
 | Whisper | C/C++ compiler, CMake, Git; source d1be6fde11ac6e0407606b4e42fe72d34add8037; large-v3-turbo-q5_0 із SHA1 e050f7970618a659205450ad97eb95a18d69c9ee | Збірка для Linux CPU, 1 потік, 5/30/90 s; заміри RAM/часу, timeout/cleanup. Бінарник Mac не переноситься |
 | Голос/фото UI | Зафіксовані Playwright/Chromium і переносимий ізольований runner у GitHub Actions | Наявні test:voice-photo-ui/test:phone-lab-ui містять абсолютний Mac launcher; адаптація входить до пакета. Вбудоване керування браузером Codex Cloud не обіцяється |

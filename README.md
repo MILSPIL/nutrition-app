@@ -7,7 +7,7 @@ SciSense is a nutrition tracker for clients and coaches. It helps log meals, tra
 - React 18
 - React Router 7
 - Firebase Auth, Firestore, Hosting
-- Tailwind via CDN in `public/index.html`
+- Tailwind v3 compiled locally from `src/tailwind.css` and `tailwind.config.js`
 - Jest via `react-scripts`
 
 ## Scripts
@@ -22,7 +22,7 @@ npm run test:ci
 
 ## Runtime
 
-- Node.js `24.11.1` via `.nvmrc`
+- Node.js `24.22.1` via `.nvmrc`
 - npm `11.x`
 - CI uses the same Node version to avoid lockfile drift between local work and GitHub Actions
 

@@ -17,7 +17,7 @@
 
 ## Перевірка тільки голосу після дозволу на особистий тест
 
-Наведені команди зараз не виконувалися. Потрібні Node 24.11.1, Firebase demo emulator, TLS-довіра телефона та приватна IPv4-адреса Mac. `prepare` створює локальний TLS-ключ у Keychain, а не модельні ключі.
+Наведені команди зараз не виконувалися. Потрібні Node 24.22.1, Firebase demo emulator, TLS-довіра телефона та приватна IPv4-адреса Mac. `prepare` створює локальний TLS-ключ у Keychain, а не модельні ключі.
 
 1. Зафіксувати отримані підтвердження в `sttApproval.approvedAt/freeTierConfirmedAt/zeroDataRetentionConfirmedAt` у `workers/meal-parser/pilot-proposal.json`. Порожні або майбутні значення відхиляються. Sonnet-погодження лишається порожнім.
 2. Підготувати збірку: `npm run lab:phone:prepare -- <приватна-IPv4-Mac> --stt-only`.

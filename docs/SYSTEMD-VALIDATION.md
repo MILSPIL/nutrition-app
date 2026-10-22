@@ -25,7 +25,7 @@ CLI-приймач перед `systemd-creds encrypt` установлює umask
 
 Перед першим зверненням до Docker daemon launcher перевіряє локальний unix endpoint і прив’язує до нього всі команди. Віддалені TCP/SSH contexts відхиляються. Контейнер має `--network=none`, без host binds і published ports; ці параметри перечитуються через inspect. Privileged потрібен лише всередині локальної Docker VM або одноразової CI VM для PID 1/systemd, cgroups і mount namespaces. На Mac sudo не використовується.
 
-Boot-скрипт спочатку від’єднує propagation від батьківського namespace через rprivate, потім установлює rshared усередині контейнера для systemd credential helpers. Він не змінює mount namespace Mac. Образ Ubuntu24.04 і Node24.11.1 закріплені SHA256, архітектура відповідає Docker host: ARM локально, x86_64 у CI.
+Boot-скрипт спочатку від’єднує propagation від батьківського namespace через rprivate, потім установлює rshared усередині контейнера для systemd credential helpers. Він не змінює mount namespace Mac. Образ Ubuntu24.04 і Node24.22.1 закріплені SHA256, архітектура відповідає Docker host: ARM локально, x86_64 у CI.
 
 До запуску записуються новий UUID контейнера та незавершений `tmp/systemd-check/evidence.json`, щоб попередній успіх не маскував збій. SIGINT/SIGTERM прибирають тільки власний контейнер. Якщо rm/перевірка зникнення не вдалася, результат має cleanup=false і зберігає UUID для ручного прибирання. SIGKILL не перехоплюється: незавершений файл лишається доказом непідтвердженого прибирання. Підставні тести перевіряють ці відмови без daemon.
 
