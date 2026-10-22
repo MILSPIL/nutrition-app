@@ -16,11 +16,12 @@ export async function prepareTransfer(options){
  const unlock=acquirePilotLock(options.lockFile);
  try{return await prepareLocked(options);}finally{unlock();}
 }
-async function prepareLocked({sourceFile,proposalId,proposal,destination,markerStore}){
+async function prepareLocked({sourceFile,proposalId,proposal,destination,markerStore,requireExisting=false}){
  if(proposal){validateProposal(proposal);if(proposal.proposalId!==proposalId)throw Error('transfer_config');}
  if(!proposalId||!path.isAbsolute(sourceFile)||!path.isAbsolute(destination))throw Error('transfer_config');
  const previous=await markerStore.read(),expected=JSON.stringify({proposal:proposalId,cap:PILOT_CAP,file:sourceFile});
  const fresh=!previous&&!existsSync(sourceFile);
+ if(requireExisting&&fresh)throw Error('transfer_source_missing');
  if(!fresh)assertLocalMarker(expected,previous);
  const state=fresh?{consumedMicros:0,reservedCalls:0}:inspectLedger(sourceFile);
  const receipt={version:proposal?2:1,...(proposal?{proposalRevision:proposal.proposalRevision,configHash:proposal.configHash}:{}),proposalId,capMicros:PILOT_CAP,target:'https://ntzg.pp.ua',receiptId:randomUUID(),...state};
