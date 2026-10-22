@@ -60,8 +60,13 @@
   },
   "review": {
     "reviewer": "independent Codex",
-    "P01_P06": "PASS for plan only",
-    "P07": "pending final recording"
+    "P01_P07": "PASS for document plan only",
+    "verifiedCommit": "0b64784ed14bc16a9aa859cb8b5da266fa321db0",
+    "remoteMatched": true,
+    "cleanTree": true,
+    "journalCheck": "ok=true; committed/pushed; not in main",
+    "installablePackageAccepted": false,
+    "phoneAcceptance": false
   },
   "privacy": "Infrastructure inventory and diagnostic script remain in ignored local runtime."
 }
