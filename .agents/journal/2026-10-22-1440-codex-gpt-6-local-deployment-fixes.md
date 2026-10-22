@@ -23,8 +23,20 @@ CLI export/send/receive/status реалізований без виконанн�
 
 Базовий unit не читає credentials до встановлення окремого live drop-in; весь sandbox збережений. Справжній systemd255 створює root-owned 0440 ACL credentials, тому runtime виправлений для цієї read-only моделі, з фіксованою канонічною директорією. Справжній systemd-creds вимагав umask0077 у CLI для приватного ciphertext. Вісім наскрізних Linux ARM64 сценаріїв PASS, paid123456/free0 та 2 рядки збережені після restart разом із receipt/anchor. Інференсу0, networknone, 1CPU/2GiB, cleanuptrue.
 
-Рев’ю виявило ризик застарілого evidence при cleanup failure та успадкованого remote Docker context. Launcher тепер прив’язаний до локального unix endpoint, записує ownership до запуску, обробляє SIGINT/SIGTERM та не позначає непідтверджене прибирання успішним. Три негативні runner-тести й усі 47 серверних тестів PASS. Незалежний Codex завершив рев’ю всього systemd/runtime/runner/CLI блоку з PASS; останні resource assertions перевірені статично, x86 CI наступний.
+Рев’ю виявило ризик застарілого evidence при cleanup failure та успадкованого remote Docker context. Launcher тепер прив’язаний до локального unix endpoint, записує ownership до запуску, обробляє SIGINT/SIGTERM та не позначає непідтверджене прибирання успішним. Три негативні runner-тести й усі 47 серверних тестів PASS. Незалежний Codex завершив рев’ю всього systemd/runtime/runner/CLI блоку з PASS; resource assertions підтверджені також справжнім x86 CI.
 
-## Продовження
+## Фінальна перевірка та виправлення браузерного тесту
 
-Локальні три доробки виконані. Наступний крок: синтетичний Linux-доказ, негативні transfer-тести, незалежне рев’ю, коміти/push і CI кінцевого SHA. Поточна сесія не читала Keychain, не викликала моделі, не витрачала $5 і не зверталася до сервера. Новий журнал поки лише в продуктовій гілці.
+Продуктовий код `02bf771807b6e563fd6ee3e3df6575ee3dcc9af1` пройшов CI39775149334, attempt2: усі три jobs, чотири браузерні сценарії та build. Справжній systemd на x86_64 пройшов ті самі 8/8 сценаріїв з 1CPU/2GiB, без мережі/host binds/портів і з cleanup=true. Перша спроба image build завершилась за таймаутом під час повільного завантаження пакетів Ubuntu до початку тесту. Повторено тільки невдалий job, без зміни коду, ресурсів або таймаутів.
+
+Паралельний CI39775157297 пройшов systemd і resource-check, але STT-only network guard зафіксував origin https://www.google.com. Старий evidence не містив path, тому точну причину цього запиту не встановлено. У прочитаному встановленому Firebase WebChannel SDK знайдений діагностичний cleardot.gif із одним непорожнім zx. Тест продовжує route.abort для цієї точної форми GET/image, рахує її окремо, а всі інші сторонні запити блокуються та провалюють перевірку з origin/path/method/type без query або headers. Позитивний синтетичний контроль підтвердив блокування, а не причину першої CI-відмови. Незалежний Codex виявив занадто широкий query predicate; виправлено на один непорожній zx, фінальний вердикт PASS. Повторний локальний STT-only: 26/26, paidCalls=0, reservedMicros=0, unexpectedNetwork=[], cleanup підтверджений. Продуктовий код цією QA-правкою не змінювався.
+
+Команди відтворення: `npm run test:server`, `npm run test:rules`, `npm run test:voice-photo`, `node server/linux/run-systemd.mjs`; локальний браузер: `/Users/user/.local/bin/agent-test-browser run scisense-phone-lab -- --stt-only`. Context7 у цій сесії повернув вичерпану місячну квоту; використано офіційну документацію systemd/Docker та встановлений код Firebase SDK. Приватний серверний інвентар не потрапив у Git.
+
+## Статус і наступний крок
+
+Локальні три доробки виконані та перевірені. PROJECT-INFO.md, публічний JSON доказів і документація оновлені; Code Indexer відображає поточну межу дозволу. Goal objective_e45aa8ac1aa3 лишається active, G01 passed, G02–G11 pending; картка card_a0a505e98d94 відкрита до реального приймання. Критерії та revision3 не змінені.
+
+codeindexer 2026-10-22: solutions 0, картки 1, профілі 4, автономна межа Goal оновлена; критерії незмінені. Експорт nutrition-app і nutrition-app-scale синхронізовано з Git.
+
+Наступний крок: конкретні серверні передумови та погодження встановлення; потім реальний телефон і пілот. Ця сесія не читала Keychain, не викликала моделі, не витрачала $5 і не зверталася до сервера. PR8/16 лишаються чернетками без merge. Новий журнал 1440 поки лише в codex/scisense-server-prep; перенесення в main після окремого дозволу. Погоджений журнал 1308 уже перенесений, повторного дозволу на нього не потрібно.

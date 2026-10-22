@@ -25,6 +25,7 @@ const evidence = {
   checks: [],
   errors: [],
   unexpectedNetwork: [],
+  blockedSdkConnectivityProbes: 0,
   failedRoutes: [],
   providerCalls: { transcribe: 0, analyze: 0 },
   apiRequests: { transcribe: 0, analyze: 0 },
@@ -193,10 +194,29 @@ try {
     }
     if (["cdn.tailwindcss.com", "fonts.googleapis.com", "fonts.gstatic.com"].includes(url.hostname))
       return route.continue();
-    evidence.unexpectedNetwork.push(url.origin);
+    // The pinned Firebase WebChannel wrapper probes cleardot.gif after a channel error.
+    // Keep blocking that exact metadata-free image; never permit Google as an origin.
+    if (url.origin === "https://www.google.com" && url.pathname === "/images/cleardot.gif" &&
+        !url.username && !url.password && url.searchParams.size === 1 &&
+        Boolean(url.searchParams.get("zx")) &&
+        request.method() === "GET" && request.resourceType() === "image") {
+      evidence.blockedSdkConnectivityProbes++;
+      return route.abort();
+    }
+    evidence.unexpectedNetwork.push({ origin: url.origin, path: url.pathname,
+      method: request.method(), type: request.resourceType() });
     return route.abort();
   });
   await page.goto(gateway.origin + "/lab/setup");
+  // Positive control: interception must fail the image locally, without a network response.
+  const probeBlocked = await page.evaluate(() => new Promise((resolve) => {
+    const probe = new Image();
+    probe.onload = () => resolve(false);
+    probe.onerror = () => resolve(true);
+    probe.src = "https://www.google.com/images/cleardot.gif?zx=synthetic-qa-control";
+  }));
+  check("Контрольний діагностичний запит SDK заблоковано локально",
+    probeBlocked && evidence.blockedSdkConnectivityProbes === 1);
   const code = await page.locator("code").innerText();
   await page.goto(gateway.origin);
   evidence.pairingEdges = await page.getByLabel("Код сполучення").evaluate((el) => {

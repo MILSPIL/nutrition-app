@@ -14,8 +14,8 @@
   },
   "implementationCommits": {
     "writer": "d08e43399a28a4752a38caadc25b8f3ad085a01c",
-    "transfer": "35f0976",
-    "systemd": null
+    "transfer": "35f09767d13f01a46a577fdfb9cdd57b8c455ffa",
+    "systemd": "02bf771807b6e563fd6ee3e3df6575ee3dcc9af1"
   },
   "localTests": {
     "rules": 38,
@@ -56,16 +56,87 @@
       },
       "containerName": "scisense-systemd-2957cfc3-51ec-45db-86ed-9da9e21b6b3f",
       "cleanup": true
+    },
+    "phoneLabSttOnly": {
+      "checks": 26,
+      "passed": true,
+      "fixtureOnly": true,
+      "paidCalls": 0,
+      "reservedMicros": 0,
+      "blockedSdkConnectivityProbes": 1,
+      "unexpectedNetwork": [],
+      "cleanup": {
+        "context": true,
+        "browser": true,
+        "gateway": true,
+        "budget": true,
+        "ok": true
+      },
+      "browserRunnerCleanup": {
+        "session": "71a39bd6c84046d7-6rb0x3ps",
+        "cleanup_ok": true,
+        "removed": true
+      },
+      "scriptSha256": "11936967af70603e3725c41769b957ce5e1e59e1ad9fe21f83c648fb92b2861d"
     }
   },
   "ci": {
-    "status": "pending",
-    "codeCommit": null
+    "status": "success",
+    "codeCommit": "02bf771807b6e563fd6ee3e3df6575ee3dcc9af1",
+    "run": 39775149334,
+    "url": "https://github.com/MILSPIL/nutrition-app/actions/runs/39775149334",
+    "attempt": 2,
+    "jobs": [
+      "test-and-build",
+      "groq-free-resource-check",
+      "systemd-credential-check"
+    ],
+    "systemdX86": {
+      "syntheticOnly": true,
+      "modelCalls": 0,
+      "passed": 8,
+      "steps": [
+        "disabled unit starts without credentials; inference denied",
+        "receiver CLI encrypts synthetic keys; paid/free rows retained without activation",
+        "reimport refused; staged credentials do not activate the base unit",
+        "live without credential drop-in refused",
+        "live drop-in with one credential refused by systemd",
+        "corrupt encrypted credential refused by systemd",
+        "two encrypted synthetic credentials start live runtime",
+        "service restart preserves paid/free rows, budget total, receipt and anchor"
+      ],
+      "retained": {
+        "consumedMicros": 123456,
+        "reservedCalls": 2
+      },
+      "systemd": "systemd 255 (255.4-1ubuntu8.18)",
+      "isolation": {
+        "architecture": "x86_64",
+        "platform": "linux/amd64",
+        "dockerTransport": "local-unix",
+        "noHostBinds": true,
+        "noPublishedPorts": true,
+        "network": "none",
+        "cpu": 1,
+        "memoryBytes": 2147483648
+      },
+      "containerName": "scisense-systemd-06409e9e-5630-467c-832c-0c0a9da325b6",
+      "cleanup": true
+    },
+    "firstAttempt": "Systemd image build timed out during Ubuntu package download before the test started. Only the failed job was rerun; code, resources and timeouts were unchanged.",
+    "siblingRun": {
+      "run": 39775157297,
+      "systemd": "passed 8/8",
+      "resourceCheck": "passed",
+      "browserFailure": "The STT-only network guard recorded https://www.google.com. The old evidence omitted the request path, so the exact cause cannot be established."
+    },
+    "qaFollowup": "The installed Firebase WebChannel source contains a cleardot.gif connectivity probe with exactly one nonempty zx. The test now records and aborts only that exact GET/image shape; all other unexpected requests fail and record origin/path/method/type without query or headers. Local 26-check evidence verifies a synthetic control, not the cause of the earlier CI failure. Application and server code are unchanged after codeCommit."
   },
   "review": {
     "writer": "independent Codex passed",
     "transfer": "independent Codex passed",
-    "systemd": "independent Codex passed; latest resource assertions statically reviewed; x86 CI pending"
+    "systemd": "independent Codex passed; actual ARM64 and x86 CI scenarios passed",
+    "qaFollowup": "independent Codex passed after narrowing the query to exactly one nonempty zx"
   },
   "boundaries": {
     "realKeychainOperations": 0,
