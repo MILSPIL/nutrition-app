@@ -3,8 +3,8 @@ project: nutrition-app
 domain: deploy
 slot: target
 confidence: 1
-valid_at: "2026-10-22T12:03:51.994176+00:00"
-provenance: Прямий дозвіл 2026-10-22; writer d08e433, transfer35f0976, systemd02bf771; лише локальна підготовка.
+valid_at: "2026-10-22T18:56:26.910933+00:00"
+provenance: NTZG-DEPLOY-03, local package/evidence і незалежний Codex D01–D08, 2026-10-22; production не використовувався.
 ---
 
-2026-10-22: SciSense готується до https://ntzg.pp.ua. Groq Free whisper-large-v3 + прямий Anthropic Sonnet 5.5; API 1 CPU / 2 GiB, той самий ledger і ліміт $5, LIVE=false. Три погоджені локальні доробки реалізовані в codex/scisense-server-prep: writerNonce/version fence, операційний transfer CLI та безключовий systemd з окремим live drop-in. Докази: rules38, storage26, server47, actual Linux ARM64 8/8 з незмінними paid/free rows, receipt/anchor після restart; незалежний Codex PASS. CI конкретного коду та актуальний стан: docs/evidence/local-deployment-fixes-2026-10-22.json і PROJECT-INFO.md. PR22 переніс журнал1308 в main8e57aea; продукт PR8/16 не злитий. Встановлення, серверні передумови, особистий голос/фото й телефон не перевірені цим етапом. Приватний інвентар лише в ігнорованому runtime, не експортувати. G02–G11 pending.
+2026-10-22: пакет NTZG-DEPLOY-03 на погодження для https://ntzg.pp.ua. Groq Free whisper-large-v3 + прямий Anthropic claude-sonnet-5-5; 1CPU/2GiB,6операцій/хв30/UTC-добу, один ledger$5, LIVEfalse. Локальна базаf9d9447: архів163файли, SHA256ba745ca25c52d6e41aadefca84ec0a41c3eeb49891e9cf3db69bcf2509a5e7ab; API8/8 безexternalfetch, runtimeaudit0. Знайдено Node security update21.10: pinned24.11.1 не встановлювати; кандидат24.22.1 наMac пройшов8API+47server, але потрібні pins/fullLinuxCI/новийSHA. Приватний runbook/manifest у ignoredruntime, серверні поляnull. Журнал1440 у mainPR23f31f061, PR8/16незлиті. План docs/superpowers/plans/2026-10-22-ntzg-deployment-approval.md, докази docs/evidence/ntzg-deployment-package-2026-10-22.json. G02–G11 pending, телефон/пілот не прийняті. Незалежний Codex підтвердив D01–D08; два порядки дій виправлено (maintenance до fence; receiver inactive/check до export). Кореневий npm audit має 99 advisories, класифікація досяжності потрібна до встановлення.
