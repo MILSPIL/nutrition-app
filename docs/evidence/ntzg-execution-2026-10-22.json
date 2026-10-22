@@ -30,26 +30,36 @@
     "encryptedConfigBackupsRestored": true,
     "firebaseProjectAccess": "verified",
     "individualDocumentsRead": 0,
-    "configurationPersistence": "managed Blank Site route under verification"
+    "configurationPersistence": "per-site OLS regeneration disabled; saved and refreshed UI verified",
+    "postProvisionEncryptedConfigRestoreFiles": 11
   },
-  "stageB": "draft_site_form_only_not_provisioned",
+  "stageB": "managed_site_provisioned_application_install_pending",
   "stageC": "not_authorized",
   "modelKeysRead": 0,
   "modelCalls": 0,
   "testBudgetSpend": 0,
   "productAcceptance": "pending",
   "privateInventoryPublished": false,
-  "pendingUserAction": "action-time browser confirmation before Start creates the site and its system user; No Database already verified",
+  "pendingUserAction": null,
   "temporaryAccess": {
-    "revoked": true,
-    "accountAbsentVerified": true
+    "stageARevokedAndAbsentVerified": true,
+    "stageBActive": true,
+    "revokeBeforeCompletionRequired": true
   },
   "xcloudDraft": {
     "noDatabaseVerified": true,
     "deployScriptEmpty": true,
     "finalReviewReached": true,
-    "startPressed": false,
-    "state": "migration_init/filling",
-    "progressPercentage": 0
-  }
+    "startPressed": true,
+    "state": "provisioned",
+    "progressPercentage": 100,
+    "terminal": true,
+    "failedSteps": 0
+  },
+  "neighborHttpAfterProvision": [
+    200,
+    200,
+    200
+  ],
+  "cloudflareTransport": "MCP OAuth invalid_client; existing UI and scoped token available; no settings written"
 }
