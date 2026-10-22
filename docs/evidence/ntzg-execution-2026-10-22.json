@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-22",
+  "plan": "NTZG-DEPLOY-03",
+  "goal": "objective_e45aa8ac1aa3",
+  "sourceCommit": "bad8217421d0eff859b920885d849e3e121cbf72",
+  "stage0": "passed",
+  "ci": [
+    {
+      "id": 39844327152,
+      "jobsPassed": 3
+    },
+    {
+      "id": 39844316893,
+      "jobsPassed": 3
+    }
+  ],
+  "package": {
+    "files": 162,
+    "bytes": 11360811,
+    "sha256": "3626acf4fe6556318ef061a7ca96297f788d724d03d7b0351cdbaa20287559b9",
+    "apiChecksPassed": 8,
+    "externalFetches": 0,
+    "independentContentReview": "passed",
+    "extractPermissionCheckRequired": true,
+    "installAllowed": false
+  },
+  "stageA": {
+    "status": "in_progress",
+    "adminPreflight": "passed",
+    "encryptedConfigBackupsRestored": true,
+    "firebaseProjectAccess": "verified",
+    "individualDocumentsRead": 0,
+    "configurationPersistence": "under_verification"
+  },
+  "stageB": "not_started",
+  "stageC": "not_authorized",
+  "modelKeysRead": 0,
+  "modelCalls": 0,
+  "testBudgetSpend": 0,
+  "productAcceptance": "pending",
+  "privateInventoryPublished": false
+}
