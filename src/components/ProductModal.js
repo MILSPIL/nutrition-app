@@ -5,6 +5,7 @@ import { itemMacros } from '../services/mealItems';
 import { getCategoryProgress } from '../services/nutrition';
 import AnimatedModal from './AnimatedModal';
 import EditProductModal from './EditProductModal';
+import CategoryIcon from './CategoryIcon';
 
 export default function ProductModal({
   isOpen,
@@ -60,10 +61,9 @@ export default function ProductModal({
             </button>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-[#F2F2F7] border border-[#E9E9EE] flex items-center justify-center overflow-hidden">
-                <img
+                <CategoryIcon
                   src={CATEGORY_ICONS[currentLetter]}
                   alt={PRODUCTS_DB[currentLetter].name}
-                  className="w-full h-full object-cover"
                 />
               </div>
               <span className="font-semibold text-[17px]">{currentLetter}</span>

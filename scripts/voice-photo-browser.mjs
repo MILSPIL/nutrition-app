@@ -337,9 +337,12 @@ try {
     (await page.getByText("106", { exact: true }).count()) === 1,
   );
   await page
-    .getByRole("button", { name: "Надіслати звіт", exact: true })
+    .getByRole("button", { name: "Переглянути звіт", exact: true })
     .click();
-  await page.getByRole("heading", { name: "Звіт для тренера" }).waitFor();
+  await page.getByRole("heading", { name: "Звіт про харчування" }).waitFor();
+  check("Звіт не пропонує Telegram або зовнішню передачу",
+    await page.getByRole("button", { name: "Telegram", exact: true }).count() === 0 &&
+    await page.getByText("Telegram тренера", { exact: true }).count() === 0);
   const report = await page.locator("pre").textContent();
   check(
     "Звіт зберіг одиницю й точні калорії",

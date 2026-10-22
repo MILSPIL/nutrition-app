@@ -88,6 +88,45 @@ async function measureLanguage(viewport) {
   await page.screenshot({ path: path.join(out, `recording-${viewport.width}.png`) });
 }
 
+
+async function measureModal(kind, heading, width) {
+  await page.setViewportSize({ width, height: width === 1366 ? 900 : 844 });
+  await page.evaluate(() => new Promise((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const geometry = await heading.evaluate((element) => {
+    const panel = element.closest(".bg-white");
+    const [header, content, footer] = panel.children;
+    const rect = (node) => {
+      const { left, right, top, bottom } = node.getBoundingClientRect();
+      return { left, right, top, bottom };
+    };
+    const h = rect(header), c = rect(content), f = rect(footer);
+    const headerInner = rect(header.firstElementChild), close = rect(header.lastElementChild);
+    const inner = rect(content.firstElementChild), button = rect(footer.querySelector("button"));
+    return {
+      width: innerWidth, header: h, content: c, footer: f, inner, button,
+      zeroDeltas: {
+        headerLeft: h.left - c.left, headerRight: h.right - c.right,
+        footerLeft: f.left - c.left, footerRight: f.right - c.right,
+        innerToButtonLeft: inner.left - button.left, innerToButtonRight: inner.right - button.right,
+        headerToContent: c.top - h.bottom, contentToFooter: f.top - c.bottom,
+        overflow: document.documentElement.scrollWidth - innerWidth,
+      },
+      insets: {
+        headerLeft: headerInner.left - h.left, headerRight: h.right - close.right,
+        contentLeft: inner.left - c.left, contentRight: c.right - inner.right,
+        footerLeft: button.left - f.left, footerRight: f.right - button.right,
+      },
+    };
+  });
+  evidence.geometry.push({ kind, ...geometry });
+  check(`${kind} ${width}: межі header/content/footer 0 px`,
+    Object.values(geometry.zeroDeltas).every(value => value === 0));
+  check(`${kind} ${width}: спільні внутрішні відступи 16 px`,
+    Object.values(geometry.insets).every(value => value === 16));
+  await page.screenshot({ path: path.join(out, `${kind}-${width}.png`), animations: "disabled" });
+}
+
 try {
   tls = await generateTls("127.0.0.1");
   const budgetFile = path.join(out, "budget.sqlite");
@@ -228,13 +267,36 @@ try {
   await page.getByLabel("Код сполучення").fill(code);
   await page.getByRole("button", { name: "Підключити телефон" }).click();
   await page.getByRole("button", { name: "Увійти в тестовий простір" }).click();
+  await page.getByText("Що нового у v1.7.0", { exact: true }).waitFor();
+  check("Новини показують людську версію та поточний домен",
+    await page.getByText("Версія 1.7.0", { exact: true }).count() === 1 &&
+    await page.getByText("Адреса застосунку: ntzg.pp.ua", { exact: true }).count() === 1);
+  await measureModal("welcome", page.getByText("Що нового у v1.7.0", { exact: true }), 390);
   await page.getByRole("button", { name: "Почати!", exact: true }).click();
   await page.getByRole("button", { name: "Почати!", exact: true }).waitFor({ state: "hidden" });
+  check("Закриття новин зберігає людську версію",
+    await page.evaluate(() => localStorage.getItem("app_version_seen")) === "1.7.0");
   await page.locator(".fixed.z-50")
     .filter({ has: page.getByRole("heading", { name: "Налаштування", exact: true }) })
     .locator("button:has(svg.lucide-x)").first().click();
   await page.waitForFunction(() => document.querySelectorAll(".fixed.z-50").length === 0);
   check("SDK увійшов через HTTPS Auth emulator", true);
+  const categoryIconPaths = [...new Set((await readFile(path.join(root, "src/data/products.js"), "utf8"))
+    .match(/"\/icons\/category-[a-z]+\.png"/g).map(value => JSON.parse(value)))];
+  evidence.categoryIcons = await page.evaluate(async (paths) => Promise.all(paths.map(async (url) => {
+    const response = await fetch(url, { cache: "no-store" });
+    const type = response.headers.get("content-type") || "";
+    const blobUrl = URL.createObjectURL(await response.blob());
+    try {
+      const image = new Image();
+      image.src = blobUrl;
+      await image.decode();
+      return { path: url, status: response.status, type, width: image.naturalWidth, height: image.naturalHeight };
+    } finally { URL.revokeObjectURL(blobUrl); }
+  })), categoryIconPaths);
+  check("Усі 8 іконок мають image content-type та декодуються",
+    evidence.categoryIcons.length === 8 && evidence.categoryIcons.every(icon =>
+      icon.status === 200 && icon.type.startsWith("image/") && icon.width > 0 && icon.height > 0));
   await page.getByRole("button", { name: "Додати їжу голосом", exact: true }).click();
   await page.getByRole("button", { name: "Зупинити запис", exact: true }).waitFor();
   check("Початкова мова автоматична",
@@ -288,6 +350,58 @@ try {
     await page.screenshot({ path: path.join(out, "saved.png") });
   }
 
+  check("Після reload закриті новини не повторюються",
+    await page.getByText("Що нового у v1.7.0", { exact: true }).count() === 0);
+  if (!sttOnly) {
+    evidence.upgrade = [];
+    for (const previousVersion of ["1.6.0", "bad8217421d0eff859b920885d849e3e121cbf72"]) {
+      await page.evaluate(version => localStorage.setItem("app_version_seen", version), previousVersion);
+      const upgraded = await context.newPage();
+      upgraded.on("pageerror", error => evidence.errors.push(error.message));
+      try {
+        await upgraded.goto(gateway.origin);
+        await upgraded.getByText("Що нового у v1.7.0", { exact: true }).waitFor();
+        check(`Оновлення з ${previousVersion}: показана версія 1.7.0`,
+          await upgraded.getByText("Версія 1.7.0", { exact: true }).count() === 1 &&
+          await upgraded.getByText(`Версія ${previousVersion}`, { exact: true }).count() === 0);
+        await upgraded.getByRole("button", { name: "Почати!", exact: true }).click();
+        await upgraded.getByRole("button", { name: "Почати!", exact: true }).waitFor({ state: "hidden" });
+        await upgraded.getByText("Тестовий кефір", { exact: true }).waitFor();
+        check(`Оновлення з ${previousVersion}: збережений прийом не втрачений і не дубльований`,
+          await upgraded.getByText("Тестовий кефір", { exact: true }).count() === 1 &&
+          await upgraded.getByText("106", { exact: true }).count() === 1 &&
+          await upgraded.evaluate(() => localStorage.getItem("app_version_seen")) === "1.7.0");
+      } finally {
+        await upgraded.close();
+        evidence.upgrade.push({ previousVersion, closed: upgraded.isClosed() });
+      }
+    }
+    evidence.serviceWorker = await page.evaluate(async () => ({
+      controlled: Boolean(navigator.serviceWorker.controller),
+      registrations: (await navigator.serviceWorker.getRegistrations()).length,
+    }));
+    check("Оновлену збірку не утримує старий service worker",
+      !evidence.serviceWorker.controlled && evidence.serviceWorker.registrations === 0);
+    await page.getByRole("button", { name: "Переглянути звіт", exact: true }).click();
+    const reportHeading = page.getByRole("heading", { name: "Звіт про харчування", exact: true });
+    await reportHeading.waitFor();
+    const reportText = await page.locator("pre").textContent();
+    check("Прев’ю звіту містить збережені 200 г і 106 ккал без Telegram CTA",
+      reportText.includes("200 г") && reportText.includes("106 ккал") &&
+      await page.getByRole("button", { name: "Telegram", exact: true }).count() === 0 &&
+      await page.getByText("Telegram тренера", { exact: true }).count() === 0);
+    await context.grantPermissions(["microphone", "clipboard-read", "clipboard-write"], { origin: gateway.origin });
+    await page.getByRole("button", { name: "Копіювати", exact: true }).click();
+    await page.getByRole("button", { name: "Скопійовано", exact: true }).waitFor();
+    check("Справжній clipboard містить точний текст синтетичного звіту",
+      await page.evaluate(() => navigator.clipboard.readText()) === reportText);
+    evidence.reportClipboard = { verified: true, characters: reportText.length };
+    for (const width of [375, 390, 1366]) await measureModal("report", reportHeading, width);
+    await page.getByRole("button", { name: "Закрити звіт", exact: true }).click();
+    await reportHeading.waitFor({ state: "hidden" });
+    await page.setViewportSize({ width: 390, height: 844 });
+  }
+
   await page.getByRole("button", { name: "Додати їжу голосом", exact: true }).click();
   await page.getByRole("button", { name: "Зупинити запис", exact: true }).waitFor();
   check("Мовна перевага пережила reload і повторне відкриття",
@@ -322,17 +436,10 @@ try {
   }
   check("Жодного прямого HTTP, production або AI API браузера", evidence.unexpectedNetwork.length === 0);
   check("Немає помилок JavaScript", evidence.errors.length === 0);
-  // Цих трьох -v4 файлів немає вже у базовому HEAD; не приховуємо їх у звіті.
-  const knownMissingIcons = new Set([
-    "/icons/category-carbs-v4.png",
-    "/icons/category-dairy-v4.png",
-    "/icons/category-treats-v4.png",
-  ]);
-  evidence.knownStaticAssetFailures = evidence.failedRoutes.filter(
-    ({ path, status }) => status === 404 && knownMissingIcons.has(path),
-  );
-  check("Поза відомими трьома іконками HTTP-помилок немає",
-    evidence.failedRoutes.length === evidence.knownStaticAssetFailures.length);
+  check("Немає HTTP-помилок статичних ресурсів", evidence.failedRoutes.length === 0);
+  const failedImages = await page.locator('img').evaluateAll(images =>
+    images.filter(image => !image.complete || image.naturalWidth === 0).map(image => image.getAttribute('src')));
+  check("Немає зламаних зображень", failedImages.length === 0);
   evidence.browserTlsTrust = "Лише ізольований тест обходить довіру TLS; справжній телефон ще не перевірений";
   evidence.reservedMicros = budget.spent();
   evidence.passed = true;
@@ -361,6 +468,6 @@ try {
 console.log(JSON.stringify({
   mode, passed: evidence.checks.length, fixtureOnly: true, paidCalls: 0,
   reservedMicros: evidence.reservedMicros,
-  knownStaticAssetFailures: evidence.knownStaticAssetFailures.length,
+  staticAssetFailures: evidence.failedRoutes.length,
   cleanup: evidence.cleanup,
 }));

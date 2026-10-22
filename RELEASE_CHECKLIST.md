@@ -7,7 +7,7 @@ Use this before merging a release-sized change or tagging a new version.
 - [ ] Scope is clear and matches the planned release
 - [ ] No unrelated changes are mixed into the release
 - [ ] Version in `package.json` is correct
-- [ ] If needed, `src/components/WelcomeModal.js` changelog is updated
+- [ ] Новини в `src/data/releases.js` актуальні, людська версія збігається з `package.json`
 - [ ] `DEVELOPMENT.md` journal entry is updated
 - [ ] `README.md` is updated if setup or behavior changed
 

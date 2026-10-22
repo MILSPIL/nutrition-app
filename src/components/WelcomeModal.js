@@ -1,108 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles, CheckCircle } from 'lucide-react';
 import AnimatedModal from './AnimatedModal';
-
-const APP_VERSION = process.env.REACT_APP_VERSION || '1.6.0';
-
-const CHANGELOG = [
-  {
-    version: '1.6.0',
-    date: '20.04.2026',
-    changes: [
-      'Оновлений верхній блок з калоріями та БЖВ',
-      'Новий дизайн вікна додавання продукту',
-      'Новий набір іконок для всіх категорій',
-      'Шрифт Montserrat і чистіші тексти в інтерфейсі',
-      'Додаток відкривається на ntzg.fun'
-    ]
-  },
-  {
-    version: '1.5.0',
-    date: '20.04.2026',
-    changes: [
-      'Єдині локальні дати без зсуву через UTC',
-      'Тести для ключової логіки і CI перевірки',
-      'Firestore rules для клієнта, тренера і запитів',
-      'Оновлена документація та синхронізована версія'
-    ]
-  },
-  {
-    version: '1.4.0',
-    date: '12.01.2026',
-    changes: [
-      'Сканування штрих-кодів продуктів',
-      'Автозаповнення БЖВ з бази Open Food Facts',
-      'Підтримка EAN-8 та EAN-13 кодів',
-      'Ручне введення штрих-коду'
-    ]
-  },
-  {
-    version: '1.3.0',
-    date: '10.01.2026',
-    changes: [
-      'Тренерський дашборд (/trainer)',
-      'Real-time моніторинг клієнтів',
-      'Історія харчування по днях',
-      'Підключення тренера через email'
-    ]
-  },
-  {
-    version: '1.2.1',
-    date: '10.01.2026',
-    changes: [
-      'Показ калорій за день у хедері',
-      'Компактний дизайн БЖВ панелі'
-    ]
-  },
-  {
-    version: '1.2.0',
-    date: '10.01.2026',
-    changes: [
-      'Додано калорійність до всіх продуктів',
-      'Редагування БЖВ та калорійності прямо з меню',
-      'Показ БЖВ та ккал під кожним продуктом',
-      'Збереження персональних змін в хмарі',
-      'Можливість скинути до стандартних значень'
-    ]
-  },
-  {
-    version: '1.1.0',
-    date: '09.01.2026',
-    changes: [
-      'Додано плавні анімації для всіх вікон',
-      'Замінено alert на стильні повідомлення',
-      'Покращено екран завантаження',
-      'Оптимізовано код додатку'
-    ]
-  },
-  {
-    version: '1.0.0',
-    date: '08.01.2026',
-    changes: [
-      'Перший реліз додатку',
-      'Google авторизація',
-      'Трекінг харчування по прийомах',
-      'Звіт для тренера в Telegram'
-    ]
-  }
-];
+import { APP_VERSION, CURRENT_RELEASE, RELEASES } from '../data/releases';
 
 export default function WelcomeModal({ userName }) {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    const lastSeenVersion = localStorage.getItem('app_version_seen');
-    if (lastSeenVersion !== APP_VERSION) {
+    try {
+      setIsOpen(localStorage.getItem('app_version_seen') !== APP_VERSION);
+    } catch {
       setIsOpen(true);
     }
   }, []);
 
   const handleClose = () => {
-    localStorage.setItem('app_version_seen', APP_VERSION);
+    try {
+      localStorage.setItem('app_version_seen', APP_VERSION);
+    } catch {
+      // Новини можна закрити, навіть коли браузер забороняє сховище.
+    }
     setIsOpen(false);
   };
 
-  const latestChanges = CHANGELOG[0];
+  const latestChanges = CURRENT_RELEASE;
 
   return (
     <AnimatedModal isOpen={isOpen} onClose={handleClose}>
@@ -122,6 +43,7 @@ export default function WelcomeModal({ userName }) {
           </div>
           <button
             onClick={handleClose}
+            aria-label="Закрити новини"
             className="p-1 text-[#007AFF] active:opacity-50"
           >
             <X size={24} />
@@ -134,7 +56,7 @@ export default function WelcomeModal({ userName }) {
           <div className="bg-[#007AFF]/10 rounded-xl p-4 mb-4">
             <h3 className="text-[15px] font-semibold text-[#007AFF] mb-3 flex items-center gap-2">
               <span>Що нового у v{latestChanges.version}</span>
-              <span className="text-[11px] bg-[#34C759] text-white px-2 py-0.5 rounded-full font-medium">NEW</span>
+              <span className="text-[11px] bg-[#34C759] text-white px-2 py-0.5 rounded-full font-medium">НОВЕ</span>
             </h3>
             <ul className="space-y-2">
               {latestChanges.changes.map((change, idx) => (
@@ -147,13 +69,13 @@ export default function WelcomeModal({ userName }) {
           </div>
 
           {/* Попередні версії */}
-          {CHANGELOG.length > 1 && (
+          {RELEASES.length > 1 && (
             <details className="mb-4">
               <summary className="text-[13px] text-[#8E8E93] cursor-pointer active:opacity-50">
                 Попередні версії
               </summary>
               <div className="mt-3 space-y-3 pl-3 border-l-2 border-[#C6C6C8]/50">
-                {CHANGELOG.slice(1).map((release) => (
+                {RELEASES.slice(1).map((release) => (
                   <div key={release.version}>
                     <div className="text-[13px] font-semibold text-black">
                       v{release.version} <span className="text-[#8E8E93] font-normal">({release.date})</span>

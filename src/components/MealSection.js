@@ -3,6 +3,7 @@ import { Plus, Trash2, ChevronRight, Pencil, Check, X } from 'lucide-react';
 import { PRODUCTS_DB, MEAL_LETTERS, CATEGORY_ICONS } from '../data/products';
 import { itemMacros, quantityText, sourceText, UNITS } from '../services/mealItems';
 import { getCategoryProgress } from '../services/nutrition';
+import CategoryIcon from './CategoryIcon';
 
 export default function MealSection({
   selectedMeal,
@@ -51,10 +52,9 @@ export default function MealSection({
               >
                 <div className="flex items-center gap-3 flex-1">
                   <div className="w-11 h-11 rounded-xl bg-[#F2F2F7] border border-[#E9E9EE] flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    <img
-                      src={CATEGORY_ICONS[letter] || CATEGORY_ICONS[MEAL_LETTERS[selectedMeal][0]]}
-                      alt={(PRODUCTS_DB[letter]?.name || 'Голос і фото')}
-                      className="w-full h-full object-cover"
+                    <CategoryIcon
+                      src={CATEGORY_ICONS[letter]}
+                      alt={PRODUCTS_DB[letter]?.name || 'Голос і фото'}
                     />
                   </div>
                   <div className="text-left flex-1 min-w-0">

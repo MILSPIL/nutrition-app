@@ -85,7 +85,6 @@ export default function ClientApp() {
   };
   const [activity, setActivity] = useState("");
   const [otherActivity, setOtherActivity] = useState("");
-  const [trainerTelegram, setTrainerTelegram] = useState("chykalina");
   const [currentLetter, setCurrentLetter] = useState(null);
 
   // Check for Monday measurement reminder
@@ -93,7 +92,12 @@ export default function ClientApp() {
     const today = new Date();
     const isMonday = today.getDay() === 1;
     const todayStr = getTodayDateKey();
-    const dismissed = localStorage.getItem('measurementReminderDismissed');
+    let dismissed = null;
+    try {
+      dismissed = localStorage.getItem('measurementReminderDismissed');
+    } catch {
+      // Необов’язкова перевага нагадування не повинна блокувати вхід.
+    }
 
     if (isMonday && dismissed !== todayStr && firebaseUser) {
       // Show reminder after a short delay
@@ -201,7 +205,6 @@ export default function ClientApp() {
     setMealsDateKey(getTodayDateKey());
     setActivity(user.activity || "");
     setOtherActivity(user.otherActivity || "");
-    setTrainerTelegram(user.trainerTelegram || "chykalina");
   };
 
   const calculateCurrentDay = (startDate) => calculateProgramDay(startDate);
@@ -568,7 +571,7 @@ export default function ClientApp() {
           onClick={() => setShowReport(true)}
           className="w-full py-4 bg-[#34C759] text-white rounded-2xl text-[17px] font-semibold active:opacity-80"
         >
-          Надіслати звіт
+          Переглянути звіт
         </button>
       </div>
 
@@ -607,10 +610,6 @@ export default function ClientApp() {
         isOpen={showReport}
         onClose={() => setShowReport(false)}
         report={generateReport()}
-        trainerTelegram={trainerTelegram}
-        onTrainerChange={value=>{setTrainerTelegram(value);saveToFirestore({trainerTelegram:value});}}
-        activity={activity}
-        otherActivity={otherActivity}
       />
 
       <PortionSettingsModal
