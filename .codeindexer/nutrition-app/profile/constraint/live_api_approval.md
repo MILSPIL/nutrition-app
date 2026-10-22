@@ -3,8 +3,8 @@ project: nutrition-app
 domain: constraint
 slot: live_api_approval
 confidence: 1
-valid_at: "2026-10-22T18:46:51.980500+00:00"
-provenance: Прямий запит Юрія; PR23 mainf31f061; локальні manifests/evidence NTZG-DEPLOY-03, без production.
+valid_at: "2026-10-22T21:43:10.206876+00:00"
+provenance: PROJECT-INFO.md; journal2250; docs/evidence/ntzg-execution-2026-10-22.json; exact rules/public HTTP/mobile QA and admin absence receipts 2026-10-23
 ---
 
-2026-10-22 Юрій дозволив перенести новий журнал1440 у main і підготувати конкретний пакет ntzg на погодження. PR23 merged у mainf31f061, єдиний journal blob61481bfd збігається, CI2/2. Поточне: «Ключі, $5 і сервер поки не чіпай». Немає дозволу на Keychain, реальні Groq/Anthropic, витрати, MS-WEB/SSH/xCloud/Cloudflare/Firebase production або merge PR8/16. NTZG-DEPLOY-03 є пропозицією: 0Node24.22.1+CI → Aдоступ/інвентар → Bdisabled install → Cокрема активація. Root receive transport і server facts не підтверджені. Новий журнал2146 ще не в main, перенесення потребує «так». Один ledger/proposal, ліміт$5 та попередні витрати не скидаються.
+2026-10-23: NTZG-DEPLOY-03 0+A+B погоджені. PR24 переніс тільки журнал2146 у main; журнал2250 ще лише в codex/scisense-server-prep. 0/A пройдені, B опублікував https://ntzg.pp.ua з точного bad8217, Node24.22.1, API inferenceEnabled:false. 162 payload hashes і 27 build hashes звірені. Firebase domain збережений, нові rules опубліковані; writer fence двічі поспіль PASS: нові create/update дозволені, legacy merge/full-set403, синтетичні дані прибрані. HTTPS Full(Strict), HTML/API no-store, static immutable; один OLS reload, global config unchanged, сусіди3x200. Виправлений тільки mtime index для старої Brotli-копії, байти незмінні. Публічні хеші та мобільний екран390x844 PASS; вхід із реального телефона pending. Admin B відкликаний, present:false підтверджено; ephemeral Firebase ID token видалений, власні вкладки закриті. Приватний операційний інцидент конфігурації не закритий, деталі лише runtime/handoff. C, model keys/read/transfer/calls/$5 заморожені; перед C потрібні явний дозвіл, Free/ZDR, exact UID, root receive transport, чинний ledger без reset. PR8/16 не зливати. G02–G11 pending. Журнал2250 у main лише після окремого так.
