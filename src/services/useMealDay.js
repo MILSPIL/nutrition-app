@@ -20,14 +20,15 @@ export function useMealDay(uid,profileId,date) {
     needsRead.current=false;dayRef.current=value;setDay(value);readyRef.current=true;setReady(true);return value;
    }catch(e){if(g===generation.current)setError('Не вдалося завантажити день. Перевірте з’єднання.');throw e;}
  },[uid,profileId,date]);
+ const invalidateRead=useCallback(()=>{generation.current++;readyRef.current=false;},[]);
  useEffect(()=>{
   const g=++generation.current,key=JSON.stringify([uid,profileId,date]),changed=context.current!==key;
   context.current=key;readyRef.current=false;setReady(false);setError('');
   if(changed) {const empty={meals:createEmptyMeals(),revision:0};dayRef.current=empty;setDay(empty);pending.current=null;lock.current=null;setBusy(false);needsRead.current=false;}
   if(!uid||!profileId) return;
   void read(g).catch(()=>{});
-  return()=>{generation.current++;readyRef.current=false;};
- },[uid,profileId,date,reload,read]);
+  return invalidateRead;
+ },[uid,profileId,date,reload,read,invalidateRead]);
  const refresh=useCallback(async()=>{
   if(lock.current)throw Error('pending_save');
   if(!uid||!profileId)throw Error('not_ready');
@@ -44,7 +45,7 @@ export function useMealDay(uid,profileId,date) {
    return result;
   }).catch(e=>{if(g===generation.current){if(['revision_conflict','plan_conflict','submission_conflict'].includes(e.message))needsRead.current=true;if((['revision_conflict','plan_conflict','submission_conflict','invalid_allocation','invalid_command','duplicate_item','legacy_conflict','legacy_date_required','invalid_item','invalid_quantity'].includes(e.message)||['permission-denied','invalid-argument','failed-precondition','unauthenticated','aborted'].includes(e.code))) pending.current=null;setError(saveError(e));}throw e;}).finally(()=>{if(g===generation.current){lock.current=null;setBusy(false);}});
   lock.current=promise;return promise;
- },[uid,profileId,date,ready]);
+ },[uid,profileId,date]);
  const commit=useCallback((action)=>{
   if(pending.current) { if(action.submissionId===pending.current.submissionId) return execute(pending.current); return Promise.reject(Error('pending_save')); }
   return execute({...action,submissionId:action.submissionId || newId(),updatedAt:action.updatedAt || new Date().toISOString(),

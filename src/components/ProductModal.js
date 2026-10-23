@@ -103,7 +103,7 @@ export default function ProductModal({
           <div className="px-4 py-3">
             <div className="bg-white rounded-2xl overflow-hidden">
               {products.map((product, idx) => {
-                const canAdd100=true,canAdd50=true,isCalorieBased=isCalorieBasedCategory,remainingCalories=remainingCategoryCalories;
+                const isCalorieBased=isCalorieBasedCategory,remainingCalories=remainingCategoryCalories;
                 const userPortion = getProductPortion(product.name);
                 const grams100 = userPortion;
                 const grams50 = Math.round(userPortion / 2);
@@ -169,23 +169,13 @@ export default function ProductModal({
                       <div className="flex gap-2 mb-3">
                         <button
                           onClick={() => addProduct(currentLetter, product, 100)}
-                          disabled={!canAdd100}
-                          className={`flex-1 py-2.5 rounded-xl text-[15px] font-semibold transition-all ${
-                            canAdd100
-                              ? 'bg-[#007AFF] text-white active:opacity-80'
-                              : 'bg-[#F2F2F7] text-[#C7C7CC]'
-                          }`}
+                          className="flex-1 py-2.5 rounded-xl text-[15px] font-semibold transition-all bg-[#007AFF] text-white active:opacity-80"
                         >
                           {isCalorieBased ? `${grams100}г (${cal100} ккал)` : `100% (${grams100}г)`}
                         </button>
                         <button
                           onClick={() => addProduct(currentLetter, product, 50)}
-                          disabled={!canAdd50}
-                          className={`flex-1 py-2.5 rounded-xl text-[15px] font-semibold transition-all ${
-                            canAdd50
-                              ? 'bg-[#007AFF]/20 text-[#007AFF] active:bg-[#007AFF]/30'
-                              : 'bg-[#F2F2F7] text-[#C7C7CC]'
-                          }`}
+                          className="flex-1 py-2.5 rounded-xl text-[15px] font-semibold transition-all bg-[#007AFF]/20 text-[#007AFF] active:bg-[#007AFF]/30"
                         >
                           {isCalorieBased ? `${grams50}г (${cal50} ккал)` : `50% (${grams50}г)`}
                         </button>

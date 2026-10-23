@@ -71,7 +71,6 @@ export const getCategoryProgress = ({
 export const canAddCategoryProduct = ({
   isCalorieBased,
   usedCalories = 0,
-  productCalories = 0,
   calorieLimit = 575
 }) => {
   if (!isCalorieBased) {
@@ -80,8 +79,6 @@ export const canAddCategoryProduct = ({
       remainingCalories: null
     };
   }
-
-
 
   return {
     allowed: true,
