@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Plus, Pencil } from 'lucide-react';
 import { PRODUCTS_DB, CATEGORY_ICONS } from '../data/products';
-import { itemMacros } from '../services/mealItems';
+import {dailyPlanProgress,percentText} from '../services/planAllocation';
 import { getCategoryProgress } from '../services/nutrition';
 import AnimatedModal from './AnimatedModal';
 import EditProductModal from './EditProductModal';
@@ -35,17 +35,10 @@ export default function ProductModal({
   const isCalorieBasedCategory = categoryData?.isCalorieBased || false;
   const calorieLimit = categoryData?.calorieLimit || 575;
 
-  // Розрахунок спожитих калорій для калорійних категорій
-  const currentCategoryProducts = meals[selectedMeal]?.[currentLetter] || [];
-  const usedCategoryCalories = currentCategoryProducts.reduce((sum, p) => sum + (itemMacros(p).cal), 0);
-  const remainingCategoryCalories = calorieLimit - usedCategoryCalories;
-  const currentCategoryPortion = currentCategoryProducts.reduce((sum, p) => sum + (p.portion || 0), 0);
-  const categoryProgress = getCategoryProgress({
-    isCalorieBased: isCalorieBasedCategory,
-    usedCalories: usedCategoryCalories,
-    calorieLimit,
-    totalPortion: currentCategoryPortion
-  });
+  const daily=dailyPlanProgress(meals).letters[currentLetter];
+  const usedCategoryCalories=daily.calories;
+  const remainingCategoryCalories=calorieLimit-usedCategoryCalories;
+  const categoryProgress=getCategoryProgress({isCalorieBased:false,totalPortion:daily.percent});
 
   return (
     <AnimatedModal isOpen={isOpen} onClose={onClose} position="bottom">
@@ -80,14 +73,14 @@ export default function ProductModal({
               {isCalorieBasedCategory ? (
                 <div className="text-[13px]">
                   <span className={remainingCategoryCalories > 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}>
-                    {remainingCategoryCalories > 0 ? `Залишок: ${remainingCategoryCalories}` : 'Ліміт вичерпано'}
+                    {remainingCategoryCalories > 0 ? `Залишок за день: ${Math.round(remainingCategoryCalories)}` : `Перевищення за день: ${Math.round(-remainingCategoryCalories)} ккал`}
                   </span>
                   <span className="text-[#8E8E93]"> / {calorieLimit} ккал</span>
                 </div>
               ) : (
                 <div className="text-[13px]">
                   <span className={categoryProgress.isOverTarget ? 'text-[#FF3B30]' : 'text-[#8E8E93]'}>
-                    Набрано: {categoryProgress.percent}%
+                    За день: {percentText(daily.percent)}{daily.unknown?" · неповно":""}
                   </span>
                   {categoryProgress.isOverTarget && (
                     <span className="text-[#FF3B30]"> (+{categoryProgress.percent - 100}% понад норму)</span>
@@ -110,21 +103,7 @@ export default function ProductModal({
           <div className="px-4 py-3">
             <div className="bg-white rounded-2xl overflow-hidden">
               {products.map((product, idx) => {
-                const currentProducts = meals[selectedMeal][currentLetter] || [];
-                const categoryData = PRODUCTS_DB[currentLetter];
-                const isCalorieBased = categoryData?.isCalorieBased || false;
-                const calorieLimit = categoryData?.calorieLimit || 575;
-
-                // Для калорійних категорій рахуємо спожиті калорії
-                const usedCalories = isCalorieBased
-                  ? currentProducts.reduce((sum, p) => sum + (itemMacros(p).cal), 0)
-                  : 0;
-                const remainingCalories = calorieLimit - usedCalories;
-
-                // Для звичайних категорій - відсоткова логіка
-                const canAdd100 = isCalorieBased ? remainingCalories >= (product.cal * product.raw / 100) : true;
-                const canAdd50 = isCalorieBased ? remainingCalories >= (product.cal * product.raw / 200) : true;
-
+                const canAdd100=true,canAdd50=true,isCalorieBased=isCalorieBasedCategory,remainingCalories=remainingCategoryCalories;
                 const userPortion = getProductPortion(product.name);
                 const grams100 = userPortion;
                 const grams50 = Math.round(userPortion / 2);

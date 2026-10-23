@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Trash2, ChevronRight, Pencil, Check, X } from 'lucide-react';
 import { PRODUCTS_DB, MEAL_LETTERS, CATEGORY_ICONS } from '../data/products';
 import { itemMacros, quantityText, sourceText, UNITS } from '../services/mealItems';
+import {dailyPlanProgress,percentText} from '../services/planAllocation';
 import { getCategoryProgress } from '../services/nutrition';
 import CategoryIcon from './CategoryIcon';
 
@@ -14,27 +15,18 @@ export default function MealSection({
 }) {
   const [editingProduct, setEditingProduct] = useState(null); // { letter, index }
   const [editWeight, setEditWeight] = useState('');
+  const daily=dailyPlanProgress(meals);
   return (
     <div className="max-w-lg mx-auto px-4 mb-6">
       {/* iOS Grouped List */}
       <div className="bg-white rounded-2xl overflow-hidden">
         {[...new Set([...MEAL_LETTERS[selectedMeal],...Object.keys(meals[selectedMeal] || {})])].map((letter, index) => {
           const products = meals[selectedMeal]?.[letter] || [];
-          const categoryData = PRODUCTS_DB[letter];
-          const isCalorieBased = categoryData?.isCalorieBased || false;
-          const calorieLimit = categoryData?.calorieLimit || 575;
 
-          // Для калорійних категорій - рахуємо калорії
-          const usedCalories = products.reduce((sum, p) => sum + (itemMacros(p).cal), 0);
 
-          // Для звичайних категорій - відсотки
-          const totalPortion = products.reduce((sum, p) => sum + (p.portion || 0), 0);
-          const progress = getCategoryProgress({
-            isCalorieBased,
-            usedCalories,
-            calorieLimit,
-            totalPortion
-          });
+          const dailyLetter=daily.letters[letter]||{percent:0,unknown:0};
+          const progress = getCategoryProgress({isCalorieBased:false,totalPortion:dailyLetter.percent});
+          if(dailyLetter.unknown) progress.isComplete=false;
           const progressColor = progress.isOverTarget
             ? '#FF3B30'
             : (progress.isComplete ? '#34C759' : '#007AFF');
@@ -63,7 +55,7 @@ export default function MealSection({
                       <span className="text-[17px] font-medium text-black">{(PRODUCTS_DB[letter]?.name || 'Голос і фото')}</span>
                     </div>
                     {/* Progress bar */}
-                    <div className="flex items-center gap-2 mt-1">
+                    {letter === 'voice' ? <p className="text-[13px] text-[#6B7280]">Без визначеної норми</p> : <div className="flex items-center gap-2 mt-1">
                       <div className="flex-1 h-1.5 bg-[#E5E5EA] rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all"
@@ -77,9 +69,9 @@ export default function MealSection({
                         className="text-[11px] min-w-[44px] text-right"
                         style={{ color: progress.isOverTarget || progress.isComplete ? progressColor : '#8E8E93' }}
                       >
-                        {progress.percent}%
+                        {percentText(dailyLetter.percent)} за день{dailyLetter.unknown>0?" · неповно":""}
                       </span>
-                    </div>
+                    </div>}
                   </div>
                 </div>
                 {letter !== 'voice' && <div className="flex items-center gap-1 ml-2 flex-shrink-0">

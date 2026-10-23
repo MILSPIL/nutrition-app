@@ -81,10 +81,10 @@ export const canAddCategoryProduct = ({
     };
   }
 
-  const nextCalories = usedCalories + productCalories;
+
 
   return {
-    allowed: nextCalories <= calorieLimit,
+    allowed: true,
     remainingCalories: calorieLimit - usedCalories
   };
 };

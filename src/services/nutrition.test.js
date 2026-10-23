@@ -63,14 +63,14 @@ describe('nutrition service', () => {
     });
   });
 
-  test('still blocks calorie-based categories over the limit', () => {
+  test('дозволяє записати фактичну їжу понад норму В', () => {
     expect(canAddCategoryProduct({
       isCalorieBased: true,
       usedCalories: 520,
       productCalories: 80,
       calorieLimit: 575
     })).toEqual({
-      allowed: false,
+      allowed: true,
       remainingCalories: 55
     });
   });
