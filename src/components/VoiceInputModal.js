@@ -72,10 +72,13 @@ export default function VoiceInputModal({
   photoNormalizer = normalizePhoto,
   onSaved,
   onReturnToDate,
+  ownerKey,
+  pendingSave = false,
+  onRetryPending,
 }) {
   const sttOnly = mode === "stt_only";
   const [language, setLanguage] = useState(storedLanguage);
-  const [state, setState] = useState("idle"),
+  const [state, setState] = useState("ready"),
     [seconds, setSeconds] = useState(0),
     [waiting, setWaiting] = useState(false);
   const [text, setText] = useState(""),
@@ -91,6 +94,7 @@ export default function VoiceInputModal({
   const [saveUnknown, setSaveUnknown] = useState(false),
     [photoIssue, setPhotoIssue] = useState(false);
   const life = useRef({ closed: true, revision: 0 }),
+    starting = useRef(false),
     recorder = useRef(),
     request = useRef(),
     audio = useRef(),
@@ -118,6 +122,7 @@ export default function VoiceInputModal({
     photoTarget,
     partial,
     saveUnknown,
+    pendingSave,
   };
   const track = async (patch, id = attempt.current, session = life.current) => {
     if (id === attempt.current && patch.status)
@@ -188,7 +193,7 @@ export default function VoiceInputModal({
     if (!valid(session, revision)) return false;
     const previous = metrics.current;
     const nextMetrics = {
-      actions: 1,
+      actions: carry ? 1 : 2,
       corrections: carry ? previous.corrections : 0,
       clarifications: carry ? previous.clarifications : 0,
       manualPfc: carry && !!previous.manualPfc,
@@ -339,6 +344,9 @@ export default function VoiceInputModal({
     }
   }
   async function start() {
+    if (starting.current || saving.current || latest.current.saveUnknown || latest.current.pendingSave || latest.current.state !== "ready") return;
+    if ((text || items.length || photos.length || audio.current) && !window.confirm("Почати новий запис і замінити чернетку?")) return;
+    starting.current = true;
     const session = life.current;
     bump();
     stopResources();
@@ -356,7 +364,7 @@ export default function VoiceInputModal({
     saved.current = false;
     retryTask.current = null;
     setState("permission");
-    if (!(await newAttempt())) return;
+    if (!(await newAttempt())) { if (life.current === session) starting.current = false; return; }
     const revision = session.revision;
     recorder.current = recorderFactory({
       onState: (next) => {
@@ -380,6 +388,7 @@ export default function VoiceInputModal({
       },
     });
     void recorder.current.start();
+    starting.current = false;
   }
   function close() {
     if (saved.current) {
@@ -418,6 +427,10 @@ export default function VoiceInputModal({
     submission.current = null;
     saved.current = false;
     saving.current = false;
+    starting.current = false;
+    setSaveUnknown(false);
+    setState("ready");
+    setError("");
     attemptStatus.current = "started";
     setTarget({ date, meal });
     setMetricError(false);
@@ -427,7 +440,7 @@ export default function VoiceInputModal({
     const begin = Promise.resolve().then(() => {
       if (!session.closed) {
         panel.current?.focus();
-        void start();
+
       }
     });
     void begin;
@@ -449,7 +462,7 @@ export default function VoiceInputModal({
     };
     // Одна ізольована сесія на відкриття; StrictMode cleanup скасовує перший microtask до запиту дозволу.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, ownerKey]);
 
   async function addPhoto(file) {
     if (latest.current.sttOnly || !file) return;
@@ -603,9 +616,11 @@ export default function VoiceInputModal({
   if (!isOpen) return null;
   const locked =
     ["permission", "recording", "processing", "saving"].includes(state) ||
-    saveUnknown;
+    saveUnknown || pendingSave;
   const canSave =
     !sttOnly &&
+    state !== "ready" &&
+    (!pendingSave || saveUnknown) &&
     items.length > 0 &&
     !unparsed.length &&
     !dirtyText &&
@@ -672,6 +687,17 @@ export default function VoiceInputModal({
                 <option value="ru">Російська</option>
               </select>
             </label>
+          )}
+          {pendingSave && !saveUnknown ? (
+            <div role="status"><p>Спочатку перевірте попереднє збереження.</p>
+              <button className="voice-primary" onClick={onRetryPending}>Перевірити збереження</button>
+            </div>
+          ) : state === "ready" && (
+            <div className="voice-ready">
+              <p>Коли будете готові, скажіть, що з’їли та скільки.</p>
+              <button className="voice-primary" onClick={() => void start()}><Mic size={20} /> Почати запис</button>
+              {(text || items.length > 0) && <button className="voice-secondary" onClick={() => setState("preview")}>Повернутися до прев’ю</button>}
+            </div>
           )}
           {state === "permission" && (
             <div role="status">
@@ -1147,23 +1173,15 @@ export default function VoiceInputModal({
                 <div className="voice-retry">
                   <button
                     className="voice-secondary"
-                    disabled={saveUnknown}
-                    onClick={() => {
-                      if (
-                        !(text || items.length || photos.length || audio.current) ||
-                        window.confirm(
-                          "Почати новий запис і замінити чернетку?",
-                        )
-                      )
-                        void start();
-                    }}
+                    disabled={saveUnknown || pendingSave}
+                    onClick={() => setState("ready")}
                   >
                     <Mic size={18} /> Записати ще раз
                   </button>
                   {retryTask.current && (!photoIssue || !photos.length) && (
                     <button
                       className="voice-secondary"
-                      disabled={saveUnknown}
+                      disabled={saveUnknown || pendingSave}
                       onClick={() => void retry(retryTask.current)}
                     >
                       Повторити обробку

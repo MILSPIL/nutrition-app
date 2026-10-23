@@ -30,6 +30,7 @@ const render = async (patch) => {
     root.render(<VoiceInputModal {...props} />);
   });
 };
+const openAndStart = async patch => { await render(patch); if (button("Почати запис")) await click("Почати запис"); };
 const button = (name) =>
   [...container.querySelectorAll("button")].find(
     (b) =>
@@ -119,7 +120,7 @@ afterEach(async () => {
 test("Stop автоматично створює прев’ю; подвійна Додати чекає ACK і пише один раз", async () => {
   const save = deferred();
   props.onAdd = jest.fn(() => save.promise);
-  await render();
+  await openAndStart();
   expect(rows).toHaveLength(1);
   await stop();
   expect(props.api.transcribe).toHaveBeenCalledTimes(1);
@@ -140,7 +141,7 @@ test("Stop автоматично створює прев’ю; подвійна
   expect(pilotSummary(rows).successes).toBe(1);
 });
 test("фото упаковки змінює існуючий рядок, етикетка переважає оцінку", async () => {
-  await render();
+  await openAndStart();
   await stop();
   props.api.analyze.mockResolvedValue(
     answer([
@@ -167,7 +168,7 @@ test("фото упаковки змінює існуючий рядок, ети
 });
 test("кілька продуктів потребують явної прив’язки фото", async () => {
   props.api.analyze.mockResolvedValue(answer([food(), food("Яблуко")]));
-  await render();
+  await openAndStart();
   await stop();
   expect(button("Сфотографувати").disabled).toBe(true);
   const id = container.querySelector('[aria-label="Продукт для фото"]')
@@ -185,7 +186,7 @@ test("кілька продуктів потребують явної прив�
   );
 });
 test("нерозбірлива етикетка не маскується автоматичним збереженням старої оцінки", async () => {
-  await render();
+  await openAndStart();
   await stop();
   props.api.analyze.mockResolvedValue(
     answer([
@@ -205,7 +206,7 @@ test("нерозбірлива етикетка не маскується авт
 });
 test("тиша та явний retry дають дві спроби, попередня помилка зберігається", async () => {
   props.api.transcribe.mockResolvedValueOnce({ text: "" });
-  await render();
+  await openAndStart();
   await stop();
   expect(rows[0].status).toBe("error");
   await click("Повторити обробку");
@@ -218,7 +219,7 @@ test("тиша та явний retry дають дві спроби, попер�
 });
 test("частковий текст явно вилучається, але не зараховується в успішний пілот", async () => {
   props.api.analyze.mockResolvedValue(answer([food()], ["ще щось"]));
-  await render();
+  await openAndStart();
   await stop();
   expect(button("Додати").disabled).toBe(true);
   await click("Вилучити цей фрагмент");
@@ -230,10 +231,10 @@ test("частковий текст явно вилучається, але не
 test("пізній API після закриття/відкриття не відновлює стару чернетку", async () => {
   const old = deferred();
   props.api.transcribe.mockImplementationOnce(() => old.promise);
-  await render();
+  await openAndStart();
   await stop();
   await render({ isOpen: false });
-  await render({ isOpen: true });
+  await openAndStart({ isOpen: true });
   await act(async () => old.resolve({ text: "СТАРЕ" }));
   expect(container.textContent).not.toContain("СТАРЕ");
   expect(props.api.analyze).not.toHaveBeenCalled();
@@ -243,7 +244,7 @@ test("пізній API після закриття/відкриття не ві�
   expect(container.textContent).toContain("106 ккал");
 });
 test("зміна дати вимагає явного перенесення, commit лишається один", async () => {
-  await render();
+  await openAndStart();
   await stop();
   await render({ activeDate: "2026-10-21" });
   await click("Додати");
@@ -256,7 +257,7 @@ test("невизначене збереження повторює той сам
   props.onAdd
     .mockRejectedValueOnce(Error("save_unknown"))
     .mockResolvedValueOnce({});
-  await render();
+  await openAndStart();
   await stop();
   await click("Додати");
   expect(container.textContent).not.toContain("Прийом збережено");
@@ -268,7 +269,7 @@ test("невизначене збереження повторює той сам
   expect(rows).toHaveLength(1);
 });
 test("десяткова кома вводиться послідовно й не губиться після нуля", async () => {
-  await render();
+  await openAndStart();
   await stop();
   await change("Кількість продукту 1", "0");
   await change("Кількість продукту 1", "0,");
@@ -280,7 +281,7 @@ test("десяткова кома вводиться послідовно й н�
   expect(props.onAdd.mock.calls[0][0].items[0].quantity.value).toBe(0.5);
 });
 test("новий запис після ручних БЖВ скидає старі поля, retry зберігає прапорець", async () => {
-  await render();
+  await openAndStart();
   await stop();
   await change("Білки на основу продукту 1", "9");
   props.api.analyze.mockRejectedValueOnce(Error("upstream_timeout"));
@@ -299,7 +300,7 @@ test("новий запис після ручних БЖВ скидає стар
 
 test("невдале фото не можна мовчки відкинути зміною його прив’язки", async () => {
   props.api.analyze.mockResolvedValue(answer([food(), food("Яблуко")]));
-  await render();
+  await openAndStart();
   await stop();
   const select = container.querySelector('[aria-label="Продукт для фото"]');
   await change("Продукт для фото", select.options[1].value);
@@ -320,7 +321,7 @@ test("невдале фото не можна мовчки відкинути з
   expect(select.disabled).toBe(false);
 });
 test("закриття під час запису метрики фото не запускає старе фото в новій сесії", async () => {
-  await render();
+  await openAndStart();
   await stop();
   const delayed = deferred(),
     original = props.ledger.update;
@@ -329,7 +330,7 @@ test("закриття під час запису метрики фото не �
   );
   await photo();
   await render({ isOpen: false });
-  await render({ isOpen: true });
+  await openAndStart({ isOpen: true });
   await act(async () => delayed.resolve());
   expect(props.api.analyze).toHaveBeenCalledTimes(1);
   expect(button("Зупинити запис")).toBeTruthy();
@@ -352,7 +353,7 @@ test.each([
         },
       ]),
     );
-    await render();
+    await openAndStart();
     await stop();
     expect(button("Додати").disabled).toBe(true);
     await change(label, value);
@@ -363,7 +364,7 @@ test.each([
 );
 
 test("фото одного продукту не скасовує повторний розбір зміненого тексту", async () => {
-  await render();
+  await openAndStart();
   await stop();
   await change("Розпізнаний текст", "Кефір 200 г і хліб 50 г");
   props.api.analyze.mockResolvedValueOnce(
@@ -381,7 +382,7 @@ test("фото одного продукту не скасовує повтор�
 });
 test("невизначений commit дозволяє свідомий вихід без нового запису чи успіху", async () => {
   props.onAdd.mockRejectedValueOnce(Error("save_unknown"));
-  await render();
+  await openAndStart();
   await stop();
   await click("Додати");
   window.confirm.mockReturnValueOnce(false);
@@ -397,7 +398,7 @@ test("невизначений commit дозволяє свідомий вихі
 
 
 test("STT-only показує текст без аналізу, фото та збереження прийому", async () => {
-  await render({ mode: "stt_only" });
+  await openAndStart({ mode: "stt_only" });
   await stop();
   expect(props.api.transcribe).toHaveBeenCalledTimes(1);
   expect(props.api.analyze).not.toHaveBeenCalled();
@@ -420,11 +421,11 @@ test("REACT_APP_STT_ONLY вмикає лабораторію за замовчу
   const previous = process.env.REACT_APP_STT_ONLY;
   process.env.REACT_APP_STT_ONLY = "1";
   try {
-    await render();
+    await openAndStart();
     await stop();
     expect(props.api.analyze).not.toHaveBeenCalled();
     await render({ isOpen: false });
-    await render({ isOpen: true, mode: "full" });
+    await openAndStart({ isOpen: true, mode: "full" });
     await stop();
     expect(props.api.analyze).toHaveBeenCalledTimes(1);
     await click("Додати");
@@ -439,7 +440,7 @@ test.each([null, "uk", "ru", "invalid", '"uk"'])(
   "збережена мова %s читається з дозволеним fallback auto",
   async (stored) => {
     if (stored !== null) localStorage.setItem("scisense.voice.language", stored);
-    await render({ mode: "stt_only" });
+    await openAndStart({ mode: "stt_only" });
     const expected = ["uk", "ru"].includes(stored) ? stored : "auto";
     const select = container.querySelector('[aria-label="Мова розпізнавання"]');
     expect(select).toBeTruthy();
@@ -451,21 +452,21 @@ test.each([null, "uk", "ru", "invalid", '"uk"'])(
 
 test("зміна мови під час запису діє одразу та зберігає тільки мовну перевагу", async () => {
   const writes = jest.spyOn(Storage.prototype, "setItem");
-  await render({ mode: "stt_only" });
+  await openAndStart({ mode: "stt_only" });
   await change("Мова розпізнавання", "ru");
   await stop();
   expect(props.api.transcribe.mock.calls[0][3]).toBe("ru");
   expect(writes.mock.calls).toEqual([["scisense.voice.language", "ru"]]);
   expect(localStorage.length).toBe(1);
   await render({ isOpen: false });
-  await render({ isOpen: true });
+  await openAndStart({ isOpen: true });
   expect(container.querySelector('[aria-label="Мова розпізнавання"]').value).toBe("ru");
 });
 
 test("недоступний localStorage не блокує запис або вибір мови", async () => {
   jest.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw Error("blocked"); });
   jest.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw Error("blocked"); });
-  await render({ mode: "stt_only" });
+  await openAndStart({ mode: "stt_only" });
   expect(container.querySelector('[aria-label="Мова розпізнавання"]').value).toBe("auto");
   await change("Мова розпізнавання", "uk");
   await stop();
@@ -475,7 +476,7 @@ test("недоступний localStorage не блокує запис або в
 
 test("квота STT зберігає аудіо для явного повтору без нового запису та аналізу", async () => {
   props.api.transcribe.mockRejectedValueOnce(Error("upstream_limited"));
-  await render({ mode: "stt_only" });
+  await openAndStart({ mode: "stt_only" });
   await change("Мова розпізнавання", "uk");
   await stop();
   expect(props.api.transcribe).toHaveBeenCalledTimes(1);
@@ -497,7 +498,7 @@ test("квота STT зберігає аудіо для явного повто�
 test("скасування обробки зберігає аудіо, повтор не приймає запізнілий текст", async () => {
   const old = deferred();
   props.api.transcribe.mockImplementationOnce(() => old.promise);
-  await render({ mode: "stt_only" });
+  await openAndStart({ mode: "stt_only" });
   await stop();
   const first = props.api.transcribe.mock.calls[0];
   await click("Скасувати обробку");
@@ -512,7 +513,7 @@ test("скасування обробки зберігає аудіо, повт�
 });
 
 test("квота під час фото зберігає текст, фото та рядок для явного повтору", async () => {
-  await render();
+  await openAndStart();
   await stop();
   props.api.analyze.mockRejectedValueOnce(Error("upstream_limited"));
   await photo();
@@ -532,7 +533,7 @@ test("квота під час фото зберігає текст, фото т
 
 
 test("скасоване читання фото зберігає чернетку й блокує стару відповідь до повтору", async () => {
-  await render();
+  await openAndStart();
   await stop();
   const old = deferred();
   props.api.analyze.mockImplementationOnce(() => old.promise);
@@ -566,7 +567,7 @@ test("скасування нормалізації не губить почат
     cancel: jest.fn(),
     stop: () => cb.onStop(original, 3),
   });
-  await render({ mode: "stt_only" });
+  await openAndStart({ mode: "stt_only" });
   await stop();
   await click("Скасувати обробку");
   expect(props.api.transcribe).not.toHaveBeenCalled();
@@ -581,7 +582,7 @@ test("скасування нормалізації не губить почат
 });
 
 test("відмова від нового запису або закриття зберігає STT-чернетку", async () => {
-  await render({ mode: "stt_only" });
+  await openAndStart({ mode: "stt_only" });
   await stop();
   window.confirm.mockReturnValue(false);
   await click("Записати ще раз");
@@ -595,14 +596,14 @@ test("відмова від нового запису або закриття з
 
 
 test("скасування підготовки фото залишає початковий файл для повтору", async () => {
-  await render();
+  await openAndStart();
   await stop();
   const old = deferred();
   const prepared = await props.photoNormalizer();
   props.photoNormalizer = jest.fn()
     .mockImplementationOnce(() => old.promise)
     .mockResolvedValueOnce(prepared);
-  await render();
+  await openAndStart();
   await photo();
   const original = props.photoNormalizer.mock.calls[0][0];
   await click("Скасувати обробку");
@@ -621,7 +622,7 @@ test("скасування підготовки фото залишає поча
 
 
 test("повтор після скасування другого фото зберігає обидва файли", async () => {
-  await render();
+  await openAndStart();
   await stop();
   props.api.analyze.mockResolvedValue(answer([{ ...food(), source: { kind: "label" } }]));
   await photo();
@@ -630,7 +631,7 @@ test("повтор після скасування другого фото зб�
   props.photoNormalizer = jest.fn()
     .mockImplementationOnce(() => old.promise)
     .mockResolvedValueOnce(second);
-  await render();
+  await openAndStart();
   await photo();
   const original = props.photoNormalizer.mock.calls[0][0];
   await click("Скасувати обробку");
@@ -648,7 +649,7 @@ test("повтор після скасування другого фото зб�
 
 test("пізнє створення скасованої спроби не привласнює збереження нового повтору", async () => {
   props.api.transcribe.mockRejectedValueOnce(Error("upstream_limited"));
-  await render(); await stop();
+  await openAndStart(); await stop();
   const old = deferred();
   props.ledger.start.mockImplementationOnce(parent => {
     rows.push({attemptId: "attempt-2", parentAttemptId: parent, status: "started"});
@@ -669,4 +670,23 @@ test("L01: відкриття й повторний render не починают
  await render();await render({meal:2});expect(recorders).toHaveLength(0);expect(rows).toHaveLength(0);
  expect(button("Почати запис")).toBeTruthy();await click("Почати запис");expect(recorders).toHaveLength(1);expect(rows).toHaveLength(1);
  expect(props.api.transcribe).not.toHaveBeenCalled();expect(props.api.analyze).not.toHaveBeenCalled();
+});
+
+test("L01: StrictMode і подвійний tap до ledger await створюють одну спробу", async()=>{
+ const delayed=deferred();props.ledger.start.mockImplementationOnce(()=>delayed.promise);
+ await act(async()=>root.render(<React.StrictMode><VoiceInputModal {...props}/></React.StrictMode>));
+ expect(recorders).toHaveLength(0);const start=button("Почати запис");
+ await act(async()=>{Simulate.click(start);Simulate.click(start);});expect(props.ledger.start).toHaveBeenCalledTimes(1);
+ rows.push({attemptId:'delayed',status:'started'});await act(async()=>delayed.resolve('delayed'));
+ expect(recorders).toHaveLength(1);
+});
+test("L01: повторний запис чекає нового Start і дозволяє повернути прев’ю", async()=>{
+ await openAndStart();await stop();await click("Записати ще раз");expect(recorders).toHaveLength(1);expect(rows).toHaveLength(1);
+ window.confirm.mockReturnValueOnce(false);await click("Почати запис");expect(recorders).toHaveLength(1);
+ await click("Повернутися до прев’ю");expect(container.textContent).toContain("106 ккал");
+ await click("Записати ще раз");await click("Почати запис");expect(recorders).toHaveLength(2);expect(rows).toHaveLength(2);
+});
+test("L01: pending після повторного відкриття блокує новий запис", async()=>{
+ await render({pendingSave:true,onRetryPending:jest.fn()});expect(button("Почати запис")).toBeUndefined();
+ await click("Перевірити збереження");expect(props.onRetryPending).toHaveBeenCalledTimes(1);expect(rows).toHaveLength(0);
 });
