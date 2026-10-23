@@ -1,3 +1,4 @@
+import { validatedPlanMatch } from './planCatalog';
 export const UNITS = { g: 'г', ml: 'мл', portion: 'порц.', package: 'уп.' };
 export const SOURCE_LABELS = { label: 'Етикетка', database: 'База продуктів', catalog: 'Каталог', estimate: 'Оцінка моделі', manual: 'Введено вручну', legacy: 'Попередній запис' };
 export const newId = () => crypto.randomUUID();
@@ -58,7 +59,7 @@ export function quantityText(item) {
 }
 export const sourceText = item => SOURCE_LABELS[item.source?.kind] || SOURCE_LABELS.legacy;
 
-export function normalizeAnalysis(data, makeId = newId) {
+export function normalizeAnalysis(data, makeId = newId, catalog) {
   if (!data || !Array.isArray(data.items) || data.items.length > 20 || !Array.isArray(data.unparsed) || data.unparsed.length > 20) throw new Error('invalid_response');
   return { items: data.items.map(raw => ({ itemId: makeId(), name: typeof raw.name === 'string' ? raw.name.slice(0,160) : '',
     quantity: { value: finite(raw.quantity?.value) ? raw.quantity.value : null, unit: raw.quantity?.unit || 'g' },
@@ -67,15 +68,20 @@ export function normalizeAnalysis(data, makeId = newId) {
     source: { kind: raw.source?.kind || 'estimate', label: String(raw.source?.label || '').slice(0,160) },
     estimated: raw.source?.kind === 'estimate' || raw.estimated === true,
     clarification: String(raw.clarification || '').slice(0,300),
+    ...(Object.prototype.hasOwnProperty.call(raw,'planMatch') ? {planMatch:validatedPlanMatch(raw.planMatch,catalog)} : {}),
     ...(finite(raw.density) && raw.density > 0 ? { density: raw.density } : {}) })),
     unparsed: data.unparsed.map(x => String(x).slice(0,300)) };
 }
 
 // Фото змінює саме обраний рядок; спожита кількість залишається користувацькою.
-export function mergePhotoItem(existing, response) {
-  const parsed = normalizeAnalysis(response, () => existing.itemId);
+export function mergePhotoItem(existing, response, catalog) {
+  const parsed = normalizeAnalysis(response, () => existing.itemId, catalog);
   if (parsed.items.length !== 1 || parsed.unparsed.length) throw new Error('photo_clarification');
   const item = parsed.items[0];
   if (item.source.kind !== 'label' || itemProblems({ ...item, quantity: existing.quantity }).length) throw new Error('photo_clarification');
-  return { ...item, itemId: existing.itemId, quantity: existing.quantity, estimated: false };
+  const sameName=existing.name.trim().toLocaleLowerCase('uk')===item.name.trim().toLocaleLowerCase('uk');
+  const choice=existing.planChoice;
+  return { ...item, itemId: existing.itemId, quantity: existing.quantity, estimated: false,
+    ...(choice?{planChoice:sameName?choice:{letter:choice.letter,assignment:choice.assignment,referenceKey:''}}:{}) };
+
 }
