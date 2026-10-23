@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { auth, googleProvider, db } from '../firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
-import { LogOut, Users, ChevronLeft, RefreshCw, Plus, Calendar } from 'lucide-react';
+import { doc, onSnapshot, runTransaction, serverTimestamp } from 'firebase/firestore';
+import { LogOut, Users, ChevronLeft, RefreshCw, Calendar } from 'lucide-react';
 import { LoadingScreen, ToastProvider, toast } from '../components';
 import ClientList from '../components/trainer/ClientList';
 import ClientDetailsModal from '../components/trainer/ClientDetailsModal';
 import PendingRequests from '../components/trainer/PendingRequests';
-import { formatLocalDateKey, getTodayDateKey, isSameLocalDate, parseDateInput } from '../utils/date';
+import { formatLocalDateKey, parseDateInput } from '../utils/date';
 
 export default function TrainerDashboard() {
   const navigate = useNavigate();
@@ -21,83 +22,76 @@ export default function TrainerDashboard() {
   const [showClientDetails, setShowClientDetails] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // Firebase Auth
-  const loadTrainerData = useCallback(async (trainerId) => {
-    try {
-      const trainerRef = doc(db, 'trainers', trainerId);
-      const trainerDoc = await getDoc(trainerRef);
-
-      if (trainerDoc.exists()) {
-        const data = trainerDoc.data();
-
-        // Завантажити клієнтів
-        const clientsList = Object.entries(data.clients || {}).map(([id, clientData]) => ({
-          id,
-          ...clientData
-        }));
-        setClients(clientsList);
-      } else {
-        // Новий тренер - створити профіль
-        await setDoc(trainerRef, {
-          profile: {
-            name: auth.currentUser?.displayName || 'Тренер',
-            email: auth.currentUser?.email,
-            createdAt: new Date().toISOString()
-          },
-          clients: {}
-        });
-        setClients([]);
-      }
-    } catch (error) {
-      console.error('Error loading trainer data:', error);
-      toast.error('Помилка завантаження даних');
-    }
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setFirebaseUser(user);
-      if (user) {
-        await loadTrainerData(user.uid);
-      }
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, [loadTrainerData]);
-
-  // Форматування дати
-  const formatDate = (date) => formatLocalDateKey(date);
-
-  // Завантажити дані клієнтів за обрану дату
-  const loadClientsMeals = useCallback(async (clientsList, date) => {
-    const dateStr = formatDate(date);
-    const mealsData = {};
-
-    for (const client of clientsList) {
+  const [trainerReady,setTrainerReady]=useState(false);
+  const [accessError,setAccessError]=useState('');
+  const [reload,setReload]=useState(0);
+  const session=useRef(0), allowed=useRef(new Map()), denied=useRef(new Map());
+  const clearPrivate=useCallback(()=>{
+    allowed.current.clear();denied.current.clear();
+    setClients([]);setClientMeals({});setSelectedClient(null);setShowClientDetails(false);setTrainerReady(false);
+  },[]);
+  useEffect(()=>onAuthStateChanged(auth,user=>{
+    session.current = session.current + 1;
+    flushSync(()=>{clearPrivate();setFirebaseUser(user);setLoading(false);setAccessError('');});
+  }),[clearPrivate]);
+  useEffect(()=>{
+    if(!firebaseUser)return undefined;
+    const version=++session.current;let off=()=>{},active=true;
+    clearPrivate();setAccessError('');
+    const initialize=async()=>{
       try {
-        const historyRef = doc(db, 'users', client.id, 'mealHistory', dateStr);
-        const historyDoc = await getDoc(historyRef);
-
-        if (historyDoc.exists()) {
-          mealsData[client.id] = historyDoc.data();
-        } else {
-          mealsData[client.id] = null;
-        }
-      } catch (error) {
-        console.error(`Error loading client ${client.id} meals:`, error);
-        mealsData[client.id] = null;
-      }
-    }
-
-    setClientMeals(mealsData);
-  }, []);
-
-  // Завантажити дані при зміні дати
-  useEffect(() => {
-    if (clients.length > 0) {
-      loadClientsMeals(clients, selectedDate);
-    }
-  }, [clients, selectedDate, loadClientsMeals]);
+        const ref=doc(db,'trainers',firebaseUser.uid);
+        await runTransaction(db,async tx=>{
+          const current=await tx.get(ref);
+          if(!current.exists())tx.set(ref,{profile:{name:firebaseUser.displayName||'Тренер',email:firebaseUser.email,createdAt:serverTimestamp()},clients:{}});
+        });
+        if(!active||session.current!==version)return;
+        off=onSnapshot(ref,{includeMetadataChanges:true},snapshot=>{
+          if(!active||session.current!==version||snapshot.metadata.fromCache)return;
+          const data=snapshot.data()?.clients;
+          const list=data&&typeof data==='object'&&!Array.isArray(data)?Object.entries(data).filter(([id,value])=>value&&typeof value==='object'&&(!denied.current.has(id)||denied.current.get(id)!==value.generation)).map(([id,value])=>({...value,id})):[];
+          const next=new Map(list.map(client=>[client.id,client.generation]));
+          // Invalidate old deliveries before updating React, including reconnect to the same UID.
+          const removed=[...allowed.current.keys()].filter(id=>!next.has(id)||next.get(id)!==allowed.current.get(id));
+          allowed.current=next;
+          flushSync(()=>{
+            setClients(list);setTrainerReady(snapshot.exists());
+            setClientMeals(previous=>Object.fromEntries(Object.entries(previous).filter(([id])=>next.has(id)&&!removed.includes(id))));
+            setSelectedClient(previous=>{
+              if(previous&&(!next.has(previous.id)||removed.includes(previous.id))){setShowClientDetails(false);return null;}
+              return previous;
+            });
+          });
+        },()=>{
+          if(active&&session.current===version){session.current = session.current + 1;flushSync(()=>{clearPrivate();setAccessError('Доступ до каталогу втрачено. Перевірте з’єднання.');});}
+        });
+      }catch{if(active&&session.current===version){clearPrivate();setAccessError('Не вдалося завантажити профіль тренера.');}}
+    };
+    void initialize();
+    return ()=>{active=false;session.current = session.current + 1;off();allowed.current.clear();};
+  },[firebaseUser,reload,clearPrivate]);
+  const revokeClient=useCallback(id=>{
+    denied.current.set(id,allowed.current.get(id));allowed.current.delete(id);
+    flushSync(()=>{
+      setClients(previous=>previous.filter(client=>client.id!==id));
+      setClientMeals(previous=>{const next={...previous};delete next[id];return next;});
+      setSelectedClient(previous=>{if(previous?.id===id){setShowClientDetails(false);return null;}return previous;});
+      setAccessError('Дані клієнта прибрано: доступ відкликано або його не вдалося підтвердити.');
+    });
+  },[]);
+  const formatDate=date=>formatLocalDateKey(date);
+  useEffect(()=>{
+    if(!firebaseUser||!trainerReady)return undefined;
+    const version=session.current;let active=true;
+    setClientMeals({});
+    const offs=clients.map(client=>{
+      const valid=()=>active&&session.current===version&&allowed.current.has(client.id)&&allowed.current.get(client.id)===client.generation;
+      return onSnapshot(doc(db,'users',client.id,'mealHistory',formatLocalDateKey(selectedDate)),{includeMetadataChanges:true},snapshot=>{
+        if(valid()&&!snapshot.metadata.fromCache)setClientMeals(previous=>({...previous,[client.id]:snapshot.exists()?snapshot.data():null}));
+      },()=>{if(valid())revokeClient(client.id);});
+    });
+    return ()=>{active=false;offs.forEach(off=>off());};
+  },[firebaseUser,trainerReady,clients,selectedDate,revokeClient]);
 
   // Обробка вибору дати з input[type=date]
   const handleDateChange = (e) => {
@@ -112,34 +106,6 @@ export default function TrainerDashboard() {
     }
     setSelectedDate(newDate);
   };
-
-  // Real-time оновлення для клієнтів (тільки для сьогодні)
-  useEffect(() => {
-    if (clients.length === 0) return;
-
-    const isToday = isSameLocalDate(selectedDate, new Date());
-
-    // Real-time тільки для сьогоднішньої дати
-    if (!isToday) return;
-
-    const dateStr = formatDate(selectedDate);
-    const unsubscribes = [];
-
-    clients.forEach(client => {
-      const historyRef = doc(db, 'users', client.id, 'mealHistory', dateStr);
-      const unsub = onSnapshot(historyRef, (docSnap) => {
-        setClientMeals(prev => ({
-          ...prev,
-          [client.id]: docSnap.exists() ? docSnap.data() : null
-        }));
-      }, (error) => {
-        console.error(`Error listening to client ${client.id}:`, error);
-      });
-      unsubscribes.push(unsub);
-    });
-
-    return () => unsubscribes.forEach(unsub => unsub());
-  }, [clients, selectedDate, loadClientsMeals]);
 
   // Google Sign In
   const handleGoogleSignIn = async () => {
@@ -167,107 +133,7 @@ export default function TrainerDashboard() {
     setShowClientDetails(true);
   };
 
-  // Оновити дані
-  const handleRefresh = () => {
-    if (clients.length > 0) {
-      loadClientsMeals(clients, selectedDate);
-      toast.success('Дані оновлено');
-    }
-  };
-
-  // Створити тестового клієнта (для розробки)
-  const createTestClient = async () => {
-    if (!firebaseUser) return;
-
-    const testClientId = 'test-client-' + Date.now();
-    const testMeasurements = [
-      { date: '2024-11-15', weight: 85.0, waist: 92, hips: 108, chest: 100, arms: 34, thighs: 62 },
-      { date: '2024-11-22', weight: 84.2, waist: 91, hips: 107, chest: 99, arms: 33.5, thighs: 61 },
-      { date: '2024-12-06', weight: 82.8, waist: 88, hips: 105, chest: 98, arms: 32.5, thighs: 59 },
-      { date: '2024-12-20', weight: 80.2, waist: 84, hips: 102, chest: 96, arms: 31.5, thighs: 57 },
-      { date: '2025-01-03', weight: 79.0, waist: 82, hips: 100, chest: 95, arms: 31, thighs: 56 },
-      { date: '2025-01-10', weight: 78.5, waist: 80, hips: 99, chest: 94, arms: 30.5, thighs: 55 },
-    ];
-
-    try {
-      // 1. Створити профіль клієнта
-      const userRef = doc(db, 'users', testClientId);
-      await setDoc(userRef, {
-        users: {
-          [testClientId]: {
-            name: 'Тестова Клієнтка',
-            gender: 'жінка',
-            portions: {},
-            programDay: 57,
-            currentWeight: 78.5,
-            meals: { 1: {}, 2: {}, 3: {}, 4: {} },
-            startDate: '2024-11-15',
-            createdAt: new Date().toISOString()
-          }
-        },
-        trainerId: firebaseUser.uid,
-        trainerEmail: firebaseUser.email,
-        globalCustomProducts: {},
-        createdAt: new Date().toISOString()
-      });
-
-      // 2. Додати заміри
-      for (const m of testMeasurements) {
-        const measurementRef = doc(db, 'users', testClientId, 'measurements', m.date);
-        await setDoc(measurementRef, {
-          ...m,
-          timestamp: new Date(m.date + 'T10:00:00Z').toISOString()
-        });
-      }
-
-      // 3. Додати сьогоднішню історію харчування
-      const today = getTodayDateKey();
-      const mealHistoryRef = doc(db, 'users', testClientId, 'mealHistory', today);
-      await setDoc(mealHistoryRef, {
-        meals: {
-          1: { 'Б': [{ name: 'Яйця', weight: 120, portion: 100, p: 13, f: 11, c: 1 }] },
-          2: { 'Б': [{ name: 'Куряча грудка', weight: 150, portion: 100, p: 31, f: 4, c: 0 }] },
-          3: { 'Б': [{ name: 'Лосось', weight: 120, portion: 100, p: 20, f: 13, c: 0 }] },
-          4: { 'Е': [{ name: 'Сир', weight: 150, portion: 100, p: 18, f: 5, c: 2 }] }
-        },
-        currentWeight: 78.5,
-        programDay: 57,
-        totalMacros: { p: 98, f: 42, c: 45, cal: 950 },
-        updatedAt: new Date().toISOString()
-      });
-
-      // 4. Додати клієнта до списку тренера
-      const trainerRef = doc(db, 'trainers', firebaseUser.uid);
-      const trainerDoc = await getDoc(trainerRef);
-      const trainerData = trainerDoc.data();
-
-      await setDoc(trainerRef, {
-        ...trainerData,
-        clients: {
-          ...trainerData.clients,
-          [testClientId]: {
-            name: 'Тестова Клієнтка',
-            email: 'test@example.com',
-            addedAt: new Date().toISOString()
-          }
-        }
-      }, { merge: true });
-
-      // Оновити локальний стан
-      const newClient = {
-        id: testClientId,
-        name: 'Тестова Клієнтка',
-        email: 'test@example.com'
-      };
-      setClients(prev => [...prev, newClient]);
-      loadClientsMeals([...clients, newClient], selectedDate);
-
-      toast.success('Тестовий клієнт створений!');
-    } catch (error) {
-      console.error('Error creating test client:', error);
-      toast.error('Помилка створення тестового клієнта');
-    }
-  };
+  const handleRefresh=()=>setReload(value=>value+1);
 
   // Loading
   if (loading) {
@@ -331,13 +197,6 @@ export default function TrainerDashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button
-                  onClick={createTestClient}
-                  className="p-2.5 text-[#8E8E93] active:bg-[#F2F2F7] rounded-full"
-                  title="Додати тестового клієнта"
-                >
-                  <Plus size={20} />
-                </button>
                 <button
                   onClick={handleRefresh}
                   className="p-2.5 text-[#8E8E93] active:bg-[#F2F2F7] rounded-full"
@@ -409,15 +268,8 @@ export default function TrainerDashboard() {
           </div>
 
           {/* Pending Requests */}
-          <PendingRequests
-            trainerEmail={firebaseUser.email}
-              trainerId={firebaseUser.uid}
-              onClientAdded={(newClient) => {
-                setClients(prev => [...prev, newClient]);
-                loadClientsMeals([...clients, newClient], selectedDate);
-                toast.success(`${newClient.name} доданий до ваших клієнтів!`);
-              }}
-            />
+          {accessError&&<p role="alert" className="mb-4 text-[14px]">{accessError}</p>}
+          <PendingRequests firebaseUser={firebaseUser} ready={trainerReady}/>
 
           {/* Client List */}
           {clients.length > 0 ? (
@@ -445,13 +297,14 @@ export default function TrainerDashboard() {
         {/* Client Details Modal */}
         {selectedClient && (
           <ClientDetailsModal
+            key={`${firebaseUser.uid}:${selectedClient.id}:${selectedClient.generation}`}
             isOpen={showClientDetails}
             onClose={() => {
               setShowClientDetails(false);
               setSelectedClient(null);
             }}
+            onAccessLost={()=>revokeClient(selectedClient.id)}
             client={selectedClient}
-            todayMeals={clientMeals[selectedClient.id]}
           />
         )}
       </div>

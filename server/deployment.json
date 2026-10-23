@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "releaseId": "PENDING_VERIFIED_PACKAGE",
+  "liveEnabled": false,
+  "firebaseProject": "nutrition-tracker-ua",
+  "origin": "https://ntzg.pp.ua",
+  "allowedUids": [],
+  "port": 8787,
+  "budgetDirectory": "/var/lib/scisense",
+  "activationFile": "/etc/scisense/activation.json",
+  "proposalRevision": 2,
+  "configHash": "a02935f19acdb01c574136462527450848731c586402cfb6bb00a496ca67ad3e",
+  "maxConcurrent": 1,
+  "credentialNames": [
+    "groq",
+    "anthropic"
+  ],
+  "transcription": {
+    "provider": "groq",
+    "model": "whisper-large-v3",
+    "accountTier": "free",
+    "timeoutMs": 45000
+  }
+}

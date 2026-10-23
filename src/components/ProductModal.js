@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { X, Plus, Pencil } from 'lucide-react';
 import { PRODUCTS_DB, CATEGORY_ICONS } from '../data/products';
+import { itemMacros } from '../services/mealItems';
 import { getCategoryProgress } from '../services/nutrition';
 import AnimatedModal from './AnimatedModal';
 import EditProductModal from './EditProductModal';
+import CategoryIcon from './CategoryIcon';
 
 export default function ProductModal({
   isOpen,
+  busy = false,
   currentLetter,
   selectedMeal,
   meals,
@@ -25,7 +28,7 @@ export default function ProductModal({
   const [customGrams, setCustomGrams] = useState({});
   const [editingProduct, setEditingProduct] = useState(null);
 
-  if (!currentLetter) return null;
+  if (!currentLetter || !PRODUCTS_DB[currentLetter]) return null;
 
   const products = getAllProducts(currentLetter);
   const categoryData = PRODUCTS_DB[currentLetter];
@@ -34,7 +37,7 @@ export default function ProductModal({
 
   // Розрахунок спожитих калорій для калорійних категорій
   const currentCategoryProducts = meals[selectedMeal]?.[currentLetter] || [];
-  const usedCategoryCalories = currentCategoryProducts.reduce((sum, p) => sum + (p.calories || 0), 0);
+  const usedCategoryCalories = currentCategoryProducts.reduce((sum, p) => sum + (itemMacros(p).cal), 0);
   const remainingCategoryCalories = calorieLimit - usedCategoryCalories;
   const currentCategoryPortion = currentCategoryProducts.reduce((sum, p) => sum + (p.portion || 0), 0);
   const categoryProgress = getCategoryProgress({
@@ -46,7 +49,7 @@ export default function ProductModal({
 
   return (
     <AnimatedModal isOpen={isOpen} onClose={onClose} position="bottom">
-      <div className="flex flex-col" style={{ height: '85vh', maxHeight: '85vh' }}>
+      <fieldset disabled={busy} className="flex flex-col" style={{ height: '85vh', maxHeight: '85vh' }}>
         {/* iOS Header */}
         <div className="flex-shrink-0 px-4 py-3 border-b border-[#C6C6C8]/30">
           <div className="flex items-center justify-between">
@@ -58,10 +61,9 @@ export default function ProductModal({
             </button>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-[#F2F2F7] border border-[#E9E9EE] flex items-center justify-center overflow-hidden">
-                <img
+                <CategoryIcon
                   src={CATEGORY_ICONS[currentLetter]}
                   alt={PRODUCTS_DB[currentLetter].name}
-                  className="w-full h-full object-cover"
                 />
               </div>
               <span className="font-semibold text-[17px]">{currentLetter}</span>
@@ -115,7 +117,7 @@ export default function ProductModal({
 
                 // Для калорійних категорій рахуємо спожиті калорії
                 const usedCalories = isCalorieBased
-                  ? currentProducts.reduce((sum, p) => sum + (p.calories || 0), 0)
+                  ? currentProducts.reduce((sum, p) => sum + (itemMacros(p).cal), 0)
                   : 0;
                 const remainingCalories = calorieLimit - usedCalories;
 
@@ -261,7 +263,7 @@ export default function ProductModal({
             </div>
           </div>
         </div>
-      </div>
+      </fieldset>
 
       <EditProductModal
         isOpen={!!editingProduct}

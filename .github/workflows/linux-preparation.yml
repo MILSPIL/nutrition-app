@@ -1,0 +1,27 @@
+name: Linux preparation
+on:
+  # Historical local-model experiment; run only after a separate explicit approval.
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  whisper-and-credentials:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check build resources before downloads
+        run: python3 server/linux/preflight.py
+      - name: Build pinned CPU Whisper in isolated image
+        run: docker build --file server/linux/Dockerfile --tag scisense-linux-prep --build-arg WHISPER_TEST_MODEL=small-q5_1 .
+      - name: Verify CPU and memory limit checks
+        run: docker run --rm --network=none --cpus=1 --memory=256m --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --entrypoint=node scisense-linux-prep --test server/linux/*.test.mjs
+      - name: Test approved small model on full synthetic fixture suite
+        run: python3 server/linux/run.py --cpus 2 --model small-q5_1
+      - name: Keep bounded measurements without media or transcripts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-preparation
+          path: tmp/linux-preparation/
+          retention-days: 7

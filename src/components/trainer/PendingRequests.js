@@ -1,157 +1,58 @@
-import React, { useState, useEffect } from 'react';
-import { UserPlus, Check, X, Clock } from 'lucide-react';
-import { collection, query, where, onSnapshot, doc, updateDoc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
+import React, { useState, useEffect, useRef } from 'react';
+import { UserPlus } from 'lucide-react';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
-
-export default function PendingRequests({ trainerEmail, trainerId, onClientAdded }) {
-  const [requests, setRequests] = useState([]);
-  const [processing, setProcessing] = useState({});
-
-  // Слухати запити в реальному часі
-  useEffect(() => {
-    if (!trainerEmail) return;
-
-    const requestsQuery = query(
-      collection(db, 'trainerRequests'),
-      where('trainerEmail', '==', trainerEmail.toLowerCase()),
-      where('status', '==', 'pending')
-    );
-
-    const unsubscribe = onSnapshot(requestsQuery, (snapshot) => {
-      const reqs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setRequests(reqs);
-    }, (error) => {
-      console.error('Error listening to requests:', error);
-    });
-
-    return () => unsubscribe();
-  }, [trainerEmail]);
-
-  // Прийняти запит
-  const handleAccept = async (request) => {
-    setProcessing(prev => ({ ...prev, [request.id]: 'accepting' }));
-
+import { createTrainerAccess, connectionVersion, connectionDate, connectionError, validConnection, normalizeTrainerEmail } from '../../services/trainerAccess';
+const access=createTrainerAccess(db),inFlight=new Map();
+export default function PendingRequests({firebaseUser,ready}) {
+  const [requests,setRequests]=useState([]),[processing,setProcessing]=useState({}),[message,setMessage]=useState(''),[retry,setRetry]=useState(0);
+  const epoch=useRef(0);
+  const operationKey=id=>`${firebaseUser?.uid}/${id}`;
+  useEffect(()=>{
+    const version=++epoch.current;setRequests([]);setMessage('');
+    const prefix=`${firebaseUser?.uid}/`;
+    const reconcile=()=>{if(epoch.current===version)setProcessing(Object.fromEntries([...inFlight.keys()].filter(key=>key.startsWith(prefix)).map(key=>[key.slice(prefix.length),true])));};
+    reconcile();
+    for(const [key,promise] of inFlight)if(key.startsWith(prefix))promise.finally(reconcile).catch(()=>{});
+    if(!ready||!firebaseUser?.emailVerified)return undefined;
+    const q=query(collection(db,'trainerRequests'),where('trainerEmail','==',normalizeTrainerEmail(firebaseUser.email)),where('status','==','pending'));
+    const off=onSnapshot(q,{includeMetadataChanges:true},snapshot=>{
+      if(epoch.current===version&&!snapshot.metadata.fromCache)setRequests(snapshot.docs.map(d=>({payload:d.data(),id:d.id})));
+    },()=>{if(epoch.current===version){setRequests([]);setMessage('Не вдалося завантажити запити. Перевірте з’єднання та повторіть.');}});
+    return ()=>{epoch.current = epoch.current + 1;off();};
+  },[firebaseUser,ready,retry]);
+  const perform=async(item,action)=>{
+    const key=operationKey(item.id);
+    if(!ready||inFlight.has(key))return;
+    const version=epoch.current;setProcessing(p=>({...p,[item.id]:true}));setMessage('');
+    const timer=setTimeout(()=>{if(epoch.current===version)setMessage('Результат ще не підтверджено. Очікуємо завершення операції.');},10000);
+    const promise=Promise.resolve().then(()=>action==='legacy'?access.deleteLegacyPending(item.id,item.clientId):action==='accept'?access.accept(firebaseUser,item.clientId,connectionVersion(item)):access.finishPending(firebaseUser,item.clientId,connectionVersion(item),'rejected'));
+    inFlight.set(key,promise);
     try {
-      // Додати клієнта до списку тренера
-      const trainerRef = doc(db, 'trainers', trainerId);
-      const trainerDoc = await getDoc(trainerRef);
-      const currentClients = trainerDoc.exists() ? (trainerDoc.data().clients || {}) : {};
-
-      await setDoc(trainerRef, {
-        clients: {
-          ...currentClients,
-          [request.clientId]: {
-            name: request.clientName,
-            email: request.clientEmail,
-            addedAt: new Date().toISOString(),
-            status: 'active'
-          }
-        }
-      }, { merge: true });
-
-      // Оновити профіль клієнта
-      const userRef = doc(db, 'users', request.clientId);
-      await updateDoc(userRef, {
-        trainerId: trainerId,
-        trainerEmail: trainerEmail
-      });
-
-      // Оновити статус запиту
-      await updateDoc(doc(db, 'trainerRequests', request.id), {
-        status: 'accepted',
-        acceptedAt: new Date().toISOString()
-      });
-
-      // Видалити запит
-      await deleteDoc(doc(db, 'trainerRequests', request.id));
-
-      if (onClientAdded) {
-        onClientAdded({
-          id: request.clientId,
-          name: request.clientName,
-          email: request.clientEmail
-        });
-      }
-    } catch (error) {
-      console.error('Error accepting request:', error);
-    } finally {
-      setProcessing(prev => ({ ...prev, [request.id]: null }));
-    }
+      await promise;
+      if(epoch.current===version)setMessage(action==='accept'?'Запит прийнято.':action==='legacy'?'Старий запит прибрано.':'Запит відхилено.');
+    }catch(error){if(epoch.current===version)setMessage(connectionError(error));}
+    finally{clearTimeout(timer);if(inFlight.get(key)===promise)inFlight.delete(key);if(epoch.current===version){setProcessing(p=>({...p,[item.id]:false}));}}
   };
-
-  // Відхилити запит
-  const handleReject = async (request) => {
-    setProcessing(prev => ({ ...prev, [request.id]: 'rejecting' }));
-
-    try {
-      await updateDoc(doc(db, 'trainerRequests', request.id), {
-        status: 'rejected',
-        rejectedAt: new Date().toISOString()
-      });
-
-      // Видалити запит
-      await deleteDoc(doc(db, 'trainerRequests', request.id));
-    } catch (error) {
-      console.error('Error rejecting request:', error);
-    } finally {
-      setProcessing(prev => ({ ...prev, [request.id]: null }));
-    }
-  };
-
-  if (requests.length === 0) return null;
-
-  return (
-    <div className="bg-[#FF9500]/10 rounded-2xl p-4 mb-4">
-      <div className="flex items-center gap-2 mb-3">
-        <UserPlus size={20} className="text-[#FF9500]" />
-        <h3 className="text-[17px] font-semibold text-black">
-          Нові запити ({requests.length})
-        </h3>
-      </div>
-
-      <div className="space-y-2">
-        {requests.map(request => (
-          <div
-            key={request.id}
-            className="bg-white rounded-xl p-3 flex items-center justify-between"
-          >
-            <div>
-              <div className="text-[15px] font-medium text-black">{request.clientName}</div>
-              <div className="text-[13px] text-[#8E8E93]">{request.clientEmail}</div>
-              <div className="flex items-center gap-1 text-[11px] text-[#C7C7CC] mt-1">
-                <Clock size={12} />
-                {new Date(request.createdAt).toLocaleDateString('uk-UA')}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {processing[request.id] ? (
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#007AFF]"></div>
-              ) : (
-                <>
-                  <button
-                    onClick={() => handleReject(request)}
-                    className="w-10 h-10 flex items-center justify-center text-[#FF3B30] bg-[#FF3B30]/10 rounded-full active:opacity-60"
-                    title="Відхилити"
-                  >
-                    <X size={20} />
-                  </button>
-                  <button
-                    onClick={() => handleAccept(request)}
-                    className="w-10 h-10 flex items-center justify-center text-[#34C759] bg-[#34C759]/10 rounded-full active:opacity-60"
-                    title="Прийняти"
-                  >
-                    <Check size={20} />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  if(!firebaseUser?.emailVerified)return <p role="status" className="mb-4">Підтвердьте email, щоб приймати запити клієнтів.</p>;
+  if(!requests.length&&!message)return null;
+  return <section className="bg-[#FF9500]/10 rounded-2xl p-4 mb-4">
+    <h3 className="flex items-center gap-2 text-[17px] font-semibold mb-3"><UserPlus size={20}/>Нові запити ({requests.length})</h3>
+    {message&&<p role="status" className="text-[14px] mb-3">{message}</p>}
+    <button className="min-h-[44px] text-[#007AFF] mb-2" onClick={()=>setRetry(v=>v+1)}>Перевірити запити</button>
+    <div className="space-y-3">{requests.map(({id,payload})=>{
+      const item={...payload,id};
+      const legacy=id!==item.clientId,valid=!legacy&&validConnection(payload,item.clientId);
+      return <div key={item.id} className="bg-white rounded-xl p-3 space-y-2">
+        <p className="font-medium">{item.clientName}</p><p className="text-[13px] text-[#636366]">{item.clientEmail}</p><p className="text-[12px]">{connectionDate(item.createdAt)}</p>
+        {!valid&&<p className="text-[13px]">Потрібен новий запит зі згодою клієнта.</p>}
+        <div className="flex gap-3">
+          {legacy?<button className="min-h-[44px] text-[#007AFF]" disabled={processing[item.id]} onClick={()=>perform(item,'legacy')}>Прибрати старий запит</button>:<>
+            <button className="min-h-[44px] text-[#FF3B30]" disabled={processing[item.id]||!valid} onClick={()=>perform(item,'reject')}>Відхилити</button>
+            <button className="min-h-[44px] text-[#007AFF]" disabled={processing[item.id]||!valid} onClick={()=>perform(item,'accept')}>Прийняти</button>
+          </>}
+        </div>
+      </div>;
+    })}</div>
+  </section>;
 }

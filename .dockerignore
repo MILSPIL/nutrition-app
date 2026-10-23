@@ -1,0 +1,9 @@
+.git
+**/node_modules
+build
+tmp
+.agents/runtime
+.claude
+.env*
+**/__pycache__
+**/*.pyc

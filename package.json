@@ -1,9 +1,9 @@
 {
   "name": "nutrition-app",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "private": true,
   "engines": {
-    "node": "24.11.x",
+    "node": "24.22.x",
     "npm": "11.x"
   },
   "dependencies": {
@@ -20,7 +20,17 @@
     "build": "REACT_APP_VERSION=$npm_package_version GENERATE_SOURCEMAP=false react-scripts build",
     "test": "REACT_APP_VERSION=$npm_package_version react-scripts test",
     "test:ci": "CI=true npm test -- --watchAll=false",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "test:voice-photo": "npm run test:ci -- --runInBand && npm --prefix workers/meal-parser test && npm run test:meal-store",
+    "test:meal-store": "node scripts/meal-store-test.mjs",
+    "test:voice-photo-ui": "node scripts/browser-test.mjs voice-photo",
+    "lab:phone:prepare": "node scripts/phone-lab.mjs prepare",
+    "lab:phone": "node scripts/phone-lab.mjs start",
+    "test:phone-lab": "node --test scripts/phone-lab/*.test.mjs",
+    "test:phone-lab-ui": "node scripts/browser-test.mjs phone-lab",
+    "test:server": "node --test server/*.test.mjs",
+    "test:rules": "node scripts/trainer-access-test.mjs",
+    "test:trainer-ui": "node scripts/browser-test.mjs trainer-access"
   },
   "eslintConfig": {
     "extends": [
@@ -38,5 +48,10 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.2",
+    "playwright": "1.64.0",
+    "tailwindcss": "3.4.19"
   }
 }

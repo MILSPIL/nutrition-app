@@ -7,7 +7,7 @@ Use this before merging a release-sized change or tagging a new version.
 - [ ] Scope is clear and matches the planned release
 - [ ] No unrelated changes are mixed into the release
 - [ ] Version in `package.json` is correct
-- [ ] If needed, `src/components/WelcomeModal.js` changelog is updated
+- [ ] Новини в `src/data/releases.js` актуальні, людська версія збігається з `package.json`
 - [ ] `DEVELOPMENT.md` journal entry is updated
 - [ ] `README.md` is updated if setup or behavior changed
 
@@ -35,3 +35,15 @@ Use this before merging a release-sized change or tagging a new version.
 
 - [ ] Deploy steps are known
 - [ ] Post-merge smoke check plan is clear
+
+## Голос і фото: обов’язкові гейти
+
+- [ ] `npm run test:voice-photo` пройшов: клієнт, Worker, demo Firestore
+- [ ] QA 375/390/1366 з числовими відступами та підтвердженим cleanup
+- [ ] V01–V03/V09 перевірені на реальному телефоні й погоджених API, а не лише на fixtures
+- [ ] Проєктні ключі, точні моделі/тарифи, бюджет і політика зберігання API погоджені
+- [ ] G04 доступу пройдено до приватного пілоту
+- [ ] Старий відкритий writer не може стерти day markers/revision; контрольоване оновлення перевірене
+- [ ] Змішане старе/нове production-розгортання заборонено до попереднього пункту
+- [ ] Юрій окремо погодив публікацію; код у PR сам не дозволяє deploy
+- [ ] Після пілоту Юрій прийняв продукт за погодженими порогами Goal

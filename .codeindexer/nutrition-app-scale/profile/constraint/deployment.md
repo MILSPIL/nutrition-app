@@ -2,9 +2,9 @@
 project: nutrition-app-scale
 domain: constraint
 slot: deployment
-confidence: 0
-valid_at: "2026-10-20T09:56:15.933625+00:00"
-provenance: VoiceInputModal.js, mealParser.js, workers/meal-parser/src/index.js; уточнення вимоги Юрія 2026-10-20.
+confidence: 1
+valid_at: "2026-10-23T09:25:55.416405+00:00"
+provenance: .agents/journal/2026-10-23-1224-codex-gpt-6-ntzg-voice-photo-live.md
 ---
 
-Перевірено 2026-10-20: на базі d51edec є текстовий парсер, прев’ю та Worker, 40/40 старих unit-тестів і збірка проходили. Прямого запису аудіо та фото упаковки немає; наскрізний реальний AI-виклик не перевірено. Ці тести не доводять нові G05/G11. Голос+фото розробляються після погодження нового плану; локальна перевірка, публікація і продуктове приймання окремі.
+2026-10-23: nutrition-app-scale є окремим незміненим прототипом feat/voice-input. Чинний голос+фото розроблявся в scisense-product-goal, codex/scisense-server-prep; release9f2759b опублікований, реальні API активні та синтетично перевірені. Див. deploy/target, constraint/live_api_approval і PROJECT-INFO.md продуктового worktree. Фізичний телефон та пілот pending.

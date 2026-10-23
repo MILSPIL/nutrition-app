@@ -1,0 +1,62 @@
+{
+  "syntheticOnly": true,
+  "requestedCpus": 2,
+  "fixtureSet": "diagnostic",
+  "completeAcceptanceSet": false,
+  "paidCalls": 0,
+  "fixtures": [
+    {
+      "syntheticOnly": true,
+      "language": "uk",
+      "durationSeconds": 5,
+      "mode": "normal",
+      "threads": 2,
+      "timeoutMs": 45000,
+      "sourceCommit": "d1be6fde11ac6e0407606b4e42fe72d34add8037",
+      "modelSha1": "e050f7970618a659205450ad97eb95a18d69c9ee",
+      "architecture": "x64",
+      "node": "v24.11.1",
+      "cpuMax": "200000 100000",
+      "memoryMax": "2147483648",
+      "oomBefore": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+      "result": "upstream_timeout",
+      "elapsedMs": 45058,
+      "ownedProcesses": 0,
+      "memoryPeak": "808906752",
+      "oomAfter": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+      "temporaryFiles": 0,
+      "diagnostics": {
+        "stdinFinished": true,
+        "audioReadBytes": 160044,
+        "stderrBytes": 46,
+        "stdoutBytes": 0,
+        "exitCode": null,
+        "exitSignal": "SIGTERM"
+      },
+      "cpuUsageMs": 89695,
+      "limitsEnforced": true,
+      "oomKilled": false,
+      "pass": false,
+      "containerExit": 0,
+      "cleanupOk": true
+    }
+  ],
+  "credential": {
+    "syntheticOnly": true,
+    "version": "systemd 255 (255.4-1ubuntu8.18)",
+    "encryptedRoundtrip": true,
+    "wrongNameDenied": true,
+    "tamperDenied": true,
+    "plaintextFile": false
+  },
+  "hostAvailableBytesAfter": 15684722688,
+  "targetServerVerified": false,
+  "pass": false,
+  "date": "2026-10-21",
+  "sourceCommit": "0f535827bf2080bbf4511367f2761954094cc236",
+  "workflow": "https://github.com/MILSPIL/nutrition-app/actions/runs/39622898172",
+  "verdict": "deadline_exceeded_while_cpu_busy",
+  "averageCgroupCpus": 1.991,
+  "interpretation": "The CLI read every WAV byte. The fixture cgroup consumed 89.695 CPU-seconds in 45.058 elapsed seconds; initialization and inference are not timed separately. No evidence of waiting indefinitely for stdin. This diagnostic does not replace either complete benchmark.",
+  "productionChanged": false
+}

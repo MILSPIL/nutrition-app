@@ -1,0 +1,74 @@
+{
+  "id": "VOICE-LETTERS-01",
+  "kind": "documentation-baseline-only",
+  "recordedAt": "2026-10-23T11:33:41.460251+00:00",
+  "sourceSha": "ce58f77bbc8774db185f3379e50b98b94657bf1c",
+  "nodeVersion": "v24.22.1",
+  "command": [
+    "/Users/user/.codex/worktrees/scisense-product-goal/nutrition-app/.agents/runtime/deployment/2026-10-22-ntzg-03/runtime-candidate-24.22.1/node-v24.22.1-darwin-arm64/bin/node",
+    "/private/tmp/scisense-letters-baseline.cjs",
+    "/Users/user/.codex/worktrees/scisense-product-goal/nutrition-app"
+  ],
+  "probeSha256": "71ae916b05f5df357957721924982ad8fe844ca40ea170ae120b70c7d4970c73",
+  "exitCode": 1,
+  "expectedExitCode": 1,
+  "meaning": "Чотири чинні прогалини; інваріант норм проходить; навмисна зміна копії в пам’яті виявлена. Це не приймання реалізації.",
+  "privacy": "Тільки синтетичні дані; recorder/API/ledger підставні; мережа заборонена; ключі та файли продукту не змінювалися.",
+  "output": {
+    "baseline": [
+      {
+        "id": "B01-ready",
+        "status": "FAIL",
+        "observed": {
+          "recorderStarts": 1,
+          "attempts": 1,
+          "modelCalls": 0,
+          "startButton": false
+        }
+      },
+      {
+        "id": "B02-letter-preview",
+        "status": "FAIL",
+        "observed": {
+          "letterSelector": false
+        }
+      },
+      {
+        "id": "B03-allocated-save",
+        "status": "FAIL",
+        "observed": {
+          "groups": [
+            "voice"
+          ],
+          "portion": null
+        }
+      },
+      {
+        "id": "B04-daily-letter",
+        "status": "FAIL",
+        "observed": {
+          "fruitText": "ЗФрукти50%"
+        }
+      },
+      {
+        "id": "B05-public-norm-invariant",
+        "status": "PASS",
+        "observed": {
+          "fruitNorm": 400,
+          "freeChoice": 575
+        }
+      },
+      {
+        "id": "B06-invariant-mutation-must-fail",
+        "status": "FAIL",
+        "observed": {
+          "fruitNorm": 999,
+          "expected": "FAIL on in-memory mutant"
+        }
+      }
+    ],
+    "synthetic": true,
+    "productWrites": 0,
+    "network": 0
+  }
+}
