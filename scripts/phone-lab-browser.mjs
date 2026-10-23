@@ -267,15 +267,15 @@ try {
   await page.getByLabel("Код сполучення").fill(code);
   await page.getByRole("button", { name: "Підключити телефон" }).click();
   await page.getByRole("button", { name: "Увійти в тестовий простір" }).click();
-  await page.getByText("Що нового у v1.7.0", { exact: true }).waitFor();
+  await page.getByText("Що нового у v1.8.0", { exact: true }).waitFor();
   check("Новини показують людську версію та поточний домен",
-    await page.getByText("Версія 1.7.0", { exact: true }).count() === 1 &&
+    await page.getByText("Версія 1.8.0", { exact: true }).count() === 1 &&
     await page.getByText("Адреса застосунку: ntzg.pp.ua", { exact: true }).count() === 1);
-  await measureModal("welcome", page.getByText("Що нового у v1.7.0", { exact: true }), 390);
+  await measureModal("welcome", page.getByText("Що нового у v1.8.0", { exact: true }), 390);
   await page.getByRole("button", { name: "Почати!", exact: true }).click();
   await page.getByRole("button", { name: "Почати!", exact: true }).waitFor({ state: "hidden" });
   check("Закриття новин зберігає людську версію",
-    await page.evaluate(() => localStorage.getItem("app_version_seen")) === "1.7.0");
+    await page.evaluate(() => localStorage.getItem("app_version_seen")) === "1.8.0");
   await page.locator(".fixed.z-50")
     .filter({ has: page.getByRole("heading", { name: "Налаштування", exact: true }) })
     .locator("button:has(svg.lucide-x)").first().click();
@@ -298,6 +298,7 @@ try {
     evidence.categoryIcons.length === 8 && evidence.categoryIcons.every(icon =>
       icon.status === 200 && icon.type.startsWith("image/") && icon.width > 0 && icon.height > 0));
   await page.getByRole("button", { name: "Додати їжу голосом", exact: true }).click();
+  await page.getByRole("button", { name: "Почати запис", exact: true }).click();
   await page.getByRole("button", { name: "Зупинити запис", exact: true }).waitFor();
   check("Початкова мова автоматична",
     await page.getByLabel("Мова розпізнавання").inputValue() === "auto");
@@ -351,7 +352,7 @@ try {
   }
 
   check("Після reload закриті новини не повторюються",
-    await page.getByText("Що нового у v1.7.0", { exact: true }).count() === 0);
+    await page.getByText("Що нового у v1.8.0", { exact: true }).count() === 0);
   if (!sttOnly) {
     evidence.upgrade = [];
     for (const previousVersion of ["1.6.0", "bad8217421d0eff859b920885d849e3e121cbf72"]) {
@@ -360,9 +361,9 @@ try {
       upgraded.on("pageerror", error => evidence.errors.push(error.message));
       try {
         await upgraded.goto(gateway.origin);
-        await upgraded.getByText("Що нового у v1.7.0", { exact: true }).waitFor();
-        check(`Оновлення з ${previousVersion}: показана версія 1.7.0`,
-          await upgraded.getByText("Версія 1.7.0", { exact: true }).count() === 1 &&
+        await upgraded.getByText("Що нового у v1.8.0", { exact: true }).waitFor();
+        check(`Оновлення з ${previousVersion}: показана версія 1.8.0`,
+          await upgraded.getByText("Версія 1.8.0", { exact: true }).count() === 1 &&
           await upgraded.getByText(`Версія ${previousVersion}`, { exact: true }).count() === 0);
         await upgraded.getByRole("button", { name: "Почати!", exact: true }).click();
         await upgraded.getByRole("button", { name: "Почати!", exact: true }).waitFor({ state: "hidden" });
@@ -370,7 +371,7 @@ try {
         check(`Оновлення з ${previousVersion}: збережений прийом не втрачений і не дубльований`,
           await upgraded.getByText("Тестовий кефір", { exact: true }).count() === 1 &&
           await upgraded.getByText("106", { exact: true }).count() === 1 &&
-          await upgraded.evaluate(() => localStorage.getItem("app_version_seen")) === "1.7.0");
+          await upgraded.evaluate(() => localStorage.getItem("app_version_seen")) === "1.8.0");
       } finally {
         await upgraded.close();
         evidence.upgrade.push({ previousVersion, closed: upgraded.isClosed() });
@@ -403,6 +404,7 @@ try {
   }
 
   await page.getByRole("button", { name: "Додати їжу голосом", exact: true }).click();
+  await page.getByRole("button", { name: "Почати запис", exact: true }).click();
   await page.getByRole("button", { name: "Зупинити запис", exact: true }).waitFor();
   check("Мовна перевага пережила reload і повторне відкриття",
     await page.getByLabel("Мова розпізнавання").inputValue() === language);

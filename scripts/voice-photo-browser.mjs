@@ -49,7 +49,7 @@ const evidence = {
   consoleErrors: [],
   externalBlocked: [],
 };
-let browser, context, page;
+let browser, context, page, apiCalls=0;
 const check = (name, condition) => {
   assert.ok(condition, name);
   evidence.checks.push(name);
@@ -64,6 +64,7 @@ const fixture = (kind = "estimate", unit = "g") => ({
       source: { kind },
       estimated: kind === "estimate",
       clarification: "",
+      planMatch:{referenceId:'dairy:kefir',consumedState:'as_sold',certainty:'matched'},
     },
   ],
   unparsed: [],
@@ -84,13 +85,22 @@ const readLedger = () =>
       }),
   );
 const openVoice = async () => {
+  const attemptsBefore=(await readLedger()).length,callsBefore=apiCalls;
   await page.evaluate(() => window.scrollTo(0, 0));
   await page
     .getByRole("button", { name: "Додати їжу голосом", exact: true })
     .click();
-  await page
-    .getByRole("button", { name: "Зупинити запис", exact: true })
-    .waitFor();
+  const start=page.getByRole("button",{name:"Почати запис",exact:true});await start.waitFor();
+  check("Ready без спроби й API",(await readLedger()).length===attemptsBefore&&apiCalls===callsBefore);
+  check("Фокус усередині форми",await page.locator('.voice-panel').evaluate(n=>n.contains(document.activeElement)));
+  await start.focus();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Shift+Tab');
+  check("Клавіатура повертає фокус на старт",await start.evaluate(n=>document.activeElement===n));
+  const focus=await start.evaluate(n=>({outline:getComputedStyle(n).outlineStyle,width:parseFloat(getComputedStyle(n).outlineWidth),shadow:getComputedStyle(n).boxShadow}));
+  check("Видимий focus",(focus.outline!=='none'&&focus.width>0)||focus.shadow!=='none');
+  await page.keyboard.press('Enter');
+  await page.getByRole("button", { name: "Зупинити запис", exact: true }).waitFor();
 };
 const stopVoice = async () => {
   await page.waitForTimeout(350);
@@ -120,8 +130,7 @@ try {
     if (m.type() === "error") evidence.consoleErrors.push(m.text());
   });
   page.on("dialog", (d) => d.accept());
-  let mode = "normal",
-    apiCalls = 0;
+  let mode = "normal";
   await context.route("**/*", async (route) => {
     const request = route.request(),
       url = new URL(request.url());
@@ -155,6 +164,8 @@ try {
         });
       }
       const body = request.postDataJSON();
+      check("v2 передає тільки компактний каталог",body.analysisVersion===2&&Array.isArray(body.planCatalog)&&body.planCatalog.every(r=>Object.keys(r).sort().join(',')==='basisState,group,name,refId'));
+      check("Каталог не містить профіль чи норми",!JSON.stringify(body.planCatalog).includes('portions')&&!JSON.stringify(body.planCatalog).includes('addedById'));
       let answer = fixture(body.images.length ? "label" : "estimate");
       if (body.images.length) {
         check(
@@ -224,6 +235,12 @@ try {
     await page.screenshot({ path: path.join(out, `home-${width}.png`) });
     await openVoice();
     await stopVoice();
+    check(`Автоматична Б 74.1% на ${width}`,(await page.locator('.voice-plan-badge').textContent()).includes('74.1%'));
+    await page.getByText('Змінити літеру або норму',{exact:true}).click();
+    await page.getByLabel('Літера продукту 1',{exact:true}).selectOption('ж');
+    check(`Ручна Ж 54.8% на ${width}`,(await page.locator('.voice-plan-badge').textContent()).includes('54.8%'));
+    const controls=await page.locator('.voice-plan select,.voice-plan input,.voice-panel summary').evaluateAll(nodes=>nodes.filter(n=>n.getClientRects().length).map(n=>({tag:n.tagName,height:n.getBoundingClientRect().height})));
+    check(`Контроли ${width} не менше 44px`,controls.every(x=>x.height>=44));
     const deltas = await page.evaluate(() => {
       const rect = (s) => document.querySelector(s).getBoundingClientRect(),
         panel = rect(".voice-panel"),
@@ -238,6 +255,8 @@ try {
         footerRight: footer.right - item.right,
         headingLeft: heading.left - panel.left,
         headingRight: panel.right - heading.right,
+        planLeft:rect('.voice-plan').left-item.left,
+        planRight:item.right-rect('.voice-plan').right,
         overflow: document.documentElement.scrollWidth - window.innerWidth,
       };
     });
@@ -249,7 +268,7 @@ try {
         deltas.footerRight === 0 &&
         deltas.headingLeft === 0 &&
         deltas.headingRight === 0 &&
-        deltas.overflow === 0,
+        deltas.overflow === 0 && deltas.planLeft===15 && deltas.planRight===15,
     );
     evidence.widths.push({ width, home, deltas });
     await page.screenshot({ path: path.join(out, `preview-${width}.png`) });
@@ -257,6 +276,7 @@ try {
       await page
         .getByRole("button", { name: "Закрити голосову чернетку" })
         .click();
+      check(`Фокус повернувся до мікрофона ${width}`,await page.getByRole('button',{name:'Додати їжу голосом',exact:true}).evaluate(n=>document.activeElement===n));
       continue;
     }
   }
@@ -315,6 +335,8 @@ try {
     .getByRole("button", { name: "Запис правильний і повний", exact: true })
     .click();
   const rows = await readLedger();
+  const savedRow=rows.find(r=>r.status==='saved');
+  check("Лічильники фінального preview без дублювання",savedRow.planAssignedCount===1&&savedRow.planUnresolvedCount===0&&savedRow.planManualCount===1);
   check(
     "Закриті спроби є в знаменнику, успіх один",
     rows.length === 3 &&
@@ -332,6 +354,7 @@ try {
     .getByRole("button", { name: "Додати їжу голосом", exact: true })
     .waitFor();
   await page.getByText("Тестовий кефір", { exact: true }).waitFor();
+  check("Reload зберіг денну Ж",(await page.getByText('54.8% за день',{exact:true}).count())===1);
   check(
     "Reload зберіг 106 у підсумку",
     (await page.getByText("106", { exact: true }).count()) === 1,

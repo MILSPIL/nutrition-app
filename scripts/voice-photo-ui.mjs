@@ -1,10 +1,14 @@
 // Запускається тільки канонічним launcher, без доступу до production Firebase.
 import { spawn } from "node:child_process";
+import {existsSync,readFileSync} from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { requireIsolatedBrowser } from './browser-runtime.mjs';
 requireIsolatedBrowser();
 const cwd = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const version=readFileSync(path.join(cwd,'.nvmrc'),'utf8').trim().replace(/^v/,'');
+const pinned=path.join(cwd,`.agents/runtime/deployment/2026-10-22-ntzg-03/runtime-candidate-${version}/node-v${version}-darwin-arm64/bin`);
+if(existsSync(pinned)) process.env.PATH=pinned+path.delimiter+process.env.PATH;
 const run = (command, args, env = process.env) =>
   new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, env, stdio: "inherit" });

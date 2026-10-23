@@ -1,5 +1,5 @@
 import {TextEncoder} from 'util';
-import {webcrypto} from 'crypto';
+import {createHash} from 'crypto';
 global.TextEncoder=TextEncoder;
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -63,7 +63,8 @@ beforeEach(() => {
   counter = 0;
   Object.defineProperty(global, "crypto", {
     configurable: true,
-    value: { subtle:webcrypto.subtle, randomUUID: () => `uuid-${++counter}` },
+    // Детермінований SHA-256 fixture: справжній hash, без гонки libuv thread pool із React act у Linux CI.
+    value: { subtle:{digest:async(_algorithm,bytes)=>Uint8Array.from(createHash('sha256').update(bytes).digest()).buffer}, randomUUID: () => `uuid-${++counter}` },
   });
   window.confirm = jest.fn(() => true);
   container = document.createElement("div");

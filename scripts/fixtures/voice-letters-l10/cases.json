@@ -1,0 +1,460 @@
+{
+  "fixtureVersion": 1,
+  "syntheticOnly": true,
+  "realCallsExecuted": false,
+  "model": "claude-sonnet-5-5",
+  "requestCount": 6,
+  "requiredMetadata": {
+    "model": "claude-sonnet-5-5",
+    "stopReason": "end_turn",
+    "maxOutputTokens": 4096,
+    "outputTokens": "скінченне невід’ємне ціле; для boundary-20 не більше 3686"
+  },
+  "cases": [
+    {
+      "id": "positive-uk",
+      "text": "З’їв яблуко 200 грамів, грушу 100 грамів, ягоди 100 грамів, банан 120 грамів, виноград 120 грамів та випив кефір 1% 200 грамів.",
+      "expected": [
+        {
+          "name": "Яблуко",
+          "quantity": {
+            "value": 200,
+            "unit": "g"
+          },
+          "referenceId": "fruits:fruit",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Груша",
+          "quantity": {
+            "value": 100,
+            "unit": "g"
+          },
+          "referenceId": "fruits:fruit",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Ягоди",
+          "quantity": {
+            "value": 100,
+            "unit": "g"
+          },
+          "referenceId": "fruits:fruit",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Банан",
+          "quantity": {
+            "value": 120,
+            "unit": "g"
+          },
+          "referenceId": "fruits:banana",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Виноград",
+          "quantity": {
+            "value": 120,
+            "unit": "g"
+          },
+          "referenceId": "fruits:banana",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Кефір 1%",
+          "quantity": {
+            "value": 200,
+            "unit": "g"
+          },
+          "referenceId": "dairy:kefir",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        }
+      ]
+    },
+    {
+      "id": "positive-ru",
+      "text": "Выпил молоко 1% 140 граммов. Съел готовый нешлифованный рис 170 граммов, готовое куриное филе 116,09 грамма, свежие овощи 150 граммов, грецкие орехи 10 граммов и шоколад 20 граммов.",
+      "expected": [
+        {
+          "name": "Молоко 1%",
+          "quantity": {
+            "value": 140,
+            "unit": "g"
+          },
+          "referenceId": "dairy:milk",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Рис нешліфований готовий",
+          "quantity": {
+            "value": 170,
+            "unit": "g"
+          },
+          "referenceId": "carbs:rice",
+          "consumedState": "cooked",
+          "certainty": "matched"
+        },
+        {
+          "name": "Куряче філе готове",
+          "quantity": {
+            "value": 116.09,
+            "unit": "g"
+          },
+          "referenceId": "protein:chicken",
+          "consumedState": "cooked",
+          "certainty": "matched"
+        },
+        {
+          "name": "Свіжі овочі",
+          "quantity": {
+            "value": 150,
+            "unit": "g"
+          },
+          "referenceId": "vegetables:fresh",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Волоські горіхи",
+          "quantity": {
+            "value": 10,
+            "unit": "g"
+          },
+          "referenceId": "nuts:walnut",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Шоколад",
+          "quantity": {
+            "value": 20,
+            "unit": "g"
+          },
+          "referenceId": "free:anything",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        }
+      ]
+    },
+    {
+      "id": "negative-uk",
+      "text": "З’їв 100 грамів продукту вигаданого бренду Зурблок-Х, тип продукту не знаю. Випив 200 грамів напою: це водночас кефір і солодка газована вода, який тип правильний, не знаю. З’їв рис нешліфований 100 грамів, не знаю, чи це сира чи готова вага. Випив 200 мілілітрів кефіру 1%, масу та густину не знаю.",
+      "expected": [
+        {
+          "fragment": "Зурблок-Х",
+          "match": "null-or-uncertain",
+          "allocation": "unallocated",
+          "noInventedNutrition": true
+        },
+        {
+          "fragment": "суперечливий напій",
+          "match": "null-or-uncertain",
+          "allocation": "unallocated",
+          "noInventedNutrition": true
+        },
+        {
+          "fragment": "рис",
+          "referenceId": "carbs:rice",
+          "consumedState": "unknown",
+          "percent": null
+        },
+        {
+          "fragment": "кефір",
+          "referenceId": "dairy:kefir",
+          "quantity": {
+            "value": 200,
+            "unit": "ml"
+          },
+          "percent": null
+        }
+      ]
+    },
+    {
+      "id": "photo-1",
+      "text": "Випив цей кефір, 200 грамів. Фото уточнює наявний рядок.",
+      "imageSource": "kefir-1.svg",
+      "imagePreparation": "Відрендерити локально у JPEG перед дозволеним прогоном; вихідний SVG незмінний.",
+      "existingDraft": {
+        "itemId": "synthetic-kefir",
+        "name": "Тестовий кефір 1%",
+        "quantity": {
+          "value": 200,
+          "unit": "g"
+        },
+        "manualLetter": "ж"
+      },
+      "expected": {
+        "source": "label",
+        "nutrients": {
+          "p": 2.9,
+          "f": 1,
+          "c": 4,
+          "cal": 40
+        },
+        "nutritionBasis": {
+          "value": 100,
+          "unit": "g"
+        },
+        "quantity": {
+          "value": 200,
+          "unit": "g"
+        },
+        "sameItemId": true,
+        "manualLetter": "ж",
+        "allocation": "allocated",
+        "referenceId": "dairy:kefir"
+      }
+    },
+    {
+      "id": "photo-2-5",
+      "text": "Випив цей кефір, 200 грамів. Фото уточнює наявний рядок.",
+      "imageSource": "kefir-2-5.svg",
+      "imagePreparation": "Відрендерити локально у JPEG перед дозволеним прогоном; вихідний SVG незмінний.",
+      "existingDraft": {
+        "itemId": "synthetic-kefir",
+        "name": "Тестовий кефір 1%",
+        "quantity": {
+          "value": 200,
+          "unit": "g"
+        },
+        "manualLetter": "ж"
+      },
+      "expected": {
+        "source": "label",
+        "nutrients": {
+          "p": 2.9,
+          "f": 2.5,
+          "c": 4,
+          "cal": 53
+        },
+        "nutritionBasis": {
+          "value": 100,
+          "unit": "g"
+        },
+        "quantity": {
+          "value": 200,
+          "unit": "g"
+        },
+        "sameItemId": true,
+        "manualLetter": "ж",
+        "allocation": "unresolved",
+        "referenceId": null
+      }
+    },
+    {
+      "id": "boundary-20",
+      "text": "З’їв або випив кожен із двадцяти продуктів окремо: Яблуко 200 г; Груша 100 г; Ягоди 100 г; Банан 120 г; Виноград 120 г; Кефір 1% 200 г; Молоко 1% 140 г; Рис нешліфований готовий 170 г; Куряче філе готове 116.09 г; Свіжі овочі 150 г; Волоські горіхи 10 г; Шоколад 20 г; Картопля готова 210 г; Кукурудза готова 180 г; Сир кисломолочний 5% 100 г; Сметана 15% 20 г; Авокадо 40 г; Оливкова олія 5 г; Морозиво 50 г; Морква свіжа 80 г. Не об’єднуй рядки.",
+      "expected": [
+        {
+          "name": "Яблуко",
+          "quantity": {
+            "value": 200,
+            "unit": "g"
+          },
+          "referenceId": "fruits:fruit",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Груша",
+          "quantity": {
+            "value": 100,
+            "unit": "g"
+          },
+          "referenceId": "fruits:fruit",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Ягоди",
+          "quantity": {
+            "value": 100,
+            "unit": "g"
+          },
+          "referenceId": "fruits:fruit",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Банан",
+          "quantity": {
+            "value": 120,
+            "unit": "g"
+          },
+          "referenceId": "fruits:banana",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Виноград",
+          "quantity": {
+            "value": 120,
+            "unit": "g"
+          },
+          "referenceId": "fruits:banana",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Кефір 1%",
+          "quantity": {
+            "value": 200,
+            "unit": "g"
+          },
+          "referenceId": "dairy:kefir",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Молоко 1%",
+          "quantity": {
+            "value": 140,
+            "unit": "g"
+          },
+          "referenceId": "dairy:milk",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Рис нешліфований готовий",
+          "quantity": {
+            "value": 170,
+            "unit": "g"
+          },
+          "referenceId": "carbs:rice",
+          "consumedState": "cooked",
+          "certainty": "matched"
+        },
+        {
+          "name": "Куряче філе готове",
+          "quantity": {
+            "value": 116.09,
+            "unit": "g"
+          },
+          "referenceId": "protein:chicken",
+          "consumedState": "cooked",
+          "certainty": "matched"
+        },
+        {
+          "name": "Свіжі овочі",
+          "quantity": {
+            "value": 150,
+            "unit": "g"
+          },
+          "referenceId": "vegetables:fresh",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Волоські горіхи",
+          "quantity": {
+            "value": 10,
+            "unit": "g"
+          },
+          "referenceId": "nuts:walnut",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Шоколад",
+          "quantity": {
+            "value": 20,
+            "unit": "g"
+          },
+          "referenceId": "free:anything",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Картопля готова",
+          "quantity": {
+            "value": 210,
+            "unit": "g"
+          },
+          "referenceId": "carbs:potato",
+          "consumedState": "cooked",
+          "certainty": "matched"
+        },
+        {
+          "name": "Кукурудза готова",
+          "quantity": {
+            "value": 180,
+            "unit": "g"
+          },
+          "referenceId": "carbs:corn",
+          "consumedState": "cooked",
+          "certainty": "matched"
+        },
+        {
+          "name": "Сир кисломолочний 5%",
+          "quantity": {
+            "value": 100,
+            "unit": "g"
+          },
+          "referenceId": "dairy:cottage",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Сметана 15%",
+          "quantity": {
+            "value": 20,
+            "unit": "g"
+          },
+          "referenceId": "dairy:sour-cream",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Авокадо",
+          "quantity": {
+            "value": 40,
+            "unit": "g"
+          },
+          "referenceId": "fats:avocado",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Оливкова олія",
+          "quantity": {
+            "value": 5,
+            "unit": "g"
+          },
+          "referenceId": "fats:oil",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Морозиво",
+          "quantity": {
+            "value": 50,
+            "unit": "g"
+          },
+          "referenceId": "free:anything",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        },
+        {
+          "name": "Морква свіжа",
+          "quantity": {
+            "value": 80,
+            "unit": "g"
+          },
+          "referenceId": "vegetables:fresh",
+          "consumedState": "as_sold",
+          "certainty": "matched"
+        }
+      ],
+      "expectedCount": 20,
+      "maxOutputTokens": 3686
+    }
+  ]
+}

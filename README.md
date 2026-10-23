@@ -2,6 +2,12 @@
 
 SciSense is a nutrition tracker for clients and coaches. It helps log meals, track macros and calories, record body measurements, and share daily progress with a trainer through Firebase.
 
+## Голос і літери програми, кандидат 1.8.0
+
+Мікрофон відкриває форму, запис запускає «Почати запис». AI-відповідник із компактного каталогу дозволяє показати літеру та частку денної норми без додаткового модельного запиту. У прев’ю літера необов’язкова: її можна змінити або вибрати «Без літери». Один атомарний запис зберігає їжу у фактичний прийом; підсумок літери спільний за день.
+
+Локальні кроки 0–6 VOICE-LETTERS-01 погоджені. [Докази](docs/evidence/voice-letters-local-2026-10-23.md) та [пакет кандидата](docs/VOICE-LETTERS-RELEASE.md). Справжній Sonnet, телефон і розгортання ще не перевірені для цієї версії, це окремий крок 7.
+
 ## Stack
 
 - React 18
