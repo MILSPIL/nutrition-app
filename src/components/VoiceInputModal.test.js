@@ -664,3 +664,9 @@ test("пізнє створення скасованої спроби не пр�
   expect(rows.find(row => row.attemptId === "attempt-3").status).toBe("saved");
   expect(props.onAdd).toHaveBeenCalledTimes(1);
 });
+
+test("L01: відкриття й повторний render не починають запису або спроби", async()=>{
+ await render();await render({meal:2});expect(recorders).toHaveLength(0);expect(rows).toHaveLength(0);
+ expect(button("Почати запис")).toBeTruthy();await click("Почати запис");expect(recorders).toHaveLength(1);expect(rows).toHaveLength(1);
+ expect(props.api.transcribe).not.toHaveBeenCalled();expect(props.api.analyze).not.toHaveBeenCalled();
+});
