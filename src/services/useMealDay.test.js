@@ -43,3 +43,23 @@ test('review: пізній refresh старого профілю не відно
  await act(async()=>resolve({...empty,planContext:{profile:{name:'OLD'}}}));
  expect(await refresh).toBe('context_changed');expect(hook.ready).toBe(false);expect(hook.day.planContext).toBeUndefined();
 });
+
+test('review: profile ACK під час meal pending відкладає одне перечитування до ACK',async()=>{
+ let resolve;commitMealDay.mockImplementationOnce(()=>new Promise(done=>{resolve=done;}));let save;
+ await act(async()=>{save=hook.commit(command);});
+ const fresh={...empty,revision:1,planContext:{profile:{customProducts:{з:[{name:'Новий фрукт',raw:400}]}}}};
+ loadMealDay.mockResolvedValue(fresh);await act(async()=>{hook.reload();hook.reload();});expect(loadMealDay).toHaveBeenCalledTimes(1);
+ await act(async()=>{resolve({...empty,revision:1});await save;});
+ expect(loadMealDay).toHaveBeenCalledTimes(2);expect(hook.day.planContext).toBe(fresh.planContext);expect(hook.ready).toBe(true);
+});
+test('review: queued read скидається після виходу; пізній ACK не читає чужий профіль',async()=>{
+ let resolve;commitMealDay.mockImplementationOnce(()=>new Promise(done=>{resolve=done;}));let save;
+ await act(async()=>{save=hook.commit(command);hook.reload();});await render({uid:null,profile:null});
+ await act(async()=>{resolve({...empty,revision:1});await save;});expect(loadMealDay).toHaveBeenCalledTimes(1);expect(hook.ready).toBe(false);
+});
+test('review: збій перечитування unknown лишає явний шлях перечитати день',async()=>{
+ commitMealDay.mockRejectedValueOnce(Error('save_unknown'));await act(async()=>{await expect(hook.commit(command)).rejects.toThrow();});
+ loadMealDay.mockRejectedValueOnce(Error('offline'));await act(async()=>hook.reload());
+ expect(hook.hasPending).toBe(true);expect(hook.ready).toBe(false);expect(hook.requiresReload).toBe(true);
+ loadMealDay.mockResolvedValue(empty);await act(async()=>hook.reload());expect(hook.ready).toBe(true);expect(hook.hasPending).toBe(true);
+});

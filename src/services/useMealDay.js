@@ -7,7 +7,7 @@ export function useMealDay(uid,profileId,date) {
  const [day,setDay]=useState({meals:createEmptyMeals(),revision:0});
  const [ready,setReady]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const [reload,setReload]=useState(0);
- const context=useRef(''),needsRead=useRef(false),readyRef=useRef(false);
+ const context=useRef(''),needsRead=useRef(false),readyRef=useRef(false),reloadQueued=useRef(false);
  const generation=useRef(0),dayRef=useRef(day),pending=useRef(null),lock=useRef(null);
  const read=useCallback(async g=>{
    try {
@@ -18,13 +18,13 @@ export function useMealDay(uid,profileId,date) {
     if(marker) {pending.current=null;if(marker!==hash)setError(saveError(Error('submission_conflict')));}
     else if(command) setError(saveError(Error('save_unknown')));
     needsRead.current=false;dayRef.current=value;setDay(value);readyRef.current=true;setReady(true);return value;
-   }catch(e){if(g===generation.current)setError('Не вдалося завантажити день. Перевірте з’єднання.');throw e;}
+   }catch(e){if(g===generation.current){needsRead.current=true;setError('Не вдалося завантажити день. Перевірте з’єднання.');}throw e;}
  },[uid,profileId,date]);
  const invalidateRead=useCallback(()=>{generation.current++;readyRef.current=false;},[]);
  useEffect(()=>{
   const g=++generation.current,key=JSON.stringify([uid,profileId,date]),changed=context.current!==key;
   context.current=key;readyRef.current=false;setReady(false);setError('');
-  if(changed) {const empty={meals:createEmptyMeals(),revision:0};dayRef.current=empty;setDay(empty);pending.current=null;lock.current=null;setBusy(false);needsRead.current=false;}
+  if(changed) {const empty={meals:createEmptyMeals(),revision:0};dayRef.current=empty;setDay(empty);pending.current=null;lock.current=null;reloadQueued.current=false;setBusy(false);needsRead.current=false;}
   if(!uid||!profileId) return;
   void read(g).catch(()=>{});
   return invalidateRead;
@@ -43,7 +43,7 @@ export function useMealDay(uid,profileId,date) {
   const promise=commitMealDay(uid,profileId,date,command).then(result=>{
    if(g===generation.current){const next={...result,planContext:dayRef.current.planContext,mealsDateKey:date,legacy:null};dayRef.current=next;setDay(next);pending.current=null;}
    return result;
-  }).catch(e=>{if(g===generation.current){if(['revision_conflict','plan_conflict','submission_conflict'].includes(e.message))needsRead.current=true;if((['revision_conflict','plan_conflict','submission_conflict','invalid_allocation','invalid_command','duplicate_item','legacy_conflict','legacy_date_required','invalid_item','invalid_quantity'].includes(e.message)||['permission-denied','invalid-argument','failed-precondition','unauthenticated','aborted'].includes(e.code))) pending.current=null;setError(saveError(e));}throw e;}).finally(()=>{if(g===generation.current){lock.current=null;setBusy(false);}});
+  }).catch(e=>{if(g===generation.current){if(['revision_conflict','plan_conflict','submission_conflict'].includes(e.message))needsRead.current=true;if((['revision_conflict','plan_conflict','submission_conflict','invalid_allocation','invalid_command','duplicate_item','legacy_conflict','legacy_date_required','invalid_item','invalid_quantity'].includes(e.message)||['permission-denied','invalid-argument','failed-precondition','unauthenticated','aborted'].includes(e.code))) pending.current=null;setError(saveError(e));}throw e;}).finally(()=>{if(g===generation.current){lock.current=null;setBusy(false);if(reloadQueued.current){reloadQueued.current=false;readyRef.current=false;setReady(false);setReload(x=>x+1);}}});
   lock.current=promise;return promise;
  },[uid,profileId,date]);
  const commit=useCallback((action)=>{
@@ -51,5 +51,5 @@ export function useMealDay(uid,profileId,date) {
   return execute({...action,submissionId:action.submissionId || newId(),updatedAt:action.updatedAt || new Date().toISOString(),
    ...(['remove','quantity','replace'].includes(action.type)?{expectedRevision:dayRef.current.revision}:{} )});
  },[execute]);
- return {day,ready,busy,error,commit,hasPending:!!pending.current,retry:()=>pending.current?execute(pending.current):Promise.resolve(),requiresReload:needsRead.current,refresh,reload:()=>{if(!lock.current){readyRef.current=false;setReady(false);setReload(x=>x+1);}}};
+ return {day,ready,busy,error,commit,hasPending:!!pending.current,retry:()=>pending.current?execute(pending.current):Promise.resolve(),requiresReload:needsRead.current,refresh,reload:()=>{if(lock.current){reloadQueued.current=true;return;}readyRef.current=false;setReady(false);setReload(x=>x+1);}};
 }
