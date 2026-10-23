@@ -1,0 +1,995 @@
+{
+  "syntheticOnly": true,
+  "run": {
+    "conclusion": "success",
+    "headSha": "53248f70660c1c1b6fdf4cd6278a72f17928c6fd",
+    "jobs": [
+      {
+        "conclusion": "success",
+        "name": "test-and-build",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "groq-free-resource-check",
+        "status": "completed"
+      },
+      {
+        "conclusion": "success",
+        "name": "systemd-credential-check",
+        "status": "completed"
+      }
+    ],
+    "status": "completed",
+    "url": "https://github.com/MILSPIL/nutrition-app/actions/runs/39962158744"
+  },
+  "artifact": {
+    "expired": false,
+    "id": 12505366454,
+    "name": "browser-evidence",
+    "size_in_bytes": 581166,
+    "workflow_run": {
+      "head_branch": "codex/voice-plan-letters",
+      "head_repository_id": 1131001118,
+      "head_sha": "53248f70660c1c1b6fdf4cd6278a72f17928c6fd",
+      "id": 39962158744,
+      "repository_id": 1131001118
+    }
+  },
+  "browserEvidence": {
+    "voice-photo-qa": {
+      "sha256": "416a8fe3804a1d6ba1caca5c5ce5a28d22a705385bad629cec12051834309e3c",
+      "checks": [
+        "Мікрофон 375 видимий без прокрутки",
+        "Ready без спроби й API",
+        "Фокус усередині форми",
+        "Клавіатура повертає фокус на старт",
+        "Видимий focus",
+        "Браузер надіслав нормалізований WAV",
+        "v2 передає тільки компактний каталог",
+        "Каталог не містить профіль чи норми",
+        "Автоматична Б 74.1% на 375",
+        "Ручна Ж 54.8% на 375",
+        "Контроли 375 не менше 44px",
+        "Відступи 375: 20/20, дельти 0",
+        "Фокус повернувся до мікрофона 375",
+        "Мікрофон 390 видимий без прокрутки",
+        "Ready без спроби й API",
+        "Фокус усередині форми",
+        "Клавіатура повертає фокус на старт",
+        "Видимий focus",
+        "Браузер надіслав нормалізований WAV",
+        "v2 передає тільки компактний каталог",
+        "Каталог не містить профіль чи норми",
+        "Автоматична Б 74.1% на 390",
+        "Ручна Ж 54.8% на 390",
+        "Контроли 390 не менше 44px",
+        "Відступи 390: 20/20, дельти 0",
+        "Фокус повернувся до мікрофона 390",
+        "Мікрофон 1366 видимий без прокрутки",
+        "Ready без спроби й API",
+        "Фокус усередині форми",
+        "Клавіатура повертає фокус на старт",
+        "Видимий focus",
+        "Браузер надіслав нормалізований WAV",
+        "v2 передає тільки компактний каталог",
+        "Каталог не містить профіль чи норми",
+        "Автоматична Б 74.1% на 1366",
+        "Ручна Ж 54.8% на 1366",
+        "Контроли 1366 не менше 44px",
+        "Відступи 1366: 20/20, дельти 0",
+        "v2 передає тільки компактний каталог",
+        "Каталог не містить профіль чи норми",
+        "Фото нормалізоване до JPEG без metadata",
+        "Лицьова сторона без БЖВ не активує Додати",
+        "v2 передає тільки компактний каталог",
+        "Каталог не містить профіль чи норми",
+        "Фото нормалізоване до JPEG без metadata",
+        "Два фото уточнюють один продукт",
+        "200 г має саме 106 ккал",
+        "Лічильники фінального preview без дублювання",
+        "Закриті спроби є в знаменнику, успіх один",
+        "Медіа й зміст не потрапили до обліку пілоту",
+        "Reload зберіг денну Ж",
+        "Reload зберіг 106 у підсумку",
+        "Звіт не пропонує Telegram або зовнішню передачу",
+        "Звіт зберіг одиницю й точні калорії",
+        "Ready без спроби й API",
+        "Фокус усередині форми",
+        "Клавіатура повертає фокус на старт",
+        "Видимий focus",
+        "Reload під час запису дає abandoned",
+        "Порожній день не копіює вчорашній прийом",
+        "Ready без спроби й API",
+        "Фокус усередині форми",
+        "Клавіатура повертає фокус на старт",
+        "Видимий focus",
+        "Браузер надіслав нормалізований WAV",
+        "Браузер надіслав нормалізований WAV",
+        "v2 передає тільки компактний каталог",
+        "Каталог не містить профіль чи норми",
+        "Тиша й повтор обліковані окремо",
+        "Жодного звернення до production або зовнішнього API",
+        "Немає помилок JavaScript чи консолі"
+      ],
+      "checkCount": 71,
+      "errors": [],
+      "unexpectedNetwork": [],
+      "widths": [
+        {
+          "width": 375,
+          "home": {
+            "x": 16,
+            "y": 75,
+            "width": 343,
+            "height": 49.5
+          },
+          "deltas": {
+            "itemLeft": 20,
+            "itemRight": 20,
+            "footerLeft": 0,
+            "footerRight": 0,
+            "headingLeft": 0,
+            "headingRight": 0,
+            "planLeft": 15,
+            "planRight": 15,
+            "overflow": 0
+          }
+        },
+        {
+          "width": 390,
+          "home": {
+            "x": 16,
+            "y": 75,
+            "width": 358,
+            "height": 49.5
+          },
+          "deltas": {
+            "itemLeft": 20,
+            "itemRight": 20,
+            "footerLeft": 0,
+            "footerRight": 0,
+            "headingLeft": 0,
+            "headingRight": 0,
+            "planLeft": 15,
+            "planRight": 15,
+            "overflow": 0
+          }
+        },
+        {
+          "width": 1366,
+          "home": {
+            "x": 443,
+            "y": 75,
+            "width": 480,
+            "height": 49.5
+          },
+          "deltas": {
+            "itemLeft": 20,
+            "itemRight": 20,
+            "footerLeft": 0,
+            "footerRight": 0,
+            "headingLeft": 0,
+            "headingRight": 0,
+            "planLeft": 15,
+            "planRight": 15,
+            "overflow": 0
+          }
+        }
+      ]
+    },
+    "phone-lab-qa": {
+      "sha256": "02c810401e3644cb1201a16057d669c4b48658e3de9ee98075bfda4c2b55ab77",
+      "checks": [
+        "STT-only не має ключа Anthropic",
+        "Контрольний діагностичний запит SDK заблоковано локально",
+        "Форма сполучення: зовнішні відступи 24/24",
+        "Новини показують людську версію та погоджений сценарій старту",
+        "Історія новин зберігає актуальний домен",
+        "welcome 390: межі header/content/footer 0 px",
+        "welcome 390: спільні внутрішні відступи 16 px",
+        "Закриття новин зберігає людську версію",
+        "SDK увійшов через HTTPS Auth emulator",
+        "Усі 8 іконок мають image content-type та декодуються",
+        "Початкова мова автоматична",
+        "Мова 375: горизонтальні відхилення 0 px",
+        "Мова 375: проміжок до запису 10 px",
+        "Мова 390: горизонтальні відхилення 0 px",
+        "Мова 390: проміжок до запису 10 px",
+        "Мова 1366: горизонтальні відхилення 0 px",
+        "Мова 1366: проміжок до запису 10 px",
+        "Сервер прочитав справжній WAV браузера",
+        "Мова з select дійшла до parser",
+        "Groq: точні URL, модель, мова та WAV filename",
+        "Аналіз дозволений тільки звичайному сценарію",
+        "Аналіз дозволений тільки звичайному сценарію",
+        "Сервер прочитав нормалізоване фото",
+        "200 г із фото дає 106 ккал",
+        "Firestore HTTPS запис перечитано після reload без дубля",
+        "Після reload закриті новини не повторюються",
+        "Оновлення з 1.6.0: показана версія 1.8.0",
+        "Оновлення з 1.6.0: збережений прийом не втрачений і не дубльований",
+        "Оновлення з bad8217421d0eff859b920885d849e3e121cbf72: показана версія 1.8.0",
+        "Оновлення з bad8217421d0eff859b920885d849e3e121cbf72: збережений прийом не втрачений і не дубльований",
+        "Оновлену збірку не утримує старий service worker",
+        "Прев’ю звіту містить збережені 200 г і 106 ккал без Telegram CTA",
+        "Справжній clipboard містить точний текст синтетичного звіту",
+        "report 375: межі header/content/footer 0 px",
+        "report 375: спільні внутрішні відступи 16 px",
+        "report 390: межі header/content/footer 0 px",
+        "report 390: спільні внутрішні відступи 16 px",
+        "report 1366: межі header/content/footer 0 px",
+        "report 1366: спільні внутрішні відступи 16 px",
+        "Мовна перевага пережила reload і повторне відкриття",
+        "У localStorage записана тільки мовна перевага",
+        "Запис належить дозволеному тестовому UID",
+        "Історію прийомів прочитано без помилки",
+        "Запит пройшов Groq adapter з підставним транспортом",
+        "Повний сценарій: два аналізи та одне збереження",
+        "Один день має revision 1 і один маркер збереження",
+        "Жодного прямого HTTP, production або AI API браузера",
+        "Немає помилок JavaScript",
+        "Немає HTTP-помилок статичних ресурсів",
+        "Немає зламаних зображень"
+      ],
+      "checkCount": 50,
+      "errors": [],
+      "unexpectedNetwork": [],
+      "geometry": [
+        {
+          "kind": "welcome",
+          "width": 390,
+          "header": {
+            "left": 0,
+            "right": 390,
+            "top": 280,
+            "bottom": 354.5
+          },
+          "content": {
+            "left": 0,
+            "right": 390,
+            "top": 354.5,
+            "bottom": 761.5
+          },
+          "footer": {
+            "left": 0,
+            "right": 390,
+            "top": 761.5,
+            "bottom": 844
+          },
+          "inner": {
+            "left": 16,
+            "right": 374,
+            "top": 370.5,
+            "bottom": 694
+          },
+          "button": {
+            "left": 16,
+            "right": 374,
+            "top": 778.5,
+            "bottom": 828
+          },
+          "zeroDeltas": {
+            "headerLeft": 0,
+            "headerRight": 0,
+            "footerLeft": 0,
+            "footerRight": 0,
+            "innerToButtonLeft": 0,
+            "innerToButtonRight": 0,
+            "headerToContent": 0,
+            "contentToFooter": 0,
+            "overflow": 0
+          },
+          "insets": {
+            "headerLeft": 16,
+            "headerRight": 16,
+            "contentLeft": 16,
+            "contentRight": 16,
+            "footerLeft": 16,
+            "footerRight": 16
+          }
+        },
+        {
+          "viewport": {
+            "width": 375,
+            "height": 844
+          },
+          "select": {
+            "left": 20,
+            "right": 355,
+            "top": 500,
+            "bottom": 543,
+            "width": 335,
+            "height": 43
+          },
+          "label": {
+            "left": 20,
+            "right": 355,
+            "top": 475.5,
+            "bottom": 543,
+            "width": 335,
+            "height": 67.5
+          },
+          "heading": {
+            "left": 20,
+            "right": 161,
+            "top": 375.5,
+            "bottom": 407,
+            "width": 141,
+            "height": 31.5
+          },
+          "recording": {
+            "left": 20,
+            "right": 355,
+            "top": 553,
+            "bottom": 763.5,
+            "width": 335,
+            "height": 210.5
+          },
+          "stop": {
+            "left": 20,
+            "right": 355,
+            "top": 697,
+            "bottom": 741.5,
+            "width": 335,
+            "height": 44.5
+          },
+          "body": {
+            "left": 0,
+            "right": 375,
+            "top": 455.5,
+            "bottom": 844,
+            "width": 375,
+            "height": 388.5
+          },
+          "deltas": {
+            "selectToLabelLeft": 0,
+            "selectToLabelRight": 0,
+            "selectToHeadingLeft": 0,
+            "selectToStopLeft": 0,
+            "selectToStopRight": 0,
+            "selectToBodyContentLeft": 0,
+            "selectToBodyContentRight": 0,
+            "selectToRecordingGap": 10
+          }
+        },
+        {
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "select": {
+            "left": 20,
+            "right": 370,
+            "top": 500,
+            "bottom": 543,
+            "width": 350,
+            "height": 43
+          },
+          "label": {
+            "left": 20,
+            "right": 370,
+            "top": 475.5,
+            "bottom": 543,
+            "width": 350,
+            "height": 67.5
+          },
+          "heading": {
+            "left": 20,
+            "right": 161,
+            "top": 375.5,
+            "bottom": 407,
+            "width": 141,
+            "height": 31.5
+          },
+          "recording": {
+            "left": 20,
+            "right": 370,
+            "top": 553,
+            "bottom": 763.5,
+            "width": 350,
+            "height": 210.5
+          },
+          "stop": {
+            "left": 20,
+            "right": 370,
+            "top": 697,
+            "bottom": 741.5,
+            "width": 350,
+            "height": 44.5
+          },
+          "body": {
+            "left": 0,
+            "right": 390,
+            "top": 455.5,
+            "bottom": 844,
+            "width": 390,
+            "height": 388.5
+          },
+          "deltas": {
+            "selectToLabelLeft": 0,
+            "selectToLabelRight": 0,
+            "selectToHeadingLeft": 0,
+            "selectToStopLeft": 0,
+            "selectToStopRight": 0,
+            "selectToBodyContentLeft": 0,
+            "selectToBodyContentRight": 0,
+            "selectToRecordingGap": 10
+          }
+        },
+        {
+          "viewport": {
+            "width": 1366,
+            "height": 900
+          },
+          "select": {
+            "left": 463,
+            "right": 903,
+            "top": 349.25,
+            "bottom": 392.25,
+            "width": 440,
+            "height": 43
+          },
+          "label": {
+            "left": 463,
+            "right": 903,
+            "top": 324.75,
+            "bottom": 392.25,
+            "width": 440,
+            "height": 67.5
+          },
+          "heading": {
+            "left": 463,
+            "right": 604,
+            "top": 224.75,
+            "bottom": 256.25,
+            "width": 141,
+            "height": 31.5
+          },
+          "recording": {
+            "left": 463,
+            "right": 903,
+            "top": 402.25,
+            "bottom": 612.75,
+            "width": 440,
+            "height": 210.5
+          },
+          "stop": {
+            "left": 463,
+            "right": 903,
+            "top": 546.25,
+            "bottom": 590.75,
+            "width": 440,
+            "height": 44.5
+          },
+          "body": {
+            "left": 443,
+            "right": 923,
+            "top": 304.75,
+            "bottom": 693.25,
+            "width": 480,
+            "height": 388.5
+          },
+          "deltas": {
+            "selectToLabelLeft": 0,
+            "selectToLabelRight": 0,
+            "selectToHeadingLeft": 0,
+            "selectToStopLeft": 0,
+            "selectToStopRight": 0,
+            "selectToBodyContentLeft": 0,
+            "selectToBodyContentRight": 0,
+            "selectToRecordingGap": 10
+          }
+        },
+        {
+          "kind": "report",
+          "width": 375,
+          "header": {
+            "left": 0,
+            "right": 375,
+            "top": 207.625,
+            "bottom": 264.625
+          },
+          "content": {
+            "left": 0,
+            "right": 375,
+            "top": 264.625,
+            "bottom": 730
+          },
+          "footer": {
+            "left": 0,
+            "right": 375,
+            "top": 730,
+            "bottom": 844
+          },
+          "inner": {
+            "left": 16,
+            "right": 359,
+            "top": 280.625,
+            "bottom": 714
+          },
+          "button": {
+            "left": 16,
+            "right": 359,
+            "top": 778.5,
+            "bottom": 828
+          },
+          "zeroDeltas": {
+            "headerLeft": 0,
+            "headerRight": 0,
+            "footerLeft": 0,
+            "footerRight": 0,
+            "innerToButtonLeft": 0,
+            "innerToButtonRight": 0,
+            "headerToContent": 0,
+            "contentToFooter": 0,
+            "overflow": 0
+          },
+          "insets": {
+            "headerLeft": 16,
+            "headerRight": 16,
+            "contentLeft": 16,
+            "contentRight": 16,
+            "footerLeft": 16,
+            "footerRight": 16
+          }
+        },
+        {
+          "kind": "report",
+          "width": 390,
+          "header": {
+            "left": 0,
+            "right": 390,
+            "top": 207.625,
+            "bottom": 264.625
+          },
+          "content": {
+            "left": 0,
+            "right": 390,
+            "top": 264.625,
+            "bottom": 730
+          },
+          "footer": {
+            "left": 0,
+            "right": 390,
+            "top": 730,
+            "bottom": 844
+          },
+          "inner": {
+            "left": 16,
+            "right": 374,
+            "top": 280.625,
+            "bottom": 714
+          },
+          "button": {
+            "left": 16,
+            "right": 374,
+            "top": 778.5,
+            "bottom": 828
+          },
+          "zeroDeltas": {
+            "headerLeft": 0,
+            "headerRight": 0,
+            "footerLeft": 0,
+            "footerRight": 0,
+            "innerToButtonLeft": 0,
+            "innerToButtonRight": 0,
+            "headerToContent": 0,
+            "contentToFooter": 0,
+            "overflow": 0
+          },
+          "insets": {
+            "headerLeft": 16,
+            "headerRight": 16,
+            "contentLeft": 16,
+            "contentRight": 16,
+            "footerLeft": 16,
+            "footerRight": 16
+          }
+        },
+        {
+          "kind": "report",
+          "width": 1366,
+          "header": {
+            "left": 459,
+            "right": 907,
+            "top": 131.8125,
+            "bottom": 188.8125
+          },
+          "content": {
+            "left": 459,
+            "right": 907,
+            "top": 188.8125,
+            "bottom": 654.1875
+          },
+          "footer": {
+            "left": 459,
+            "right": 907,
+            "top": 654.1875,
+            "bottom": 768.1875
+          },
+          "inner": {
+            "left": 475,
+            "right": 891,
+            "top": 204.8125,
+            "bottom": 638.1875
+          },
+          "button": {
+            "left": 475,
+            "right": 891,
+            "top": 702.6875,
+            "bottom": 752.1875
+          },
+          "zeroDeltas": {
+            "headerLeft": 0,
+            "headerRight": 0,
+            "footerLeft": 0,
+            "footerRight": 0,
+            "innerToButtonLeft": 0,
+            "innerToButtonRight": 0,
+            "headerToContent": 0,
+            "contentToFooter": 0,
+            "overflow": 0
+          },
+          "insets": {
+            "headerLeft": 16,
+            "headerRight": 16,
+            "contentLeft": 16,
+            "contentRight": 16,
+            "footerLeft": 16,
+            "footerRight": 16
+          }
+        }
+      ],
+      "cleanup": {
+        "context": true,
+        "browser": true,
+        "gateway": true,
+        "budget": true,
+        "ok": true
+      },
+      "passed": true
+    },
+    "phone-lab-stt-only-qa": {
+      "sha256": "da4c3a22edd02526f32823e1a9303766d418df1a15349016d0281ec56f726a52",
+      "checks": [
+        "STT-only не має ключа Anthropic",
+        "Контрольний діагностичний запит SDK заблоковано локально",
+        "Форма сполучення: зовнішні відступи 24/24",
+        "Новини показують людську версію та погоджений сценарій старту",
+        "Історія новин зберігає актуальний домен",
+        "welcome 390: межі header/content/footer 0 px",
+        "welcome 390: спільні внутрішні відступи 16 px",
+        "Закриття новин зберігає людську версію",
+        "SDK увійшов через HTTPS Auth emulator",
+        "Усі 8 іконок мають image content-type та декодуються",
+        "Початкова мова автоматична",
+        "Мова 375: горизонтальні відхилення 0 px",
+        "Мова 375: проміжок до запису 10 px",
+        "Мова 390: горизонтальні відхилення 0 px",
+        "Мова 390: проміжок до запису 10 px",
+        "Мова 1366: горизонтальні відхилення 0 px",
+        "Мова 1366: проміжок до запису 10 px",
+        "Сервер прочитав справжній WAV браузера",
+        "Мова з select дійшла до parser",
+        "Groq: точні URL, модель, мова та WAV filename",
+        "STT-only показує транскрипцію без редагування",
+        "STT-only не показує фото, продукти та Додати",
+        "STT-only пояснює обмеження українською",
+        "Після reload закриті новини не повторюються",
+        "Мовна перевага пережила reload і повторне відкриття",
+        "У localStorage записана тільки мовна перевага",
+        "Запис належить дозволеному тестовому UID",
+        "Історію прийомів прочитано без помилки",
+        "Запит пройшов Groq adapter з підставним транспортом",
+        "STT-only: нуль analyze, записів прийому й резерву Anthropic",
+        "Жодного прямого HTTP, production або AI API браузера",
+        "Немає помилок JavaScript",
+        "Немає HTTP-помилок статичних ресурсів",
+        "Немає зламаних зображень"
+      ],
+      "checkCount": 34,
+      "errors": [],
+      "unexpectedNetwork": [],
+      "geometry": [
+        {
+          "kind": "welcome",
+          "width": 390,
+          "header": {
+            "left": 0,
+            "right": 390,
+            "top": 318.24560546875,
+            "bottom": 392.74560546875
+          },
+          "content": {
+            "left": 0,
+            "right": 390,
+            "top": 392.74560546875,
+            "bottom": 799.74560546875
+          },
+          "footer": {
+            "left": 0,
+            "right": 390,
+            "top": 799.74560546875,
+            "bottom": 882.24560546875
+          },
+          "inner": {
+            "left": 16,
+            "right": 374,
+            "top": 408.74560546875,
+            "bottom": 732.24560546875
+          },
+          "button": {
+            "left": 16,
+            "right": 374,
+            "top": 816.74560546875,
+            "bottom": 866.24560546875
+          },
+          "zeroDeltas": {
+            "headerLeft": 0,
+            "headerRight": 0,
+            "footerLeft": 0,
+            "footerRight": 0,
+            "innerToButtonLeft": 0,
+            "innerToButtonRight": 0,
+            "headerToContent": 0,
+            "contentToFooter": 0,
+            "overflow": 0
+          },
+          "insets": {
+            "headerLeft": 16,
+            "headerRight": 16,
+            "contentLeft": 16,
+            "contentRight": 16,
+            "footerLeft": 16,
+            "footerRight": 16
+          }
+        },
+        {
+          "viewport": {
+            "width": 375,
+            "height": 844
+          },
+          "select": {
+            "left": 20,
+            "right": 355,
+            "top": 560.5,
+            "bottom": 603.5,
+            "width": 335,
+            "height": 43
+          },
+          "label": {
+            "left": 20,
+            "right": 355,
+            "top": 536,
+            "bottom": 603.5,
+            "width": 335,
+            "height": 67.5
+          },
+          "heading": {
+            "left": 20,
+            "right": 311,
+            "top": 325.5,
+            "bottom": 388.5,
+            "width": 291,
+            "height": 63
+          },
+          "recording": {
+            "left": 20,
+            "right": 355,
+            "top": 613.5,
+            "bottom": 824,
+            "width": 335,
+            "height": 210.5
+          },
+          "stop": {
+            "left": 20,
+            "right": 355,
+            "top": 757.5,
+            "bottom": 802,
+            "width": 335,
+            "height": 44.5
+          },
+          "body": {
+            "left": 0,
+            "right": 375,
+            "top": 437,
+            "bottom": 844,
+            "width": 375,
+            "height": 407
+          },
+          "deltas": {
+            "selectToLabelLeft": 0,
+            "selectToLabelRight": 0,
+            "selectToHeadingLeft": 0,
+            "selectToStopLeft": 0,
+            "selectToStopRight": 0,
+            "selectToBodyContentLeft": 0,
+            "selectToBodyContentRight": 0,
+            "selectToRecordingGap": 10
+          }
+        },
+        {
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "select": {
+            "left": 20,
+            "right": 370,
+            "top": 560.5,
+            "bottom": 603.5,
+            "width": 350,
+            "height": 43
+          },
+          "label": {
+            "left": 20,
+            "right": 370,
+            "top": 536,
+            "bottom": 603.5,
+            "width": 350,
+            "height": 67.5
+          },
+          "heading": {
+            "left": 20,
+            "right": 316,
+            "top": 357,
+            "bottom": 388.5,
+            "width": 296,
+            "height": 31.5
+          },
+          "recording": {
+            "left": 20,
+            "right": 370,
+            "top": 613.5,
+            "bottom": 824,
+            "width": 350,
+            "height": 210.5
+          },
+          "stop": {
+            "left": 20,
+            "right": 370,
+            "top": 757.5,
+            "bottom": 802,
+            "width": 350,
+            "height": 44.5
+          },
+          "body": {
+            "left": 0,
+            "right": 390,
+            "top": 437,
+            "bottom": 844,
+            "width": 390,
+            "height": 407
+          },
+          "deltas": {
+            "selectToLabelLeft": 0,
+            "selectToLabelRight": 0,
+            "selectToHeadingLeft": 0,
+            "selectToStopLeft": 0,
+            "selectToStopRight": 0,
+            "selectToBodyContentLeft": 0,
+            "selectToBodyContentRight": 0,
+            "selectToRecordingGap": 10
+          }
+        },
+        {
+          "viewport": {
+            "width": 1366,
+            "height": 900
+          },
+          "select": {
+            "left": 463,
+            "right": 903,
+            "top": 408.5,
+            "bottom": 451.5,
+            "width": 440,
+            "height": 43
+          },
+          "label": {
+            "left": 463,
+            "right": 903,
+            "top": 384,
+            "bottom": 451.5,
+            "width": 440,
+            "height": 67.5
+          },
+          "heading": {
+            "left": 463,
+            "right": 759,
+            "top": 226,
+            "bottom": 257.5,
+            "width": 296,
+            "height": 31.5
+          },
+          "recording": {
+            "left": 463,
+            "right": 903,
+            "top": 461.5,
+            "bottom": 672,
+            "width": 440,
+            "height": 210.5
+          },
+          "stop": {
+            "left": 463,
+            "right": 903,
+            "top": 605.5,
+            "bottom": 650,
+            "width": 440,
+            "height": 44.5
+          },
+          "body": {
+            "left": 443,
+            "right": 923,
+            "top": 306,
+            "bottom": 692,
+            "width": 480,
+            "height": 386
+          },
+          "deltas": {
+            "selectToLabelLeft": 0,
+            "selectToLabelRight": 0,
+            "selectToHeadingLeft": 0,
+            "selectToStopLeft": 0,
+            "selectToStopRight": 0,
+            "selectToBodyContentLeft": 0,
+            "selectToBodyContentRight": 0,
+            "selectToRecordingGap": 10
+          }
+        }
+      ],
+      "cleanup": {
+        "context": true,
+        "browser": true,
+        "gateway": true,
+        "budget": true,
+        "ok": true
+      },
+      "passed": true
+    },
+    "trainer-ui-qa": {
+      "sha256": "f8b533ced51a4febdcb44b566c0b3be113133750da736351f0fc3798b84f3b9a",
+      "checks": [
+        "Stranger denied health data",
+        "Trainer reads accepted health details",
+        "AddTrainerModal revoke clears open details",
+        "SettingsModal reconnect and revoke clear details",
+        "Revoked trainer denied by SDK",
+        "No unexpected external traffic",
+        "No page exceptions"
+      ],
+      "checkCount": 7,
+      "errors": [],
+      "unexpectedNetwork": [],
+      "layout": [
+        {
+          "width": 375,
+          "consentLeft": 0,
+          "formLeft": 0,
+          "formRight": 0,
+          "headerInset": 16,
+          "overflow": false
+        },
+        {
+          "width": 390,
+          "consentLeft": 0,
+          "formLeft": 0,
+          "formRight": 0,
+          "headerInset": 16,
+          "overflow": false
+        },
+        {
+          "width": 1024,
+          "consentLeft": 0,
+          "formLeft": 0,
+          "formRight": 0,
+          "headerInset": 16,
+          "overflow": false
+        }
+      ]
+    }
+  },
+  "realModelCalls": 0,
+  "physicalPhone": "pending",
+  "L10": "pending"
+}

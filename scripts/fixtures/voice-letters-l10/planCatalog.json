@@ -1,0 +1,272 @@
+[
+  {
+    "refId": "carbs:legumes",
+    "name": "бобові",
+    "group": "carbs",
+    "basisState": "raw"
+  },
+  {
+    "refId": "carbs:potato",
+    "name": "картопля",
+    "group": "carbs",
+    "basisState": "raw"
+  },
+  {
+    "refId": "carbs:corn",
+    "name": "кукурудза свіжа",
+    "group": "carbs",
+    "basisState": "raw"
+  },
+  {
+    "refId": "carbs:rice",
+    "name": "рис нешліфований",
+    "group": "carbs",
+    "basisState": "raw"
+  },
+  {
+    "refId": "carbs:grain",
+    "name": "будь-яка крупа",
+    "group": "carbs",
+    "basisState": "raw"
+  },
+  {
+    "refId": "carbs:flour",
+    "name": "цільнозернове борошно",
+    "group": "carbs",
+    "basisState": "raw"
+  },
+  {
+    "refId": "carbs:crispbread",
+    "name": "хлібці",
+    "group": "carbs",
+    "basisState": "raw"
+  },
+  {
+    "refId": "carbs:bread",
+    "name": "цільнозерновий хліб",
+    "group": "carbs",
+    "basisState": "raw"
+  },
+  {
+    "refId": "carbs:pasta",
+    "name": "макарони т.с.",
+    "group": "carbs",
+    "basisState": "raw"
+  },
+  {
+    "refId": "carbs:lavash",
+    "name": "лаваш",
+    "group": "carbs",
+    "basisState": "raw"
+  },
+  {
+    "refId": "dairy:cottage",
+    "name": "сир кисломолочний 0,2%",
+    "group": "dairy",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "dairy:cheese",
+    "name": "сири м'які/тверді/плавлені",
+    "group": "dairy",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "dairy:sour-cream",
+    "name": "сметана 15%",
+    "group": "dairy",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "dairy:kefir",
+    "name": "кефір 1%",
+    "group": "dairy",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "dairy:yogurt",
+    "name": "йогурт несолодкий 1%",
+    "group": "dairy",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "dairy:milk",
+    "name": "молоко 1%",
+    "group": "dairy",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "free:anything",
+    "name": "будь-що",
+    "group": "free",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "free:fruit",
+    "name": "фрукти",
+    "group": "free",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "free:banana",
+    "name": "банани",
+    "group": "free",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "protein:veal",
+    "name": "телятина",
+    "group": "protein",
+    "basisState": "raw"
+  },
+  {
+    "refId": "protein:liver",
+    "name": "печінка",
+    "group": "protein",
+    "basisState": "raw"
+  },
+  {
+    "refId": "protein:chicken",
+    "name": "куряче філе",
+    "group": "protein",
+    "basisState": "raw"
+  },
+  {
+    "refId": "protein:turkey",
+    "name": "індиче філе",
+    "group": "protein",
+    "basisState": "raw"
+  },
+  {
+    "refId": "protein:lean-fish",
+    "name": "риба до 5% жиру",
+    "group": "protein",
+    "basisState": "raw"
+  },
+  {
+    "refId": "protein:fat-fish",
+    "name": "риба від 5% жиру",
+    "group": "protein",
+    "basisState": "raw"
+  },
+  {
+    "refId": "protein:eggs",
+    "name": "3 яйця",
+    "group": "protein",
+    "basisState": "raw"
+  },
+  {
+    "refId": "protein:seafood",
+    "name": "морепродукти",
+    "group": "protein",
+    "basisState": "raw"
+  },
+  {
+    "refId": "vegetables:fresh",
+    "name": "овочі свіжі",
+    "group": "vegetables",
+    "basisState": "raw"
+  },
+  {
+    "refId": "vegetables:pickled",
+    "name": "овочі квашені",
+    "group": "vegetables",
+    "basisState": "raw"
+  },
+  {
+    "refId": "vegetables:greens",
+    "name": "зелень",
+    "group": "vegetables",
+    "basisState": "raw"
+  },
+  {
+    "refId": "vegetables:mushrooms",
+    "name": "гриби",
+    "group": "vegetables",
+    "basisState": "raw"
+  },
+  {
+    "refId": "fats:linseed",
+    "name": "олія лляна",
+    "group": "fats",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "fats:oil",
+    "name": "будь-яка олія",
+    "group": "fats",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "fats:avocado",
+    "name": "авокадо",
+    "group": "fats",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "fats:olives",
+    "name": "оливки",
+    "group": "fats",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "fats:mustard",
+    "name": "гірчиця",
+    "group": "fats",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "fats:mayo",
+    "name": "майонез",
+    "group": "fats",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "fats:ketchup",
+    "name": "кетчуп",
+    "group": "fats",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "fats:butter",
+    "name": "масло",
+    "group": "fats",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "fats:lard",
+    "name": "сало",
+    "group": "fats",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "fruits:fruit",
+    "name": "фрукти та ягоди",
+    "group": "fruits",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "fruits:banana",
+    "name": "банани/виноград/хурма",
+    "group": "fruits",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "nuts:walnut",
+    "name": "грецькі горіхи",
+    "group": "nuts",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "nuts:nuts",
+    "name": "будь-які горіхи",
+    "group": "nuts",
+    "basisState": "as_sold"
+  },
+  {
+    "refId": "nuts:seeds",
+    "name": "насіння",
+    "group": "nuts",
+    "basisState": "as_sold"
+  }
+]

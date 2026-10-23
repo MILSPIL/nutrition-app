@@ -1,0 +1,49 @@
+{
+  "syntheticOnly": true,
+  "apiCalls": 0,
+  "ledgerReads": 0,
+  "pricingSource": "scripts/phone-lab/approval.mjs FREE_SETTINGS; existing approved configuration, not refreshed provider quote",
+  "catalogBytes": 4219,
+  "catalogEntries": 45,
+  "rows": [
+    {
+      "id": "positive-uk",
+      "textBytes": 209,
+      "images": 0,
+      "reserveMicros": 92286
+    },
+    {
+      "id": "positive-ru",
+      "textBytes": 309,
+      "images": 0,
+      "reserveMicros": 92486
+    },
+    {
+      "id": "negative-uk",
+      "textBytes": 525,
+      "images": 0,
+      "reserveMicros": 92918
+    },
+    {
+      "id": "photo-1",
+      "textBytes": 98,
+      "images": 1,
+      "reserveMicros": 112064
+    },
+    {
+      "id": "photo-2-5",
+      "textBytes": 98,
+      "images": 1,
+      "reserveMicros": 112064
+    },
+    {
+      "id": "boundary-20",
+      "textBytes": 725,
+      "images": 0,
+      "reserveMicros": 93318
+    }
+  ],
+  "totalMicros": 595136,
+  "maxCatalogTotalMicros": 937724,
+  "requestCount": 6
+}

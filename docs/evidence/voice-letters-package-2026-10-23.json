@@ -1,0 +1,12 @@
+{
+  "releaseId": "53248f70660c1c1b6fdf4cd6278a72f17928c6fd",
+  "archivePath": "tmp/voice-letters-release/53248f7/scisense-1.8.0-53248f7.tar.gz",
+  "archiveBytes": 11200985,
+  "archiveSha256": "939dd9d7aa9501e880572cf81eaa12977c99f4ff2fa8d9caf72923bd78a6cb3d",
+  "manifestSha256": "09b98a7b6bcdb6a2826fc2a0c1f137657e065ed00960be5e6bb7aaaa2f769900",
+  "files": 146,
+  "packagedApiTests": 10,
+  "liveEnabled": false,
+  "apiCalls": 0,
+  "verification": "Each archive member verified against the manifest; no absolute/traversal paths"
+}
