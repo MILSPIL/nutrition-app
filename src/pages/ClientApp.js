@@ -37,7 +37,7 @@ import VoiceInputModal from '../components/VoiceInputModal';
 import PilotPanel from '../components/PilotPanel';
 import { createPilotLedger } from '../services/pilotLedger';
 import { catalogItem, quantityText, itemMacros, sourceText } from '../services/mealItems';
-import { loadMealDay, saveProfileSettings } from '../services/mealStore';
+import { saveProfileSettings } from '../services/mealStore';
 import { hasMeals } from '../services/mealCommands';
 import { useMealDay, saveError } from '../services/useMealDay';
 import { calculateProgramDay, getTodayDateKey, parseDateInput } from '../utils/date';
@@ -76,6 +76,17 @@ export default function ClientApp() {
   const [mealsDateKey, setMealsDateKey] = useState(getTodayDateKey());
   const mealDay = useMealDay(firebaseUser?.uid, currentUser, mealsDateKey);
   const meals = mealDay.day.meals;
+  useEffect(()=>{
+    const fresh=mealDay.day.planContext;
+    if(!fresh||!currentUser)return;
+    setUsers(previous=>({...previous,[currentUser]:{...previous[currentUser],...fresh.profile}}));
+    setUserPortions(fresh.profile?.portions||DEFAULT_PORTIONS);
+    setGlobalCustomProducts(fresh.globalCustomProducts||{});
+    setProductOverrides(fresh.productOverrides||{});
+    // Snapshot змінюється лише після читання відповідного профілю; сам перехід профілю не застосовує попередній snapshot.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[mealDay.day.planContext]);
+  const retryPending=async()=>{await mealDay.retry();setPilotVersion(x=>x+1);};
   const metadataDirty = useRef(null);
   const [metadataVersion,setMetadataVersion] = useState(0);
   const changeMetadata = (key,setter,value) => { if(mealDay.busy||mealDay.hasPending)return; metadataDirty.current={...(metadataDirty.current || {}),[key]:value}; setter(value);setMetadataVersion(x=>x+1); };
@@ -247,6 +258,7 @@ export default function ClientApp() {
         ...(newProductOverrides ? {productOverrides:newProductOverrides}:{})
       });
       setUsers(previous=>({...previous,[currentUser]:{...previous[currentUser],...profilePatch}}));
+      mealDay.reload();
     } catch(error) { toast.error(saveError(error)); }
   };
 
@@ -520,7 +532,7 @@ export default function ClientApp() {
         onShowMeasurements={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowMeasurements(true);}}
         onShowSettings={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowSettings(true);}}
         onShowVoiceInput={()=>setShowVoiceInput(true)}
-        voiceDisabled={!mealDay.ready || mealDay.busy || !!mealDay.day.legacy}
+        voiceDisabled={!mealDay.ready || mealDay.busy || mealDay.requiresReload || !!mealDay.day.legacy}
 
       />
 
@@ -532,7 +544,7 @@ export default function ClientApp() {
         {!mealDay.ready && <p role="status">Завантажую день…</p>}
         {mealDay.busy && <p role="status">Зберігаю…</p>}
         {(mealDay.error || mealDay.hasPending) && <div role="alert"><p>{mealDay.error || "Результат збереження ще не підтверджено. Перевірте той самий запис."}</p>
-          <button disabled={mealDay.busy} onClick={()=>mealDay.hasPending?mealDay.retry().then(()=>setPilotVersion(x=>x+1)).catch(()=>{}):mealDay.reload()} className="p-3 text-[#007AFF]">Повторити</button>
+          <button disabled={mealDay.busy} onClick={()=>mealDay.hasPending?retryPending().catch(()=>{}):mealDay.reload()} className="p-3 text-[#007AFF]">Повторити</button>
           {mealDay.hasPending && <button onClick={handleSignOut} className="p-3 text-[#007AFF]">Вийти з облікового запису</button>}
           {mealDay.requiresReload && <button onClick={mealDay.reload} className="p-3 text-[#007AFF]">Перечитати день</button>}
         </div>}
@@ -581,11 +593,11 @@ export default function ClientApp() {
       <PilotPanel ledger={pilotLedger} uid={firebaseUser.uid} version={pilotVersion}/>
       <VoiceInputModal isOpen={showVoiceInput} onClose={()=>{setShowVoiceInput(false);setPilotVersion(x=>x+1);}}
         date={mealsDateKey} activeDate={mealsDateKey} meal={selectedMeal} ledger={pilotLedger}
-        ownerKey={`${firebaseUser.uid}:${currentUser}`} dayMeals={meals} pendingSave={mealDay.hasPending} onRetryPending={()=>mealDay.retry().catch(()=>{})}
-        planContext={{profile:users[currentUser],globalCustomProducts,productOverrides}}
-        onRefreshPlan={async()=>{const fresh=await loadMealDay(firebaseUser.uid,currentUser,mealsDateKey);mealDay.reload();return fresh.planContext;}}
+        ownerKey={`${firebaseUser.uid}:${currentUser}`} dayMeals={meals} pendingSave={mealDay.hasPending} onRetryPending={retryPending}
+        planContext={mealDay.day.planContext||{profile:users[currentUser],globalCustomProducts,productOverrides}}
+        onRefreshPlan={async()=>(await mealDay.refresh()).planContext}
         onReturnToDate={setMealsDateKey} onSaved={()=>setPilotVersion(x=>x+1)}
-        onAdd={async (command,date)=>{if(date!==mealsDateKey)throw Error('date_conflict');return mealDay.commit(command);}}/>
+        onAdd={async (command,date)=>{if(date!==mealsDateKey)throw Error('date_conflict');const result=await mealDay.commit(command);setPilotVersion(x=>x+1);return result;}}/>
       {/* Modals */}
       <ProductModal
         isOpen={showProductModal}

@@ -7,11 +7,14 @@ export default function PlanAllocationFields({item,index,catalog,progress,after,
  const a=item.planAllocation,choice=item.planChoice||{},letter=a.letter;
  const normRefs=catalog.references.filter(r=>r.letter===letter);
  const patch=extra=>onChange({...choice,...extra});
- const mass=choice.mass,grams=mass&&mass.baseQuantity.unit===item.quantity.unit?mass.baseMassGrams*item.quantity.value/mass.baseQuantity.value:null;
+ const positive=value=>typeof value==='number'&&Number.isFinite(value)&&value>0;
+ const hasQuantity=positive(item.quantity.value);
+ const mass=choice.mass,grams=mass&&positive(mass.baseQuantity?.value)&&hasQuantity&&mass.baseQuantity.unit===item.quantity.unit?mass.baseMassGrams*item.quantity.value/mass.baseQuantity.value:null;
+ const automatic=()=>{const {assignment,letter,referenceKey,...rest}=choice;onChange(rest);};
  return <div className="voice-plan">
   <p className="voice-plan-badge">{letter?`${letter.toUpperCase()} · ${PRODUCTS_DB[letter].name}`:'Без літери'} · {a.status==='allocated'?`${percentText(item.portion)} норми`:'норму не визначено'}{a.assignment==='auto'?' · Автоматично':''}</p>
   <details><summary>Змінити літеру або норму</summary>
-   <label>Літера програми (необов’язково)<select aria-label={`Літера продукту ${index+1}`} disabled={disabled} value={choice.assignment==='manual'?choice.letter||'':'auto'} onChange={e=>onChange(e.target.value==='auto'?{}:{...choice,assignment:'manual',letter:e.target.value,referenceKey:undefined})}>
+   <label>Літера програми (необов’язково)<select aria-label={`Літера продукту ${index+1}`} disabled={disabled} value={choice.assignment==='manual'?choice.letter||'':'auto'} onChange={e=>e.target.value==='auto'?automatic():onChange({...choice,assignment:'manual',letter:e.target.value,referenceKey:undefined})}>
     <option value="auto">Автоматично</option><option value="">Без літери</option>{Object.entries(PRODUCTS_DB).map(([key,data])=><option key={key} value={key}>{key.toUpperCase()} · {data.name}</option>)}
    </select></label>
    {letter&&letter!=='в'&&<>
@@ -21,7 +24,8 @@ export default function PlanAllocationFields({item,index,catalog,progress,after,
     <label>Стан продукту<select aria-label={`Стан продукту ${index+1}`} disabled={disabled} value={choice.consumedState||item.planMatch?.consumedState||'unknown'} onChange={e=>patch({consumedState:e.target.value})}>
      <option value="unknown">Не знаю</option><option value="raw">Сирий</option><option value="cooked">Приготований</option><option value="as_sold">Як у пакуванні</option>
     </select></label>
-    {item.quantity.unit!=='g'&&<label>Підтверджена маса цієї кількості, г<DecimalInput aria-label={`Маса продукту ${index+1}`} disabled={disabled} inputMode="decimal" value={grams??''} onChange={e=>patch({mass:{baseQuantity:{...item.quantity},baseMassGrams:parseDecimal(e.target.value)}})}/></label>}
+    {item.quantity.unit!=='g'&&!hasQuantity&&<p>Спочатку вкажіть кількість, потім її масу в грамах.</p>}
+    {item.quantity.unit!=='g'&&<label>Підтверджена маса цієї кількості, г<DecimalInput aria-label={`Маса продукту ${index+1}`} disabled={disabled||!hasQuantity} inputMode="decimal" value={grams??''} onChange={e=>patch({mass:{baseQuantity:{...item.quantity},baseMassGrams:parseDecimal(e.target.value)}})}/></label>}
    </>}
    {a.status==='allocated'&&<p>Основа норми: {a.basis.value} {a.basis.unit==='kcal'?'ккал':'г'} · {a.referenceName}</p>}
    {letter&&<p>За день: {percentText(progress.letters[letter].percent)} → {percentText(after.letters[letter].percent)}{after.letters[letter].unknown>0?' · частину норми не визначено':''}</p>}

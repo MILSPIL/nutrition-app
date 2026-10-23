@@ -11,14 +11,15 @@ jest.mock('firebase/firestore',()=>({doc:jest.fn(),getDoc:jest.fn(),onSnapshot:(
 jest.mock('../services/useMealDay',()=>({useMealDay:jest.fn(),saveError:e=>e.message}));
 jest.mock('../services/mealStore',()=>({loadMealDay:jest.fn(),saveProfileSettings:jest.fn()}));
 jest.mock('../services/pilotLedger',()=>({createPilotLedger:()=>({enabled:false,close:async()=>{}})}));
-jest.mock('../components/PilotPanel',()=>()=>null);
-jest.mock('../components/VoiceInputModal',()=>p=>p.isOpen?<div data-testid="pending-modal">{p.pendingSave?'Перевірка попереднього запису':'Нова чернетка'}</div>:null);
+jest.mock('../components/PilotPanel',()=>p=>{mockPilotVersion=p.version;return null;});
+jest.mock('../components/VoiceInputModal',()=>p=>{mockVoiceProps=p;return p.isOpen?<div data-testid="pending-modal">{p.pendingSave?'Перевірка попереднього запису':'Нова чернетка'}</div>:null;});
 jest.mock('../components',()=>{
  const React=require('react');const Header=jest.requireActual('../components/Header').default;const empty=()=>null;
  return {Header,ToastProvider:({children})=><>{children}</>,toast:{error:jest.fn()},LoginScreen:empty,MealSection:empty,ProductModal:empty,ReportModal:empty,AddCustomProductModal:empty,PortionSettingsModal:empty,DaySelectorModal:empty,AccountSwitchModal:empty,SettingsModal:empty,ActivitySection:empty,RulesSection:empty,LoadingScreen:empty,WelcomeModal:empty,AddTrainerModal:empty,MeasurementsModal:empty,MeasurementReminderModal:empty};
 });
 global.IS_REACT_ACT_ENVIRONMENT=true;
 let root,container,state;
+let mockVoiceProps,mockPilotVersion;
 const button=text=>[...container.querySelectorAll('button')].find(n=>(n.getAttribute('aria-label')||n.textContent.trim())===text);
 beforeEach(async()=>{
  jest.clearAllMocks();getDoc.mockResolvedValue({exists:()=>true,data:()=>({users:{'demo-owner':{name:'Синтетичний користувач',portions:{}}}})});
@@ -37,4 +38,17 @@ test('L05: можна повернутися до перевірки попер�
 test.each([false,true])('L05: вихід доступний за pending, busy=%s',async busy=>{
  state.busy=busy;await act(async()=>root.render(<ClientApp/>));const exit=button('Вийти з облікового запису');expect(exit.disabled).toBe(false);
  await act(async()=>Simulate.click(exit));expect(signOut).toHaveBeenCalledTimes(1);
+});
+
+test('review: голос бере snapshot перечитаного дня, а не застарілий users',async()=>{
+ const fresh={profile:{portions:{яблуко:350}},globalCustomProducts:{},productOverrides:{}};
+ state.day={...state.day,planContext:fresh};state.hasPending=false;
+ await act(async()=>root.render(<ClientApp/>));expect(mockVoiceProps.planContext).toBe(fresh);
+ state.requiresReload=true;await act(async()=>root.render(<ClientApp/>));expect(button('Додати їжу голосом').disabled).toBe(true);
+});
+
+test('review: ACK і retry оновлюють PilotPanel навіть коли форма закрита',async()=>{
+ state.commit=jest.fn(async()=>({}));await act(async()=>root.render(<ClientApp/>));const before=mockPilotVersion;
+ await act(async()=>mockVoiceProps.onAdd({},mockVoiceProps.date));expect(mockPilotVersion).toBe(before+1);
+ await act(async()=>mockVoiceProps.onRetryPending());expect(mockPilotVersion).toBe(before+2);
 });

@@ -69,6 +69,7 @@ export default function VoiceInputModal({
   const [catalog,setCatalog]=useState(()=>buildPlanCatalog(planContext));
   const catalogRef=useRef(catalog);catalogRef.current=catalog;
   const [needsPlanRefresh,setNeedsPlanRefresh]=useState(false);
+  const [pendingNotice,setPendingNotice]=useState("");
   const sttOnly = mode === "stt_only";
   const [language, setLanguage] = useState(storedLanguage);
   const [state, setState] = useState("ready"),
@@ -163,6 +164,7 @@ export default function VoiceInputModal({
     retryTask.current = null;
     submission.current = null;
     setText("");
+    setPendingNotice("");
     setFrozenItems(null);
     setItems([]);
     setUnparsed([]);
@@ -401,8 +403,7 @@ export default function VoiceInputModal({
       onClose();
       return;
     }
-    if (saving.current) return;
-    if (saveUnknown) {
+    if (saving.current || saveUnknown || pendingSave) {
       if (
         window.confirm(
           "Результат збереження ще невідомий. Закрити чернетку? На головному екрані натисніть «Повторити» після відновлення зв’язку. Не додавайте цей прийом заново до перевірки.",
@@ -595,7 +596,7 @@ export default function VoiceInputModal({
         ["unavailable", "deadline-exceeded", "unknown"].includes(e.code);
       setSaveUnknown(unknown);
       if(!unknown) {submission.current=null;setFrozenItems(null);}
-      if(['plan_conflict','revision_conflict','submission_conflict'].includes(e.message)) setNeedsPlanRefresh(true);
+      if(['plan_conflict','revision_conflict','submission_conflict','not_ready'].includes(e.message)) setNeedsPlanRefresh(true);
       setError(saveError(e));
       await track({ status: unknown ? "unknown" : "error" }, id, session);
     } finally {
@@ -664,7 +665,6 @@ export default function VoiceInputModal({
           <button
             aria-label="Закрити голосову чернетку"
             onClick={close}
-            disabled={state === "saving"}
             className="voice-icon"
           >
             <X size={24} />
@@ -703,9 +703,14 @@ export default function VoiceInputModal({
               </select>
             </label>
           )}
+          {pendingNotice && <p role="status">{pendingNotice}</p>}
           {pendingSave && !saveUnknown ? (
             <div role="status"><p>Спочатку перевірте попереднє збереження.</p>
-              <button className="voice-primary" onClick={onRetryPending}>Перевірити збереження</button>
+              <button className="voice-primary" onClick={async()=>{
+                const session=life.current;
+                try {await onRetryPending?.();if(life.current===session&&!session.closed){setError("");setPendingNotice("Попередній запис підтверджено. Нового запису не створено.");}}
+                catch(e){if(life.current===session&&!session.closed)setError(saveError(e));}
+              }}>Перевірити збереження</button>
             </div>
           ) : state === "ready" && (
             <div className="voice-ready">
@@ -779,7 +784,7 @@ export default function VoiceInputModal({
               </button>
             </div>
           )}
-          {catalog.overLimit && !sttOnly && <p role="status">Каталог завеликий для автоматичного зіставлення. Їжу можна додати й вибрати літеру вручну.</p>}
+          {catalog.overLimit && !sttOnly && <p role="status">Автоматичний каталог недоступний через розмір або неоднозначні записи. Їжу можна додати й вибрати літеру вручну.</p>}
           {needsPlanRefresh && <button className="voice-secondary" onClick={async()=>{
             const session=life.current,revision=session.revision;
             try {const fresh=await onRefreshPlan?.();if(!valid(session,revision))return;if(!fresh)throw Error();setCatalog(buildPlanCatalog(fresh));setNeedsPlanRefresh(false);setError("");}

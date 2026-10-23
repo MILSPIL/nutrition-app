@@ -4,7 +4,7 @@ import {parseDecimal} from '../services/mealItems';
 export default function DecimalInput({ value, onChange, ...props }) {
   const [raw, setRaw] = useState(value == null ? "" : String(value));
   useEffect(() => {
-    if (parseDecimal(raw) !== value) setRaw(value == null ? "" : String(value));
+    if (!Object.is(parseDecimal(raw), value)) setRaw(value == null ? "" : String(value));
   }, [value, raw]);
   return (
     <input
@@ -18,4 +18,3 @@ export default function DecimalInput({ value, onChange, ...props }) {
     />
   );
 }
-

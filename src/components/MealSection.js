@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Trash2, ChevronRight, Pencil, Check, X } from 'lucide-react';
 import { PRODUCTS_DB, MEAL_LETTERS, CATEGORY_ICONS } from '../data/products';
 import { itemMacros, quantityText, sourceText, UNITS } from '../services/mealItems';
-import {dailyPlanProgress,percentText} from '../services/planAllocation';
+import {dailyPlanProgress,itemPlanPercent,percentText} from '../services/planAllocation';
 import { getCategoryProgress } from '../services/nutrition';
 import CategoryIcon from './CategoryIcon';
 
@@ -18,6 +18,11 @@ export default function MealSection({
   const daily=dailyPlanProgress(meals);
   return (
     <div className="max-w-lg mx-auto px-4 mb-6">
+      {daily.unallocatedCount > 0 && (
+        <p className="mb-2 text-[13px] text-[#6B7280]" role="status">
+          Без літери за день: {daily.unallocatedCount}
+        </p>
+      )}
       {/* iOS Grouped List */}
       <div className="bg-white rounded-2xl overflow-hidden">
         {[...new Set([...MEAL_LETTERS[selectedMeal],...Object.keys(meals[selectedMeal] || {})])].map((letter, index) => {
@@ -46,16 +51,16 @@ export default function MealSection({
                   <div className="w-11 h-11 rounded-xl bg-[#F2F2F7] border border-[#E9E9EE] flex items-center justify-center flex-shrink-0 overflow-hidden">
                     <CategoryIcon
                       src={CATEGORY_ICONS[letter]}
-                      alt={PRODUCTS_DB[letter]?.name || 'Голос і фото'}
+                      alt={PRODUCTS_DB[letter]?.name || 'Без літери'}
                     />
                   </div>
                   <div className="text-left flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-[22px] font-bold text-[#007AFF]">{letter === 'voice' ? '' : letter.toUpperCase()}</span>
-                      <span className="text-[17px] font-medium text-black">{(PRODUCTS_DB[letter]?.name || 'Голос і фото')}</span>
+                      <span className="text-[17px] font-medium text-black">{(PRODUCTS_DB[letter]?.name || 'Без літери')}</span>
                     </div>
                     {/* Progress bar */}
-                    {letter === 'voice' ? <p className="text-[13px] text-[#6B7280]">Без визначеної норми</p> : <div className="flex items-center gap-2 mt-1">
+                    {letter === 'voice' ? <p className="text-[13px] text-[#6B7280]">Калорії враховані</p> : <div className="flex items-center gap-2 mt-1">
                       <div className="flex-1 h-1.5 bg-[#E5E5EA] rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all"
@@ -86,6 +91,7 @@ export default function MealSection({
                   <div className="bg-[#F2F2F7] rounded-xl overflow-hidden">
                     {products.map((product, idx) => {
                       const isEditing = editingProduct?.letter === letter && editingProduct?.index === idx;
+                      const normPercent = itemPlanPercent(product, letter);
 
                       return (
                         <div
@@ -151,6 +157,7 @@ export default function MealSection({
 
                                 </span>
                                 <span className="block text-[11px] text-[#6B7280]">{sourceText(product)}</span>
+                                {normPercent == null && <span className="block text-[12px] text-[#9A6700]">Норму не визначено</span>}
                                 <Pencil size={12} className="inline ml-1.5 text-[#C7C7CC]" />
                               </button>
                               <button

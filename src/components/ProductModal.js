@@ -83,7 +83,7 @@ export default function ProductModal({
                     За день: {percentText(daily.percent)}{daily.unknown?" · неповно":""}
                   </span>
                   {categoryProgress.isOverTarget && (
-                    <span className="text-[#FF3B30]"> (+{categoryProgress.percent - 100}% понад норму)</span>
+                    <span className="text-[#FF3B30]"> (+{percentText(categoryProgress.percent - 100)} понад норму)</span>
                   )}
                 </div>
               )}

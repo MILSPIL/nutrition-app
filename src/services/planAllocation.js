@@ -27,14 +27,17 @@ export function allocationPercent(item) {
  const value=computedPercent(item);
  return value!=null&&finite(item.portion)&&Math.abs(value-item.portion)<=0.000001?value:null;
 }
+export function itemPlanPercent(item,group) {
+ if(!letters.includes(group)) return null;
+ if(item.planAllocation) return item.planAllocation.letter===group?allocationPercent(item):null;
+ if(group==='в') {try{return itemMacros(item).cal/PRODUCTS_DB.в.calorieLimit*100;}catch(_){return null;}}
+ return finite(item.portion)&&item.portion>=0?item.portion:null;
+}
 export function dailyPlanProgress(meals={}) {
  const result={letters:Object.fromEntries(letters.map(l=>[l,{percent:0,unknown:0,calories:0}])),unallocatedCount:0};
  for(const meal of Object.values(meals||{})) for(const [group,items] of Object.entries(meal||{})) for(const item of Array.isArray(items)?items:[]) {
   if(group==='voice'||!result.letters[group]) {result.unallocatedCount++;continue;}
-  const cell=result.letters[group];let percent=null;
-  if(item.planAllocation) {if(item.planAllocation.letter===group) percent=allocationPercent(item);}
-  else if(group==='в') {try{percent=itemMacros(item).cal/PRODUCTS_DB.в.calorieLimit*100;}catch(_){}}
-  else if(finite(item.portion)&&item.portion>=0) percent=item.portion;
+  const cell=result.letters[group],percent=itemPlanPercent(item,group);
   if(percent==null) cell.unknown++;else cell.percent+=percent;
   try {cell.calories+=itemMacros(item).cal;}catch(_){}
  }

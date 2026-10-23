@@ -765,3 +765,21 @@ test('L05: unknown зберігає показані літери навіть �
  await render({dayMeals:{1:{б:[{name:'старий',portion:100,weight:100,p:1,f:1,c:1,cal:10}]}}});
  expect(container.querySelector('.voice-plan-badge').textContent).toContain('Б · Молочні');expect(props.onAdd.mock.calls[0][0].items[0].planAllocation.letter).toBe('б');
 });
+
+test('review: закриття pending до ACK дозволене без повторного додавання',async()=>{
+ const pending=deferred();props.onAdd.mockReturnValue(pending.promise);
+ await openAndStart();await stop();await click('Додати');
+ expect(button('Закрити голосову чернетку').disabled).toBe(false);
+ await click('Закрити голосову чернетку');expect(props.onClose).toHaveBeenCalledTimes(1);
+ await render({isOpen:false});await act(async()=>pending.resolve({}));
+ expect(props.onAdd).toHaveBeenCalledTimes(1);
+});
+test('review: not_ready пропонує перечитати план, а не тупикове Додати',async()=>{
+ props.onAdd.mockRejectedValue(Error('not_ready'));props.onRefreshPlan=jest.fn(async()=>({}));
+ await openAndStart();await stop();await click('Додати');expect(button('Перечитати план і прев’ю')).toBeTruthy();
+});
+
+test('review: повтор pending має явний результат без нового запису',async()=>{
+ props.onRetryPending=jest.fn(async()=>{});await render({pendingSave:true});await click('Перевірити збереження');
+ expect(container.textContent).toContain('Попередній запис підтверджено');expect(props.onAdd).not.toHaveBeenCalled();expect(rows).toHaveLength(0);
+});

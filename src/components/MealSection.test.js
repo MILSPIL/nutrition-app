@@ -9,5 +9,17 @@ test('L06: однакова літера має денний підсумок, �
 });
 test('L06: старий voice і невідома норма не видаються за виконану норму',()=>{
  const html=renderToStaticMarkup(<MealSection meals={{1:{voice:[food('Голос')],а:[food('Без норми')]}}} selectedMeal={1}/>);
- expect(html).toContain('Без визначеної норми');expect(html).toContain('неповно');
+ expect(html).toContain('Без літери');expect(html).toContain('Норму не визначено');expect(html).toContain('неповно');
+});
+
+test('L06: невизначена норма позначена в рядку, безлітерні продукти рахуються за весь день',()=>{
+ const meals={1:{з:[food('Відомий',40),food('Невідома норма')]},2:{voice:[food('Без літери в іншому прийомі')]},3:{},4:{}};
+ const first=renderToStaticMarkup(<MealSection meals={meals} selectedMeal={1}/>);
+ expect(first).toContain('40% за день · неповно');
+ expect(first).toContain('Без літери за день: 1');
+ expect(first.match(/Норму не визначено/g)).toHaveLength(1);
+ expect(first).not.toContain('Без літери в іншому прийомі');
+ const second=renderToStaticMarkup(<MealSection meals={meals} selectedMeal={2}/>);
+ expect(second).toContain('Без літери за день: 1');
+ expect(second).toContain('Норму не визначено');
 });

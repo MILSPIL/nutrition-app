@@ -29,3 +29,17 @@ test('L05: серверний marker після reload підтверджує un
 test('L05: вихід дозволений навіть за unknown',async()=>{
  commitMealDay.mockRejectedValueOnce(Error('save_unknown'));await act(async()=>{await expect(hook.commit(command)).rejects.toThrow();});await render({uid:null,profile:null});expect(hook.hasPending).toBe(false);
 });
+
+test('review: refresh повертає встановлений свіжий snapshot і готовність без другого читання',async()=>{
+ const fresh={...empty,planContext:{profile:{portions:{яблуко:350}}}};
+ loadMealDay.mockResolvedValue(fresh);let got;await act(async()=>{got=await hook.refresh();});
+ expect(got).toBe(fresh);expect(hook.day).toBe(fresh);expect(hook.ready).toBe(true);expect(loadMealDay).toHaveBeenCalledTimes(2);
+ commitMealDay.mockResolvedValue({...fresh,revision:1});await act(async()=>hook.commit(command));
+});
+
+test('review: пізній refresh старого профілю не відновлює його після виходу',async()=>{
+ let resolve;loadMealDay.mockImplementationOnce(()=>new Promise(done=>{resolve=done;}));let refresh;
+ await act(async()=>{refresh=hook.refresh().catch(e=>e.message);});await render({uid:null,profile:null});
+ await act(async()=>resolve({...empty,planContext:{profile:{name:'OLD'}}}));
+ expect(await refresh).toBe('context_changed');expect(hook.ready).toBe(false);expect(hook.day.planContext).toBeUndefined();
+});

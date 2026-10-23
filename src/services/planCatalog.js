@@ -21,6 +21,7 @@ export function buildPlanCatalog({profile={},globalCustomProducts={},productOver
    const norm=own(profile.portions,name)?profile.portions[name]:own(p,'raw')?p.raw:DEFAULT_PORTIONS[name];
    const basisState=['carbs','protein','vegetables'].includes(group)?'raw':'as_sold';
    const ref={refId,referenceKey,family,name,letter,group,basisState,norm:positive(norm)?norm:null,normSource:own(profile.portions,name)?'profile':'catalog',coef:positive(p.coef)?p.coef:1,source};
+   if(source!=='standard'&&references.some(previous=>previous.referenceKey===referenceKey&&stable(previous)===stable(ref))) continue;
    references.push(ref);
    // Один запис сім'ї, норми та літери залишаються лише на клієнті.
    const entry={refId,name:source==='standard'&&letter==='ж'?name.replace(/ \(ж\)$/,''):name,group,basisState};

@@ -29,3 +29,15 @@ test('L09: snapshot не змінюється після мутації вихі
  context.profile.portions['кефір 1%']=400;context.productOverrides['молоко 1%'].raw=450;
  expect(await planFingerprint(snapshot)).toBe(old);expect(await planFingerprint(context)).not.toBe(old);
 });
+
+test('review: тотожний custom дубль не вимикає компактний каталог',()=>{
+ const row={name:'Мій йогурт',raw:250};
+ const c=buildPlanCatalog({profile:{customProducts:{б:[row,{...row}]}}});
+ expect(c.apiCatalog).not.toBeNull();expect(c.references.filter(r=>r.name===row.name)).toHaveLength(1);
+});
+
+test('review: джерело збереженої норми відрізняється від fallback навіть за однакових чисел',()=>{
+ const standard=buildPlanCatalog().references.find(r=>r.name==='кефір 1%');
+ const explicit=buildPlanCatalog({profile:{portions:{'кефір 1%':standard.norm}}}).references.find(r=>r.name==='кефір 1%');
+ expect(standard.normSource).toBe('catalog');expect(explicit.normSource).toBe('profile');
+});

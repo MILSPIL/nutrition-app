@@ -268,9 +268,11 @@ try {
   await page.getByRole("button", { name: "Підключити телефон" }).click();
   await page.getByRole("button", { name: "Увійти в тестовий простір" }).click();
   await page.getByText("Що нового у v1.8.0", { exact: true }).waitFor();
-  check("Новини показують людську версію та поточний домен",
+  check("Новини показують людську версію та погоджений сценарій старту",
     await page.getByText("Версія 1.8.0", { exact: true }).count() === 1 &&
-    await page.getByText("Адреса застосунку: ntzg.pp.ua", { exact: true }).count() === 1);
+    await page.getByText("Запис починається після кнопки «Почати запис»", { exact: true }).count() === 1);
+  check("Історія новин зберігає актуальний домен",
+    await page.locator("details").getByText("• Адреса застосунку: ntzg.pp.ua", { exact: true }).count() === 1);
   await measureModal("welcome", page.getByText("Що нового у v1.8.0", { exact: true }), 390);
   await page.getByRole("button", { name: "Почати!", exact: true }).click();
   await page.getByRole("button", { name: "Почати!", exact: true }).waitFor({ state: "hidden" });
