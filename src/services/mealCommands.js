@@ -1,4 +1,5 @@
 import { createEmptyMeals, calculateMealsMacros } from './nutrition';
+import { validAllocation, allocationPercent } from './planAllocation';
 import { itemProblems, withQuantity } from './mealItems';
 export const hasMeals = meals => Object.values(meals || {}).some(m => Object.values(m || {}).some(v => Array.isArray(v) && v.length));
 export const isDateKey = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && new Date(`${value}T12:00:00Z`).toISOString().slice(0,10) === value;
@@ -15,14 +16,22 @@ export function applyDayCommand(day = {}, command, hash) {
   const revision = day.revision || 0;
   if (command.expectedRevision != null && command.expectedRevision !== revision) fail('revision_conflict');
   const meals = JSON.parse(JSON.stringify(day.meals || createEmptyMeals()));
-  if (command.type === 'append') {
+  if (command.type === 'append' || command.type === 'appendAllocated') {
     if (![1,2,3,4].includes(Number(command.meal)) || !Array.isArray(command.items) || !command.items.length || command.items.length > 20) fail('invalid_command');
     const items = command.items;
     if (items.some(i => !i.itemId || itemProblems(i).length)) fail('invalid_item');
     const ids = new Set(Object.values(meals).flatMap(m => Object.values(m).flat()).map(i => i.itemId).filter(Boolean));
     for (const item of items) { if (ids.has(item.itemId)) fail('duplicate_item'); ids.add(item.itemId); }
-    const group = command.letter || 'voice';
-    meals[command.meal] = { ...meals[command.meal], [group]: [...(meals[command.meal]?.[group] || []), ...items] };
+    if(command.type==='appendAllocated') {
+      if(items.some(i=>!validAllocation(i.planAllocation)||(i.planAllocation.status==='allocated'?allocationPercent(i)==null:i.portion!=null))) fail('invalid_allocation');
+      for(const item of items) {
+        const group=item.planAllocation.letter || 'voice';
+        meals[command.meal] ||= {};meals[command.meal][group]=[...(meals[command.meal][group]||[]),item];
+      }
+    } else {
+      const group = command.letter || 'voice';
+      meals[command.meal] = { ...meals[command.meal], [group]: [...(meals[command.meal]?.[group] || []), ...items] };
+    }
   } else if (command.type === 'remove' || command.type === 'quantity') {
     const list = meals[command.meal]?.[command.letter];
     if (!list?.[command.index]) fail('item_missing');

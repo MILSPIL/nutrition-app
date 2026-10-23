@@ -1,3 +1,4 @@
+import { buildPlanCatalog, planFingerprint } from './planCatalog';
 import { doc, getDocFromServer, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase';
 import { writerStamp } from './writerFence';
@@ -15,7 +16,8 @@ const refs = (uid,date) => {
 export async function loadMealDay(uid, profileId, date) {
   const ref=refs(uid,date);
   const [owner,day]=await Promise.all([getDocFromServer(ref.owner),getDocFromServer(ref.day)]);
-  return selectDay(owner.data()?.users?.[profileId],day.data(),date);
+  const root=owner.data()||{},profile=root.users?.[profileId]||{};
+  return {...selectDay(profile,day.data(),date),planContext:{profile:{portions:profile.portions||{},customProducts:profile.customProducts||{},hiddenProducts:profile.hiddenProducts||[]},globalCustomProducts:root.globalCustomProducts||{},productOverrides:root.productOverrides||{}}};
 }
 export async function readSubmission(uid,date,submissionId,hash) {
   const snap=await getDocFromServer(refs(uid,date).day);
@@ -35,7 +37,19 @@ export async function commitMealDay(uid, profileId, date, command) {
       if (!root?.users?.[profileId]) throw new Error('profile_missing');
       const user=root.users[profileId];
       const legacy=user.legacyMeals || (!user.mealsDateKey && hasMeals(user.meals) ? user.meals : null);
-      if (daySnap.data()?.submissionMarkers?.[command.submissionId] === hash) return daySnap.data();
+      const previous=daySnap.data()?.submissionMarkers?.[command.submissionId];
+      if(previous) {if(previous!==hash) throw Error('submission_conflict');return daySnap.data();}
+      if(command.type==='appendAllocated') {
+        const catalog=buildPlanCatalog({profile:user,globalCustomProducts:root.globalCustomProducts,productOverrides:root.productOverrides});
+        if(command.planFingerprint!==await planFingerprint(catalog)) throw Error('plan_conflict');
+        for(const item of command.items||[]) {
+          const a=item.planAllocation;
+          if(a?.status==='allocated'&&a.letter!=='в') {
+            const ref=catalog.references.find(r=>r.referenceKey===a.referenceKey&&r.letter===a.letter);
+            if(!ref||a.basis?.value!==ref.norm||a.basis?.state!==ref.basisState||a.normSource!==ref.normSource||a.referenceName!==ref.name) throw Error('invalid_allocation');
+          }
+        }
+      }
       if (legacy && !command.confirmLegacy) throw new Error('legacy_date_required');
       if (command.confirmLegacy && (!legacy || command.type!=='replace' || stableJson(command.meals)!==stableJson(legacy) || (hasMeals(daySnap.data()?.meals) && stableJson(daySnap.data().meals)!==stableJson(legacy) && !command.mergeLegacy))) throw new Error('legacy_conflict');
       let effective=command;

@@ -8,6 +8,9 @@ const ALLOWED = [
   "finishedAt",
   "previewMs",
   "actions",
+  "planAssignedCount",
+  "planUnresolvedCount",
+  "planManualCount",
   "corrections",
   "clarifications",
   "hasPhoto",
@@ -90,7 +93,7 @@ export function createPilotLedger(
         const next = { ...request.result, ...patch, updatedAt: Date.now() };
         store.put(
           Object.fromEntries(
-            ALLOWED.filter((k) => next[k] !== undefined).map((k) => [
+            ALLOWED.filter((k) => next[k] !== undefined && (!k.startsWith("plan") || (Number.isSafeInteger(next[k]) && next[k]>=0 && next[k]<=20))).map((k) => [
               k,
               next[k],
             ]),

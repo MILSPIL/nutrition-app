@@ -1,3 +1,6 @@
+import {TextEncoder} from 'util';
+import {webcrypto} from 'crypto';
+global.TextEncoder=TextEncoder;
 import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { Simulate } from "react-dom/test-utils";
@@ -60,7 +63,7 @@ beforeEach(() => {
   counter = 0;
   Object.defineProperty(global, "crypto", {
     configurable: true,
-    value: { randomUUID: () => `uuid-${++counter}` },
+    value: { subtle:webcrypto.subtle, randomUUID: () => `uuid-${++counter}` },
   });
   window.confirm = jest.fn(() => true);
   container = document.createElement("div");
@@ -689,4 +692,45 @@ test("L01: повторний запис чекає нового Start і доз
 test("L01: pending після повторного відкриття блокує новий запис", async()=>{
  await render({pendingSave:true,onRetryPending:jest.fn()});expect(button("Почати запис")).toBeUndefined();
  await click("Перевірити збереження");expect(props.onRetryPending).toHaveBeenCalledTimes(1);expect(rows).toHaveLength(0);
+});
+
+test('L04/L07: AI визначає З без ручної дії, appendAllocated і підсумкові counts',async()=>{
+ props.api.analyze.mockResolvedValue(answer([{...food('Яблуко'),planMatch:{referenceId:'fruits:fruit',certainty:'matched',consumedState:'as_sold'}}]));
+ await openAndStart();await stop();expect(container.textContent).toContain('З · Фрукти · 50% норми');
+ await click('Додати');const command=props.onAdd.mock.calls[0][0];expect(command.type).toBe('appendAllocated');expect(command.items[0].portion).toBe(50);
+ expect(command.items[0]).not.toHaveProperty('planMatch');expect(command.planFingerprint).toMatch(/^[a-f0-9]{64}$/);
+ expect(rows[0]).toMatchObject({planAssignedCount:1,planUnresolvedCount:0,planManualCount:0,partial:false});
+});
+test('L04: літера й фото зберігають itemId, кількість і ручний вибір',async()=>{
+ const response=()=>answer([{...food('Кефір 1%'),planMatch:{referenceId:'dairy:kefir',certainty:'matched',consumedState:'as_sold'}}]);
+ props.api.analyze.mockResolvedValue(response());await openAndStart();await stop();await change('Літера продукту 1','ж');
+ expect(container.textContent).toContain('54.8% норми');const id=container.querySelector('[aria-label="Продукт для фото"]')?.value;
+ const label=response();label.items[0].source={kind:'label'};props.api.analyze.mockResolvedValue(label);await photo();
+ expect(container.textContent).toContain('54.8% норми');await click('Додати');const item=props.onAdd.mock.calls[0][0].items[0];
+ expect(item.planAllocation.letter).toBe('ж');expect(item.quantity.value).toBe(200);if(id)expect(item.itemId).toBe(id);expect(rows[0].planManualCount).toBe(1);expect(rows[0].planAssignedCount).toBe(1);
+});
+test('L04: інша етикетка зберігає ручну літеру, скидає тільки відповідник',async()=>{
+ props.api.analyze.mockResolvedValue(answer([{...food('Кефір 1%'),planMatch:{referenceId:'dairy:kefir',certainty:'matched',consumedState:'as_sold'}}]));
+ await openAndStart();await stop();await change('Літера продукту 1','ж');
+ props.api.analyze.mockResolvedValue(answer([{...food('Кефір 2.5%'),source:{kind:'label'},planMatch:null}]));await photo();
+ expect(container.textContent).toContain('Ж · Молочні · норму не визначено');expect(button('Додати').disabled).toBe(false);
+ await click('Додати');expect(rows[0]).toMatchObject({planAssignedCount:0,planUnresolvedCount:1,planManualCount:1,partial:false});
+});
+test('L04: невідома літера не заважає зберегти ккал, ручний пошук рахується окремо',async()=>{
+ await openAndStart();await stop();expect(container.textContent).toContain('Без літери');expect(button('Додати').disabled).toBe(false);
+ await change('Літера продукту 1','б');expect(container.textContent).toContain('норму не визначено');
+ const ref=container.querySelector('[aria-label="Відповідник продукту 1"]');const kefir=[...ref.options].find(o=>o.textContent.includes('кефір'));
+ await change('Відповідник продукту 1',kefir.value);await change('Кількість продукту 1','270');await click('Додати');
+ expect(props.onAdd.mock.calls[0][0].items[0].portion).toBe(100);expect(rows[0].manualSearch).toBe(true);expect(rows[0].planAssignedCount).toBe(1);
+});
+test('L05: plan_conflict вимагає нового читання і свідомого підтвердження',async()=>{
+ props.api.analyze.mockResolvedValue(answer([{...food('Яблуко'),planMatch:{referenceId:'fruits:fruit',certainty:'matched',consumedState:'as_sold'}}]));
+ props.onAdd.mockRejectedValueOnce(Error('plan_conflict'));props.onRefreshPlan=jest.fn(async()=>({profile:{portions:{'фрукти та ягоди':800}}}));
+ await openAndStart();await stop();await click('Додати');expect(button('Додати').disabled).toBe(true);
+ await click('Перечитати план і прев’ю');expect(props.onAdd).toHaveBeenCalledTimes(1);expect(container.textContent).toContain('25% норми');
+ await click('Додати');expect(props.onAdd.mock.calls[1][0].submissionId).not.toBe(props.onAdd.mock.calls[0][0].submissionId);
+ expect(props.onAdd.mock.calls[1][0].items[0].portion).toBe(25);
+});
+test('L01: зміна власника зупиняє запис і чекає нового Start',async()=>{
+ await openAndStart({ownerKey:'one'});await render({ownerKey:'two'});expect(recorders[0].cancel).toHaveBeenCalled();expect(button('Почати запис')).toBeTruthy();expect(recorders).toHaveLength(1);
 });

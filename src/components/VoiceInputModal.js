@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
   Mic,
   Square,
@@ -26,6 +26,10 @@ import {
 } from "../services/mealItems";
 import { saveError } from "../services/useMealDay";
 import "./VoiceInputModal.css";
+import {buildPlanCatalog,planFingerprint} from '../services/planCatalog';
+import {assignPlanItems,dailyPlanProgress,persistedPlanItem,allocationCounts,invalidatePlanIdentity} from '../services/planAllocation';
+import PlanAllocationFields from './PlanAllocationFields';
+const emptyMeals={};
 const defaultApi = { transcribe: transcribeAudio, analyze: analyzeFood };
 const languageKey = "scisense.voice.language";
 const languages = ["auto", "uk", "ru"];
@@ -75,16 +79,31 @@ export default function VoiceInputModal({
   ownerKey,
   pendingSave = false,
   onRetryPending,
+  planContext,
+  dayMeals = emptyMeals,
+  onRefreshPlan,
 }) {
+  const [catalog,setCatalog]=useState(()=>buildPlanCatalog(planContext));
+  const catalogRef=useRef(catalog);catalogRef.current=catalog;
+  const [needsPlanRefresh,setNeedsPlanRefresh]=useState(false);
   const sttOnly = mode === "stt_only";
   const [language, setLanguage] = useState(storedLanguage);
   const [state, setState] = useState("ready"),
     [seconds, setSeconds] = useState(0),
     [waiting, setWaiting] = useState(false);
   const [text, setText] = useState(""),
-    [items, setItems] = useState([]),
+    [draftItems, setDraftItems] = useState([]),
     [unparsed, setUnparsed] = useState([]),
     [photos, setPhotos] = useState([]);
+  const items=useMemo(()=>assignPlanItems(draftItems,catalog,dayMeals),[draftItems,catalog,dayMeals]);
+  const setItems=update=>setDraftItems(current=>{
+    const allocated=assignPlanItems(current,catalogRef.current,dayMeals);
+    return typeof update==='function'?update(allocated):update;
+  });
+  const progress=dailyPlanProgress(dayMeals);
+  const previewMeals={...dayMeals,preview:{}};
+  for(const item of items) {const key=item.planAllocation.letter||'voice';previewMeals.preview[key]=[...(previewMeals.preview[key]||[]),item];}
+  const afterProgress=dailyPlanProgress(previewMeals);
   const [target, setTarget] = useState({ date, meal }),
     [photoTarget, setPhotoTarget] = useState(""),
     [error, setError] = useState("");
@@ -263,20 +282,21 @@ export default function VoiceInputModal({
       const prompt = row
         ? `Уточни тільки цей продукт: ${row.name}. Спожито ${row.quantity.value} ${row.quantity.unit}.\n${transcript}`
         : transcript;
-      const response = await api.analyze(prompt, images, controller.signal);
+      const requestCatalog=catalogRef.current;
+      const response = await api.analyze(prompt, images, controller.signal, requestCatalog.apiCatalog);
       if (!valid(session, revision)) return;
       if (rowId) {
-        const updated = mergePhotoItem(row, response);
+        const updated = mergePhotoItem(row, response, requestCatalog);
         setItems((current) =>
           current.map((i) => (i.itemId === rowId ? updated : i)),
         );
       } else {
-        const parsed = normalizeAnalysis(response);
+        const parsed = normalizeAnalysis(response, newId, requestCatalog);
         setItems(parsed.items);
         setUnparsed(parsed.unparsed);
         setPhotoTarget(parsed.items.length === 1 ? parsed.items[0].itemId : "");
       }
-      const parsed = normalizeAnalysis(response);
+      const parsed = normalizeAnalysis(response, newId, requestCatalog);
       const questions =
         parsed.unparsed.length +
         parsed.items.filter((i) => itemProblems(i).length).length;
@@ -433,6 +453,8 @@ export default function VoiceInputModal({
     setError("");
     attemptStatus.current = "started";
     setTarget({ date, meal });
+    setCatalog(buildPlanCatalog(planContext));
+    setNeedsPlanRefresh(false);
     setMetricError(false);
     const previous = document.activeElement,
       oldOverflow = document.body.style.overflow;
@@ -510,7 +532,7 @@ export default function VoiceInputModal({
       }
     });
   async function save() {
-    if (latest.current.sttOnly || saving.current) return;
+    if (latest.current.sttOnly || saving.current || needsPlanRefresh || (pendingSave && !saveUnknown)) return;
     if (activeDate && activeDate !== target.date) {
       setError(
         "Відкрита інша дата. Явно виберіть дату чернетки перед додаванням.",
@@ -526,17 +548,18 @@ export default function VoiceInputModal({
     )
       return;
     const session = life.current,
+      revision = session.revision,
       id = attempt.current;
     saving.current = true;
     action();
-    if (!submission.current)
-      submission.current = {
-        type: "append",
-        submissionId: `${target.date}~${newId()}`,
-        meal: target.meal,
-        items,
-        updatedAt: new Date().toISOString(),
-      };
+    setState("saving");
+    if (!submission.current) {
+      try {
+        const fingerprint=await planFingerprint(catalogRef.current);
+        if(!valid(session,revision)) {saving.current=false;return;}
+        submission.current={type:"appendAllocated",submissionId:`${target.date}~${newId()}`,meal:target.meal,items:items.map(persistedPlanItem),planFingerprint:fingerprint,updatedAt:new Date().toISOString()};
+      } catch (_) {saving.current=false;setState("preview");setError("Не вдалося перевірити план. Повторіть додавання.");return;}
+    }
     setState("saving");
     setError("");
     await track(
@@ -544,6 +567,7 @@ export default function VoiceInputModal({
         submissionId: submission.current.submissionId,
         status: "unknown",
         partial,
+        ...allocationCounts(submission.current.items),
       },
       id,
       session,
@@ -582,6 +606,8 @@ export default function VoiceInputModal({
         ].includes(e.message) ||
         ["unavailable", "deadline-exceeded", "unknown"].includes(e.code);
       setSaveUnknown(unknown);
+      if(!unknown) submission.current=null;
+      if(['plan_conflict','revision_conflict','submission_conflict'].includes(e.message)) setNeedsPlanRefresh(true);
       setError(saveError(e));
       await track({ status: unknown ? "unknown" : "error" }, id, session);
     } finally {
@@ -620,6 +646,7 @@ export default function VoiceInputModal({
   const canSave =
     !sttOnly &&
     state !== "ready" &&
+    !needsPlanRefresh &&
     (!pendingSave || saveUnknown) &&
     items.length > 0 &&
     !unparsed.length &&
@@ -764,6 +791,12 @@ export default function VoiceInputModal({
               </button>
             </div>
           )}
+          {catalog.overLimit && !sttOnly && <p role="status">Каталог завеликий для автоматичного зіставлення. Їжу можна додати й вибрати літеру вручну.</p>}
+          {needsPlanRefresh && <button className="voice-secondary" onClick={async()=>{
+            const session=life.current,revision=session.revision;
+            try {const fresh=await onRefreshPlan?.();if(!valid(session,revision))return;if(!fresh)throw Error();setCatalog(buildPlanCatalog(fresh));setNeedsPlanRefresh(false);setError("");}
+            catch(_){setError("Не вдалося перечитати план. Перевірте зв’язок.");}
+          }}>Перечитати план і прев’ю</button>}
           {error && (
             <p className="voice-error" role="alert">
               {error}
@@ -844,7 +877,7 @@ export default function VoiceInputModal({
                         disabled={locked}
                         onChange={(e) =>
                           changeItem(item.itemId, (x) => ({
-                            ...x,
+                            ...invalidatePlanIdentity(x),
                             name: e.target.value,
                             source: { kind: "manual" },
                           }))
@@ -879,6 +912,7 @@ export default function VoiceInputModal({
                           onChange={(e) =>
                             changeItem(item.itemId, (x) => ({
                               ...x,
+                              planChoice:{...x.planChoice,mass:undefined},
                               quantity: { ...x.quantity, unit: e.target.value },
                             }))
                           }
@@ -897,6 +931,9 @@ export default function VoiceInputModal({
                         : "Потрібне уточнення"}
                     </p>
                     <p className="voice-source">{sourceText(item)}</p>
+                    <PlanAllocationFields item={item} index={index} catalog={catalog} progress={progress} after={afterProgress} disabled={locked}
+                      onChange={choice=>changeItem(item.itemId,x=>({...x,planChoice:choice}))}
+                      onSearch={()=>{metrics.current.manualSearch=true;void track({manualSearch:true});}}/>
                     {problems.length > 0 && (
                       <ul className="voice-error">
                         {problems.map((p, i) => (

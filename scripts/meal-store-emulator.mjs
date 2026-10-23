@@ -1,3 +1,5 @@
+import {buildPlanCatalog,planFingerprint} from '../src/services/planCatalog.js';
+import {assignPlanItems,persistedPlanItem,allocationPercent} from '../src/services/planAllocation.js';
 import assert from 'node:assert/strict';
 import {initializeTestEnvironment} from '@firebase/rules-unit-testing';
 import {signInAnonymously,signOut} from 'firebase/auth';
@@ -5,6 +7,7 @@ import {doc,setDoc,getDocFromServer,terminate} from 'firebase/firestore';
 import {writerStamp} from '../src/services/writerFence.js';
 import {auth,db} from '../src/firebase.js';
 import {commitMealDay,loadMealDay,saveProfileSettings,commandHash,readSubmission} from '../src/services/mealStore.js';
+import {commitMealDay as previousCommit} from '../tmp/old-writer/mealStore.js';
 const user=(await signInAnonymously(auth)).user,uid=user.uid,date='2026-10-20';
 const fixtures=await initializeTestEnvironment({projectId:'demo-scisense',firestore:{host:'127.0.0.1',port:8088}});
 const legacySeed=(segments,data)=>fixtures.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),...segments),data));
@@ -55,5 +58,31 @@ try {
  const finalRoot=(await getDocFromServer(doc(db,'users',uid))).data();
  assert.equal(finalRoot.users[uid].name,'Паралельні налаштування');assert.equal(finalRoot.users[uid].meals[1].voice.length,1);
  assert.equal(finalRoot.writerVersion,2);assert.match(finalRoot.writerNonce,/^[a-f0-9-]{36}$/);
- console.log(JSON.stringify({passed:true,checks:26,syntheticOnly:true}));
+ // Старий фактичний writer зберігає additive allocation і масштабує кеш.
+ const allocated={...item('compat'),quantity:{value:200,unit:'ml'},nutritionBasis:{value:100,unit:'ml'},portion:206/270*100,
+  planAllocation:{version:1,status:'allocated',letter:'б',referenceKey:'standard:dairy:3:б',referenceName:'кефір 1%',basis:{value:270,unit:'g',state:'as_sold'},conversion:{baseQuantity:{value:200,unit:'ml'},baseMassGrams:206,factor:1},normSource:'catalog',assignment:'manual'}};
+ await commitMealDay(uid,uid,'2026-10-26',{...append('compat'),letter:'б',items:[allocated]});
+ await previousCommit(uid,uid,'2026-10-26',{type:'quantity',meal:1,letter:'б',index:0,value:300,submissionId:'old-edit',updatedAt:'x',expectedRevision:1});
+ const edited=(await loadMealDay(uid,uid,'2026-10-26')).meals[1].б[0];
+ assert.equal(edited.quantity.value,300);assert.ok(Math.abs(edited.portion-309/270*100)<1e-6);
+ assert.deepEqual(edited.planAllocation,allocated.planAllocation);
+ await commitMealDay(uid,uid,'2026-10-26',append('new-after-old'));
+ assert.deepEqual((await loadMealDay(uid,uid,'2026-10-26')).meals[1].б[0],edited);
+ // Новий пакет: різні літери, unknown, паралельні metadata й append, свіжий fingerprint.
+ const planRoot=(await getDocFromServer(doc(db,'users',uid))).data();
+ const catalog=buildPlanCatalog({profile:planRoot.users[uid],globalCustomProducts:planRoot.globalCustomProducts,productOverrides:planRoot.productOverrides});
+ const fingerprint=await planFingerprint(catalog);
+ const inputs=[{...item('fruit'),name:'Яблуко',planMatch:{referenceId:'fruits:fruit',consumedState:'as_sold',certainty:'matched'}},{...item('dairy'),name:'кефір 1%',planMatch:{referenceId:'dairy:kefir',consumedState:'as_sold',certainty:'matched'}},item('unknown')];
+ const packageCommand={type:'appendAllocated',submissionId:'allocated',meal:2,items:assignPlanItems(inputs,catalog,{}).map(persistedPlanItem),planFingerprint:fingerprint,updatedAt:'x'};
+ await Promise.all([commitMealDay(uid,uid,'2026-10-27',packageCommand),commitMealDay(uid,uid,'2026-10-27',{type:'metadata',submissionId:'meta',metadata:{activity:'Синтетична активність'},updatedAt:'x'}),commitMealDay(uid,uid,'2026-10-27',append('parallel-new'))]);
+ let allocatedDay=await loadMealDay(uid,uid,'2026-10-27');assert.equal(allocatedDay.revision,3);assert.equal(allocatedDay.meals[2].з.length,1);assert.equal(allocatedDay.meals[2].б.length,1);assert.equal(allocatedDay.meals[2].voice.length,1);assert.equal(allocatedDay.activity,'Синтетична активність');
+ assert.equal(allocationPercent(allocatedDay.meals[2].з[0]),50);
+ await saveProfileSettings(uid,uid,{portions:{'фрукти та ягоди':800}});
+ await commitMealDay(uid,uid,'2026-10-27',packageCommand); // Маркер має пріоритет над новим планом.
+ await assert.rejects(()=>commitMealDay(uid,uid,'2026-10-27',{...packageCommand,submissionId:'stale-plan'}),/plan_conflict/);
+ allocatedDay=await loadMealDay(uid,uid,'2026-10-27');assert.equal(allocatedDay.revision,3);assert.equal(allocationPercent(allocatedDay.meals[2].з[0]),50);
+ await previousCommit(uid,uid,'2026-10-27',{type:'quantity',submissionId:'old-fruit-edit',expectedRevision:3,meal:2,letter:'з',index:0,value:300,updatedAt:'x'});
+ assert.equal(allocationPercent((await loadMealDay(uid,uid,'2026-10-27')).meals[2].з[0]),75);
+ await assert.rejects(()=>commitMealDay(uid,uid,'2026-10-27',{...packageCommand,items:[item('different')]}),/submission_conflict/);
+ console.log(JSON.stringify({passed:true,checks:43,oldWriter:previousCommit.name,syntheticOnly:true}));
 } finally {await fixtures.cleanup();await signOut(auth);await terminate(db);}

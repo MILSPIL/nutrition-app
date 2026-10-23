@@ -229,3 +229,12 @@
 .voice-body input[hidden] {
   display: none;
 }
+
+.voice-ready,.voice-plan {display:grid;gap:12px;}
+.voice-plan {padding:12px;background:#f0f7ff;border-radius:12px;}
+.voice-plan-badge {font-weight:600;color:#164b75;}
+.voice-plan-note {font-size:14px;line-height:1.45;color:#4a5568;}
+.voice-plan details>label {display:grid;gap:6px;margin-top:12px;}
+.voice-panel summary {min-height:44px;display:flex;align-items:center;cursor:pointer;}
+.voice-plan select,.voice-plan input {width:100%;min-width:0;min-height:44px;}
+.voice-ready button {min-height:48px;}

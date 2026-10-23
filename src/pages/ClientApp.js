@@ -37,7 +37,7 @@ import VoiceInputModal from '../components/VoiceInputModal';
 import PilotPanel from '../components/PilotPanel';
 import { createPilotLedger } from '../services/pilotLedger';
 import { catalogItem, quantityText, itemMacros, sourceText } from '../services/mealItems';
-import { saveProfileSettings } from '../services/mealStore';
+import { loadMealDay, saveProfileSettings } from '../services/mealStore';
 import { hasMeals } from '../services/mealCommands';
 import { useMealDay, saveError } from '../services/useMealDay';
 import { calculateProgramDay, getTodayDateKey, parseDateInput } from '../utils/date';
@@ -78,7 +78,7 @@ export default function ClientApp() {
   const meals = mealDay.day.meals;
   const metadataDirty = useRef(null);
   const [metadataVersion,setMetadataVersion] = useState(0);
-  const changeMetadata = (key,setter,value) => { metadataDirty.current={...(metadataDirty.current || {}),[key]:value}; setter(value);setMetadataVersion(x=>x+1); };
+  const changeMetadata = (key,setter,value) => { if(mealDay.busy||mealDay.hasPending)return; metadataDirty.current={...(metadataDirty.current || {}),[key]:value}; setter(value);setMetadataVersion(x=>x+1); };
   const mutateMeals = async command => {
     try { return await mealDay.commit(command); }
     catch(error) { toast.error(saveError(error)); return null; }
@@ -240,12 +240,13 @@ export default function ClientApp() {
 
   // Профіль не містить записів дня в цьому запиті. Adapter перечитує актуальний root.
   const saveToFirestore = async (profilePatch = {}, newGlobalCustomProducts, newProductOverrides) => {
-    if (!firebaseUser || !currentUser) return;
+    if (!firebaseUser || !currentUser || mealDay.busy || mealDay.hasPending) return;
     try {
       await saveProfileSettings(firebaseUser.uid,currentUser,profilePatch,{
         ...(newGlobalCustomProducts ? {globalCustomProducts:newGlobalCustomProducts}:{}),
         ...(newProductOverrides ? {productOverrides:newProductOverrides}:{})
       });
+      setUsers(previous=>({...previous,[currentUser]:{...previous[currentUser],...profilePatch}}));
     } catch(error) { toast.error(saveError(error)); }
   };
 
@@ -514,9 +515,9 @@ export default function ClientApp() {
         onWeightChange={value=>changeMetadata('currentWeight',setCurrentWeight,value)}
         onNameChange={handleNameChange}
         onMealSelect={setSelectedMeal}
-        onShowDaySelector={() => setShowDaySelector(true)}
-        onShowMeasurements={() => setShowMeasurements(true)}
-        onShowSettings={() => setShowSettings(true)}
+        onShowDaySelector={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowDaySelector(true);}}
+        onShowMeasurements={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowMeasurements(true);}}
+        onShowSettings={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowSettings(true);}}
         onShowVoiceInput={()=>setShowVoiceInput(true)}
         voiceDisabled={!mealDay.ready || mealDay.busy || mealDay.hasPending || !!mealDay.day.legacy}
 
@@ -531,7 +532,7 @@ export default function ClientApp() {
         {mealDay.busy && <p role="status">Зберігаю…</p>}
         {mealDay.error && <div role="alert"><p>{mealDay.error}</p>
           <button onClick={()=>mealDay.hasPending?mealDay.retry().then(()=>setPilotVersion(x=>x+1)).catch(()=>{}):mealDay.reload()} className="p-3 text-[#007AFF]">Повторити</button>
-          {mealDay.error.includes('іншому сеансі') && <button onClick={mealDay.reload} className="p-3 text-[#007AFF]">Перечитати день</button>}
+          {mealDay.requiresReload && <button onClick={mealDay.reload} className="p-3 text-[#007AFF]">Перечитати день</button>}
         </div>}
         {mealDay.day.legacy && <div role="alert" className="p-3 bg-white rounded-xl mt-2">
           Попередні записи не мають дати. Оберіть їхню дату вище, потім підтвердьте перенесення. Дані збережені до підтвердження.
@@ -578,6 +579,9 @@ export default function ClientApp() {
       <PilotPanel ledger={pilotLedger} uid={firebaseUser.uid} version={pilotVersion}/>
       <VoiceInputModal isOpen={showVoiceInput} onClose={()=>{setShowVoiceInput(false);setPilotVersion(x=>x+1);}}
         date={mealsDateKey} activeDate={mealsDateKey} meal={selectedMeal} ledger={pilotLedger}
+        ownerKey={`${firebaseUser.uid}:${currentUser}`} dayMeals={meals} pendingSave={mealDay.hasPending} onRetryPending={()=>mealDay.retry().catch(()=>{})}
+        planContext={{profile:users[currentUser],globalCustomProducts,productOverrides}}
+        onRefreshPlan={async()=>{const fresh=await loadMealDay(firebaseUser.uid,currentUser,mealsDateKey);mealDay.reload();return fresh.planContext;}}
         onReturnToDate={setMealsDateKey} onSaved={()=>setPilotVersion(x=>x+1)}
         onAdd={async (command,date)=>{if(date!==mealsDateKey)throw Error('date_conflict');return mealDay.commit(command);}}/>
       {/* Modals */}
