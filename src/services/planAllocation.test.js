@@ -1,7 +1,7 @@
 import {TextEncoder} from 'util';
 global.TextEncoder=TextEncoder;
 import { buildPlanCatalog } from './planCatalog';
-import { assignPlanItems, dailyPlanProgress, allocationPercent, persistedPlanItem } from './planAllocation';
+import { assignPlanItems, dailyPlanProgress, allocationPercent, persistedPlanItem, percentText } from './planAllocation';
 import { itemMacros, withQuantity } from './mealItems';
 import { applyDayCommand } from './mealCommands';
 const catalog=()=>buildPlanCatalog({profile:{}});
@@ -86,4 +86,17 @@ test('L06: В може перевищувати 100%, фрукти не обир
  const c=catalog(),input={...food('Шоколад',100),nutrients:{p:1,f:1,c:1,cal:600},planMatch:{referenceId:'free:anything',certainty:'matched',consumedState:'as_sold'}};
  const [item]=assignPlanItems([input],c,{});expect(item.portion).toBeCloseTo(104.3478260869,8);
  expect(assignPlanItems([{...food('Яблуко'),planMatch:{...input.planMatch,referenceId:'free:fruit'}}],c,{})[0].planAllocation.status).toBe('unallocated');
+});
+
+test('L04: ручне Без літери не замінюється автоматичним відповідником',()=>{
+ const c=catalog(),input={...matched(food('Яблуко'),c,'фрукти та ягоди'),planChoice:{assignment:'manual',letter:''}};
+ const [item]=assignPlanItems([input],c,{});expect(item.planAllocation).toEqual({version:1,status:'unallocated',assignment:'manual'});expect(item.portion).toBeUndefined();
+});
+test('L02: коли всі категорії неповні, обирається перша без оцінки залишку',()=>{
+ const c=catalog(),input=matched(food('Кефір'),c,'кефір 1%');
+ const [item]=assignPlanItems([input],c,{1:{б:[{...food('known'),portion:99},food('unknown1')],ж:[food('unknown2')]}});
+ expect(item.planAllocation.letter).toBe('б');
+});
+test('L03: малі перевищення та недобір не виглядають рівно як 100%',()=>{
+ expect(percentText(100.01)).toBe('>100%');expect(percentText(99.99)).toBe('<100%');expect(percentText(100)).toBe('100%');
 });

@@ -21,6 +21,7 @@ export function useMealDay(uid,profileId,date) {
     if(g!==generation.current) return;
     const marker=command&&value.submissionMarkers?.[command.submissionId];
     if(marker) {pending.current=null;if(marker!==hash)setError(saveError(Error('submission_conflict')));}
+    else if(command) setError(saveError(Error('save_unknown')));
     needsRead.current=false;dayRef.current=value;setDay(value);setReady(true);
    }catch(_){if(g===generation.current)setError('Не вдалося завантажити день. Перевірте з’єднання.');}
   })();

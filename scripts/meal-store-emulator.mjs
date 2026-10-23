@@ -72,6 +72,14 @@ try {
  const planRoot=(await getDocFromServer(doc(db,'users',uid))).data();
  const catalog=buildPlanCatalog({profile:planRoot.users[uid],globalCustomProducts:planRoot.globalCustomProducts,productOverrides:planRoot.productOverrides});
  const fingerprint=await planFingerprint(catalog);
+ const [freeItem]=assignPlanItems([{...item('free-contract'),planChoice:{letter:'в',assignment:'manual'}}],catalog,{});
+ for(const change of [{basis:{value:1,unit:'kcal',state:'energy'}},{normSource:'profile'},{referenceName:'Хибна норма'}]) {
+  const bad={...freeItem,planAllocation:{...freeItem.planAllocation,...change}};
+  if(change.basis)bad.portion=freeItem.portion*575;
+  await assert.rejects(commitMealDay(uid,uid,'2026-10-29',{type:'appendAllocated',submissionId:'bad-free',meal:1,items:[bad],planFingerprint:fingerprint,updatedAt:'x'}),/invalid_allocation/);
+ }
+ assert.equal((await loadMealDay(uid,uid,'2026-10-29')).revision,0);
+
  const inputs=[{...item('fruit'),name:'Яблуко',planMatch:{referenceId:'fruits:fruit',consumedState:'as_sold',certainty:'matched'}},{...item('dairy'),name:'кефір 1%',planMatch:{referenceId:'dairy:kefir',consumedState:'as_sold',certainty:'matched'}},item('unknown')];
  const packageCommand={type:'appendAllocated',submissionId:'allocated',meal:2,items:assignPlanItems(inputs,catalog,{}).map(persistedPlanItem),planFingerprint:fingerprint,updatedAt:'x'};
  await Promise.all([commitMealDay(uid,uid,'2026-10-27',packageCommand),commitMealDay(uid,uid,'2026-10-27',{type:'metadata',submissionId:'meta',metadata:{activity:'Синтетична активність'},updatedAt:'x'}),commitMealDay(uid,uid,'2026-10-27',append('parallel-new'))]);
@@ -84,5 +92,5 @@ try {
  await previousCommit(uid,uid,'2026-10-27',{type:'quantity',submissionId:'old-fruit-edit',expectedRevision:3,meal:2,letter:'з',index:0,value:300,updatedAt:'x'});
  assert.equal(allocationPercent((await loadMealDay(uid,uid,'2026-10-27')).meals[2].з[0]),75);
  await assert.rejects(()=>commitMealDay(uid,uid,'2026-10-27',{...packageCommand,items:[item('different')]}),/submission_conflict/);
- console.log(JSON.stringify({passed:true,checks:43,oldWriter:previousCommit.name,syntheticOnly:true}));
+ console.log(JSON.stringify({passed:true,checks:47,oldWriter:previousCommit.name,syntheticOnly:true}));
 } finally {await fixtures.cleanup();await signOut(auth);await terminate(db);}

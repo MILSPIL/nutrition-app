@@ -1,3 +1,4 @@
+import { PRODUCTS_DB } from '../data/products';
 import { buildPlanCatalog, planFingerprint } from './planCatalog';
 import { doc, getDocFromServer, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -44,6 +45,7 @@ export async function commitMealDay(uid, profileId, date, command) {
         if(command.planFingerprint!==await planFingerprint(catalog)) throw Error('plan_conflict');
         for(const item of command.items||[]) {
           const a=item.planAllocation;
+          if(a?.status==='allocated'&&a.letter==='в'&&(a.basis?.value!==PRODUCTS_DB.в.calorieLimit||a.normSource!=='catalog'||a.referenceName!=='Вільний вибір')) throw Error('invalid_allocation');
           if(a?.status==='allocated'&&a.letter!=='в') {
             const ref=catalog.references.find(r=>r.referenceKey===a.referenceKey&&r.letter===a.letter);
             if(!ref||a.basis?.value!==ref.norm||a.basis?.state!==ref.basisState||a.normSource!==ref.normSource||a.referenceName!==ref.name) throw Error('invalid_allocation');

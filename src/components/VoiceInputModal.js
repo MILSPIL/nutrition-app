@@ -29,6 +29,7 @@ import "./VoiceInputModal.css";
 import {buildPlanCatalog,planFingerprint} from '../services/planCatalog';
 import {assignPlanItems,dailyPlanProgress,persistedPlanItem,allocationCounts,invalidatePlanIdentity} from '../services/planAllocation';
 import PlanAllocationFields from './PlanAllocationFields';
+import DecimalInput from './DecimalInput';
 const emptyMeals={};
 const defaultApi = { transcribe: transcribeAudio, analyze: analyzeFood };
 const languageKey = "scisense.voice.language";
@@ -42,24 +43,6 @@ function storedLanguage() {
   }
 }
 const names = { 1: "Сніданок", 2: "Обід", 3: "Вечеря", 4: "Перекус" };
-// Залишаємо кому під час набору: перетворення в число не повинно з'їдати «0,».
-function DecimalInput({ value, onChange, ...props }) {
-  const [raw, setRaw] = useState(value == null ? "" : String(value));
-  useEffect(() => {
-    if (parseDecimal(raw) !== value) setRaw(value == null ? "" : String(value));
-  }, [value, raw]);
-  return (
-    <input
-      {...props}
-      inputMode="decimal"
-      value={raw}
-      onChange={(e) => {
-        setRaw(e.target.value);
-        onChange(e);
-      }}
-    />
-  );
-}
 
 export default function VoiceInputModal({
   isOpen,
@@ -95,7 +78,8 @@ export default function VoiceInputModal({
     [draftItems, setDraftItems] = useState([]),
     [unparsed, setUnparsed] = useState([]),
     [photos, setPhotos] = useState([]);
-  const items=useMemo(()=>assignPlanItems(draftItems,catalog,dayMeals),[draftItems,catalog,dayMeals]);
+  const [frozenItems,setFrozenItems]=useState(null);
+  const items=useMemo(()=>frozenItems||assignPlanItems(draftItems,catalog,dayMeals),[draftItems,catalog,dayMeals,frozenItems]);
   const setItems=update=>setDraftItems(current=>{
     const allocated=assignPlanItems(current,catalogRef.current,dayMeals);
     return typeof update==='function'?update(allocated):update;
@@ -179,6 +163,7 @@ export default function VoiceInputModal({
     retryTask.current = null;
     submission.current = null;
     setText("");
+    setFrozenItems(null);
     setItems([]);
     setUnparsed([]);
     setPhotos([]);
@@ -216,6 +201,7 @@ export default function VoiceInputModal({
       corrections: carry ? previous.corrections : 0,
       clarifications: carry ? previous.clarifications : 0,
       manualPfc: carry && !!previous.manualPfc,
+      manualSearch: carry && !!previous.manualSearch,
     };
     let id;
     try {
@@ -441,6 +427,7 @@ export default function VoiceInputModal({
       clearDraft();
       return;
     }
+    clearDraft();
     const session = { closed: false, revision: 0 };
     life.current = session;
     attempt.current = null;
@@ -551,6 +538,7 @@ export default function VoiceInputModal({
       revision = session.revision,
       id = attempt.current;
     saving.current = true;
+    setFrozenItems(items);
     action();
     setState("saving");
     if (!submission.current) {
@@ -558,7 +546,7 @@ export default function VoiceInputModal({
         const fingerprint=await planFingerprint(catalogRef.current);
         if(!valid(session,revision)) {saving.current=false;return;}
         submission.current={type:"appendAllocated",submissionId:`${target.date}~${newId()}`,meal:target.meal,items:items.map(persistedPlanItem),planFingerprint:fingerprint,updatedAt:new Date().toISOString()};
-      } catch (_) {saving.current=false;setState("preview");setError("Не вдалося перевірити план. Повторіть додавання.");return;}
+      } catch (_) {saving.current=false;setFrozenItems(null);setState("preview");setError("Не вдалося перевірити план. Повторіть додавання.");return;}
     }
     setState("saving");
     setError("");
@@ -606,7 +594,7 @@ export default function VoiceInputModal({
         ].includes(e.message) ||
         ["unavailable", "deadline-exceeded", "unknown"].includes(e.code);
       setSaveUnknown(unknown);
-      if(!unknown) submission.current=null;
+      if(!unknown) {submission.current=null;setFrozenItems(null);}
       if(['plan_conflict','revision_conflict','submission_conflict'].includes(e.message)) setNeedsPlanRefresh(true);
       setError(saveError(e));
       await track({ status: unknown ? "unknown" : "error" }, id, session);

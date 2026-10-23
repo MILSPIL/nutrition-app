@@ -151,3 +151,8 @@ describe('getCalorieScaleState', () => {
     expect(getCalorieScaleState(500, 0)).toEqual({ percent: 0, level: 'ok', overAmount: 0 });
   });
 });
+
+test('L03: прапорець виконання не округлює 100.01 чи 99.99 до 100',()=>{
+ expect(getCategoryProgress({totalPortion:100.01})).toMatchObject({isComplete:false,isOverTarget:true});
+ expect(getCategoryProgress({totalPortion:99.99})).toMatchObject({isComplete:false,isOverTarget:false});
+});

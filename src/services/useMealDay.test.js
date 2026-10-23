@@ -17,7 +17,7 @@ test.each(['plan_conflict','revision_conflict','submission_conflict'])('L05: %s 
 });
 test('L05: reload без маркера зберігає unknown; retry та сама команда',async()=>{
  commitMealDay.mockRejectedValueOnce(Error('save_unknown'));await act(async()=>{await expect(hook.commit(command)).rejects.toThrow('save_unknown');});
- const first=commitMealDay.mock.calls[0][3];await act(async()=>hook.reload());expect(hook.hasPending).toBe(true);
+ const first=commitMealDay.mock.calls[0][3];await act(async()=>hook.reload());expect(hook.hasPending).toBe(true);expect(hook.error).toContain('Результат збереження ще не підтверджено');
  await act(async()=>{await expect(hook.commit({...command,submissionId:'different'})).rejects.toThrow('pending_save');});
  commitMealDay.mockResolvedValue({...empty,revision:1});await act(async()=>hook.retry());expect(commitMealDay.mock.calls[1][3]).toEqual(first);
 });

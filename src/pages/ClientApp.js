@@ -464,6 +464,7 @@ export default function ClientApp() {
 
   // Handlers
   const handleNameChange = (newName) => {
+    if(mealDay.busy||mealDay.hasPending)return;
     const updatedUsers = {
       ...users,
       [currentUser]: { ...users[currentUser], name: newName }
@@ -519,7 +520,7 @@ export default function ClientApp() {
         onShowMeasurements={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowMeasurements(true);}}
         onShowSettings={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowSettings(true);}}
         onShowVoiceInput={()=>setShowVoiceInput(true)}
-        voiceDisabled={!mealDay.ready || mealDay.busy || mealDay.hasPending || !!mealDay.day.legacy}
+        voiceDisabled={!mealDay.ready || mealDay.busy || !!mealDay.day.legacy}
 
       />
 
@@ -530,8 +531,9 @@ export default function ClientApp() {
         </label>
         {!mealDay.ready && <p role="status">Завантажую день…</p>}
         {mealDay.busy && <p role="status">Зберігаю…</p>}
-        {mealDay.error && <div role="alert"><p>{mealDay.error}</p>
-          <button onClick={()=>mealDay.hasPending?mealDay.retry().then(()=>setPilotVersion(x=>x+1)).catch(()=>{}):mealDay.reload()} className="p-3 text-[#007AFF]">Повторити</button>
+        {(mealDay.error || mealDay.hasPending) && <div role="alert"><p>{mealDay.error || "Результат збереження ще не підтверджено. Перевірте той самий запис."}</p>
+          <button disabled={mealDay.busy} onClick={()=>mealDay.hasPending?mealDay.retry().then(()=>setPilotVersion(x=>x+1)).catch(()=>{}):mealDay.reload()} className="p-3 text-[#007AFF]">Повторити</button>
+          {mealDay.hasPending && <button onClick={handleSignOut} className="p-3 text-[#007AFF]">Вийти з облікового запису</button>}
           {mealDay.requiresReload && <button onClick={mealDay.reload} className="p-3 text-[#007AFF]">Перечитати день</button>}
         </div>}
         {mealDay.day.legacy && <div role="alert" className="p-3 bg-white rounded-xl mt-2">

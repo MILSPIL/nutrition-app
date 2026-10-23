@@ -12,7 +12,7 @@ export function validAllocation(a) {
  if(!letters.includes(a.letter)) return false;
  if(a.status==='unresolved') return !a.basis&&!a.conversion&&!a.referenceKey&&!a.referenceName&&!a.normSource;
  if(a.status!=='allocated'||!a.referenceKey||!a.referenceName||!['profile','catalog'].includes(a.normSource)||!positive(a.basis?.value)) return false;
- if(a.letter==='в') return a.referenceKey==='calorie:в'&&a.basis.unit==='kcal'&&a.basis.state==='energy'&&a.conversion?.kind==='energy';
+ if(a.letter==='в') return a.referenceKey==='calorie:в'&&a.referenceName==='Вільний вибір'&&a.normSource==='catalog'&&a.basis.unit==='kcal'&&a.basis.state==='energy'&&a.conversion?.kind==='energy';
  const c=a.conversion;
  return a.basis.unit==='g'&&['raw','as_sold'].includes(a.basis.state)&&positive(c?.baseQuantity?.value)&&['g','ml','portion','package'].includes(c?.baseQuantity?.unit)&&positive(c?.baseMassGrams)&&positive(c?.factor);
 }
@@ -72,9 +72,9 @@ function allocate(item,reference,letter,assignment) {
 }
 export function assignPlanItems(items,catalog,meals={}) {
  const totals=dailyPlanProgress(meals).letters,output=new Array(items.length);
- const order=[...items.keys()].sort((a,b)=>Number(!!items[b].planChoice?.letter)-Number(!!items[a].planChoice?.letter)||a-b);
+ const order=[...items.keys()].sort((a,b)=>Number(items[b].planChoice?.assignment==='manual')-Number(items[a].planChoice?.assignment==='manual')||a-b);
  for(const index of order) {
-  const item=items[index],choice=item.planChoice||{},manual=choice.assignment==='manual'&&letters.includes(choice.letter),family=matchFamily(item,catalog);
+  const item=items[index],choice=item.planChoice||{},manual=choice.assignment==='manual'&&(choice.letter===''||letters.includes(choice.letter)),family=matchFamily(item,catalog);
   let candidates=catalog.references.filter(r=>r.family===family);
   // Автоматичний вільний вибір ніколи не поглинає звичайні фрукти.
   if(!manual&&family?.startsWith('free:')&&family!=='free:anything') candidates=[];
@@ -87,7 +87,7 @@ export function assignPlanItems(items,catalog,meals={}) {
    const alternatives=candidates.map(r=>({r,item:allocate(item,r,r.letter,'auto')}));
    const complete=alternatives.filter(x=>totals[x.r.letter].unknown===0);
    const pool=complete.length?complete:alternatives;
-   const chosen=pool.find(x=>x.item.portion!=null&&totals[x.r.letter].percent+x.item.portion<=100+1e-9)||pool.find(x=>totals[x.r.letter].percent<100)||pool[0];
+   const chosen=!complete.length?alternatives[0]:pool.find(x=>x.item.portion!=null&&totals[x.r.letter].percent+x.item.portion<=100+1e-9)||pool.find(x=>totals[x.r.letter].percent<100)||pool[0];
    result=chosen.item;
   } else result=clean(item,empty('auto'));
   output[index]=result;
@@ -104,7 +104,7 @@ export function allocationCounts(items) {return {
  planUnresolvedCount:items.filter(i=>i.planAllocation?.status!=='allocated').length,
  planManualCount:items.filter(i=>i.planAllocation?.assignment==='manual').length,
 };}
-export const percentText=value=>`${Math.round((value+Number.EPSILON)*10)/10}%`;
+export const percentText=value=>{const rounded=Math.round((value+Number.EPSILON)*10)/10;return rounded===100&&value!==100?`${value>100?'>':'<'}100%`:`${rounded}%`;};
 export function invalidatePlanIdentity(item) {
  const {planMatch,portion,planAllocation,...rest}=item;
  const choice=item.planChoice;

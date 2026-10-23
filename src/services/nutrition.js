@@ -57,8 +57,8 @@ export const getCategoryProgress = ({
   totalPortion = 0
 }) => {
   const percent = isCalorieBased
-    ? (calorieLimit > 0 ? Math.round((usedCalories / calorieLimit) * 100) : 0)
-    : Math.round(totalPortion);
+    ? (calorieLimit > 0 ? (usedCalories / calorieLimit) * 100 : 0)
+    : totalPortion;
 
   return {
     percent,

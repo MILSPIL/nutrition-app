@@ -734,3 +734,33 @@ test('L05: plan_conflict вимагає нового читання і свід�
 test('L01: зміна власника зупиняє запис і чекає нового Start',async()=>{
  await openAndStart({ownerKey:'one'});await render({ownerKey:'two'});expect(recorders[0].cancel).toHaveBeenCalled();expect(button('Почати запис')).toBeTruthy();expect(recorders).toHaveLength(1);
 });
+
+test('L05: зміна власника видаляє вже готову приватну чернетку',async()=>{
+ await openAndStart({ownerKey:'owner-a'});await stop();expect(container.textContent).toContain('Тестовий кефір');
+ await render({ownerKey:'owner-b'});expect(button('Почати запис')).toBeTruthy();expect(button('Повернутися до прев’ю')).toBeUndefined();expect(container.querySelector('[data-testid="voice-item"]')).toBeNull();expect(props.onAdd).not.toHaveBeenCalled();
+});
+test('L04: Без літери вибирається явно і зберігається ручним',async()=>{
+ props.api.analyze.mockResolvedValue(answer([{...food(),planMatch:{referenceId:'dairy:kefir',consumedState:'as_sold',certainty:'matched'}}]));
+ await openAndStart();await stop();expect(container.querySelector('[aria-label="Літера продукту 1"] option[value=""]')).toBeTruthy();
+ await change('Літера продукту 1','');await click('Додати');expect(props.onAdd.mock.calls[0][0].items[0].planAllocation).toEqual({version:1,status:'unallocated',assignment:'manual'});
+});
+
+test('L07: повтор фото переносить ручний пошук тієї самої чернетки',async()=>{
+ await openAndStart();await stop();await change('Літера продукту 1','б');
+ const select=container.querySelector('[aria-label="Відповідник продукту 1"]');const ref=[...select.options].find(o=>o.textContent.includes('кефір')).value;
+ await change('Відповідник продукту 1',ref);props.api.analyze.mockRejectedValueOnce(Error('upstream_error'));await photo();
+ props.api.analyze.mockResolvedValueOnce(answer([{...food(),source:{kind:'label'}}]));await click('Повторити читання фото');await click('Додати');expect(rows).toHaveLength(2);expect(rows[1].manualSearch).toBe(true);
+ expect(pilotSummary(rows.map(r=>({...r,correct:true})) ).successes).toBe(0);
+});
+test('L04: підтверджена маса зберігає кому під час набору',async()=>{
+ props.api.analyze.mockResolvedValue(answer([{...food('Кефір','ml'),planMatch:{referenceId:'dairy:kefir',consumedState:'as_sold',certainty:'matched'}}]));
+ await openAndStart();await stop();await change('Маса продукту 1','206');await change('Маса продукту 1','206,');
+ expect(container.querySelector('[aria-label="Маса продукту 1"]').value).toBe('206,');await change('Маса продукту 1','206,5');await click('Додати');
+ expect(props.onAdd.mock.calls[0][0].items[0].planAllocation.conversion.baseMassGrams).toBe(206.5);
+});
+test('L05: unknown зберігає показані літери навіть після паралельної зміни дня',async()=>{
+ props.api.analyze.mockResolvedValue(answer([{...food(),planMatch:{referenceId:'dairy:kefir',consumedState:'as_sold',certainty:'matched'}}]));
+ props.onAdd.mockRejectedValueOnce(Error('save_unknown'));await openAndStart();await stop();await click('Додати');
+ await render({dayMeals:{1:{б:[{name:'старий',portion:100,weight:100,p:1,f:1,c:1,cal:10}]}}});
+ expect(container.querySelector('.voice-plan-badge').textContent).toContain('Б · Молочні');expect(props.onAdd.mock.calls[0][0].items[0].planAllocation.letter).toBe('б');
+});
