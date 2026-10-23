@@ -1,6 +1,6 @@
 import { groqFreeApproved, transcriptionLanguage } from './groq.js';
 import { createFirebaseAuthenticator } from './auth.js';
-import { MAX_AUDIO,MAX_IMAGE,MAX_BODY } from './schema.js';
+import { MAX_AUDIO,MAX_IMAGE,MAX_BODY,validatePlanCatalog,catalogText,systemPromptV2,analysisSchemaV2 } from './schema.js';
 import { callProvider } from './providers.js';
 export { PilotBudget } from './budget.js';
 const authenticate=createFirebaseAuthenticator();
@@ -43,6 +43,8 @@ async function input(request,kind) {
   let decoded;try{decoded=Uint8Array.from(atob(image.data),x=>x.charCodeAt(0));}catch(_){fail('invalid_image',400);}
   if(decoded.length>MAX_IMAGE||!signature(decoded,image.type)) fail('invalid_image',400);
  }
+ if(body.analysisVersion!=null && ![1,2].includes(body.analysisVersion)) fail('bad_request',400);
+ if(body.analysisVersion===2) {try{validatePlanCatalog(body.planCatalog);}catch(_){fail('bad_request',400);}return {text:body.text,images:body.images,analysisVersion:2,planCatalog:body.planCatalog};}
  return {text:body.text,images:body.images};
 }
 // Зафіксовані snapshot-и: https://developers.openai.com/api/docs/models/gpt-4o-mini-transcribe
@@ -61,7 +63,7 @@ export function reservation(kind,payload,env,{localTranscription=false}={}) {
  } else {
   // UTF-8 байти як верхня межа токенів тексту, запас для інструкцій/схеми,
   // до 10000 токенів на зображення і фактичний max_tokens=4096 для output.
-  cost=Math.ceil(((new TextEncoder().encode(payload.text).length+16000+payload.images.length*10000)*price('INPUT_MICROS_PER_MTOK')+4096*price('OUTPUT_MICROS_PER_MTOK'))/1000000);
+  cost=Math.ceil(((new TextEncoder().encode(payload.text).length+16000+(payload.analysisVersion===2?new TextEncoder().encode(catalogText(payload)+systemPromptV2+JSON.stringify(analysisSchemaV2)).length:0)+payload.images.length*10000)*price('INPUT_MICROS_PER_MTOK')+4096*price('OUTPUT_MICROS_PER_MTOK'))/1000000);
  }
  if(!Number.isSafeInteger(cost)||cost<=0) fail('budget_disabled',503);
  return cost;

@@ -103,9 +103,9 @@ export const transcribeAudio = (audio, duration, signal, language = "auto") => {
   form.set("language", language);
   return voiceRequest("transcribe", form, signal);
 };
-export const analyzeFood = (text, images, signal) =>
+export const analyzeFood = (text, images, signal, planCatalog) =>
   voiceRequest(
     "analyze",
-    { text, images: images.map(({ type, data }) => ({ type, data })) },
+    { text, images: images.map(({ type, data }) => ({ type, data })), ...(planCatalog ? {analysisVersion:2,planCatalog}: {}) },
     signal,
   );

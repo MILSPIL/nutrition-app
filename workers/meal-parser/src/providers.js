@@ -1,5 +1,5 @@
 import { groqFreeApproved, transcriptionLanguage, limitedJson } from './groq.js';
-import { analysisSchema,systemPrompt,validateAnalysis } from './schema.js';
+import { analysisSchema,systemPrompt,validateAnalysis,analysisSchemaV2,systemPromptV2,catalogText,validateAnalysisV2 } from './schema.js';
 // Sonnet 5.5 не приймає forced tool_choice. JSON outputs зберігають той самий контракт.
 // Непідтримувані grammar-обмеження лишаються в описі; validateAnalysis перевіряє їх локально.
 function jsonOutputSchema(value) {
@@ -13,7 +13,7 @@ function jsonOutputSchema(value) {
  if(limits.length) result.description=[result.description,limits.join(', ')].filter(Boolean).join('; ');
  return result;
 }
-const sonnetSchema=jsonOutputSchema(analysisSchema);
+
 export async function callProvider(kind,payload,env,fetcher=fetch,{signal,timeoutMs=45000}={}) {
  const controller=new AbortController(),abort=()=>controller.abort();
  const timer=setTimeout(abort,timeoutMs);
@@ -22,6 +22,8 @@ export async function callProvider(kind,payload,env,fetcher=fetch,{signal,timeou
  const structured=env.PARSE_MODEL==='claude-sonnet-5-5';
  try {
   if(controller.signal.aborted) throw Error('upstream_timeout');
+  const v2=payload.analysisVersion===2,schema=v2?analysisSchemaV2:analysisSchema;
+  const finish=parsed=>v2?{...validateAnalysisV2(parsed,!!payload.images?.length,payload.planCatalog),analysisMeta:{model:typeof data.model==='string'?data.model:null,stopReason:typeof data.stop_reason==='string'?data.stop_reason:null,outputTokens:Number.isSafeInteger(data.usage?.output_tokens)&&data.usage.output_tokens>=0?data.usage.output_tokens:null,maxOutputTokens:4096}}:validateAnalysis(parsed,!!payload.images?.length);
   let response;
   if(kind==='transcribe') {
    const groq=env.TRANSCRIBE_PROVIDER==='groq';
@@ -34,13 +36,14 @@ export async function callProvider(kind,payload,env,fetcher=fetch,{signal,timeou
    response=await fetcher(groq?'https://api.groq.com/openai/v1/audio/transcriptions':'https://api.openai.com/v1/audio/transcriptions',{method:'POST',redirect:'error',headers:{Authorization:`Bearer ${groq?env.GROQ_API_KEY:env.OPENAI_API_KEY}`},body:form,signal:controller.signal});
   } else {
    const content=(payload.images||[]).map(image=>({type:'image',source:{type:'base64',media_type:image.type,data:image.data}}));
+   if(v2) content.push({type:'text',text:catalogText(payload)});
    content.push({type:'text',text:payload.text});
-   const body={model:env.PARSE_MODEL,max_tokens:4096,system:systemPrompt,messages:[{role:'user',content}]};
+   const body={model:env.PARSE_MODEL,max_tokens:4096,system:v2?systemPromptV2:systemPrompt,messages:[{role:'user',content}]};
    if(structured) {
     body.thinking={type:'between_tools'};
-    body.output_config={effort:'medium',format:{type:'json_schema',schema:sonnetSchema}};
+    body.output_config={effort:'medium',format:{type:'json_schema',schema:jsonOutputSchema(schema)}};
    } else {
-    body.tools=[{name:'food_record',description:'Структурована чернетка харчування',input_schema:analysisSchema}];
+    body.tools=[{name:'food_record',description:'Структурована чернетка харчування',input_schema:schema}];
     body.tool_choice={type:'tool',name:'food_record'};
    }
    response=await fetcher('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':env.ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01'},signal:controller.signal,body:JSON.stringify(body)});
@@ -58,10 +61,10 @@ export async function callProvider(kind,payload,env,fetcher=fetch,{signal,timeou
    const texts=data.content.filter(x=>x?.type==='text');
    if(texts.length!==1||typeof texts[0].text!=='string'||texts[0].text.length>64000||data.content.some(x=>!['text','thinking','redacted_thinking'].includes(x?.type))) throw Error('invalid_response');
    let parsed;try{parsed=JSON.parse(texts[0].text);}catch(_){throw Error('invalid_response');}
-   return validateAnalysis(parsed,!!payload.images?.length);
+   return finish(parsed);
   }
-  if(data.stop_reason==='max_tokens') throw Error('invalid_response');
-  return validateAnalysis(data.content?.find(x=>x.type==='tool_use'&&x.name==='food_record')?.input,!!payload.images?.length);
+  if(data.stop_reason==='max_tokens'||(v2&&(data.model!==env.PARSE_MODEL||data.stop_reason!=='tool_use'))) throw Error('invalid_response');
+  return finish(data.content?.find(x=>x.type==='tool_use'&&x.name==='food_record')?.input);
  } catch(error) { if(controller.signal.aborted) throw Error('upstream_timeout'); throw error; }
  finally {clearTimeout(timer);signal?.removeEventListener('abort',abort);}
 }
