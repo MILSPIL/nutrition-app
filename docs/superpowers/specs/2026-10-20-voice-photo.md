@@ -1,6 +1,6 @@
 # SciSense: сказати, сфотографувати, додати
 
-Дата: 2026-10-20. Статус: проєкт специфікації до технічного погодження.
+Дата: 2026-10-20. Статус: погоджено разом із планом 2026-10-20; локальна реалізація перевірена; реальні API/телефон ще pending.
 Goal `objective_e45aa8ac1aa3`: G02, G03, G05, G07, G08, G11; основна картка `card_a0a505e98d94`.
 
 ## Мета й підтверджені рішення
@@ -85,10 +85,12 @@ Goal `objective_e45aa8ac1aa3`: G02, G03, G05, G07, G08, G11; основна ка
 
 Автоматизовані мокові тести дають лише частковий доказ V01–V03; ці критерії лишаються pending до реального телефона й дозволеного API V09. Канал телефона в лабораторії: локальний HTTPS на dev-сервері із сертифікатом, якому власник явно довірив на тестовому пристрої, reverse proxy до Firebase emulators і wrangler dev; demo project, тестові акаунти та підставний upstream. Production project/hosting недоступні цій конфігурації, без публічного tunnel за замовчуванням. Встановлення довіри на телефоні виконує власник; якщо недоступно, телефонна перевірка лишається pending, не підміняється desktop. Усі server-компоненти локальні; V09 додає зовнішні API тільки після дозволу.
 
-Команди-пропозиції: `npm run test:voice-photo` (V02–V07, контракти й emulator); `npm run test:voice-photo-ui` (V01/V03/V05/V06/V08, ізольований browser launcher); наявні `npm run test:ci -- --runInBand`, `npm run build`. Нові scripts ще відсутні. Перший дозволений блок створює їх і демонструє реальні FAIL на старій реалізації; відсутній script не є червоним тестом. Лабораторія не доводить V09 і G09 без погодженого реального прогону.
+Команди перевірки: `npm run test:voice-photo` (V02–V07, контракти й emulator); `npm run test:voice-photo-ui` (V01/V03/V05/V06/V08, ізольований browser launcher); наявні `npm run test:ci -- --runInBand`, `npm run build`. Scripts додано в реалізації. Початкові регресії справді падали: label 106 ккал ставали 100, нові мл давали 0, головний екран не мав мікрофона. Деталі й межі доказів у журналі реалізації. Лабораторія не доводить V09 і G09 без погодженого реального прогону.
 
 ## Джерела та статус
 
 Context7 2026-10-20: квоту вичерпано. Перевірено первинні джерела: [getUserMedia](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia), [isTypeSupported](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/isTypeSupported_static), [file transcription](https://developers.openai.com/api/docs/guides/speech-to-text), [Claude vision](https://platform.claude.com/docs/en/build-with-claude/vision), [Open Food Facts API](https://openfoodfacts.github.io/openfoodfacts-server/api/), [Firestore transactions](https://firebase.google.com/docs/firestore/manage-data/transactions), [Durable Object SQLite](https://developers.cloudflare.com/durable-objects/api/sqlite-storage-api/), [доступність і тарифні межі Durable Objects](https://developers.cloudflare.com/durable-objects/platform/pricing/). Звідти взято вимоги дозволу/HTTPS, перевірку MIME, file-transcription маршрут, підтримку зображень та межі якості/запитів. Це не перевірка доступності конкретного акаунта або якості на наших фото.
 
 Перша проба специфікації: Codex знайшов 5 неоднозначностей, уточнено джерела оцінки, неповні рядки, revision, межі дедуплікації й одиницю квоти. Повторна проба: 5/5 закрито, неоднозначностей, які змінюють план, не залишилося. Незалежне рев’ю Claude claude-fable-5-1 завершено: 6 зауважень, 5 підтвердилися, 1 частково; усі враховано уточненнями дати, markers, самодостатніх харчових значень, звіту, обліку спроб і меж мокового/реального тесту. Детальна звірка в журналі 2026-10-20-1247. Код, налаштування live API та production цією специфікацією не змінено.
+
+Результат реалізації: [звіт локальної перевірки](../../VOICE-PHOTO-VALIDATION.md). Для лабораторного телефона додатково потрібен окремий адаптер Auth emulator: production Worker навмисно відхиляє непідписані emulator JWT. Прямий proxy сам цього не вирішує.

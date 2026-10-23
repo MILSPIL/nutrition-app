@@ -2,7 +2,7 @@
 project_name = "nutrition-app"
 ignore_gitignore = false
 index_archives = false
-extensions = ["js", "jsx", "ts", "tsx", "css", "html", "json", "yaml", "yml", "toml", "md", "sh", "py", "rules"]
+extensions = ["js", "mjs", "jsx", "ts", "tsx", "css", "html", "json", "yaml", "yml", "toml", "md", "sh", "py", "rules"]
 
 # Особисті записи, секрети, тимчасові макети та службові копії не є кодом застосунку.
 exclude = [

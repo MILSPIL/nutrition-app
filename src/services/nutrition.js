@@ -1,3 +1,4 @@
+import { itemMacros, roundMacros } from './mealItems';
 const roundToOneDecimal = (value) => Math.round((value + 1e-9) * 10) / 10;
 
 export const createEmptyMeals = () => ({
@@ -89,41 +90,12 @@ export const canAddCategoryProduct = ({
 };
 
 export const calculateMealsMacros = (meals) => {
-  if (!meals) {
-    return { p: 0, f: 0, c: 0, cal: 0 };
-  }
-
-  let totalP = 0;
-  let totalF = 0;
-  let totalC = 0;
-  let totalCal = 0;
-
-  Object.values(meals).forEach((meal) => {
-    Object.values(meal || {}).forEach((products) => {
-      if (!Array.isArray(products)) {
-        return;
-      }
-
-      products.forEach((item) => {
-        const weight = item.weight || 0;
-        const multiplier = weight / 100;
-
-        totalP += (item.p || 0) * multiplier;
-        totalF += (item.f || 0) * multiplier;
-        totalC += (item.c || 0) * multiplier;
-        totalCal += item.cal
-          ? item.cal * multiplier
-          : ((item.p || 0) * 4 + (item.c || 0) * 4 + (item.f || 0) * 9) * multiplier;
-      });
-    });
-  });
-
-  return {
-    p: roundToOneDecimal(totalP),
-    f: roundToOneDecimal(totalF),
-    c: roundToOneDecimal(totalC),
-    cal: Math.round(totalCal)
-  };
+  const total = { p: 0, f: 0, c: 0, cal: 0 };
+  Object.values(meals || {}).forEach(meal => Object.values(meal || {}).forEach(items => {
+    if (!Array.isArray(items)) return;
+    items.forEach(item => { const macros = itemMacros(item); for (const key of Object.keys(total)) total[key] += macros[key]; });
+  }));
+  return roundMacros(total);
 };
 
 export const buildUserRecord = ({

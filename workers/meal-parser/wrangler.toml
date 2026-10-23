@@ -1,0 +1,13 @@
+name = "scisense-meal-parser"
+main = "src/index.js"
+compatibility_date = "2026-10-19"
+[vars]
+LIVE_ENABLED = "false"
+ALLOWED_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
+# Firebase project, UID allowlist, exact model IDs, prices and approved budget are intentionally unset.
+[[durable_objects.bindings]]
+name = "PILOT_BUDGET"
+class_name = "PilotBudget"
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PilotBudget"]

@@ -24,8 +24,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm run test:ci
+      - name: Install Worker dependencies
+        run: npm ci --prefix workers/meal-parser
+
+      - name: Setup Java for local Firestore emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install pinned Firebase emulator CLI
+        run: npm install --global firebase-tools@15.2.1
+
+      - name: Run application, Worker and demo storage tests
+        run: npm run test:voice-photo
 
       - name: Build app
         run: npm run build
