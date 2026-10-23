@@ -4,8 +4,10 @@ import {readFileSync,mkdtempSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';import path from 'node:path';
 import {approvedSettings,liveRuntime} from './live.mjs';
 const pending=JSON.parse(readFileSync(new URL('../../workers/meal-parser/pilot-proposal.json',import.meta.url)));
+pending.status='approved_implementation';pending.approvedAt='';pending.fullApproval.approvedAt='';pending.candidateC.PRICING_APPROVED_AT='';
+pending.sttApproval={approvedAt:'',freeTierConfirmedAt:'',zeroDataRetentionConfirmedAt:''};
 export function approvedFixture(){const p=structuredClone(pending),stamp=new Date(Date.now()-1000).toISOString();p.sttApproval={approvedAt:stamp,freeTierConfirmedAt:stamp,zeroDataRetentionConfirmedAt:stamp};p.approvedAt=stamp;p.status='approved_local_pilot';p.candidateC.PRICING_APPROVED_AT=stamp;p.fullApproval={approvedAt:stamp,proposalRevision:p.proposalRevision,configHash:p.configHash};return p;}
-test('repository approval stays off; historical local Whisper approval cannot unlock Groq',()=>{
+test('pending approval fixture refuses inference; historical local Whisper approval cannot unlock Groq',()=>{
  assert.throws(()=>approvedSettings(pending),/pilot_not_approved/);
  assert.throws(()=>approvedSettings(pending,{mode:'stt_only'}),/pilot_not_approved/);
 });

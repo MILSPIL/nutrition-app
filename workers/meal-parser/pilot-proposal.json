@@ -1,10 +1,10 @@
 {
   "proposalId": "scisense-phone-api-2026-10-20",
-  "status": "approved_implementation",
+  "status": "approved_local_pilot",
   "LIVE_ENABLED": "false",
   "goalId": "objective_e45aa8ac1aa3",
-  "environment": "local_https_demo_only",
-  "FIREBASE_PROJECT": "demo-scisense",
+  "environment": "ntzg_server_private_pilot",
+  "FIREBASE_PROJECT": "nutrition-tracker-ua",
   "accountVerification": {
     "anthropicCreditOrganization": false,
     "anthropicProjectKey": true,
@@ -64,7 +64,7 @@
     "sonnetContract": "https://platform.claude.com/docs/en/build-with-claude/structured-outputs"
   },
   "recommendedCandidate": "C",
-  "recommendationReason": "Юрій погодив реалізацію Groq Free whisper-large-v3. Активація Anthropic та сервер залишаються замороженими.",
+  "recommendationReason": "Юрій дозволив активацію Groq Free whisper-large-v3 і прямого Sonnet у межах одного бюджету $5 за MORNING-READY-01. Тариф і незбереження даних перевірені; серверна активація потребує окремої квитанції перенесення.",
   "requestedCreditProvider": "anthropic",
   "creditProviderConfirmedByOwner": true,
   "creditProviderConfirmedAt": "2026-10-20T22:05:05+03:00",
@@ -80,20 +80,20 @@
     "inferenceCalls": 0,
     "checkedAt": "2026-10-20T22:15:10+03:00"
   },
-  "approvedAt": "",
+  "approvedAt": "2026-10-23T08:11:06Z",
   "approvedBy": "Yurii",
   "selectedCandidate": "C",
   "deploymentTarget": {
     "origin": "https://ntzg.pp.ua",
     "server": "MS-WEB Server",
-    "status": "preparation",
+    "status": "approved_activation_pending",
     "apiBindingActive": false
   },
   "proposalRevision": 2,
   "sttApproval": {
-    "approvedAt": "",
-    "freeTierConfirmedAt": "",
-    "zeroDataRetentionConfirmedAt": ""
+    "approvedAt": "2026-10-23T08:11:06Z",
+    "freeTierConfirmedAt": "2026-10-23T08:11:06Z",
+    "zeroDataRetentionConfirmedAt": "2026-10-23T08:11:06Z"
   },
   "candidateC": {
     "TRANSCRIBE_PROVIDER": "groq",
@@ -109,11 +109,12 @@
     "REQUESTS_PER_DAY": 30,
     "MAX_AUDIO_SECONDS": 90,
     "UPSTREAM_TIMEOUT_MS": 45000,
-    "PRICING_APPROVED_AT": ""
+    "PRICING_APPROVED_AT": "2026-10-23T08:11:06Z",
+    "pricingCheckedAt": "2026-10-23"
   },
   "configHash": "a02935f19acdb01c574136462527450848731c586402cfb6bb00a496ca67ad3e",
   "fullApproval": {
-    "approvedAt": "",
+    "approvedAt": "2026-10-23T08:11:06Z",
     "proposalRevision": 2,
     "configHash": "a02935f19acdb01c574136462527450848731c586402cfb6bb00a496ca67ad3e"
   }

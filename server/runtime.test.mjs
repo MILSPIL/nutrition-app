@@ -10,7 +10,8 @@ test('Activation v2 binds existing budget, new configuration, UID/release and se
  const proposal=fixture(),active={...manifest,liveEnabled:true,releaseId:'a'.repeat(40),allowedUids:['synthetic-uid']},receipt={version:2,active:true,proposalId:proposal.proposalId,proposalRevision:proposal.proposalRevision,configHash:proposal.configHash,target:manifest.origin,capMicros:5000000,receiptId:'12345678-1234-1234-1234-123456789abc',consumedMicros:100000,reservedCalls:1,approvedReleases:['a'.repeat(40)],allowedUids:['synthetic-uid'],pricingConfirmedAt:proposal.approvedAt,sttApprovedAt:proposal.sttApproval.approvedAt};
  validateActivation(active,receipt,proposal);
  for(const changed of [{version:1},{proposalRevision:1},{configHash:'f'.repeat(64)},{active:false},{target:'https://other.example'},{proposalId:'new'},{capMicros:5000001},{approvedReleases:['b'.repeat(40)]},{allowedUids:['stranger']},{consumedMicros:-1},{reservedCalls:-1},{pricingConfirmedAt:null},{sttApprovedAt:''}])assert.throws(()=>validateActivation(active,{...receipt,...changed},proposal));
- assert.throws(()=>validateActivation(active,receipt,pending));
+ const unapproved=structuredClone(proposal);unapproved.status='approved_implementation';unapproved.fullApproval.approvedAt='';
+ assert.throws(()=>validateActivation(active,receipt,unapproved));
 });
 test('Disabled server starts without credentials, budget, weights or external inference',async()=>{
  const runtime=await createServerRuntime({...manifest,port:18787},{proposal:pending,fetcher:async()=>{throw Error('No network');}});try{await runtime.listen();const health=await fetch('http://127.0.0.1:18787/meal-api/health');assert.deepEqual(await health.json(),{ok:true,inferenceEnabled:false});const inference=await fetch('http://127.0.0.1:18787/meal-api/analyze',{method:'POST',headers:{Origin:manifest.origin},body:'{}'});assert.equal(inference.status,401);}finally{await runtime.close();}
