@@ -14,16 +14,21 @@ const legacySeed=(segments,data)=>fixtures.withSecurityRulesDisabled(ctx=>setDoc
 const item=id=>({itemId:id,name:'Тестовий кефір',quantity:{value:200,unit:'g'},nutritionBasis:{value:100,unit:'g'},nutrients:{p:2.9,f:2.5,c:4,cal:53},source:{kind:'label'},estimated:false});
 const append=id=>({type:'append',submissionId:id,meal:1,items:[item(id)],updatedAt:new Date().toISOString()});
 try {
+ console.log('phase: bootstrap');
  await setDoc(doc(db,'users',uid),{...writerStamp(),users:{[uid]:{name:'Синтетичний користувач',meals:{1:{},2:{},3:{},4:{}}}}});
  const empty=await loadMealDay(uid,uid,date);assert.deepEqual(empty.meals[1],{});
+ console.log('phase: concurrent-append');
  const first=append('one');await Promise.all([commitMealDay(uid,uid,date,first),commitMealDay(uid,uid,date,first)]);
  let day=await loadMealDay(uid,uid,date);assert.equal(day.meals[1].voice.length,1);assert.equal(day.totalMacros.cal,106);
+ console.log('phase: distinct-concurrent-appends');
  await Promise.all([commitMealDay(uid,uid,date,append('two')),commitMealDay(uid,uid,date,append('three'))]);
  day=await loadMealDay(uid,uid,date);assert.equal(day.meals[1].voice.length,3);assert.equal(day.revision,3);assert.deepEqual(Object.keys(day.submissionMarkers).sort(),['one','three','two']);
  await assert.rejects(()=>commitMealDay(uid,uid,date,{type:'replace',submissionId:'stale',expectedRevision:0,meals:empty.meals,updatedAt:'x'}),/revision_conflict/);
+ console.log('phase: profile-settings');
  await saveProfileSettings(uid,uid,{name:'Змінене ім’я',meals:empty.meals});
  const root=(await getDocFromServer(doc(db,'users',uid))).data();assert.equal(root.users[uid].meals[1].voice.length,3);assert.equal(root.users[uid].mealsDateKey,date);
  const marker=await readSubmission(uid,date,'one',await commandHash(first));assert.equal(marker.revision,3);
+ console.log('phase: nonce-fences');
  const fenceBefore=(await getDocFromServer(doc(db,'users',uid,'mealHistory',date))).data();
  await commitMealDay(uid,uid,date,first);
  assert.deepEqual((await getDocFromServer(doc(db,'users',uid,'mealHistory',date))).data(),fenceBefore);
@@ -32,32 +37,39 @@ try {
  await assert.rejects(()=>setDoc(doc(db,'users',uid,'mealHistory',date),{meals:empty.meals}),e=>e.code==='permission-denied');
  assert.deepEqual((await getDocFromServer(doc(db,'users',uid,'mealHistory',date))).data(),fenceBefore);
 
+ console.log('phase: quantity-edit');
  assert.deepEqual((await loadMealDay(uid,uid,'2026-10-21')).meals[1],{});
  await commitMealDay(uid,uid,date,{type:'quantity',meal:1,letter:'voice',index:0,value:250,expectedRevision:3,submissionId:'edit',updatedAt:'x'});
  day=await loadMealDay(uid,uid,date);assert.equal(day.totalMacros.cal,345);assert.equal(Object.keys(day.submissionMarkers).length,4);
+ console.log('phase: legacy-source');
  const legacy={1:{a:[{name:'Старий',weight:100,p:1,f:1,c:1,calories:17}]},2:{},3:{},4:{}};
  await legacySeed(['users',uid],{users:{[uid]:{name:'Старий',meals:legacy}}});
  await assert.rejects(()=>commitMealDay(uid,uid,'2026-10-22',append('blocked')),/legacy_date_required/);
  assert.deepEqual((await loadMealDay(uid,uid,'2026-10-22')).legacy,legacy);
+ console.log('phase: legacy-import');
  const migration={type:'replace',meals:legacy,confirmLegacy:true,expectedRevision:0,submissionId:'legacy',updatedAt:'x'};
  await commitMealDay(uid,uid,'2026-10-22',migration);await commitMealDay(uid,uid,'2026-10-22',migration);
  assert.equal((await loadMealDay(uid,uid,'2026-10-22')).totalMacros.cal,17);
+ console.log('phase: next-day-projection');
  // Projection must replace the old nested map, even when the next day has another group.
- await commitMealDay(uid,uid,'2026-10-23',{...append('day-two'),letter:'b'});
+ await commitMealDay(uid,uid,'2026-10-23',{...append('day-two'),letter:'б'});
  const nextRoot=(await getDocFromServer(doc(db,'users',uid))).data();
- assert.deepEqual(Object.keys(nextRoot.users[uid].meals[1]),['b']);
+ assert.deepEqual(Object.keys(nextRoot.users[uid].meals[1]),['б']);
  await saveProfileSettings(uid,uid,{portions:{test:250}});await saveProfileSettings(uid,uid,{name:'Ще одне ім’я'});
  assert.deepEqual((await getDocFromServer(doc(db,'users',uid))).data().users[uid].portions,{test:250});
  await legacySeed(['users',uid],{users:{[uid]:{name:'Старий',meals:legacy}}});
+ console.log('phase: existing-legacy-metadata');
  await legacySeed(['users',uid,'mealHistory','2026-10-24'],{meals:legacy,currentWeight:65,programDay:3});
  await commitMealDay(uid,uid,'2026-10-24',{...migration,submissionId:'existing-legacy'});
  await commitMealDay(uid,uid,'2026-10-24',{type:'metadata',metadata:{activity:'Ходьба'},submissionId:'activity',updatedAt:'x'});
  const upgraded=(await getDocFromServer(doc(db,'users',uid,'mealHistory','2026-10-24'))).data();assert.equal(upgraded.writerVersion,3);assert.ok(upgraded.writerNonce);
  const history=await loadMealDay(uid,uid,'2026-10-24');assert.equal(history.totalMacros.cal,17);assert.equal(history.currentWeight,65);assert.equal(history.programDay,3);
+ console.log('phase: parallel-settings');
  await Promise.all([saveProfileSettings(uid,uid,{name:'Паралельні налаштування'}),commitMealDay(uid,uid,'2026-10-25',append('parallel'))]);
  const finalRoot=(await getDocFromServer(doc(db,'users',uid))).data();
  assert.equal(finalRoot.users[uid].name,'Паралельні налаштування');assert.equal(finalRoot.users[uid].meals[1].voice.length,1);
  assert.equal(finalRoot.writerVersion,3);assert.match(finalRoot.writerNonce,/^[a-f0-9-]{36}$/);
+ console.log('phase: previous-writer-compatibility');
  // Старий фактичний writer зберігає additive allocation і масштабує кеш.
  const allocated={...item('compat'),quantity:{value:200,unit:'ml'},nutritionBasis:{value:100,unit:'ml'},portion:206/270*100,
   planAllocation:{version:1,status:'allocated',letter:'б',referenceKey:'standard:dairy:3:б',referenceName:'кефір 1%',basis:{value:270,unit:'g',state:'as_sold'},conversion:{baseQuantity:{value:200,unit:'ml'},baseMassGrams:206,factor:1},normSource:'catalog',assignment:'manual'}};
@@ -68,6 +80,7 @@ try {
  assert.deepEqual(edited.planAllocation,allocated.planAllocation);
  await commitMealDay(uid,uid,'2026-10-26',append('new-after-old'));
  assert.deepEqual((await loadMealDay(uid,uid,'2026-10-26')).meals[1].б[0],edited);
+ console.log('phase: allocated-parallel-writes');
  // Новий пакет: різні літери, unknown, паралельні metadata й append, свіжий fingerprint.
  const planRoot=(await getDocFromServer(doc(db,'users',uid))).data();
  const catalog=buildPlanCatalog({profile:planRoot.users[uid],globalCustomProducts:planRoot.globalCustomProducts,productOverrides:planRoot.productOverrides});

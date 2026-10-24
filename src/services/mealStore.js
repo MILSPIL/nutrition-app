@@ -53,10 +53,19 @@ export async function commitMealDay(uid, profileId, date, command) {
   const ref=refs(uid,date), hash=await commandHash(command), stamp=writerStamp();
   const trainerCommand=['saveTrainerDraft','resolveFoodNote'].includes(command.type);
   if(trainerCommand&&command.targetDate!==date) throw Error('invalid_target');
+  const refreshCommitted = async () => {
+    try { return await loadMealDay(uid,profileId,date); }
+    catch (_) { throw new Error('save_unknown'); }
+  };
+  // A concurrent commit can be rejected by rules before the SDK sees ABORTED.
+  // Only fresh server evidence of a newer day allows another write attempt.
+  for(let attempt=0;attempt<3;attempt++) {
+  let observedRevision=null;
   try {
     const outcome=await runTransaction(db, async tx => {
       const ownerSnap=await tx.get(ref.owner);
       const daySnap=await tx.get(ref.day);
+      observedRevision=daySnap.data()?.revision ?? 0;
       const root=ownerSnap.data();
       if (!root?.users?.[profileId]) throw new Error('profile_missing');
       const user=root.users[profileId];
@@ -136,14 +145,28 @@ export async function commitMealDay(uid, profileId, date, command) {
       return result.day;
     });
     if(outcome?.rejected)throw Error("plan_conflict");
-    return await loadMealDay(uid,profileId,date);
+    return await refreshCommitted();
   } catch (error) {
     // Читання з сервера може довести commit після невизначеного транспортного збою.
     if (['unavailable','deadline-exceeded','unknown','permission-denied','aborted'].includes(error.code)) {
-      try { const day=await readSubmission(uid,date,command.submissionId,hash); if(day) return await loadMealDay(uid,profileId,date); } catch (_) { /* чернетка залишається */ }
+      let day;
+      try { day=(await getDocFromServer(ref.day)).data(); } catch (_) { /* No server proof: do not retry. */ }
+      const success=day?.submissionMarkers?.[command.submissionId];
+      if(success) {
+        if(success!==hash)throw new Error('submission_conflict');
+        // Keep the same pending submission if its confirmed commit cannot yet
+        // be refreshed. This branch never starts another write attempt.
+        return await refreshCommitted();
+      }
+      const rejected=day?.rejectedSubmissions?.[command.submissionId];
+      if(rejected)throw new Error(rejected===hash?'plan_conflict':'submission_conflict');
+      if(error.code==='permission-denied' && attempt<2
+        && Number.isSafeInteger(observedRevision) && observedRevision>=0
+        && Number.isSafeInteger(day?.revision) && day.revision>observedRevision) continue;
       if (['unavailable','deadline-exceeded','unknown'].includes(error.code)) throw new Error('save_unknown');
     }
     throw error;
+  }
   }
 }
 

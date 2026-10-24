@@ -1,0 +1,192 @@
+{
+  "scope": "HERMES-COACH-02: обмежений повтор конкурентного запису без дублювання після підтвердженого успіху",
+  "verifiedLocalDate": "2026-10-25",
+  "productionChanged": false,
+  "realApiCalls": 0,
+  "privateDataUsed": false,
+  "filesSha256": {
+    "src/services/mealStore.js": "2dedabfc2851f8c89326c74682e5f780f5622df49bd5f2f5da2feb98c56c041f",
+    "src/services/mealStore.retry.test.js": "084cea844b4ede602f14db7ed963e3aa77e9f7a67294d7958cc78011c239cf09",
+    "scripts/meal-store-emulator.mjs": "614fa9794e8491b693bf300665e60266174696475cbbd9226bdf27beb0ef526c",
+    "firestore.rules": "3bfaa9801e552f881d225e9a182e96aaf4f971d2d8f3c668c56af292ad42cc1f"
+  },
+  "runtime": {
+    "node": "24.22.1",
+    "firestoreEmulator": "1.20.2",
+    "firestoreEmulatorJarSha256": "4a117fc297b1441eac1b7756e80442e86ef88865b9e3caf6f59eabf83da574f8",
+    "javaAgent": null,
+    "JAVA_TOOL_OPTIONS": "unset",
+    "JDK_JAVA_OPTIONS": "unset",
+    "project": "demo-scisense",
+    "firestoreHost": "127.0.0.1:8088",
+    "authHost": "127.0.0.1:9099"
+  },
+  "firebaseLaunchArguments": [
+    "emulators:exec",
+    "--config",
+    "firebase.lab.json",
+    "--project",
+    "demo-scisense",
+    "--only",
+    "auth,firestore"
+  ],
+  "failureBeforeFix": {
+    "phase": "distinct-concurrent-appends",
+    "errorCode": "permission-denied",
+    "rulesLines": [
+      502,
+      506
+    ],
+    "reproduction": "Штатний емулятор повторив збій CI. Після виправлення повтору тест дійшов до окремого неканонічного нового letter:b у тестовому прикладі."
+  },
+  "retryContract": {
+    "maxOuterTransactionAttempts": 3,
+    "sdkInternalAbortedRetryChanged": false,
+    "onlyRetryError": "permission-denied",
+    "requiredServerProof": "newer non-negative safe-integer revision than last transaction read",
+    "sameSubmissionIdHashAndWriterStamp": true,
+    "confirmedSuccessMarkerPriority": true,
+    "successRefreshFailure": "save_unknown, no further write cycle, preserve existing pending submission",
+    "terminalRejectionCheckedBeforeRetry": true,
+    "trainerExpectedRevisionRebased": false,
+    "transportUnknownContractPreserved": true,
+    "rulesChanged": false
+  },
+  "fixtureCorrection": {
+    "newTarget": "Cyrillic б",
+    "historicalLegacyGroupPreserved": "Latin a",
+    "projectionReplacementAssertionPreserved": true
+  },
+  "redGreen": [
+    {
+      "test": "original writer contention/reconciliation",
+      "redFailed": 4,
+      "redPassed": 5
+    },
+    {
+      "test": "confirmed-success refresh failure preserves pending",
+      "redFailed": 4,
+      "redPassed": 12
+    },
+    {
+      "test": "mealStore.retry.test.js",
+      "greenPassed": 16,
+      "greenFailed": 0,
+      "exitCode": 0
+    },
+    {
+      "test": "mealStore.retry.test.js + useMealDay.test.js",
+      "greenPassed": 27,
+      "greenFailed": 0,
+      "exitCode": 0
+    }
+  ],
+  "commands": [
+    {
+      "command": "npm run test:meal-store",
+      "exitCode": 0,
+      "checks": 47,
+      "includes": [
+        "concurrent identical submission",
+        "concurrent distinct append",
+        "parallel metadata and allocated append",
+        "parallel settings and append",
+        "legacy exact import and metadata",
+        "previous writer compatibility",
+        "canonical next-day projection"
+      ]
+    },
+    {
+      "command": "node scripts/hermes-store-test.mjs",
+      "exitCode": 0,
+      "rulesTestsPassed": 27,
+      "rulesTestsFailed": 0,
+      "actualWriterAndReader": [
+        {
+          "hermesStore": true,
+          "mixedAndNotesOnly": true,
+          "maxBatch": 20,
+          "conversion": true,
+          "exactV2Path": true,
+          "unknownAckRead": true,
+          "rollbackVisible": true,
+          "coachProvenanceRoundtrip": true,
+          "coachDayRevisionFence": true,
+          "legacyV3Migration25": true,
+          "completeV3WriterBatch20": true,
+          "realAPI": 0
+        },
+        {
+          "actualOwnerTokenReadOnlyREST": true,
+          "snapshotTransaction": true,
+          "crossOwnerDenied": true,
+          "notesNullable": true,
+          "noPrivateExtra": true,
+          "syntheticOnly": true
+        }
+      ]
+    }
+  ],
+  "negativeCoverage": [
+    "fixed denial without revision advance",
+    "maximum three outer attempts under repeated contention",
+    "invalid or unavailable revision proof",
+    "matching terminal rejected marker",
+    "different success hash",
+    "different rejected hash",
+    "fixed trainer expectedRevision becomes terminal plan_conflict",
+    "transport unavailable/deadline/unknown does not retry",
+    "confirmed success then refresh error preserves id without another write"
+  ],
+  "review": {
+    "agent": "coach_security_acceptance",
+    "verdict": "PASS",
+    "actionableP1P2": 0,
+    "resolvedFinding": "Після доведеного успіху помилка дочитування повертає save_unknown, щоб UI не створив новий submissionId."
+  },
+  "localArtifacts": [
+    {
+      "path": ".agents/runtime/coach-contention-red.log",
+      "tracked": false,
+      "sha256": "55dfdbee16af63ab8cfbab62a72883c354c8d8bc19f5802f74dbb479b16ba62e"
+    },
+    {
+      "path": ".agents/runtime/coach-contention-refresh-red.log",
+      "tracked": false,
+      "sha256": "e440a971fe4c4ac515d3fdc725544706f9710e551a3ed243dfaf28891d943e03"
+    },
+    {
+      "path": ".agents/runtime/coach-contention-green.log",
+      "tracked": false,
+      "sha256": "1a7b024c9fb81f812447cb2df6665faeaddc694fe3ea49ac3b157702c889168e"
+    },
+    {
+      "path": ".agents/runtime/coach-contention-ui-green.log",
+      "tracked": false,
+      "sha256": "5633181136e5f567eae29e5c93bdfac15bbd6c0f771e82e1a24b8e582001d195"
+    },
+    {
+      "path": ".agents/runtime/coach-core-meal-store-race.log",
+      "tracked": false,
+      "sha256": "878f95b9866749e2c622df1a4c1d3e11af4c873182ca01a47e353d35185ae5e2"
+    },
+    {
+      "path": ".agents/runtime/coach-core-meal-store-after-retry.log",
+      "tracked": false,
+      "sha256": "d772b369f393b3cb86ca22c770b5c7d890069720f5c53c877e1744ae909a9a6e"
+    },
+    {
+      "path": ".agents/runtime/coach-core-meal-store-green.log",
+      "tracked": false,
+      "sha256": "e6732f6409b11a5b1348b4f768511893590c14c01fa6a795c5d08dc7e5218448"
+    },
+    {
+      "path": ".agents/runtime/coach-contention-hermes-stock.log",
+      "tracked": false,
+      "sha256": "58e745ea30e9acb576b98fb8f2375d1408ddaaac8a115f8b69436ff5aca1ff22"
+    }
+  ],
+  "limitations": [
+    "CI і розгортання нового коміту виконує головний агент; цей доказ стосується локального синтетичного середовища."
+  ]
+}
