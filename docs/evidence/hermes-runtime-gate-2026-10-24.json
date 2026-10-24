@@ -1,0 +1,163 @@
+{
+  "plan": "HERMES-FOOD-01",
+  "step": 1,
+  "date": "2026-10-24",
+  "scope": "synthetic local compatibility only",
+  "pin": {
+    "commit": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+    "python": "3.14.6",
+    "archiveSha256": "20ae3e52d5c1b1c7c72d7bf6355e01562dc56cb13d71bd43f8bf9762fabd1b39",
+    "manifestSha256": "bb32dcd4ab66da9ae26e4e68bb818d483bec23855d7432c2e6eca561d13a9b34",
+    "files": 20685,
+    "dependencyLockSha256": "97367c6bf21aa3711bae5aa0d0662d9a68585a03a2a9d11cd9b17393435c4f91"
+  },
+  "isolation": {
+    "fileDenied": true,
+    "networkDenied": true
+  },
+  "complete": {
+    "secureDeleteOnSharedWriter": true,
+    "privacyCleanup": {
+      "checkpointBusy": 0,
+      "removedStagingFiles": 1
+    },
+    "canonicalAuthority": true,
+    "admissionStatuses": [
+      "terminal"
+    ],
+    "capabilitiesVerified": true,
+    "curatedFilesSeen": {
+      "memories/USER.md": true,
+      "memories/MEMORY.md": true,
+      "home/yura-context.md": true,
+      "memories/scisense-confirmed.md": true,
+      "skills/trainer/SKILL.md": true
+    },
+    "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+    "mode": "complete",
+    "actualHermes": true,
+    "contextFilesUnchanged": true,
+    "mockProviderRequests": 3,
+    "tools": [
+      "food_lookup",
+      "propose_context_update",
+      "propose_food_draft",
+      "read_confirmed_day",
+      "read_plan",
+      "read_trainer_context"
+    ],
+    "toolCalls": [
+      {
+        "name": "food_lookup",
+        "args": {
+          "query": "cooked potato"
+        }
+      },
+      {
+        "name": "read_trainer_context",
+        "args": {}
+      },
+      {
+        "name": "propose_food_draft",
+        "args": {
+          "items": [
+            {
+              "itemId": "synthetic-item",
+              "name": "Картопля",
+              "quantity": {
+                "value": 200,
+                "unit": "g"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "elapsedSeconds": 1.271,
+    "runStatus": "completed",
+    "deleteStatus": 200,
+    "mediaSeen": true,
+    "mediaLeaks": [],
+    "replaySameRun": true,
+    "forbiddenToolsRejected": true,
+    "historySeen": true,
+    "soulSeen": true,
+    "snapshotSeen": true
+  },
+  "cancel": {
+    "secureDeleteOnSharedWriter": true,
+    "privacyCleanup": {
+      "checkpointBusy": 0,
+      "removedStagingFiles": 1
+    },
+    "canonicalAuthority": true,
+    "admissionStatuses": [
+      "terminal"
+    ],
+    "capabilitiesVerified": true,
+    "curatedFilesSeen": {
+      "memories/USER.md": true,
+      "memories/MEMORY.md": true,
+      "home/yura-context.md": true,
+      "memories/scisense-confirmed.md": true,
+      "skills/trainer/SKILL.md": true
+    },
+    "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+    "mode": "cancel",
+    "actualHermes": true,
+    "contextFilesUnchanged": true,
+    "mockProviderRequests": 1,
+    "tools": [
+      "food_lookup",
+      "propose_context_update",
+      "propose_food_draft",
+      "read_confirmed_day",
+      "read_plan",
+      "read_trainer_context"
+    ],
+    "toolCalls": [],
+    "elapsedSeconds": 1.51,
+    "runStatus": "cancelled",
+    "deleteStatus": 200,
+    "mediaSeen": true,
+    "mediaLeaks": [],
+    "replaySameRun": true,
+    "forbiddenToolsRejected": false,
+    "historySeen": true,
+    "soulSeen": true,
+    "snapshotSeen": true
+  },
+  "nativeDeleteNegativeControl": {
+    "exit": 1,
+    "retainedFiles": [
+      "state.db-wal",
+      "cache/images/api_<owned-image-hash>.png"
+    ]
+  },
+  "wrapperFailureTests": {
+    "passed": 12,
+    "failed": 0
+  },
+  "independentReview": {
+    "agent": "Codex hermes_runtime_gate_review",
+    "verdict": "passed",
+    "openFindings": 0,
+    "criteria": [
+      "pin",
+      "isolation",
+      "canonical authority",
+      "six tools and context",
+      "native image and lifecycle",
+      "physical cleanup",
+      "12 failure tests"
+    ],
+    "physicalScanFragments": 902
+  },
+  "notProven": [
+    "H01-H11 product acceptance",
+    "real model correctness or latency",
+    "Linux 2 CPU / 2 GiB benchmark",
+    "private profile compatibility",
+    "production readiness"
+  ]
+}

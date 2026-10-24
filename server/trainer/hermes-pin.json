@@ -1,0 +1,8 @@
+{
+  "commit": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+  "python": "3.14.6",
+  "archiveSha256": "20ae3e52d5c1b1c7c72d7bf6355e01562dc56cb13d71bd43f8bf9762fabd1b39",
+  "manifestSha256": "bb32dcd4ab66da9ae26e4e68bb818d483bec23855d7432c2e6eca561d13a9b34",
+  "files": 20685,
+  "dependencyLockSha256": "97367c6bf21aa3711bae5aa0d0662d9a68585a03a2a9d11cd9b17393435c4f91"
+}

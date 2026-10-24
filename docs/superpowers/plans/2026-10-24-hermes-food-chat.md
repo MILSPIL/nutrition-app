@@ -41,6 +41,8 @@
 
 Коміт: «test: перевірити контракт закріпленого Hermes». Доказ: actual pinned process з mock provider, deny-network, точні emitted tool names/requests та контроль диска, не mock самого Hermes. Жодного live-модельного endpoint.
 
+Уточнення реалізації 2026-10-24: на pinned SHA штатний DELETE лишає staging image та WAL. Дозволений вузький wrapper запускає canonical authority/adapter як один worker на turn у тому самому профілі, з secure_delete на shared writer. Після збереження результату/cleanup job, native DELETE й повної зупинки worker виконується адресне очищення staging за SHA та quiescent checkpoint з перевіркою busy=0. Нова admission не починається до завершення cleanup. Hosted-room, фонові watchers та інші платформи не запускаються. Жодного TRUNCATE на активному runtime, upstream не змінюється. Startup/recovery/TTL мають повторювати цей самий протокол; якщо stop/cleanup не доведено, стан лишається blocked cleanup, не готовий результат. Це локальний контракт wrapper, не дозвіл на приватне перенесення або запуск.
+
 ### 2. Додати обмежений шлюз тренера й контроль кожного виклику
 
 Модель: Codex; високий ризик, свіже зовнішнє рев’ю до наступного блока.
