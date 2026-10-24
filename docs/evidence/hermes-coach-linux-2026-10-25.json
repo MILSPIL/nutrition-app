@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "commit": "04ef1a60d7c0acf33d3751060b4cfffbb7a243a4",
+  "ciRun": 40133671037,
+  "scope": "synthetic Linux native/resource/systemd only; application rules work still pending",
+  "providerCallsAreSynthetic": true,
+  "serverChanged": false,
+  "actualHostVerified": false,
+  "capacity": {
+    "actualHermes": true,
+    "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+    "firstTurnSeconds": 6.61,
+    "suiteSeconds": 6.611,
+    "resourceProbe": true,
+    "capacityProbe": true,
+    "profileTemplateSha256": "e24f3db595a8edc09bca03e9e80c07365ba80dccff4ecd50ef701986a42a8cce",
+    "modelTextBytes": [
+      31964,
+      31747,
+      31732
+    ],
+    "isolation": "linux-bubblewrap",
+    "fullFoodIndex": true,
+    "realTools": true,
+    "draftKcal": 174,
+    "providerCalls": 3,
+    "recoveryNoNewCalls": false,
+    "cancelNoResult": false,
+    "upstream429Calls": null,
+    "deadlineStopsNative": false,
+    "killedUnknownCancelled": false,
+    "tools": [
+      "food_lookup",
+      "propose_food_draft"
+    ],
+    "profileFilesScanned": 22,
+    "mediaFragments": 9,
+    "mediaLeaks": 0,
+    "ownerIsolation": true,
+    "replayCalls": 0,
+    "syntheticOnly": true,
+    "retainedLatestPairEveryCall": true,
+    "foodCoachConfigApplied": true,
+    "resources": {
+      "cpu": 2,
+      "memoryMax": 2147483648,
+      "swap": 0,
+      "memoryPeak": 290258944,
+      "oomKills": 0
+    }
+  },
+  "systemd": {
+    "passed": true,
+    "syntheticOnly": true,
+    "actualUnit": "deploy/hermes/scisense-api.service",
+    "parentCanaries": true,
+    "nestedIsolationCanaries": true,
+    "resource": {
+      "actualHermes": true,
+      "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+      "firstTurnSeconds": 6.351,
+      "suiteSeconds": 6.352,
+      "resourceProbe": true,
+      "capacityProbe": false,
+      "profileTemplateSha256": "e24f3db595a8edc09bca03e9e80c07365ba80dccff4ecd50ef701986a42a8cce",
+      "modelTextBytes": [
+        13645,
+        16002,
+        16741
+      ],
+      "isolation": "linux-bubblewrap",
+      "fullFoodIndex": true,
+      "realTools": true,
+      "draftKcal": 174,
+      "providerCalls": 3,
+      "recoveryNoNewCalls": false,
+      "cancelNoResult": false,
+      "upstream429Calls": null,
+      "deadlineStopsNative": false,
+      "killedUnknownCancelled": false,
+      "tools": [
+        "food_lookup",
+        "propose_food_draft"
+      ],
+      "profileFilesScanned": 22,
+      "mediaFragments": 9,
+      "mediaLeaks": 0,
+      "ownerIsolation": true,
+      "replayCalls": 0,
+      "syntheticOnly": true,
+      "resources": {
+        "cpu": 2,
+        "memoryMax": 2147483648,
+        "swap": 0,
+        "memoryPeak": 320131072,
+        "oomKills": 0
+      }
+    },
+    "isolation": {
+      "architecture": "x86_64",
+      "platform": "linux/amd64",
+      "dockerTransport": "local-unix",
+      "noHostBinds": true,
+      "noPublishedPorts": true,
+      "network": "none",
+      "cpu": 2,
+      "memoryBytes": 2147483648
+    },
+    "containerName": "scisense-hermes-systemd-60eeac7e-dbb4-463e-871a-672c67229733",
+    "cleanup": true
+  },
+  "cleanup": {
+    "removed": true
+  },
+  "containerState": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-10-24T21:19:54.335743468Z",
+    "FinishedAt": "2026-10-24T21:20:01.037637696Z"
+  },
+  "artifactFileHashes": {
+    "container-state.json": "7ef9bf5d77cbd51fe232799f32692d3d9b9b317b2f8ae71c9bd5d5d913f5220f",
+    "systemd.json": "a357b178e3a3a8dac53ae73e000ed8b86e98a7d752f903519dd32a426b7ac882",
+    "cleanup.json": "ddb619d84def1b591d4d3ccefe17b4a21927fdb8bacfd27a50ae84b33d849598",
+    "capacity-summary.json": "09c2317151aac8d9272a056eb35f287d7e7caed9f65c73d9106ed255c0374238"
+  }
+}

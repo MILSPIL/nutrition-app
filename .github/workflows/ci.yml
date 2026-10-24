@@ -58,7 +58,7 @@ jobs:
             tmp/voice-photo-qa/
             tmp/phone-lab-qa/evidence.json
             tmp/phone-lab-stt-only-qa/evidence.json
-            tmp/hermes-chat-qa/evidence.json
+            tmp/hermes-chat-qa/
             tmp/coach-ui-qa/
           retention-days: 7
 
