@@ -14,7 +14,7 @@
     "order_hint": 0,
     "author": "Codex",
     "created_at": "2026-10-20T08:46:52.926644+00:00",
-    "updated_at": "2026-10-24T14:02:51.386683+00:00",
+    "updated_at": "2026-10-24T20:09:29.350161+00:00",
     "valid_from": null,
     "expires_at": null,
     "importance": null,
@@ -25,8 +25,8 @@
     "last_exported_at": null,
     "last_exported_hash": null,
     "health": "at_risk",
-    "health_note": "HERMES-FOOD-01 локальні0–7/H01–H10 завершено наce62052: точний CI, незалежне рев’ю та вимкнений пакет перевірені. Наступні B1/B2/C ще не дозволені; сумісність реального host, приватний Firebase gate, живі API/телефон і продуктовий пілот лишаються неперевіреними. G02–G11 не закриваються локальними тестами.",
-    "health_updated_at": "2026-10-24T14:02:51.386683+00:00"
+    "health_note": "HERMES-FOOD-01 локальні0–7 завершені на ce62052. HERMES-COACH-02/I01 пройшов документне D01–D06/Codex і перевірене Fable-review, чекає погодження0–5+I01. Продуктовий код/новий deployment не виконані. B/C, host/Firebase gate, телефон і G09 лишаються відкритими; новий G01 pending.",
+    "health_updated_at": "2026-10-24T20:09:29.350161+00:00"
   },
   "phase_revisions": [
     {
@@ -432,6 +432,34 @@
       "actor_client": null,
       "actor_model": null,
       "at": "2026-10-24T14:02:51.386683+00:00",
+      "project": "nutrition-app",
+      "product": "scisense"
+    },
+    {
+      "id": "rev_fb0d08a688b67ca0",
+      "phase_id": "phase_870a15952663",
+      "field": "health_note",
+      "old_value": "HERMES-FOOD-01 локальні0–7/H01–H10 завершено наce62052: точний CI, незалежне рев’ю та вимкнений пакет перевірені. Наступні B1/B2/C ще не дозволені; сумісність реального host, приватний Firebase gate, живі API/телефон і продуктовий пілот лишаються неперевіреними. G02–G11 не закриваються локальними тестами.",
+      "new_value": "HERMES-FOOD-01 локальні0–7 завершені на ce62052. Новий HERMES-COACH-02/I01 проходить документне рев’ю й чекає погодження: побутові порції, advice/date, launcher/private-context контракт. Продуктовий код/новий deployment не виконані. Реальні B/C, host/Firebase gate, телефон і G09 лишаються відкритими; новий G01 pending.",
+      "reason": null,
+      "author": null,
+      "actor_client": null,
+      "actor_model": null,
+      "at": "2026-10-24T19:53:55.664271+00:00",
+      "project": "nutrition-app",
+      "product": "scisense"
+    },
+    {
+      "id": "rev_f28228be4a6156de",
+      "phase_id": "phase_870a15952663",
+      "field": "health_note",
+      "old_value": "HERMES-FOOD-01 локальні0–7 завершені на ce62052. Новий HERMES-COACH-02/I01 проходить документне рев’ю й чекає погодження: побутові порції, advice/date, launcher/private-context контракт. Продуктовий код/новий deployment не виконані. Реальні B/C, host/Firebase gate, телефон і G09 лишаються відкритими; новий G01 pending.",
+      "new_value": "HERMES-FOOD-01 локальні0–7 завершені на ce62052. HERMES-COACH-02/I01 пройшов документне D01–D06/Codex і перевірене Fable-review, чекає погодження0–5+I01. Продуктовий код/новий deployment не виконані. B/C, host/Firebase gate, телефон і G09 лишаються відкритими; новий G01 pending.",
+      "reason": null,
+      "author": null,
+      "actor_client": null,
+      "actor_model": null,
+      "at": "2026-10-24T20:09:29.350161+00:00",
       "project": "nutrition-app",
       "product": "scisense"
     }

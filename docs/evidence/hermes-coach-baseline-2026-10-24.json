@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "node": "v24.22.1",
+  "baseHead": "86ad3bed8ad2a25c1fa0a9543b9db8585db95e3f",
+  "codeTrees": {
+    "src": "5142e9447eaa77c5477dfed09e32d4f27083ffb7",
+    "server": "b904d77622fd9bf61771653130041433cca84774",
+    "workers": "52acaacebfe23f94e934999ac3c17087234d7e66"
+  },
+  "syntheticOnly": true,
+  "networkCalls": 0,
+  "providerCalls": 0,
+  "privateProfileRead": false,
+  "oldForm": {
+    "unknownPortionRejected": true,
+    "issues": [
+      "Уточніть основу харчових значень",
+      "Потрібні ккал і всі БЖВ з джерела",
+      "Уточніть розмір."
+    ],
+    "completeExplicitEstimateAccepted": true,
+    "syntheticCalories": 62,
+    "incompatibleUnitsRejected": true
+  },
+  "snapshot": {
+    "normalAccepted": true,
+    "oversizedSyntheticBytes": 80000,
+    "oversizedRejected": true,
+    "error": "context_too_large"
+  },
+  "sourceObservation": {
+    "headerVoiceEntryPresent": true,
+    "singleTrainerComponentPresent": true,
+    "floatingEntryPresent": false
+  },
+  "notProven": [
+    "real provider output",
+    "production release contents",
+    "phone UI",
+    "private context migration",
+    "Telegram delivery",
+    "household measure source quality"
+  ]
+}

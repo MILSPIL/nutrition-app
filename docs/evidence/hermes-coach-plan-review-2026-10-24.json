@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-24",
+  "scope": "document_review_only",
+  "baseHead": "86ad3bed8ad2a25c1fa0a9543b9db8585db95e3f",
+  "productCode": "ce62052bb43aa21195af784201aa330c9221bf00",
+  "productCodeChanged": false,
+  "newDeployment": false,
+  "modelApiCalls": 0,
+  "privateContextPublished": false,
+  "specProbe": {
+    "rounds": 2,
+    "firstFindings": 12,
+    "secondFindings": 2,
+    "allAddressedInDocument": true
+  },
+  "claude": {
+    "model": "claude-fable-5-1",
+    "exitCode": 0,
+    "seconds": 700.6,
+    "tokens": {
+      "input": 162,
+      "output": 32457,
+      "cacheCreation": 167255,
+      "cacheRead": 570806,
+      "total": 770680
+    },
+    "transport": "unchanged claude-ask.py using Claude Code Max; application API credentials excluded",
+    "verifiedFindings": [
+      {
+        "id": "F01",
+        "verdict": "confirmed",
+        "checked": "gateway.mjs:26; TrainerChat.js:315,595,1079; ClientApp.js:602",
+        "finding": "Стан targetDate не відрізняє pin від старої вкладки",
+        "resolution": "dateContext default/pinned; необов’язкове редагування дати прев’ю; C02 stale-tab"
+      },
+      {
+        "id": "F02",
+        "verdict": "confirmed",
+        "checked": "tools.mjs:48,65; drafts.mjs:86",
+        "finding": "ISO і multi-date policy нині делеговані моделі",
+        "resolution": "dayRef + серверний календар/валідація; policy red; fixed draft date; DST/replay"
+      },
+      {
+        "id": "F03",
+        "verdict": "confirmed",
+        "checked": "context-store.mjs:51,70,130; tools.mjs:62; hermes-food-local.md:61",
+        "finding": "API context і native profile мають різні storage/caps",
+        "resolution": "context.txt тільки contextStore, validator8000, native без особистих фактів"
+      },
+      {
+        "id": "F04",
+        "verdict": "partial",
+        "checked": "food-resolver.mjs:81,145; firestore.rules:133,164",
+        "finding": "Нові source поля відхиляються whitelist; план забороняє auth schema, не всю food schema",
+        "resolution": "Явні optional source.portionOrigin/estimateReason та emulator/legacy/deny gate у локальному кроці1"
+      },
+      {
+        "id": "F05",
+        "verdict": "confirmed",
+        "checked": "TrainerChat.js:86,906; gateway.mjs:275",
+        "finding": "Прев’ю іншої дати бере empty, save читає реальний день",
+        "resolution": "Цільовий snapshot/агрегати preview і save; C04 непорожній yesterday"
+      },
+      {
+        "id": "F06",
+        "verdict": "confirmed",
+        "checked": "TrainerChat.js:397",
+        "finding": "refresh фокусує textarea",
+        "resolution": "C01 mobile activeElement не textarea при відкритті"
+      },
+      {
+        "id": "F07",
+        "verdict": "partial",
+        "checked": "snapshot.mjs:40,50; limits.mjs:15,17; baseline.cjs:21",
+        "finding": "Нема позитивного повного fixture. Рекомендовані reviewer12pairs перевищують чинний cap12messages",
+        "resolution": "Fixture24items/4notes/26refs/context8000;12вхіднихпар, максимум6 збережених; latest pair збережена; mandatory facts не губляться"
+      },
+      {
+        "id": "F08",
+        "verdict": "confirmed",
+        "checked": "drafts.mjs:165; mealItems.js:82",
+        "finding": "Чинний reference guard залежить від name/preparation, не source",
+        "resolution": "C04 same-name estimate→label/recordId reset reference; manual letter видима"
+      },
+      {
+        "id": "F09",
+        "verdict": "confirmed",
+        "checked": "gateway.mjs:219; snapshot.mjs:28",
+        "finding": "Нова назва clock field відрізняється від наявної",
+        "resolution": "Єдина sentAt, захоплена сервером до I/O й збережена при першому admission"
+      },
+      {
+        "id": "F10",
+        "verdict": "confirmed",
+        "checked": "hermes-food-local.md:68; ClientApp.js:602",
+        "finding": "UI flag застосовується під час build",
+        "resolution": "План явно вимагає on/off builds і сумісний rollback release"
+      },
+      {
+        "id": "F11",
+        "verdict": "confirmed",
+        "checked": "2026-10-24-hermes-coach-next.md:47",
+        "finding": "Початок введення описано як зайвий model turn",
+        "resolution": "Записати їжу лише відкриває/focus composer,0calls"
+      },
+      {
+        "id": "F12",
+        "verdict": "partial",
+        "checked": "hermes-food-local.md:79; coach plan smoke",
+        "finding": "Memory case змінено навмисно через read-only етап, але негативну live-перевірку слід додати",
+        "resolution": "8-й turn synthetic memory request read-only; прямий commit deny без нового inference"
+      }
+    ],
+    "confirmed": 9,
+    "partial": 3,
+    "false": 0
+  },
+  "documentChecks": {
+    "D01": "passed",
+    "D02": "passed",
+    "D03": "passed",
+    "D04": "passed",
+    "D05": "passed",
+    "D06": "passed"
+  },
+  "independentFinalReadback": "passed",
+  "implementationApproval": "pending",
+  "G01": "pending",
+  "productAcceptance": "pending",
+  "remainingExternalEvidence": [
+    "household measure source coverage",
+    "B1 exact host and writer inventory",
+    "private registry and package owner review",
+    "current model prices and budget ledger",
+    "phone/Mac-off/cutover/pilot"
+  ],
+  "checks": {
+    "baselineByteEqual": true,
+    "jsonParses": true,
+    "relativeLinksExist": true,
+    "publicDiffPrivateDataReview": true,
+    "productDiffEmpty": true
+  },
+  "documentsSha256": {
+    "docs/superpowers/specs/2026-10-24-hermes-coach-next.md": "52478c19dcc4d92688bbab9ceb60e8ace475e008040a701695b941a19e76aa09",
+    "docs/superpowers/plans/2026-10-24-hermes-coach-next.md": "ad824e0891ce3bd106cdb8ca99066f360559a90086abd0eff52454d89251a414"
+  },
+  "independentReviewer": "Codex coach_doc_acceptance"
+}

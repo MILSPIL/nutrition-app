@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-24",
+  "url": "https://ntzg.pp.ua/",
+  "method": "isolated Chrome; three parallel public fetches with cache no-store, then one default-cache repeat; no sign-in",
+  "assets": [
+    {
+      "file": "category-carbs.png",
+      "bytes": 980509,
+      "width": 1024,
+      "height": 1024,
+      "durationMs": 4123,
+      "ttfbMs": 58
+    },
+    {
+      "file": "category-dairy.png",
+      "bytes": 693310,
+      "width": 1024,
+      "height": 1024,
+      "durationMs": 3748,
+      "ttfbMs": 179
+    },
+    {
+      "file": "category-treats.png",
+      "bytes": 722443,
+      "width": 1024,
+      "height": 1024,
+      "durationMs": 3964,
+      "ttfbMs": 180
+    }
+  ],
+  "status": 200,
+  "serverCacheControl": "no-store",
+  "protocol": "h3",
+  "repeat": {
+    "file": "category-carbs.png",
+    "durationMs": 1699,
+    "transferBytes": 980809,
+    "bodyBytes": 980509
+  },
+  "cssIconSizePx": 44,
+  "productionWrites": 0,
+  "modelCalls": 0,
+  "ownedPageClosed": true,
+  "remainingPages": [
+    "about:blank"
+  ]
+}
