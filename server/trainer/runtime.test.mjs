@@ -9,9 +9,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
+import { stableJSON } from "./limits.mjs";
 import {
   createTrainerRuntime,
+  TRAINER_CONFIGURATION,
   validateTrainerActivation,
   trainerConfigHash,
   trainerKeys,
@@ -193,4 +195,13 @@ test("H04 actual runtime stores share lifecycle and never infer on state/context
   await Promise.all([runtime.close(), runtime.close()]);
   runtime = null;
   assert.equal(shutdown, 1);
+});
+
+test("C05 activation binds the exact tested native config and profile template", () => {
+  const digest = name => createHash("sha256").update(readFileSync(new URL(name, import.meta.url))).digest("hex");
+  assert.equal(TRAINER_CONFIGURATION.hermesConfigSha256, digest("./hermes-config.json"));
+  assert.equal(TRAINER_CONFIGURATION.profileTemplateSha256, digest("./profile-template.json"));
+  const { hermesConfigSha256, profileTemplateSha256, ...oldConfiguration } = TRAINER_CONFIGURATION;
+  const oldHash = createHash("sha256").update(stableJSON(oldConfiguration)).digest("hex");
+  assert.throws(() => validateTrainerActivation({ ...activation(), configHash: oldHash }, manifest, legacy), /trainer_activation_invalid/);
 });

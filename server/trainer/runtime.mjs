@@ -17,6 +17,12 @@ export const TRAINER_CONFIGURATION = Object.freeze({
   model: MODEL,
   limits: LIMITS,
   policy: { minute: 12, hour: 80, day: 120 },
+  hermesConfigSha256: createHash("sha256")
+    .update(readFileSync(new URL("./hermes-config.json", import.meta.url)))
+    .digest("hex"),
+  profileTemplateSha256: createHash("sha256")
+    .update(readFileSync(new URL("./profile-template.json", import.meta.url)))
+    .digest("hex"),
   isolation: "linux-bubblewrap",
   cpu: 2,
   memoryBytes: 2147483648,
