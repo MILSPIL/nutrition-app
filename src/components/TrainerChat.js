@@ -76,12 +76,16 @@ function DraftCard({
   stale,
   onRefresh,
 }) {
-  const allocated = assignPlanItems(
-      draft.items.filter((i) => i.nutritionStatus === "complete"),
-      catalog,
-      meals,
-    ),
-    byId = new Map(allocated.map((i) => [i.itemId, i]));
+  const frozen = ["saving", "unknown", "saved"].includes(draft.state);
+  // The save command owns the confirmed allocation, even after the day changes.
+  const allocated = frozen && Array.isArray(draft.save?.command?.items)
+    ? draft.save.command.items
+    : assignPlanItems(
+        draft.items.filter((i) => i.nutritionStatus === "complete"),
+        catalog,
+        meals,
+      );
+  const byId = new Map(allocated.map((i) => [i.itemId, i]));
   const preview = { ...meals, preview: {} };
   for (const i of draft.state === "saved" ? [] : allocated) {
     const k = i.planAllocation.letter || "voice";
@@ -99,8 +103,7 @@ function DraftCard({
         { cal: 0, p: 0, f: 0, c: 0 },
       ),
     );
-  const frozen = ["saving", "unknown", "saved"].includes(draft.state),
-    locked = disabled || frozen || draft.blocked;
+  const locked = disabled || frozen || draft.blocked;
   return (
     <article className="trainer-draft" data-testid="trainer-draft">
       <div className="trainer-draft-heading">

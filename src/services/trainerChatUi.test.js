@@ -304,3 +304,43 @@ test("C04 preview uses the freshly read catalog instead of an older page plan",a
  expect(host.textContent).toContain('За день: 50% → 90%');
  expect(host.textContent).not.toContain('За день: 50% → 100%');
 });
+
+test.each(['бобові', 'сир кисломолочний 0,2%'])(
+  'C03 saved %s keeps its confirmed letter and portion after reopening',
+  async (name) => {
+    const catalog = buildPlanCatalog({ profile: {} });
+    const ref = catalog.references.find((r) => r.name === name);
+    const item = {
+      itemId: 'saved-synthetic-food', name,
+      quantity: { value: ref.norm, unit: 'g' },
+      nutritionBasis: { value: 100, unit: 'g' },
+      nutrients: { p: 10, f: 1, c: 20, cal: 130 },
+      source: { kind: 'estimate' }, estimated: true,
+      nutritionStatus: 'complete',
+      planMatch: { referenceId: ref.refId, consumedState: 'as_sold', certainty: 'matched' },
+    };
+    const [confirmed] = assignPlanItems([item], catalog, {});
+    const letter = confirmed.planAllocation.letter;
+    const meals = { 1: { [letter]: [confirmed] } };
+    // A fresh allocation must differ, otherwise this fixture misses the regression.
+    expect(assignPlanItems([item], catalog, meals)[0].planAllocation.letter).not.toBe(letter);
+    const freshness = { targetDate: '2026-01-02', dayRevision: 8, planFingerprint: 'synthetic', notesRevision: 'none' };
+    const day = { targetDate: freshness.targetDate, meals, freshness, catalog };
+    server.drafts = [{ draftId: 'saved-draft', revision: 2, state: 'saved', targetDate: day.targetDate, meal: 1, items: [item], freshness, save: { command: { items: [confirmed] } } }];
+    api.day = jest.fn(async () => day);
+    props.planContext = { profile: {} };
+    props.dayMeals = {};
+    const assertConfirmed = () => {
+      const badge = host.querySelector('.voice-plan-badge').textContent;
+      expect(badge.startsWith(letter.toUpperCase() + ' ·')).toBe(true);
+      expect(badge).toContain('100% норми');
+      expect(host.textContent).toContain('За день: 100% → 100%');
+    };
+    await render();
+    assertConfirmed();
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    await render();
+    assertConfirmed();
+  },
+);
