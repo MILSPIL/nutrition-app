@@ -1,0 +1,336 @@
+{
+  "scope": "HERMES-COACH-02 та I01: локальна реалізація, перевірений пакет; публікація очікує доступу",
+  "verifiedAt": "2026-10-24T22:24:30.895047+00:00",
+  "releaseSha": "cd7b02d345385909ab8c59b42a0d48f78833f7f6",
+  "baseSha": "6d600e64d08eee6029167654b8e22439709b0895",
+  "version": "1.9.0",
+  "productionWrites": 0,
+  "modelInferenceCalls": 0,
+  "privateContextInstalled": false,
+  "curatedContextPreparedLocally": true,
+  "ownerPhoneAcceptance": false,
+  "ci": {
+    "runId": 40137268017,
+    "attempt": 2,
+    "url": "https://github.com/MILSPIL/nutrition-app/actions/runs/40137268017",
+    "conclusion": "success",
+    "updatedAt": "2026-10-24T22:22:05Z",
+    "jobs": [
+      {
+        "name": "test-and-build",
+        "id": 121002503109,
+        "conclusion": "success",
+        "startedAt": "2026-10-24T22:14:00Z",
+        "completedAt": "2026-10-24T22:22:04Z"
+      },
+      {
+        "name": "hermes-resource-check",
+        "id": 121002503241,
+        "conclusion": "success",
+        "startedAt": "2026-10-24T22:14:00Z",
+        "completedAt": "2026-10-24T22:18:23Z"
+      },
+      {
+        "name": "systemd-credential-check",
+        "id": 121002503245,
+        "conclusion": "success",
+        "startedAt": "2026-10-24T22:14:00Z",
+        "completedAt": "2026-10-24T22:14:41Z"
+      },
+      {
+        "name": "groq-free-resource-check",
+        "id": 121002503254,
+        "conclusion": "success",
+        "startedAt": "2026-10-24T22:14:00Z",
+        "completedAt": "2026-10-24T22:14:28Z"
+      }
+    ]
+  },
+  "localChecks": {
+    "clientTests": 283,
+    "clientSuites": 31,
+    "serverTests": 213,
+    "sourceAndAccessRulesTests": 65,
+    "coreStorageChecks": 47,
+    "retryAndHookTests": 27,
+    "actualHermesWriterReaderAfterRetry": true,
+    "sourceRulesAfterRetry": 27,
+    "independentCodeReview": "PASS; no open P1/P2"
+  },
+  "browser": [
+    {
+      "suite": "coach-ui-qa",
+      "checks": 21,
+      "sha256": "d9cb0fb37e4b61bdc73149190f6b69db56dbd4f809439136cfb1c47ed57f110f",
+      "explicitPass": null,
+      "failedRoutes": null,
+      "javascriptErrors": null,
+      "cleanup": null
+    },
+    {
+      "suite": "hermes-chat-qa",
+      "checks": 31,
+      "sha256": "9a68e6d7dca8a66a7326a90de5ed980a8b536a74827fe89f7f35b8a0b9567667",
+      "explicitPass": null,
+      "failedRoutes": null,
+      "javascriptErrors": null,
+      "cleanup": null
+    },
+    {
+      "suite": "phone-lab-qa",
+      "checks": 50,
+      "sha256": "0868cd1286da25a50ad779d720dcc2ec5a644bd375aad6b78a4a3d094ca1d204",
+      "explicitPass": true,
+      "failedRoutes": [],
+      "javascriptErrors": [],
+      "cleanup": {
+        "context": true,
+        "browser": true,
+        "gateway": true,
+        "budget": true,
+        "ok": true
+      }
+    },
+    {
+      "suite": "phone-lab-stt-only-qa",
+      "checks": 34,
+      "sha256": "20d4f3d6e3089e7f0543a522bd2417a12fd7f484ac89501774702544f55a88b0",
+      "explicitPass": true,
+      "failedRoutes": [],
+      "javascriptErrors": [],
+      "cleanup": {
+        "context": true,
+        "browser": true,
+        "gateway": true,
+        "budget": true,
+        "ok": true
+      }
+    },
+    {
+      "suite": "trainer-ui-qa",
+      "checks": 7,
+      "sha256": "f8b533ced51a4febdcb44b566c0b3be113133750da736351f0fc3798b84f3b9a",
+      "explicitPass": null,
+      "failedRoutes": null,
+      "javascriptErrors": null,
+      "cleanup": null
+    },
+    {
+      "suite": "voice-photo-qa",
+      "checks": 73,
+      "sha256": "4504463b3db59db13e23b739a222c42ad8bb3f57adfd7397929c0b02a8cea51c",
+      "explicitPass": null,
+      "failedRoutes": null,
+      "javascriptErrors": null,
+      "cleanup": null
+    }
+  ],
+  "linuxCapacity": {
+    "actualHermes": true,
+    "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+    "firstTurnSeconds": 9.728,
+    "suiteSeconds": 9.729,
+    "resourceProbe": true,
+    "capacityProbe": true,
+    "profileTemplateSha256": "e24f3db595a8edc09bca03e9e80c07365ba80dccff4ecd50ef701986a42a8cce",
+    "modelTextBytes": [
+      31964,
+      31747,
+      31732
+    ],
+    "isolation": "linux-bubblewrap",
+    "fullFoodIndex": true,
+    "realTools": true,
+    "draftKcal": 174,
+    "providerCalls": 3,
+    "recoveryNoNewCalls": false,
+    "cancelNoResult": false,
+    "upstream429Calls": null,
+    "deadlineStopsNative": false,
+    "killedUnknownCancelled": false,
+    "tools": [
+      "food_lookup",
+      "propose_food_draft"
+    ],
+    "profileFilesScanned": 22,
+    "mediaFragments": 9,
+    "mediaLeaks": 0,
+    "ownerIsolation": true,
+    "replayCalls": 0,
+    "syntheticOnly": true,
+    "retainedLatestPairEveryCall": true,
+    "foodCoachConfigApplied": true,
+    "resources": {
+      "cpu": 2,
+      "memoryMax": 2147483648,
+      "swap": 0,
+      "memoryPeak": 295956480,
+      "oomKills": 0
+    }
+  },
+  "linuxSystemd": {
+    "passed": true,
+    "syntheticOnly": true,
+    "actualUnit": "deploy/hermes/scisense-api.service",
+    "parentCanaries": true,
+    "nestedIsolationCanaries": true,
+    "resource": {
+      "actualHermes": true,
+      "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+      "firstTurnSeconds": 9.556,
+      "suiteSeconds": 9.557,
+      "resourceProbe": true,
+      "capacityProbe": false,
+      "profileTemplateSha256": "e24f3db595a8edc09bca03e9e80c07365ba80dccff4ecd50ef701986a42a8cce",
+      "modelTextBytes": [
+        13645,
+        16002,
+        16741
+      ],
+      "isolation": "linux-bubblewrap",
+      "fullFoodIndex": true,
+      "realTools": true,
+      "draftKcal": 174,
+      "providerCalls": 3,
+      "recoveryNoNewCalls": false,
+      "cancelNoResult": false,
+      "upstream429Calls": null,
+      "deadlineStopsNative": false,
+      "killedUnknownCancelled": false,
+      "tools": [
+        "food_lookup",
+        "propose_food_draft"
+      ],
+      "profileFilesScanned": 22,
+      "mediaFragments": 9,
+      "mediaLeaks": 0,
+      "ownerIsolation": true,
+      "replayCalls": 0,
+      "syntheticOnly": true,
+      "resources": {
+        "cpu": 2,
+        "memoryMax": 2147483648,
+        "swap": 0,
+        "memoryPeak": 312193024,
+        "oomKills": 0
+      }
+    },
+    "isolation": {
+      "architecture": "x86_64",
+      "platform": "linux/amd64",
+      "dockerTransport": "local-unix",
+      "noHostBinds": true,
+      "noPublishedPorts": true,
+      "network": "none",
+      "cpu": 2,
+      "memoryBytes": 2147483648
+    },
+    "containerName": "scisense-hermes-systemd-8005de69-8108-46b5-9a1e-2483f1ef82c5",
+    "cleanup": true
+  },
+  "package": {
+    "relativePath": ".agents/runtime/hermes-package/release-cd7b02d345385909ab8c59b42a0d48f78833f7f6",
+    "manifestSha256": "a1c5de87644fa4e9a5fc345b8520a26ef1fd3e3cc746c0cd195e4d257f3e7cfa",
+    "files": {
+      "app.tar.gz": {
+        "sha256": "47e336cbad5a0cb328aec634b1384877e60ff4ff4202618380202b6fedb83bd9",
+        "bytes": 11391430
+      },
+      "app-manifest.json": {
+        "sha256": "4647f4070149182e672a8846da648e837f13130be4a8cafa2b81bc688b1f2cd6",
+        "bytes": 33254
+      },
+      "runtime.tar.gz": {
+        "sha256": "bc40db43ad46ae47773d883880351a1b884fbcc13757172a5c949c47940542ce",
+        "bytes": 222834110
+      },
+      "runtime-manifest.json": {
+        "sha256": "23a9ce8dc82cf821f6d0e94e1a27641b49300a404ba3aaed3be574108a7f12ee",
+        "bytes": 5064173
+      }
+    },
+    "runtimeReceipt": {
+      "codeSha": "cd7b02d345385909ab8c59b42a0d48f78833f7f6",
+      "runId": "40137268017",
+      "artifactId": 12578042316,
+      "archiveSha256": "ac0f3ea9bc51dcc10f23b71e0d5ae3915e43d987dce1e49ab82e7a0caf770366",
+      "archiveBytes": 227898543,
+      "allFourJobsPassed": true,
+      "archiveDigestVerified": true,
+      "privateDataIncluded": false
+    },
+    "verification": {
+      "codeSha": "cd7b02d345385909ab8c59b42a0d48f78833f7f6",
+      "archiveHashesVerified": true,
+      "appFiles": 224,
+      "appManifestVerified": true,
+      "offBuildReceipt": true,
+      "api": {
+        "passed": true,
+        "packagedRuntime": true,
+        "requests": 5,
+        "filesVerified": 224,
+        "externalFetches": 0,
+        "blockedNetworkAttempts": 0,
+        "featureOff": true,
+        "nodePermissions": true,
+        "credentialsDirectoryAbsent": true,
+        "closed": true,
+        "osPolicy": "macos-seatbelt-loopback-only",
+        "minimalEnvironment": true
+      },
+      "temporaryExtractionRemoved": true
+    }
+  },
+  "enabledUi": {
+    "relativePath": ".agents/runtime/hermes-package/ui-on-cd7b02d345385909ab8c59b42a0d48f78833f7f6",
+    "archiveSha256": "81052e97e6e6b6792b916f57f2f7260da16594068ae4a898e1f778944dad10af",
+    "verification": {
+      "codeSha": "cd7b02d345385909ab8c59b42a0d48f78833f7f6",
+      "filesVerified": 36,
+      "archiveHashVerified": true,
+      "copyMatchesArchive": true,
+      "enabledBuildReceiptVerified": true,
+      "secretPatternsFound": false,
+      "liveActivationPerformed": false
+    }
+  },
+  "failureHistory": [
+    {
+      "runId": 40136475555,
+      "sha": "75687fc13850957e77f6048f0ccb5f0fde7953f9",
+      "failure": "core storage concurrent append permission-denied",
+      "resolution": "cd7b02d bounded retry and pending id preservation; independent review and regression PASS"
+    },
+    {
+      "runId": 40137268017,
+      "attempt": 1,
+      "failure": "one phone-lab Firestore Listen/channel HTTP502 after48 successful checks",
+      "evidenceSha256": "2c3f388996bead8ef6d7f0e221d3f64d95c4facdb3162a8880fba0f600350b19",
+      "classification": "lab transport only; exact upstream cause not established",
+      "independentProbe": "downstream cancellation did not deliver502; upstream reset delivered502; next healthy request200; probe output only in chat, no retained receipt",
+      "resolution": "one unchanged complete rerun; all4 jobs PASS; strict network assertion retained"
+    }
+  ],
+  "blocker": {
+    "source": "CUA inventory reported locked; known Keychain entry length-only lookup timed out after5s",
+    "temporaryAdminCreated": false,
+    "manualUnlockQuestionAlreadyPending": true,
+    "macLockedVerifiedAtUtcMinute": "2026-10-24 22:10 UTC"
+  },
+  "remaining": [
+    "Доступ до розблокованої Зв’язки ключів; адресна інвентаризація та перевірка ізоляції на MS-WEB",
+    "Приватна активація, сумісні rules/UI/API й живі проби в залишку чинного$5",
+    "Перевірка власником із телефона; G02–G11 pending",
+    "Структурована історія тренувань і абонементів є наступним окремим етапом"
+  ],
+  "sourceHashes": {
+    "firestore.rules": "3bfaa9801e552f881d225e9a182e96aaf4f971d2d8f3c668c56af292ad42cc1f",
+    "src/services/mealStore.js": "2dedabfc2851f8c89326c74682e5f780f5622df49bd5f2f5da2feb98c56c041f",
+    "src/services/mealStore.retry.test.js": "084cea844b4ede602f14db7ed963e3aa77e9f7a67294d7958cc78011c239cf09",
+    "scripts/meal-store-emulator.mjs": "614fa9794e8491b693bf300665e60266174696475cbbd9226bdf27beb0ef526c",
+    "scripts/hermes-build-release.mjs": "7c4d4e4a681834a6c47390170c12f0ae524e54ffba7a47f4f9069700c5b1af02",
+    "server/trainer/hermes-config.json": "13e6c679cb417cdfa56bfd10c920593835362cac77679190b3591a5590b7f073",
+    "server/trainer/profile-template.json": "e24f3db595a8edc09bca03e9e80c07365ba80dccff4ecd50ef701986a42a8cce"
+  }
+}

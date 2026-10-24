@@ -9,11 +9,11 @@ status: open
 importance: medium
 signal: verification
 complexity: medium
-tags: [I01, performance, implemented-local, live-pending]
-evidence: "2026-10-24: локально реалізовано versioned WebP192px, всі8=49322bytes, перші3=18350bytes; browser cold/warm cache та реальні42px boxes перевірені. Commit9053459, docs/evidence/hermes-coach-ui-2026-10-24.json; phone-lab full50/STT34 PASS. Production ще не оновлювався, приймання власником pending."
+tags: [I01, performance, implemented-local, packaged, live-pending]
+evidence: "2026-10-25: versioned WebP192px, усі8=49322bytes, перші3=18350bytes. Основний UI cd7b02d з36 перевіреними файлами включено в готовий пакет; CI40137268017 attempt2:coach21/voice-photo73/phone50+34 PASS. Дельти країв0px, gutters16px; джерела docs/evidence/hermes-coach-ui-2026-10-24.json та hermes-coach-local-acceptance-2026-10-25.json. Сайт ще не оновлено через locked Mac/Keychain, live headers і приймання власником pending."
 valid_from: "2026-10-24T19:53:49.891103+00:00"
 created_at: "2026-10-24T19:53:49.891103+00:00"
-updated_at: "2026-10-24T21:08:38.970039+00:00"
+updated_at: "2026-10-24T22:24:57.434117+00:00"
 author: Codex
 content_hash: "sha256:70ef4d5a1c9a229222134206abd1c37930d36ba3cbebf625c3eebfe910838ca2"
 ---

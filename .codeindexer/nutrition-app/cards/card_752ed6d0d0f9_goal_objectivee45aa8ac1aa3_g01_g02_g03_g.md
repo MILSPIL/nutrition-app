@@ -9,14 +9,14 @@ status: open
 importance: high
 signal: verification
 complexity: high
-tags: [HERMES-COACH-02, implementation, owner-authorized, live-pending]
+tags: [HERMES-COACH-02, implemented-local, packaged, owner-authorized, live-pending]
 links: [{to: card_128eb6c248fb, kind: related}]
 review_required: true
 acceptance: "[{\"manual_approval\":\"Юрій явно погодив локальні кроки0–5 HERMES-COACH-02 та припущення А1–А4; окремо назвав I01, якщо включає його.\"}]"
-evidence: "2026-10-25: інтегровано b1f81d8.267 Jest PASS; серверні195 cases закриті повним run194/195 та вузьким повтором sandbox-blocked packaging file2/2. Browser coach21/voice-photo73/phone-lab50+34 PASS. Linux ab1 CI40131465855: повний C05 5.585с/max31944B/2CPU2GiB/OOM0; native recovery/systemd PASS. Rules20позицій і фінальний CI ще в роботі. Mac/Keychain повторно locked, production/model API без змін. Джерело PROJECT-INFO.md, docs/evidence/*coach*."
+evidence: "2026-10-25: кандидат cd7b02d345385909ab8c59b42a0d48f78833f7f6, CI40137268017 attempt2 усі4 jobs PASS. Локально283 client,213 server,65 rules/access,47 core storage; actual Hermes writer/reader PASS. Незалежні рев’ю без відкритих P1/P2. Пакет224files/runtime31726,5HTTP/0external; основний UI36files перевірений. Linux C05:9.728с/max31964B/2CPU2GiB/OOM0. Попередній одиничний lab502 зафіксовано, assertion не послаблено. Доказ docs/evidence/hermes-coach-local-acceptance-2026-10-25.json. Mac/Keychain locked підтверджено22:10UTC; публікація/приватна активація/живі модельні проби не виконані. G02–G11 pending."
 valid_from: "2026-10-24T19:53:39.617297+00:00"
 created_at: "2026-10-24T19:53:39.617297+00:00"
-updated_at: "2026-10-24T21:08:35.983434+00:00"
+updated_at: "2026-10-24T22:24:55.214131+00:00"
 author: Codex
 content_hash: "sha256:c4c9cdb91c4ba6eeee10d5a8ed8b569b0fb4b8f5c68e37a573369df7c7071461"
 ---
