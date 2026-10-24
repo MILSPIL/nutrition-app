@@ -1,0 +1,93 @@
+{
+  "date": "2026-10-24",
+  "task": "HERMES-FOOD-01",
+  "scope": "spec-plan-only",
+  "productBase": "d9a57b0d1a9f7a59b9d0f53562effeae32e8c58f",
+  "journalTransfer": {
+    "pr": 26,
+    "main": "17a460b",
+    "onlyFile": ".agents/journal/2026-10-23-1640-codex-gpt-6-voice-letters-local.md",
+    "blob": "ffec2696801c94b00617f02f47d12db008c52815",
+    "ciRuns": [
+      40085062567,
+      40085119158
+    ],
+    "ci": "SUCCESS"
+  },
+  "baseline": {
+    "sourceSha": "d9a57b0d1a9f7a59b9d0f53562effeae32e8c58f",
+    "method": "SSR actual VoiceInputModal with inert dependency stubs; actual mealItems functions with only unused plan matcher stub; no network",
+    "ready": {
+      "textarea": false,
+      "textInput": false,
+      "explicitStart": true
+    },
+    "unknownFood": {
+      "problems": [
+        "Потрібні ккал і всі БЖВ з джерела",
+        "Уточніть харчові значення"
+      ],
+      "accepted": false
+    },
+    "completeEstimate": {
+      "accepted": true,
+      "totals": {
+        "p": 4,
+        "f": 6,
+        "c": 40,
+        "cal": 230
+      }
+    },
+    "invariant": {
+      "incompatibleUnitsRejected": true
+    },
+    "futureCriteria": {
+      "H01_emptyTextComposer": "FAIL",
+      "H03_unknownNutritionSave": "FAIL"
+    },
+    "notProven": [
+      "live model response",
+      "production behavior",
+      "Hermes runtime",
+      "browser event sequence"
+    ]
+  },
+  "hermesSource": {
+    "sha": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+    "profileExists": true,
+    "privateProfileRead": false,
+    "runtimeStarted": false
+  },
+  "forbiddenActions": {
+    "modelCalls": 0,
+    "keychainReads": 0,
+    "serverChanges": 0,
+    "appSpend": 0,
+    "productionDataWrites": 0
+  },
+  "implementationAccepted": false,
+  "ownerAccepted": false,
+  "specTrials": [
+    {
+      "round": 1,
+      "agent": "Codex fresh",
+      "materialFindings": 10,
+      "editorialFindings": 2,
+      "addressed": 12
+    },
+    {
+      "round": 2,
+      "agent": "Codex fresh",
+      "newProductDecisions": 0,
+      "technicalClarifications": 1,
+      "addressed": 1
+    }
+  ],
+  "codeindexer": {
+    "goal": "objective_e45aa8ac1aa3",
+    "revision": 4,
+    "card": "card_29bef280dd54",
+    "allCriteria": "pending",
+    "readback": true
+  }
+}
