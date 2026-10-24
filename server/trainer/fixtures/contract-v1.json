@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "synthetic": true,
+  "turn": {
+    "turnId": "turn-synthetic-001",
+    "conversationId": "conversation-synthetic",
+    "baseRevision": 0,
+    "generation": 1,
+    "targetDate": "2026-01-03",
+    "text": "Картопля 200 г",
+    "state": "queued"
+  },
+  "draft": {
+    "draftId": "draft-synthetic-001",
+    "targetDate": "2026-01-03",
+    "revision": 1,
+    "state": "editing",
+    "items": [
+      {
+        "itemId": "item-synthetic-001",
+        "name": "Тушкована картопля",
+        "quantity": {
+          "value": 200,
+          "unit": "g"
+        },
+        "nutritionBasis": {
+          "value": 100,
+          "unit": "g"
+        },
+        "nutrients": {
+          "p": 2,
+          "f": 3,
+          "c": 20,
+          "cal": 115
+        },
+        "source": {
+          "kind": "estimate",
+          "assumptions": [
+            "Синтетичний рецепт для перевірки арифметики"
+          ]
+        },
+        "letter": null
+      }
+    ]
+  },
+  "expectedTotals": {
+    "p": 4,
+    "f": 6,
+    "c": 40,
+    "cal": 230
+  },
+  "note": {
+    "noteId": "submission-synthetic-item-synthetic-002",
+    "submissionId": "submission-synthetic",
+    "itemId": "item-synthetic-002",
+    "targetDate": "2026-01-03",
+    "name": "Невідома страва",
+    "quantity": null,
+    "nutrients": {
+      "p": null,
+      "f": null,
+      "c": null,
+      "cal": null
+    },
+    "source": {
+      "kind": "unknown"
+    },
+    "excludedFromTotals": true
+  },
+  "contextProposal": {
+    "proposalId": "context-synthetic-001",
+    "baseRevision": 0,
+    "text": "Синтетичний підтверджений факт",
+    "state": "proposed"
+  },
+  "states": {
+    "turn": [
+      "queued",
+      "running",
+      "completed",
+      "failed",
+      "cancelled",
+      "unknown"
+    ],
+    "draft": [
+      "editing",
+      "ready",
+      "saving",
+      "saved",
+      "unknown"
+    ]
+  },
+  "limits": {
+    "maxRunCount": 1,
+    "maxSonnetCalls": 3,
+    "maxOutputTokens": 4096,
+    "runDeadlineMs": 45000,
+    "maxUserBytes": 8000,
+    "maxPayloadTextBytes": 32000,
+    "historyMessages": 12,
+    "historyBytes": 8000,
+    "mediaTtlMs": 300000,
+    "visibleHistoryDays": 30
+  },
+  "allowedTools": [
+    "food_lookup",
+    "read_confirmed_day",
+    "read_plan",
+    "read_trainer_context",
+    "propose_food_draft",
+    "propose_context_update"
+  ]
+}

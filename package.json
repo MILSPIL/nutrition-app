@@ -30,7 +30,9 @@
     "test:phone-lab-ui": "node scripts/browser-test.mjs phone-lab",
     "test:server": "node --test server/*.test.mjs",
     "test:rules": "node scripts/trainer-access-test.mjs",
-    "test:trainer-ui": "node scripts/browser-test.mjs trainer-access"
+    "test:trainer-ui": "node scripts/browser-test.mjs trainer-access",
+    "test:hermes": "node scripts/trainer-chat-test.mjs",
+    "test:hermes-ui": "node scripts/trainer-chat-ui.mjs"
   },
   "eslintConfig": {
     "extends": [

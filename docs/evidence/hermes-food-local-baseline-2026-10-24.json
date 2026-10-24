@@ -1,0 +1,44 @@
+{
+  "sourceSha": "94ea2930e45a36243656120895920b4679f38a96",
+  "method": "SSR actual VoiceInputModal with inert dependency stubs; actual mealItems functions with only unused plan matcher stub; no network",
+  "ready": {
+    "textarea": false,
+    "textInput": false,
+    "explicitStart": true
+  },
+  "unknownFood": {
+    "problems": [
+      "Потрібні ккал і всі БЖВ з джерела",
+      "Уточніть харчові значення"
+    ],
+    "accepted": false
+  },
+  "completeEstimate": {
+    "accepted": true,
+    "totals": {
+      "p": 4,
+      "f": 6,
+      "c": 40,
+      "cal": 230
+    }
+  },
+  "invariant": {
+    "incompatibleUnitsRejected": true
+  },
+  "futureCriteria": {
+    "H01_emptyTextComposer": "FAIL",
+    "H03_unknownNutritionSave": "FAIL"
+  },
+  "notProven": [
+    "live model response",
+    "production behavior",
+    "Hermes runtime",
+    "browser event sequence"
+  ],
+  "stage": "step-0",
+  "contractChecks": {
+    "pass": 4,
+    "integrationTodo": 10
+  },
+  "regressionCommandExit": 1
+}
