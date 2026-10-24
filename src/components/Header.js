@@ -124,6 +124,7 @@ export default function Header({
   onShowMeasurements,
   onShowSettings,
   onShowVoiceInput,
+  voiceLabel = "Додати їжу голосом",
   voiceDisabled = false
 }) {
   const [isEditingWeight, setIsEditingWeight] = useState(false);
@@ -247,9 +248,9 @@ export default function Header({
       </div>
 
       <div className="mx-4 mt-4" data-testid="home-voice">
-        <button aria-label="Додати їжу голосом" onClick={onShowVoiceInput} disabled={voiceDisabled}
+        <button aria-label={voiceLabel} onClick={onShowVoiceInput} disabled={voiceDisabled}
           className="w-full min-h-[48px] flex items-center justify-center gap-2 px-4 py-3 bg-[#007AFF] text-white rounded-2xl text-[17px] font-semibold disabled:opacity-50">
-          <Mic size={22}/> Додати їжу голосом
+          <Mic size={22}/> {voiceLabel}
         </button>
       </div>
       {/* Macros Card */}

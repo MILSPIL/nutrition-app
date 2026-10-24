@@ -426,3 +426,23 @@ test("actual payload budget drops only oldest complete history pairs", () => {
     /context_too_large/,
   );
 });
+
+test("real default plan fits model snapshot without profile meals or duplicated projection", async () => {
+  const { buildPlanCatalog } = await import(
+      "../../src/services/planCatalog.js"
+    ),
+    { modelPlan, buildSnapshot } = await import("./snapshot.mjs");
+  const catalog = buildPlanCatalog(),
+    plan = modelPlan({
+      catalog,
+      planContext: {
+        profile: { privateWeight: 999, meals: { private: "canary" } },
+      },
+    });
+  assert.equal(plan.catalog.references.length, catalog.references.length);
+  assert.ok(Buffer.byteLength(JSON.stringify(plan)) < 16000);
+  assert.ok(!JSON.stringify(plan).includes("canary"));
+  assert.doesNotThrow(() =>
+    buildSnapshot({ context: "Synthetic", message: "Food", plan: { catalog } }),
+  );
+});

@@ -33,7 +33,7 @@ export function buildSnapshot({
     draft: draft ?? null,
     receipts: receipts ?? [],
     day,
-    plan,
+    plan: modelPlan(plan),
     message,
     history: [],
   };
@@ -63,4 +63,23 @@ export function buildSnapshot({
     snapshot.history = next;
   }
   return snapshot;
+}
+
+export function modelPlan(plan) {
+  if (!plan?.catalog?.references) return plan;
+  if (plan.catalog.overLimit) fail("context_too_large", 413);
+  return {
+    catalog: {
+      references: plan.catalog.references.map(
+        ({ refId, name, letter, norm, basisState }) => ({
+          refId,
+          name,
+          letter,
+          norm,
+          basisState,
+        }),
+      ),
+    },
+    freeCalorieLimit: plan.catalog.projection?.free,
+  };
 }

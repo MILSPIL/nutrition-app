@@ -54,7 +54,7 @@ export async function commitMealDay(uid, profileId, date, command) {
   const trainerCommand=['saveTrainerDraft','resolveFoodNote'].includes(command.type);
   if(trainerCommand&&command.targetDate!==date) throw Error('invalid_target');
   try {
-    await runTransaction(db, async tx => {
+    const outcome=await runTransaction(db, async tx => {
       const ownerSnap=await tx.get(ref.owner);
       const daySnap=await tx.get(ref.day);
       const root=ownerSnap.data();
@@ -63,9 +63,15 @@ export async function commitMealDay(uid, profileId, date, command) {
       const legacy=user.legacyMeals || (!user.mealsDateKey && hasMeals(user.meals) ? user.meals : null);
       const previous=daySnap.data()?.submissionMarkers?.[command.submissionId];
       if(previous) {if(previous!==hash) throw Error('submission_conflict');return daySnap.data();}
-      if(command.type==='appendAllocated'||trainerCommand&&(command.items||[]).length) {
+      const rejected=daySnap.data()?.rejectedSubmissions?.[command.submissionId];
+      if(rejected){if(rejected!==hash)throw Error('submission_conflict');return {rejected:true};}
+      if(command.type==='appendAllocated'||(trainerCommand&&(command.items||[]).length)) {
         const catalog=buildPlanCatalog({profile:user,globalCustomProducts:root.globalCustomProducts,productOverrides:root.productOverrides});
-        if(command.planFingerprint!==await planFingerprint(catalog)) throw Error('plan_conflict');
+        if(command.planFingerprint!==await planFingerprint(catalog)) {
+          if(!trainerCommand)throw Error('plan_conflict');
+          tx.set(ref.day,{...(daySnap.data()||{}),rejectedSubmissions:{...(daySnap.data()?.rejectedSubmissions||{}),[command.submissionId]:hash},...stamp});
+          return {rejected:true};
+        }
         for(const item of command.items||[]) {
           const a=item.planAllocation;
           if(a?.status==='allocated'&&a.letter==='в'&&(a.basis?.value!==PRODUCTS_DB.в.calorieLimit||a.normSource!=='catalog'||a.referenceName!=='Вільний вибір')) throw Error('invalid_allocation');
@@ -114,6 +120,7 @@ export async function commitMealDay(uid, profileId, date, command) {
       tx.set(ref.owner,{ users:{ ...root.users,[profileId]:projection },...stamp,updatedAt:command.updatedAt },{mergeFields:['users','writerVersion','writerNonce','updatedAt']});
       return result.day;
     });
+    if(outcome?.rejected)throw Error("plan_conflict");
     return await loadMealDay(uid,profileId,date);
   } catch (error) {
     // Читання з сервера може довести commit після невизначеного транспортного збою.

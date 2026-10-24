@@ -72,7 +72,8 @@ export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, 
       if (req.rawHeaders.filter((_, i) => i % 2 === 0).filter(x => x.toLowerCase() === name).length > 1)
         return reject(400, 'bad_request');
     }
-    if (req.headers.origin !== env.ALLOWED_ORIGINS) return reject(403, 'origin_forbidden');
+    const sameOriginRead=trainerRoute&&req.method==='GET'&&!req.headers.origin&&req.headers['sec-fetch-site']==='same-origin';
+    if (req.headers.origin !== env.ALLOWED_ORIGINS && !sameOriginRead) return reject(403, 'origin_forbidden');
     if (Number(req.headers['content-length']) > MAX_BODY) return reject(413, 'media_too_large');
     if (closing) return reject(503, 'unavailable');
     if (active.size >= maxConcurrent) return reject(429, 'rate_limited');
@@ -92,7 +93,7 @@ export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, 
     try {
       const url = env.ALLOWED_ORIGINS + route.replace('/meal-api', '');
       const headers = {
-        Origin: req.headers.origin,
+        Origin: req.headers.origin || env.ALLOWED_ORIGINS,
         Authorization: req.headers.authorization || '',
         'Content-Type': req.headers['content-type'] || '',
         ...(req.headers['content-length'] ? { 'Content-Length': req.headers['content-length'] } : {}),
@@ -120,7 +121,7 @@ export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, 
       if (!controller.signal.aborted)
         send(res, response.status, await response.text(), Object.fromEntries(response.headers));
     } catch (error) {
-      const publicErrors = {invalid_request:400,invalid_date:400,invalid_image:400,message_too_large:413,context_too_large:413,not_found:404,turn_conflict:409,trainer_busy:409,history_conflict:409,composer_conflict:409,trainer_unavailable:503,unauthorized:401,pilot_forbidden:403,live_disabled:503,media_too_large:413,upstream_timeout:504};
+      const publicErrors = {draft_conflict:409,draft_frozen:409,date_draft_conflict:409,notes_disabled:409,note_confirmation_required:409,save_unconfirmed:409,context_conflict:409,context_unavailable:503,invalid_quantity:400,invalid_food_note:400,note_conflict:409,turn_gone:410,conversation_gone:410,draft_too_large:413,invalid_request:400,invalid_date:400,invalid_image:400,message_too_large:413,context_too_large:413,not_found:404,turn_conflict:409,trainer_busy:409,history_conflict:409,composer_conflict:409,trainer_unavailable:503,unauthorized:401,pilot_forbidden:403,live_disabled:503,media_too_large:413,upstream_timeout:504};
       if (!controller.signal.aborted) reject(publicErrors[error.message] || 400, publicErrors[error.message] ? error.message : 'bad_request');
     } finally {
       clearTimeout(timer);

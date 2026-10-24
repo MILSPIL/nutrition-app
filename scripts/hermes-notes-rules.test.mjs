@@ -226,3 +226,57 @@ test("conversion without a complete new food item is denied atomically", async (
     "active",
   );
 });
+
+test("terminal rejection is immutable and excludes late or stale writer success, across owners", async () => {
+  const path = ["users", owner, "mealHistory", date],
+    base = {
+      meals: {},
+      revision: 0,
+      rejectedSubmissions: { "rejected-command": hash },
+      ...stamp(),
+    };
+  await assertSucceeds(setDoc(doc(db(), ...path), base));
+  for (const patch of [
+    { rejectedSubmissions: {} },
+    { rejectedSubmissions: { "rejected-command": "b".repeat(64) } },
+    { submissionMarkers: { "rejected-command": hash } },
+  ])
+    await assertFails(
+      setDoc(doc(db(), ...path), { ...base, ...patch, ...stamp() }),
+    );
+  await assertFails(
+    setDoc(doc(db("stranger"), ...path), { ...base, ...stamp() }),
+  );
+  await assertSucceeds(
+    setDoc(doc(db(), ...path), {
+      ...base,
+      submissionMarkers: { "different-command": hash },
+      ...stamp(),
+    }),
+  );
+  await assertFails(
+    setDoc(doc(db(), ...path), { ...base, submissionMarkers: {}, ...stamp() }),
+  );
+});
+test("concurrent terminal rejection and success cannot both survive", async () => {
+  const path = ["users", owner, "mealHistory", date],
+    database = db();
+  const results = await Promise.allSettled([
+    setDoc(doc(database, ...path), {
+      meals: {},
+      rejectedSubmissions: { "race-command": hash },
+      ...stamp(),
+    }),
+    setDoc(doc(database, ...path), {
+      meals: {},
+      submissionMarkers: { "race-command": hash },
+      ...stamp(),
+    }),
+  ]);
+  assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+  const saved = (await getDocFromServer(doc(database, ...path))).data();
+  assert.notEqual(
+    !!saved.rejectedSubmissions?.["race-command"],
+    !!saved.submissionMarkers?.["race-command"],
+  );
+});

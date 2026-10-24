@@ -181,6 +181,44 @@ try {
     commitMealDay(uid, uid, "2026-01-04", mixed),
     /invalid_target/,
   );
+  console.log("phase: terminal-rejection");
+  const rejected = {
+    ...mixed,
+    submissionId: "rejected-plan-001",
+    notes: [],
+    items: [item("rejected-item-001")],
+    planFingerprint: "stale-plan",
+  };
+  await Promise.all(
+    [1, 2].map(() =>
+      assert.rejects(commitMealDay(uid, uid, date, rejected), /plan_conflict/),
+    ),
+  );
+  const rejectedHash = await commandHash(rejected),
+    rejectedDay = await loadMealDay(uid, uid, date);
+  assert.equal(
+    rejectedDay.rejectedSubmissions[rejected.submissionId],
+    rejectedHash,
+  );
+  assert.equal(rejectedDay.submissionMarkers[rejected.submissionId], undefined);
+  assert.equal(rejectedDay.revision, 4);
+  await assert.rejects(
+    commitMealDay(uid, uid, date, rejected),
+    /plan_conflict/,
+  );
+  await assert.rejects(
+    commitMealDay(uid, uid, date, {
+      ...rejected,
+      planFingerprint: fingerprint,
+    }),
+    /submission_conflict/,
+  );
+  await commitMealDay(uid, uid, date, {
+    ...rejected,
+    submissionId: "reprepared-plan-001",
+    planFingerprint: fingerprint,
+  });
+  assert.equal((await loadMealDay(uid, uid, date)).totalMacros.cal, 408);
   // Compatible rollback keeps v3 and visible notes; disabling new inference is independent.
   await cap({ notesEnabled: false, minimumWriterVersion: 3 });
   assert.equal((await loadMealDay(uid, uid, date)).notes.length, 20);

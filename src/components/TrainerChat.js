@@ -1,0 +1,1229 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Mic, Square, Camera, Send, X } from "lucide-react";
+import { createTrainerApi, trainerError } from "../services/trainerApi";
+import { createTrainerSession } from "../services/trainerSession";
+import {
+  createRecorder,
+  normalizeAudio,
+  normalizePhoto,
+} from "../services/voiceMedia";
+import { transcribeAudio } from "../services/voiceApi";
+import {
+  itemMacros,
+  itemProblems,
+  roundMacros,
+  parseDecimal,
+  sourceText,
+  UNITS,
+  newId,
+} from "../services/mealItems";
+import { buildPlanCatalog } from "../services/planCatalog";
+import {
+  assignPlanItems,
+  dailyPlanProgress,
+  allocationCounts,
+} from "../services/planAllocation";
+import PlanAllocationFields from "./PlanAllocationFields";
+import DecimalInput from "./DecimalInput";
+import "./VoiceInputModal.css";
+import "./TrainerChat.css";
+const names = { 1: "Сніданок", 2: "Обід", 3: "Вечеря", 4: "Перекус" };
+const empty = {};
+const initial = {
+  server: null,
+  text: "",
+  dirty: false,
+  composerState: "loading",
+  busy: false,
+  error: "",
+  admission: null,
+};
+const activeTurn = (t) =>
+  t && ["queued", "running", "unknown", "cleanup_pending"].includes(t.state);
+const statuses = {
+  queued: "Повідомлення отримано",
+  running: "Тренер розбирає повідомлення",
+  unknown: "Результат ще невідомий",
+  cleanup_pending: "Завершую обробку",
+  failed: "Обробка не вдалася",
+  cancelled: "Обробку скасовано",
+};
+function applyEdits(d, patch = {}) {
+  return {
+    ...d,
+    ...patch,
+    items: d.items.map((i) => {
+      const next = { ...i, ...patch.items?.[i.itemId] };
+      return {
+        ...next,
+        nutritionStatus: itemProblems(next).length ? "unknown" : "complete",
+      };
+    }),
+  };
+}
+function DraftCard({
+  draft,
+  catalog,
+  meals,
+  disabled,
+  dirty,
+  onEdit,
+  onSave,
+  onPhoto,
+  onOpenDay,
+}) {
+  const allocated = assignPlanItems(
+      draft.items.filter((i) => i.nutritionStatus === "complete"),
+      catalog,
+      meals,
+    ),
+    byId = new Map(allocated.map((i) => [i.itemId, i]));
+  const preview = { ...meals, preview: {} };
+  for (const i of allocated) {
+    const k = i.planAllocation.letter || "voice";
+    preview.preview[k] = [...(preview.preview[k] || []), i];
+  }
+  const progress = dailyPlanProgress(meals),
+    after = dailyPlanProgress(preview),
+    total = roundMacros(
+      allocated.reduce(
+        (a, i) => {
+          const m = itemMacros(i);
+          for (const k of ["cal", "p", "f", "c"]) a[k] += m[k];
+          return a;
+        },
+        { cal: 0, p: 0, f: 0, c: 0 },
+      ),
+    );
+  const frozen = ["saving", "unknown", "saved"].includes(draft.state),
+    locked = disabled || frozen || draft.blocked;
+  return (
+    <article className="trainer-draft" data-testid="trainer-draft">
+      <div className="trainer-draft-heading">
+        <h3>{draft.state === "saved" ? "Додано" : "Прев’ю їжі"}</h3>
+        <span>{draft.targetDate}</span>
+      </div>
+      <div className="trainer-fields">
+        <label>
+          Дата
+          <input
+            aria-label="Дата чернетки"
+            type="date"
+            value={draft.targetDate}
+            disabled={locked}
+            onChange={(e) => onEdit({ targetDate: e.target.value })}
+          />
+        </label>
+        <label>
+          Прийом
+          <select
+            aria-label="Прийом чернетки"
+            value={draft.meal}
+            disabled={locked}
+            onChange={(e) => onEdit({ meal: Number(e.target.value) })}
+          >
+            {Object.entries(names).map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {draft.items.map((raw, index) => {
+        const item = byId.get(raw.itemId) || raw;
+        return (
+          <div className="trainer-food" key={item.itemId}>
+            <h4>{item.name}</h4>
+            <p className="trainer-source">
+              {sourceText(item)}
+              {item.estimated ? " · Приблизна оцінка" : ""}
+            </p>
+            {(item.source?.assumptions || []).map((a, i) => (
+              <p className="trainer-hint" key={i}>
+                {a}
+              </p>
+            ))}
+            <div className="trainer-fields">
+              <label>
+                Кількість
+                <DecimalInput
+                  aria-label={`Кількість ${index + 1}`}
+                  value={item.quantity?.value ?? ""}
+                  disabled={locked}
+                  onChange={(e) =>
+                    onEdit({
+                      items: {
+                        [item.itemId]: {
+                          quantity: {
+                            ...item.quantity,
+                            value: parseDecimal(e.target.value),
+                          },
+                        },
+                      },
+                    })
+                  }
+                />
+              </label>
+              <label>
+                Одиниця
+                <select
+                  aria-label={`Одиниця ${index + 1}`}
+                  value={item.quantity?.unit || "unknown"}
+                  disabled={locked}
+                  onChange={(e) =>
+                    onEdit({
+                      items: {
+                        [item.itemId]: {
+                          quantity: { ...item.quantity, unit: e.target.value },
+                        },
+                      },
+                    })
+                  }
+                >
+                  {["g", "ml", "portion", "package", "unknown"].map((u) => (
+                    <option key={u} value={u}>
+                      {UNITS[u] || "Не знаю"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {item.nutritionStatus === "complete" ? (
+              <>
+                <p className="trainer-macros">
+                  {roundMacros(itemMacros(item)).cal} ккал · Б{" "}
+                  {roundMacros(itemMacros(item)).p} · Ж{" "}
+                  {roundMacros(itemMacros(item)).f} · В{" "}
+                  {roundMacros(itemMacros(item)).c}
+                </p>
+                <PlanAllocationFields
+                  item={item}
+                  index={index}
+                  catalog={catalog}
+                  progress={progress}
+                  after={after}
+                  disabled={locked}
+                  onChange={(planChoice) =>
+                    onEdit({ items: { [item.itemId]: { planChoice } } })
+                  }
+                  onSearch={() => {}}
+                />
+              </>
+            ) : (
+              <>
+                <p>
+                  Калорійність або кількість ще невідома. Можна уточнити
+                  повідомленням.
+                </p>
+                <label className="trainer-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={item.noteSelected === true}
+                    disabled={locked}
+                    onChange={(e) =>
+                      onEdit({
+                        items: {
+                          [item.itemId]: { noteSelected: e.target.checked },
+                        },
+                      })
+                    }
+                  />
+                  Зберегти як нотатку без повного розрахунку
+                </label>
+              </>
+            )}
+            {!frozen && (
+              <button
+                className="trainer-secondary"
+                disabled={disabled || draft.blocked}
+                onClick={() => onPhoto(item.itemId)}
+              >
+                <Camera size={18} />
+                Фото етикетки цього продукту
+              </button>
+            )}
+          </div>
+        );
+      })}
+      <p className="trainer-total">
+        Розраховано: {total.cal} ккал · Б {total.p} · Ж {total.f} · В {total.c}
+      </p>
+      {draft.items.some((i) => i.nutritionStatus !== "complete") && (
+        <p className="trainer-warning">
+          Підсумок неповний. Нотатки не входять у суму калорій.
+        </p>
+      )}
+      {dirty && <p role="status">Зберігаю зміни прев’ю…</p>}
+      {frozen && draft.state !== "saved" && (
+        <p role="status">
+          Запис ще не підтверджено. Повтор використає ту саму спробу.
+        </p>
+      )}
+      {draft.state === "saved" ? (
+        <button
+          className="trainer-secondary"
+          onClick={() => onOpenDay(draft.targetDate)}
+        >
+          Відкрити цей день
+        </button>
+      ) : (
+        <button
+          className="trainer-primary"
+          disabled={
+            disabled ||
+            draft.blocked ||
+            draft.items.some(
+              (i) => i.nutritionStatus !== "complete" && !i.noteSelected,
+            )
+          }
+          onClick={() => onSave(draft)}
+        >
+          {frozen ? "Перевірити й завершити" : "Додати"}
+        </button>
+      )}
+    </article>
+  );
+}
+export default function TrainerChat({
+  ownerKey,
+  uid,
+  date,
+  meal = 1,
+  planContext,
+  dayMeals = empty,
+  onClose,
+  onAdd,
+  onSaved,
+  onOpenDay,
+  ledger,
+  api: providedApi,
+  recorderFactory = createRecorder,
+  audioNormalizer = normalizeAudio,
+  photoNormalizer = normalizePhoto,
+  transcribe = transcribeAudio,
+  initialNote,
+}) {
+  const api = useMemo(
+    () => providedApi || createTrainerApi(uid),
+    [providedApi, uid],
+  );
+  const [view, setView] = useState(initial),
+    [error, setError] = useState(""),
+    [recordState, setRecordState] = useState("ready"),
+    [seconds, setSeconds] = useState(0),
+    [targetDate, setTargetDate] = useState(date),
+    [photos, setPhotos] = useState([]),
+    [edits, setEdits] = useState({}),
+    [context, setContext] = useState(null),
+    [confirmDelete, setConfirmDelete] = useState(false),
+    [canDiscard, setCanDiscard] = useState(false),
+    [metricFailed, setMetricFailed] = useState(false);
+  const panel = useRef(),
+    textarea = useRef(),
+    fileInput = useRef(),
+    photoTarget = useRef(),
+    session = useRef(),
+    alive = useRef(false),
+    epoch = useRef(0),
+    recorder = useRef(),
+    sttAbort = useRef(),
+    editRef = useRef({}),
+    flushTask = useRef(),
+    editFailure = useRef(false),
+    latest = useRef(),
+    attempt = useRef(),
+    turnAttempts = useRef(new Map()),
+    startedAt = useRef(0);
+  const callbacks = useRef();
+  callbacks.current = { onAdd, onSaved, onClose, onOpenDay };
+  const catalog = useMemo(() => buildPlanCatalog(planContext), [planContext]);
+  latest.current = { view, photos, recordState, targetDate, edits };
+  editRef.current = edits;
+  const catchError = (e) => {
+    if (alive.current) setError(trainerError(e));
+  };
+  const metric = async (p, id) => {
+    if (!id || !ledger?.enabled) return;
+    try {
+      await ledger.update(id, p);
+    } catch {
+      if (alive.current) setMetricFailed(true);
+    }
+  };
+  const startMetric = async (channel) => {
+    if (!ledger?.enabled) return null;
+    try {
+      return await ledger.start(undefined, channel);
+    } catch {
+      if (alive.current) setMetricFailed(true);
+      return null;
+    }
+  };
+  const current = (generation) => alive.current && epoch.current === generation;
+  useEffect(() => {
+    epoch.current++;
+    alive.current = true;
+    setView(initial);
+    setEdits({});
+    editRef.current = {};
+    setPhotos([]);
+    setContext(null);
+    setError("");
+    setCanDiscard(false);
+    setRecordState("ready");
+    const epochs = epoch;
+    const generation = epochs.current;
+    const attempts = turnAttempts.current;
+    const previous = document.activeElement,
+      oldOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const createSession = () =>
+      createTrainerSession({
+        api,
+        commit: (command, d) => callbacks.current.onAdd(command, d),
+        onChange: setView,
+        onSaved: (d, prepared) => {
+          callbacks.current.onSaved?.(d, prepared);
+        },
+      });
+    let s = createSession();
+    session.current = s;
+    let closed = false;
+    void s
+      .refresh()
+      .then(() => {
+        if (closed || !current(generation)) return;
+        textarea.current?.focus();
+        if (initialNote) void s.note(initialNote).catch(catchError);
+      })
+      .catch(() => {});
+    const poll = setInterval(() => {
+      if (!closed) void s.refresh().catch(() => {});
+    }, 2500);
+    const before = (e) => {
+      if (
+        s.get().dirty ||
+        Object.keys(editRef.current).length ||
+        ["recording", "permission", "transcribing"].includes(
+          latest.current.recordState,
+        )
+      ) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    const pagehide = () => {
+      epoch.current++;
+      flushTask.current = null;
+      editFailure.current = false;
+      setView(initial);
+      setPhotos([]);
+      setEdits({});
+      editRef.current = {};
+      recorder.current?.cancel();
+      sttAbort.current?.abort();
+      s.close();
+      alive.current = false;
+    };
+    const pageshow = (e) => {
+      if (e.persisted && !closed) {
+        alive.current = true;
+        setRecordState("ready");
+        setError("");
+        s = createSession();
+        session.current = s;
+        void s.refresh().catch(() => {});
+      }
+    };
+    window.addEventListener("pageshow", pageshow);
+    window.addEventListener("beforeunload", before);
+    window.addEventListener("pagehide", pagehide);
+    return () => {
+      closed = true;
+      epochs.current++;
+      alive.current = false;
+      recorder.current?.cancel();
+      sttAbort.current?.abort();
+      s.close();
+      clearInterval(poll);
+      window.removeEventListener("beforeunload", before);
+      window.removeEventListener("pagehide", pagehide);
+      window.removeEventListener("pageshow", pageshow);
+      document.body.style.overflow = oldOverflow;
+      previous?.focus?.();
+      if (attempt.current)
+        void metric(
+          { status: "abandoned", finishedAt: Date.now() },
+          attempt.current,
+        );
+      attempt.current = null;
+      attempts.clear();
+    };
+    // Auth/open lifetime only; current callbacks are kept in a ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownerKey, api]);
+  const scrollKey=[view.server?.messages?.length,view.server?.drafts?.map(d=>d.draftId+':'+d.state).join('|'),view.server?.contextProposals?.length].join('/');
+  useEffect(()=>{
+    const area=panel.current?.querySelector('.trainer-scroll');
+    if(!area)return;
+    const targets=area.querySelectorAll('.trainer-draft,.trainer-memory');
+    const target=targets[targets.length-1];
+    if(target)area.scrollTop+=target.getBoundingClientRect().top-area.getBoundingClientRect().top-12;
+    else area.scrollTop=area.scrollHeight;
+  },[scrollKey]);
+  async function flushEdits() {
+    const generation = epoch.current,
+      own = session.current;
+    if (flushTask.current) return flushTask.current;
+    flushTask.current = (async () => {
+      for (const [id, patch] of Object.entries(editRef.current)) {
+        if (!current(generation)) throw Error("context_changed");
+        const draft = own.get().server?.drafts.find((d) => d.draftId === id);
+        if (!draft) throw Error("draft_conflict");
+        await own.edit(draft, {
+          ...patch,
+          items: Object.entries(patch.items || {}).map(([itemId, fields]) => ({
+            itemId,
+            ...fields,
+          })),
+        });
+        if (!current(generation)) return;
+        if (editRef.current[id] === patch) {
+          const next = { ...editRef.current };
+          delete next[id];
+          editRef.current = next;
+          setEdits(next);
+        }
+      }
+    })()
+      .catch((e) => {
+        if (current(generation)) editFailure.current = true;
+        throw e;
+      })
+      .finally(() => {
+        if (current(generation)) flushTask.current = null;
+      });
+    return flushTask.current;
+  }
+  useEffect(() => {
+    if (!Object.keys(edits).length || view.busy || editFailure.current) return;
+    const timer = setTimeout(() => {
+      void flushEdits().catch(catchError);
+    }, 650);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edits, view.busy]);
+  function edit(id, patch) {
+    editFailure.current = false;
+    const old = editRef.current[id] || {},
+      items = { ...old.items };
+    for (const [key, fields] of Object.entries(patch.items || {}))
+      items[key] = { ...items[key], ...fields };
+    const next = {
+      ...editRef.current,
+      [id]: {
+        baseRevision:
+          old.baseRevision ??
+          session.current.get().server?.drafts.find((d) => d.draftId === id)
+            ?.revision,
+        ...old,
+        ...patch,
+        items,
+      },
+    };
+    editRef.current = next;
+    setEdits(next);
+    setError("");
+    void draftMetrics(
+      session.current.get().server?.drafts.find((d) => d.draftId === id),
+      { corrections: 1 },
+    );
+  }
+  async function close(discard = false) {
+    const generation = epoch.current,
+      own = session.current;
+    try {
+      if (!discard) {
+        await flushEdits();
+        if (!current(generation)) return;
+        await own.flush();
+      }
+      if (!current(generation)) return;
+      epoch.current++;
+      alive.current = false;
+      own.close();
+      recorder.current?.cancel();
+      sttAbort.current?.abort();
+      callbacks.current.onClose();
+    } catch (e) {
+      catchError(e);
+      if (current(generation)) setCanDiscard(true);
+    }
+  }
+  async function send(text, voiceAttempt, generation = epoch.current) {
+    const own = session.current;
+    let id = voiceAttempt;
+    try {
+      if (!current(generation)) return;
+      setError("");
+      await flushEdits();
+      if (!current(generation)) return;
+      id = voiceAttempt || (await startMetric("text"));
+      if (!current(generation)) return;
+      const content =
+        text ||
+        own.get().text ||
+        (photos.length
+          ? "Уточни харчові значення за фото етикетки відповідного продукту."
+          : "");
+      const turnId = newId();
+      await metric(
+        {
+          ownerKey,
+          turnId,
+          status: "processing",
+          hasPhoto: latest.current.photos.length > 0,
+        },
+        id,
+      );
+      if (!current(generation)) return;
+      await own.send({
+        turnId,
+        text: content,
+        images: latest.current.photos,
+        targetDate: latest.current.targetDate,
+      });
+      if (!current(generation)) return;
+      if (id) turnAttempts.current.set(turnId, id);
+      setPhotos([]);
+      await metric(
+        { status: "processing", hasPhoto: latest.current.photos.length > 0 },
+        id,
+      );
+    } catch (e) {
+      if (current(generation)) {
+        catchError(e);
+        await metric({ status: "error" }, id);
+      }
+    } finally {
+      if (current(generation)) setRecordState("ready");
+    }
+  }
+  async function beginRecording() {
+    const generation = epoch.current;
+    if (
+      recordState !== "ready" ||
+      view.busy ||
+      activeTurn(view.server?.currentTurn) ||
+      view.admission
+    )
+      return;
+    setError("");
+    setRecordState("permission");
+    startedAt.current = Date.now();
+    const id = await startMetric("voice");
+    if (!current(generation)) return;
+    attempt.current = id;
+    await metric({ ownerKey }, id);
+    if (!current(generation)) return;
+    const r = recorderFactory({
+      onState: (s) => {
+        if (current(generation)) setRecordState(s);
+      },
+      onTime: (s) => {
+        if (current(generation)) setSeconds(s);
+      },
+      onWaiting: () => {
+        if (current(generation))
+          setError("Браузер очікує дозволу на мікрофон.");
+      },
+      onError: (e) => {
+        if (!current(generation)) return;
+        catchError(e);
+        void metric({ status: "error", finishedAt: Date.now() }, id);
+        if (attempt.current === id) attempt.current = null;
+        if (current(generation)) setRecordState("ready");
+      },
+      onStop: async (blob, duration) => {
+        if (!current(generation)) return;
+        setRecordState("transcribing");
+        sttAbort.current = new AbortController();
+        try {
+          const audio = await audioNormalizer(blob);
+          if (!current(generation)) return;
+          const result = await transcribe(
+            audio,
+            duration,
+            sttAbort.current.signal,
+            "auto",
+          );
+          if (!current(generation)) return;
+          const text = [session.current.get().text.trim(), result.text?.trim()]
+            .filter(Boolean)
+            .join("\n");
+          if (!result.text?.trim()) throw Error("empty_transcript");
+          await send(text, id, generation);
+        } catch (e) {
+          if (!current(generation)) return;
+          catchError(e);
+          await metric({ status: "error", finishedAt: Date.now() }, id);
+          if (current(generation)) setRecordState("ready");
+        }
+      },
+    });
+    recorder.current = r;
+    await r.start();
+  }
+  async function addPhoto(file) {
+    const generation = epoch.current;
+    if (!file) return;
+    setError("");
+    if (photos.length >= 2) {
+      setError("Можна додати до двох фото.");
+      return;
+    }
+    const itemId = photoTarget.current;
+    try {
+      const p = await photoNormalizer(file);
+      if (!current(generation)) return;
+      setPhotos((old) => [...old, { ...p, itemId, addedAt: Date.now() }]);
+    } catch (e) {
+      if (current(generation)) catchError(e);
+    }
+  }
+  useEffect(() => {
+    if (!photos.length) return;
+    const timer = setTimeout(
+      () => {
+        setPhotos([]);
+        setError(
+          "Термін тимчасових фото минув. Додайте їх знову; текст і чернетки збережені.",
+        );
+      },
+      Math.max(
+        0,
+        300000 - (Date.now() - Math.min(...photos.map((p) => p.addedAt))),
+      ),
+    );
+    return () => clearTimeout(timer);
+  }, [photos]);
+  async function draftMetrics(draft, patch) {
+    if (!draft || !ledger?.enabled) return;
+    try {
+      const rows = await ledger.list(),
+        ids = new Set(draft.originTurnIds || [draft.turnId]);
+      const matching = rows.filter(
+        (row) => row.ownerKey === ownerKey && ids.has(row.turnId),
+      );
+      const hasPhoto = matching.some((row) => row.hasPhoto);
+      for (const row of matching) {
+        const related = (session.current.get().server?.drafts || []).filter(
+          (d) => (d.originTurnIds || [d.turnId]).includes(row.turnId),
+        );
+        const partial = related.some(
+          (d) =>
+            d.state !== "saved" ||
+            d.items.some((i) => i.nutritionStatus !== "complete"),
+        );
+        await metric(
+          {
+            ...patch,
+            hasPhoto,
+            ...(patch.status === "saved" ? { partial } : {}),
+          },
+          row.attemptId,
+        );
+        if (patch.status === "saved" && row.attemptId === attempt.current)
+          attempt.current = null;
+      }
+    } catch {
+      if (alive.current) setMetricFailed(true);
+    }
+  }
+  async function save(draft) {
+    const generation = epoch.current,
+      own = session.current;
+    try {
+      setError("");
+      await flushEdits();
+      if (!current(generation)) return;
+      const fresh = own
+        .get()
+        .server.drafts.find((d) => d.draftId === draft.draftId);
+      await own.save(fresh);
+      if (!current(generation)) return;
+      await draftMetrics(fresh, {
+        status: "saved",
+        submissionId: own
+          .get()
+          .server?.drafts.find((d) => d.draftId === draft.draftId)?.save
+          ?.submissionId,
+        finishedAt: Date.now(),
+        partial: fresh.items.some((i) => i.nutritionStatus !== "complete"),
+        ...allocationCounts(
+          assignPlanItems(
+            fresh.items.filter((i) => i.nutritionStatus === "complete"),
+            catalog,
+            dayMeals,
+          ),
+        ),
+      });
+    } catch (e) {
+      if (current(generation)) catchError(e);
+    }
+  }
+  const busy = view.busy || recordState !== "ready",
+    turn = view.server?.currentTurn,
+    canSend =
+      !!view.server &&
+      !busy &&
+      !activeTurn(turn) &&
+      !view.admission &&
+      !view.composerConflict &&
+      (view.text.trim() || photos.length);
+  function keys(e) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      void close();
+    }
+    if (e.key === "Tab") {
+      const nodes = [
+        ...panel.current.querySelectorAll(
+          'button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled),summary,[tabindex="0"]',
+        ),
+      ].filter((n) => n.getClientRects().length);
+      const first = nodes[0],
+        last = nodes[nodes.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    }
+  }
+  return (
+    <div className="trainer-overlay">
+      <section
+        className="trainer-chat"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="trainer-title"
+        ref={panel}
+        onKeyDown={keys}
+        data-testid="trainer-chat"
+      >
+        <header className="trainer-header">
+          <div>
+            <h2 id="trainer-title">Тренер</h2>
+            <p>Їжа, запитання й уточнення</p>
+          </div>
+          <button aria-label="Закрити чат" onClick={() => void close()}>
+            <X />
+          </button>
+        </header>
+        <div className="trainer-scroll">
+          <p className="trainer-intro">
+            Напишіть або розкажіть, що з’їли. Я підготую прев’ю, а ви натиснете
+            «Додати».
+          </p>
+          <div aria-live="polite" className="trainer-messages">
+            {(view.server?.messages || []).map((m) => (
+              <div
+                key={m.id}
+                className={`trainer-message ${m.role === "user" ? "from-user" : "from-trainer"}`}
+              >
+                <span>{m.role === "user" ? "Ви" : "Тренер"}</span>
+                <p>{m.content}</p>
+              </div>
+            ))}
+          </div>
+          {view.server?.latestTurn?.text &&
+            !(view.server.messages || []).some(
+              (m) => m.id === view.server.latestTurn.turnId + "-u",
+            ) && (
+              <div className="trainer-message from-user">
+                <span>Ви</span>
+                <p>{view.server.latestTurn.text}</p>
+                {["failed", "cancelled"].includes(
+                  view.server.latestTurn.state,
+                ) && (
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      session.current.type(view.server.latestTurn.text)
+                    }
+                  >
+                    Повернути текст для уточнення
+                  </button>
+                )}
+              </div>
+            )}
+          {activeTurn(turn) && (
+            <div className="trainer-turn" role="status">
+              <p>{statuses[turn.state]}</p>
+              {turn.state === "unknown" && (
+                <button
+                  onClick={() =>
+                    void session.current.recover(turn.turnId).catch(catchError)
+                  }
+                  disabled={busy}
+                >
+                  Перевірити результат
+                </button>
+              )}
+              <button
+                onClick={() =>
+                  void session.current.cancel(turn.turnId).catch(catchError)
+                }
+                disabled={busy || turn.expired}
+              >
+                Скасувати обробку
+              </button>
+            </div>
+          )}
+          {view.server?.latestTurn?.state === "failed" && (
+            <p role="alert" className="trainer-error">
+              {trainerError(
+                Error(view.server.latestTurn.error || "trainer_unavailable"),
+              )}{" "}
+              Текст повідомлення збережений у чаті.
+            </p>
+          )}
+          {view.server?.maintenanceBlocked && (
+            <p className="trainer-warning">
+              Тренер завершує відновлення. Нові повідомлення тимчасово
+              недоступні.
+            </p>
+          )}
+          {(view.server?.drafts || []).map((d) => (
+            <DraftCard
+              key={d.draftId}
+              draft={applyEdits(d, edits[d.draftId])}
+              catalog={catalog}
+              meals={d.targetDate === date ? dayMeals : empty}
+              dirty={!!edits[d.draftId]}
+              disabled={busy}
+              onEdit={(p) => edit(d.draftId, p)}
+              onSave={save}
+              onPhoto={(itemId) => {
+                photoTarget.current = itemId;
+                fileInput.current.click();
+              }}
+              onOpenDay={(d) => {
+                callbacks.current.onOpenDay?.(d);
+                void close();
+              }}
+            />
+          ))}
+          {(view.server?.contextProposals || [])
+            .filter((p) => p.state === "proposed")
+            .map((p) => (
+              <article className="trainer-memory" key={p.proposalId}>
+                <h3>Пропозиція для пам’яті</h3>
+                {!context ? (
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      void session.current
+                        .context()
+                        .then(setContext)
+                        .catch(catchError)
+                    }
+                  >
+                    Переглянути зміни
+                  </button>
+                ) : (
+                  <>
+                    <p>Було</p>
+                    <pre>{context.text}</pre>
+                    <p>Буде</p>
+                    <pre>{p.text}</pre>
+                    <button
+                      className="trainer-primary"
+                      disabled={busy || context.revision !== p.baseRevision}
+                      onClick={() =>
+                        void session.current
+                          .remember(p.proposalId)
+                          .then(() => setContext(null))
+                          .catch(catchError)
+                      }
+                    >
+                      Запам’ятати
+                    </button>
+                    {context.revision !== p.baseRevision && (
+                      <p>
+                        Пам’ять змінилася. Попросіть тренера підготувати нову
+                        пропозицію.
+                      </p>
+                    )}
+                  </>
+                )}
+              </article>
+            ))}
+          {view.server && (
+            <details className="trainer-options">
+              <summary>Історія чату</summary>
+              <p>
+                Повідомлення й незавершені чернетки зберігаються 30 днів.
+                Підтверджена їжа залишається у щоденнику.
+              </p>
+              {!confirmDelete ? (
+                <button disabled={busy} onClick={() => setConfirmDelete(true)}>
+                  Видалити розмову
+                </button>
+              ) : (
+                <>
+                  <p>
+                    Видалити історію й незбережені чернетки? Записи щоденника
+                    залишаться.
+                  </p>
+                  <button
+                    disabled={busy}
+                    onClick={() =>
+                      void session.current
+                        .forget()
+                        .then(() => {
+                          setEdits({});
+                          editRef.current = {};
+                          setPhotos([]);
+                          setConfirmDelete(false);
+                        })
+                        .catch(catchError)
+                    }
+                  >
+                    Так, видалити розмову
+                  </button>
+                  <button onClick={() => setConfirmDelete(false)}>
+                    Залишити
+                  </button>
+                </>
+              )}
+            </details>
+          )}
+        </div>
+        <footer className="trainer-composer">
+          {error && Object.keys(edits).length > 0 && (
+            <button
+              disabled={busy}
+              onClick={() => {
+                setEdits({});
+                editRef.current = {};
+                editFailure.current = false;
+                setError("");
+                void session.current.refresh().catch(catchError);
+              }}
+            >
+              Скасувати мої незбережені правки й перечитати прев’ю
+            </button>
+          )}
+          {(error || view.error) && (
+            <p className="trainer-error" role="alert">
+              {error || trainerError(Error(view.error))}
+            </p>
+          )}
+          {metricFailed && (
+            <p className="trainer-warning">
+              Статистика пілоту неповна; їжу можна додавати.
+            </p>
+          )}
+          {view.admission && (
+            <div role="status">
+              <p>Перевірте отримання, щоб не надіслати їжу двічі.</p>
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void session.current.checkAdmission().catch(catchError)
+                }
+              >
+                Перевірити отримання
+              </button>
+              {view.admission.state === "not_received" && (
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    view.admission.lostMedia
+                      ? session.current.recompose()
+                      : void session.current
+                          .checkAdmission(true)
+                          .catch(catchError)
+                  }
+                >
+                  {view.admission.lostMedia
+                    ? "Повернути текст і додати фото знову"
+                    : "Надіслати ту саму спробу"}
+                </button>
+              )}
+            </div>
+          )}
+          {view.composerConflict && (
+            <div>
+              <button
+                onClick={() =>
+                  void session.current.chooseComposer(true).catch(catchError)
+                }
+              >
+                Залишити мій текст
+              </button>
+              <button
+                onClick={() =>
+                  void session.current.chooseComposer(false).catch(catchError)
+                }
+              >
+                Взяти текст іншої вкладки
+              </button>
+            </div>
+          )}
+          <label className="trainer-date">
+            Дата повідомлення
+            <input
+              type="date"
+              value={targetDate}
+              disabled={busy || !!view.admission}
+              onChange={(e) => setTargetDate(e.target.value)}
+            />
+          </label>
+          <label className="trainer-text-label" htmlFor="trainer-message">
+            Повідомлення тренеру
+          </label>
+          <textarea
+            ref={textarea}
+            id="trainer-message"
+            rows="2"
+            placeholder="Наприклад: з’їв 200 г тушкованої картоплі"
+            value={view.text}
+            disabled={busy || !!view.admission}
+            onChange={(e) => {
+              setError("");
+              session.current.type(e.target.value);
+            }}
+          />
+          <p className="trainer-composer-status" role="status">
+            {
+              {
+                loading: "Завантажую чат…",
+                saved: "Текст збережений",
+                saving: "Зберігаю текст…",
+                unsaved: "Текст ще не збережений",
+                error: "Текст ще не збережений",
+              }[view.composerState]
+            }
+          </p>
+          {!!photos.length && (
+            <div className="trainer-photos">
+              {photos.map((p, i) => (
+                <div key={i}>
+                  <img src={p.preview} alt="Фото етикетки перед надсиланням" />
+                  <button
+                    aria-label={`Прибрати фото ${i + 1}`}
+                    disabled={busy || !!view.admission}
+                    onClick={() =>
+                      setPhotos((a) => a.filter((_, n) => n !== i))
+                    }
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <input
+            ref={fileInput}
+            className="trainer-file"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={(e) => {
+              void addPhoto(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+          <button
+            className="trainer-photo-start"
+            disabled={busy || !!view.admission || !view.server}
+            onClick={() => {
+              const rows = (view.server?.drafts || [])
+                .filter((d) => d.state === "ready")
+                .flatMap((d) => d.items);
+              if (rows.length > 1) {
+                setError(
+                  "Оберіть «Фото етикетки цього продукту» у потрібному рядку прев’ю.",
+                );
+                return;
+              }
+              photoTarget.current =
+                rows[0]?.itemId || photos[0]?.itemId || newId();
+              fileInput.current.click();
+            }}
+          >
+            <Camera size={18} />
+            Фото упаковки
+          </button>
+          <div className="trainer-actions">
+            {recordState === "recording" ? (
+              <button
+                className="trainer-recording"
+                onClick={() => recorder.current.stop()}
+              >
+                <Square size={19} />
+                Зупинити · {seconds} с
+              </button>
+            ) : (
+              <button
+                disabled={
+                  !view.server || busy || !!view.admission || activeTurn(turn)
+                }
+                onClick={() => void beginRecording()}
+              >
+                <Mic size={20} />
+                {recordState === "transcribing"
+                  ? "Розпізнаю голос…"
+                  : recordState === "permission"
+                    ? "Очікую мікрофон…"
+                    : "Почати запис"}
+              </button>
+            )}
+            <button
+              className="trainer-primary"
+              aria-label="Надіслати повідомлення"
+              disabled={!canSend}
+              onClick={() => void send()}
+            >
+              <Send size={20} />
+              Надіслати
+            </button>
+          </div>
+          {view.server &&
+            view.text.trim() &&
+            !activeTurn(turn) &&
+            !view.admission && (
+              <button
+                className="trainer-note-fallback"
+                disabled={busy}
+                onClick={() =>
+                  void flushEdits()
+                    .then(() =>
+                      session.current.note({
+                        text: view.text,
+                        targetDate,
+                        meal,
+                      }),
+                    )
+                    .catch(catchError)
+                }
+              >
+                Зберегти текст як нотатку без оцінки
+              </button>
+            )}
+          {canDiscard && (
+            <button onClick={() => void close(true)}>
+              Закрити без збереження останніх змін
+            </button>
+          )}
+        </footer>
+      </section>
+    </div>
+  );
+}

@@ -593,3 +593,18 @@ test("H03 provenance deduplicates one input shared by twenty draft rows", async 
     );
   }
 });
+
+test('terminal save rejection needs exact trusted proof, keeps old command, creates fresh ID after reprepare',async t=>{
+ const f=fixture(t),{turn,d}=propose(f);complete(f,turn);
+ const fresh=f.store.draft('owner',f.cid,d.draftId),prepared=await commandFromDraft(fresh);
+ f.store.beginSave('owner',f.cid,d.draftId,fresh.revision,prepared);
+ const sid=prepared.command.submissionId,proof={rejectedSubmissions:{[sid]:prepared.hash}};
+ assert.throws(()=>f.store.confirmRejected('owner',f.cid,d.draftId,'other',proof),/save_unconfirmed/);
+ assert.throws(()=>f.store.confirmRejected('owner',f.cid,d.draftId,sid,{rejectedSubmissions:{[sid]:'wrong'}}),/save_unconfirmed/);
+ assert.throws(()=>f.store.confirmRejected('owner',f.cid,d.draftId,sid,{...proof,submissionMarkers:{[sid]:prepared.hash}}),/save_unconfirmed/);
+ const ready=f.store.confirmRejected('owner',f.cid,d.draftId,sid,proof);assert.equal(ready.state,'ready');assert.equal(ready.save,undefined);
+ f.reopen();assert.equal(f.store.draft('owner',f.cid,d.draftId).lastRejected,sid);
+ const next=await commandFromDraft(ready);assert.notEqual(next.command.submissionId,sid);
+ f.store.beginSave('owner',f.cid,d.draftId,ready.revision,next);
+ assert.throws(()=>f.store.confirmRejected('owner',f.cid,d.draftId,sid,proof),/save_unconfirmed/);
+});

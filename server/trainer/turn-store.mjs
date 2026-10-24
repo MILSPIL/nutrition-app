@@ -335,6 +335,18 @@ export function openTurnStore(
           at,
           at + LIMITS.deadlineMs,
         );
+        // Admission and removal of exactly the sent composer are one durable commit.
+        // An edit made in another tab is preserved when it differs from this input.
+        const composer = JSON.parse(c.composer);
+        if (composer.text.trim() === input.text.trim())
+          db.prepare("UPDATE conversations SET composer=? WHERE id=?").run(
+            JSON.stringify({
+              text: "",
+              revision: composer.revision + 1,
+              updatedAt: now(),
+            }),
+            id,
+          );
         return { replayed: false, turn: view(own(uid, input.turnId)) };
       });
     },
@@ -347,6 +359,25 @@ export function openTurnStore(
       const row = db
         .prepare(
           "SELECT t.* FROM turns t LEFT JOIN cleanup_jobs j ON j.turn_id=t.id WHERE t.conversation_id=? AND (t.state IN ('queued','running','unknown') OR j.turn_id IS NOT NULL) ORDER BY t.created DESC LIMIT 1",
+        )
+        .get(id);
+      return row
+        ? row.expired
+          ? {
+              turnId: row.id,
+              state: "cleanup_pending",
+              expired: true,
+              error: "retention_cleanup",
+              result: null,
+            }
+          : view(row)
+        : null;
+    },
+    latest(uid, id) {
+      conversation(uid, id);
+      const row = db
+        .prepare(
+          "SELECT * FROM turns WHERE conversation_id=? AND expired=0 ORDER BY created DESC,rowid DESC LIMIT 1",
         )
         .get(id);
       return row ? view(row) : null;

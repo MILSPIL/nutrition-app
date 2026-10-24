@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { pilotSummary } from "../services/pilotLedger";
+import { pilotSummary, exportPilotRows } from "../services/pilotLedger";
 import { readSubmission } from "../services/mealStore";
 export default function PilotPanel({ ledger, uid, version = 0 }) {
   const [rows, setRows] = useState([]),
@@ -44,7 +44,7 @@ export default function PilotPanel({ ledger, uid, version = 0 }) {
   const summary = pilotSummary(rows, error || ledger.invalid());
   const download = () => {
     const blob = new Blob(
-        [JSON.stringify({ summary, attempts: rows }, null, 2)],
+        [JSON.stringify({ summary, attempts: exportPilotRows(rows) }, null, 2)],
         { type: "application/json" },
       ),
       url = URL.createObjectURL(blob),
@@ -73,7 +73,11 @@ export default function PilotPanel({ ledger, uid, version = 0 }) {
           <div key={row.attemptId} className="my-2">
             <span>
               {new Date(row.startedAt).toLocaleString("uk-UA")} ·{" "}
-              {row.hasPhoto ? "із фото" : "голос"}
+              {row.hasPhoto
+                ? "із фото"
+                : row.channel === "text"
+                  ? "текст"
+                  : "голос"}
             </span>
             <button
               className="p-3 text-[#007AFF]"

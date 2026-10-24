@@ -171,6 +171,7 @@ export function createTrainerGateway({
           contextProposals: store.contextProposals(uid, id),
           maintenanceBlocked: maintenanceFault,
           currentTurn: store.current(uid, id),
+          latestTurn: store.latest(uid, id),
           messages: store.history(uid, id),
         });
       if (route === "/composer" && method === "PUT") {
@@ -297,11 +298,25 @@ export function createTrainerGateway({
           );
         }
         if (method === "POST" && dmatch[2] === "/receipt") {
+          if (!draft.save && draft.lastRejected) return reply(draft);
           const proof = await boundedOperation(
             (s) => readDay(uid, draft.targetDate, s),
             5000,
             signal,
           );
+          if (
+            draft.save &&
+            proof?.rejectedSubmissions?.[draft.save.submissionId]
+          )
+            return reply(
+              store.confirmRejected(
+                uid,
+                id,
+                draft.draftId,
+                draft.save.submissionId,
+                proof,
+              ),
+            );
           return reply(store.confirmSaved(uid, id, draft.draftId, proof));
         }
         if (method === "POST" && dmatch[2] === "/unknown")

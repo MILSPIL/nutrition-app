@@ -39,3 +39,30 @@ test("відмова IndexedDB позначає весь пілот неповн
   expect(createPilotLedger(true).invalid()).toBe(true);
   await ledger.close();
 });
+test("текстові спроби не змінюють голосовий знаменник і мають окремий підсумок", () => {
+  const rows = [
+    { status: "error", channel: "voice" },
+    { status: "saved", channel: "text", correct: true },
+    { status: "saved", correct: true },
+  ];
+  expect(pilotSummary(rows).attempts).toBe(2);
+  expect(pilotSummary(rows).successes).toBe(1);
+  expect(createPilotLedger(false).textSummary(rows)).toEqual({
+    attempts: 1,
+    saved: 1,
+  });
+});
+
+test("pilot export omits local owner and server turn linkage", () => {
+  const { exportPilotRows } = require("./pilotLedger");
+  expect(
+    exportPilotRows([
+      {
+        attemptId: "anonymous-attempt",
+        ownerKey: "private-owner",
+        turnId: "private-turn",
+        status: "saved",
+      },
+    ]),
+  ).toEqual([{ attemptId: "anonymous-attempt", status: "saved" }]);
+});

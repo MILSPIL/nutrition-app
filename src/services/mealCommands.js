@@ -14,6 +14,7 @@ export function applyDayCommand(day = {}, command, hash, {resolvedNote} = {}) {
     if (previous !== hash) fail('submission_conflict');
     return { day, duplicate: true };
   }
+  if(day.rejectedSubmissions?.[command.submissionId])fail(day.rejectedSubmissions[command.submissionId]===hash?'plan_conflict':'submission_conflict');
   const revision = day.revision || 0;
   if (command.expectedRevision != null && command.expectedRevision !== revision) fail('revision_conflict');
   if (['saveTrainerDraft','resolveFoodNote'].includes(command.type)) {

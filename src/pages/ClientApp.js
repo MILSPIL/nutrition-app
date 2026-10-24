@@ -36,13 +36,16 @@ import {
   createDefaultClientUser
 } from '../services/nutrition';
 import VoiceInputModal from '../components/VoiceInputModal';
+import TrainerChat from '../components/TrainerChat';
 import PilotPanel from '../components/PilotPanel';
 import { createPilotLedger } from '../services/pilotLedger';
 import { catalogItem, quantityText, itemMacros, sourceText } from '../services/mealItems';
-import { saveProfileSettings } from '../services/mealStore';
+import { saveProfileSettings,commitMealDay } from '../services/mealStore';
 import { hasMeals } from '../services/mealCommands';
 import { useMealDay, saveError } from '../services/useMealDay';
 import { calculateProgramDay, getTodayDateKey, parseDateInput } from '../utils/date';
+
+const trainerChatEnabled=process.env.REACT_APP_TRAINER_CHAT==='1';
 
 export default function ClientApp() {
   // Firebase Auth
@@ -55,6 +58,7 @@ export default function ClientApp() {
   const [productOverrides, setProductOverrides] = useState({});
 
   const [showVoiceInput,setShowVoiceInput]=useState(false);
+  const [trainerNote,setTrainerNote]=useState(null);
   const [pilotVersion,setPilotVersion]=useState(0);
   const pilotLedger=useMemo(()=>createPilotLedger(),[]);
   useEffect(()=>()=>{void pilotLedger.close().catch(()=>{});},[pilotLedger]);
@@ -533,7 +537,8 @@ export default function ClientApp() {
         onShowDaySelector={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowDaySelector(true);}}
         onShowMeasurements={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowMeasurements(true);}}
         onShowSettings={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowSettings(true);}}
-        onShowVoiceInput={()=>setShowVoiceInput(true)}
+        onShowVoiceInput={()=>{setTrainerNote(null);setShowVoiceInput(true);}}
+        voiceLabel={trainerChatEnabled?'Тренер · текст і голос':undefined}
         voiceDisabled={!mealDay.ready || mealDay.busy || mealDay.requiresReload || !!mealDay.day.legacy}
 
       />
@@ -560,7 +565,7 @@ export default function ClientApp() {
           <ul>{Object.values(mealDay.day.legacy).flatMap(m=>Object.values(m).flat()).map((item,i)=><li key={i}>{item.name}: {quantityText(item)}</li>)}</ul>
         </div>}
       </div>
-      <div className="max-w-lg mx-auto px-4"><FoodNotesPanel notes={mealDay.day.notes}/></div>
+      <div className="max-w-lg mx-auto px-4"><FoodNotesPanel onResolve={trainerChatEnabled?note=>{setTrainerNote({text:note.originalText||note.name,targetDate:mealsDateKey,meal:selectedMeal,noteId:note.noteId,itemId:note.itemId});setShowVoiceInput(true);}:undefined} notes={mealDay.day.notes}/></div>
       <fieldset disabled={!mealDay.ready || mealDay.busy || mealDay.hasPending || !!mealDay.day.legacy}>
       <MealSection
         selectedMeal={selectedMeal}
@@ -594,13 +599,17 @@ export default function ClientApp() {
       </div>
 
       <PilotPanel ledger={pilotLedger} uid={firebaseUser.uid} version={pilotVersion}/>
-      <VoiceInputModal isOpen={showVoiceInput} onClose={()=>{setShowVoiceInput(false);setPilotVersion(x=>x+1);}}
+      {trainerChatEnabled&&showVoiceInput?<TrainerChat key={`${firebaseUser.uid}:${currentUser}`} uid={firebaseUser.uid} ownerKey={`${firebaseUser.uid}:${currentUser}`} date={mealsDateKey} meal={selectedMeal} ledger={pilotLedger}
+        initialNote={trainerNote} onClose={()=>{setShowVoiceInput(false);setTrainerNote(null);setPilotVersion(x=>x+1);}}
+        planContext={mealDay.day.planContext||{profile:users[currentUser],globalCustomProducts,productOverrides}} dayMeals={meals}
+        onOpenDay={setMealsDateKey} onSaved={()=>{mealDay.reload();setPilotVersion(x=>x+1);}}
+        onAdd={(command,date)=>commitMealDay(firebaseUser.uid,currentUser,date,command)}/>:<VoiceInputModal isOpen={showVoiceInput} onClose={()=>{setShowVoiceInput(false);setPilotVersion(x=>x+1);}}
         date={mealsDateKey} activeDate={mealsDateKey} meal={selectedMeal} ledger={pilotLedger}
         ownerKey={`${firebaseUser.uid}:${currentUser}`} dayMeals={meals} pendingSave={mealDay.hasPending} onRetryPending={retryPending}
         planContext={mealDay.day.planContext||{profile:users[currentUser],globalCustomProducts,productOverrides}}
         onRefreshPlan={async()=>(await mealDay.refresh()).planContext}
         onReturnToDate={setMealsDateKey} onSaved={()=>setPilotVersion(x=>x+1)}
-        onAdd={async (command,date)=>{if(date!==mealsDateKey)throw Error('date_conflict');const result=await mealDay.commit(command);setPilotVersion(x=>x+1);return result;}}/>
+        onAdd={async (command,date)=>{if(date!==mealsDateKey)throw Error('date_conflict');const result=await mealDay.commit(command);setPilotVersion(x=>x+1);return result;}}/>}
       {/* Modals */}
       <ProductModal
         isOpen={showProductModal}

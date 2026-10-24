@@ -1,6 +1,9 @@
 import { newId } from "./mealItems";
 const ALLOWED = [
   "attemptId",
+  "channel",
+  "ownerKey",
+  "turnId",
   "parentAttemptId",
   "submissionId",
   "startedAt",
@@ -20,7 +23,10 @@ const ALLOWED = [
   "correct",
   "status",
 ];
-export const pilotSummary = (rows, invalid = false) => {
+export const exportPilotRows = (rows) =>
+  rows.map(({ ownerKey, turnId, ...row }) => row);
+export const pilotSummary = (allRows, invalid = false) => {
+  const rows = allRows.filter((row) => row.channel !== "text");
   const successes = rows.filter(
     (x) =>
       x.status === "saved" &&
@@ -93,10 +99,14 @@ export function createPilotLedger(
         const next = { ...request.result, ...patch, updatedAt: Date.now() };
         store.put(
           Object.fromEntries(
-            ALLOWED.filter((k) => next[k] !== undefined && (!k.startsWith("plan") || (Number.isSafeInteger(next[k]) && next[k]>=0 && next[k]<=20))).map((k) => [
-              k,
-              next[k],
-            ]),
+            ALLOWED.filter(
+              (k) =>
+                next[k] !== undefined &&
+                (!k.startsWith("plan") ||
+                  (Number.isSafeInteger(next[k]) &&
+                    next[k] >= 0 &&
+                    next[k] <= 20)),
+            ).map((k) => [k, next[k]]),
           ),
         );
         done(next);
@@ -105,11 +115,19 @@ export function createPilotLedger(
   };
   return {
     enabled,
-    start: async (parentAttemptId) => {
+    textSummary: (rows) => ({
+      attempts: rows.filter((r) => r.channel === "text").length,
+      saved: rows.filter((r) => r.channel === "text" && r.status === "saved")
+        .length,
+    }),
+    start: async (parentAttemptId, channel = "voice") => {
+      if (!["voice", "text"].includes(channel))
+        throw Error("invalid_metric_channel");
       const attemptId = newId();
       await run((tx, done) => {
         tx.objectStore("attempts").put({
           attemptId,
+          channel,
           ...(parentAttemptId ? { parentAttemptId } : {}),
           startedAt: Date.now(),
           updatedAt: Date.now(),

@@ -193,6 +193,13 @@ export function patchDraft(
     state: "ready",
     items: [...items.values()],
     updatedAt: now(),
+    originTurnIds: [
+      ...new Set([
+        ...(previous?.originTurnIds ||
+          (previous?.turnId ? [previous.turnId] : [])),
+        ...(turnId ? [turnId] : []),
+      ]),
+    ],
     origins: Object.fromEntries(
       Object.entries(origins).filter(([key]) =>
         [...items.values()].some((i) => i.originalTextRef === key),
@@ -466,6 +473,29 @@ export function attachDraftStore({
           d.save.submissionId,
         );
         return write(cid, { ...d, state: "unknown" });
+      });
+    },
+    confirmRejected(uid, cid, did, expectedId, proof) {
+      return tx(() => {
+        const d = get(uid, cid, did);
+        if (
+          !d.save ||
+          d.save.submissionId !== expectedId ||
+          proof?.rejectedSubmissions?.[expectedId] !== d.save.hash ||
+          proof?.submissionMarkers?.[expectedId]
+        )
+          fail("save_unconfirmed", 409);
+        db.prepare("UPDATE save_commands SET state='rejected' WHERE id=?").run(
+          expectedId,
+        );
+        const { save, ...rest } = d;
+        return write(cid, {
+          ...rest,
+          state: "ready",
+          revision: d.revision + 1,
+          lastRejected: expectedId,
+          updatedAt: now(),
+        });
       });
     },
     confirmSaved(uid, cid, did, proof) {

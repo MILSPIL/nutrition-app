@@ -169,6 +169,16 @@ service cloud.firestore {
         && n.originalText is string && n.originalText.size() <= 8000 && text(n.createdAt,80)
         && noteQuantity(n.quantity) && noteQuantity(n.nutritionBasis) && noteNutrients(n.knownNutrients) && noteSource(n.provenance);
     }
+    function submissionFences(a,b) {
+      let oldReject=a.get('rejectedSubmissions',{});
+      let reject=b.get('rejectedSubmissions',{});
+      let oldSuccess=a.get('submissionMarkers',{});
+      let success=b.get('submissionMarkers',{});
+      return reject is map && success is map
+        && reject.diff(oldReject).removedKeys().size()==0 && reject.diff(oldReject).changedKeys().size()==0
+        && success.diff(oldSuccess).removedKeys().size()==0 && success.diff(oldSuccess).changedKeys().size()==0
+        && !reject.keys().hasAny(success.keys());
+    }
     match /users/{uid} {
       allow get, list: if owner(uid);
       allow create: if owner(uid) && request.resource.data.keys().hasOnly(regularFields().concat(['trainerId','trainerEmail']))
@@ -179,8 +189,8 @@ service cloud.firestore {
       allow delete: if false;
       match /mealHistory/{day} {
         allow read: if owner(uid) || assigned(uid);
-        allow create: if owner(uid) && writerValid(request.resource.data, uid);
-        allow update: if owner(uid) && writerChanged(uid);
+        allow create: if owner(uid) && writerValid(request.resource.data, uid) && submissionFences({},request.resource.data);
+        allow update: if owner(uid) && writerChanged(uid) && submissionFences(resource.data,request.resource.data);
       }
       match /foodNotes/{noteId} {
         allow read: if owner(uid) || assigned(uid);

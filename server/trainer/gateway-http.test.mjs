@@ -150,6 +150,7 @@ async function fixture(
     });
   return {
     send,
+    url,
     store,
     media,
     calls,
@@ -424,4 +425,62 @@ test("interrupted metadata write does not block canonical startup cleanup or unr
     store.close();
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("same-origin browser GET without Origin works; foreign reads and unsafe missing Origin are rejected", async (t) => {
+  const f = await fixture(t),
+    headers = {
+      Authorization: "Bearer " + token("pilot"),
+      "Sec-Fetch-Site": "same-origin",
+    };
+  assert.equal((await fetch(f.url + "/state", { headers })).status, 200);
+  assert.equal(
+    (
+      await fetch(f.url + "/state", {
+        headers: { ...headers, Origin: "https://foreign.example" },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await fetch(f.url + "/state", {
+        headers: {
+          Authorization: headers.Authorization,
+          "Sec-Fetch-Site": "cross-site",
+        },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await fetch(f.url + "/composer", {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: "{}",
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await fetch(f.url + "/state", {
+        headers: { "Sec-Fetch-Site": "same-origin" },
+      })
+    ).status,
+    401,
+  );
+  assert.equal(
+    (
+      await fetch(f.url + "/state", {
+        headers: {
+          ...headers,
+          Authorization: "Bearer " + token("other-valid"),
+        },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(f.calls.start, 0);
 });
