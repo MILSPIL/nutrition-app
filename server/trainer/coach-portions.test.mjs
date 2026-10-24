@@ -194,7 +194,7 @@ test('review P2 a literal mass belongs to its food, not another named item in th
   assert.equal(apple.source.portionOrigin.kind,'estimate',userText);
   assert.equal(apple.estimated,true,userText);
  }
- for(const userText of ['З’їв 150 г яблука','З’їв яблуко, 150 г','150 г гречки і 150 г яблука']) {
+ for(const userText of ['З’їв 150 г яблука','З’їв 150 g яблука','З’їв яблуко, 150 г','150 г гречки і 150 г яблука']) {
   const apple=r.resolve(food('Яблуко'),{userText});
   assert.equal(apple.source.portionOrigin.kind,'user',userText);
   assert.equal(apple.estimated,false,userText);
@@ -207,7 +207,7 @@ test('review P2 a literal mass belongs to its food, not another named item in th
 test('review P2 negated and alternative masses never become a precise user portion',async()=>{
  const r=await offered();
  const food=value=>raw({name:'Яблуко',quantity:{value,unit:'g'},source:{kind:'database',recordId:candidate.id}});
- for(const userText of ['Не 150 г, а 180 г яблука','Яблуко не 150 г','Яблуко 150 г або 180 г','Приблизно 150 г яблука','Яблуко 150 г без зважування','100-150 г яблука','Десь 150 г яблука','До 150 г яблука','Яблуко 150 г?'])
+ for(const userText of ['Не 150 г, а 180 г яблука','Яблуко не 150 г','Яблуко 150 г або 180 г','Приблизно 150 г яблука','Яблуко 150 г без зважування','100-150 г яблука','Десь 150 г яблука','До 150 г яблука','Яблуко 150 г?','Близько 150 г яблука','Біля 150 г яблука','Можливо 150 г яблука','Може 150 г яблука','Майже 150 г яблука','Думаю, 150 г яблука','Здається, 150 г яблука','Возможно 150 г яблока','Roughly 150 g яблука'])
   assert.equal(r.resolve(food(150),{userText}).source.portionOrigin.kind,'estimate',userText);
  assert.equal(r.resolve(food(180),{userText:'Не 150 г, а 180 г яблука'}).source.portionOrigin.kind,'user');
 });

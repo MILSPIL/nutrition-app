@@ -37,7 +37,7 @@ const bindsFood = (nearby, name, fromEnd = false) => {
   // ingredient alone does not bind e.g. corn to cornbread.
   return adjacent.map(foodWord).sort().join('|') === name.map(foodWord).sort().join('|');
 };
-const uncertainQuantity = text => /(?:^|\s)(?:не|ні|нет|not|або|чи|или|or|десь|до|понад|менше|більше|от|более|меньше|under|over)(?:\s|$)|приблиз|примерно|орієнтов|около|\babout\b|\baround\b|~|на око|без зваж|не зваж|\d\s*[-–—/]\s*\d/u.test(text);
+const uncertainQuantity = text => /(?:^|\s)(?:не|ні|нет|not|або|чи|или|or|десь|до|понад|менше|більше|от|более|меньше|under|over|близько|біля|можливо|може|майже|думаю|здається|кажется|возможно|наверно|наверное|около|nearly|roughly|maybe|perhaps)(?:\s|$)|приблиз|примерно|орієнтов|около|\babout\b|\baround\b|~|на око|без зваж|не зваж|\d\s*[-–—/]\s*\d/u.test(text);
 function quantityClauses(text) {
   const result = []; let from = 0;
   // Decimal separators stay in their number. Food list separators delimit the
@@ -54,7 +54,7 @@ function quantityClauses(text) {
 export function explicitQuantityInText(quantity, userText, { itemName = '', trustedSingleItem = false } = {}) {
   if (!quantity || !Number.isFinite(quantity.value) || quantity.value <= 0 || typeof userText !== 'string') return false;
   const text = normalized(userText), name = words(itemName), clauses = quantityClauses(text);
-  const pattern = /(\d+(?:[.,]\d+)?)\s*(кілограм(?:и|ів|а)?|килограмм(?:а|ов|ы)?|kg|кг|грам(?:и|ів|а)?|грамм(?:а|ов|ы)?|grams?|г|мілілітр(?:и|ів|а)?|миллилитр(?:а|ов|ы)?|milliliters?|мл|ml|порц(?:ія|ії|ій|и|ий)?\.?|portion|уп(?:аковка|аковки|аковок)?\.?|package)(?![\p{L}\p{N}])/gu;
+  const pattern = /(\d+(?:[.,]\d+)?)\s*(кілограм(?:и|ів|а)?|килограмм(?:а|ов|ы)?|kg|кг|грам(?:и|ів|а)?|грамм(?:а|ов|ы)?|grams?|g|г|мілілітр(?:и|ів|а)?|миллилитр(?:а|ов|ы)?|milliliters?|мл|ml|порц(?:ія|ії|ій|и|ий)?\.?|portion|уп(?:аковка|аковки|аковок)?\.?|package)(?![\p{L}\p{N}])/gu;
   const matches = [...text.matchAll(pattern)];
   for (const match of matches) {
     const unit = match[2];
@@ -66,7 +66,9 @@ export function explicitQuantityInText(quantity, userText, { itemName = '', trus
     if ((kind === 'kg' ? 'g' : kind) !== quantity.unit || Math.abs(amount - quantity.value) >= 1e-9) continue;
     const at = clauses.findIndex(clause => clause.start <= match.index && clause.end >= match.index + match[0].replace(/\.$/,'').length);
     const clause = clauses[at];
-    if (!clause || uncertainQuantity(clause.text) || text[clause.end] === '?') continue;
+    const leadClause = clauses[at - 1];
+    if (!clause || uncertainQuantity(clause.text) || text[clause.end] === '?' ||
+        (leadClause && !/\d/.test(leadClause.text) && uncertainQuantity(leadClause.text))) continue;
     const before = text.slice(clause.start,match.index), after = text.slice(match.index + match[0].length,clause.end);
     if (/(?:^|\s)(?:на|per)\s*$/.test(before)) continue;
     const rest = text.slice(0,match.index) + text.slice(match.index + match[0].length);

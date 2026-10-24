@@ -1,6 +1,6 @@
 {
   "scope": "HERMES-COACH-02 C03/C04 local portions and provenance",
-  "generatedAt": "2026-10-24T21:02:03.201058+00:00",
+  "generatedAt": "2026-10-24T21:03:32.221847+00:00",
   "syntheticOnly": true,
   "realAPICalls": 0,
   "productionWrites": 0,
@@ -72,13 +72,13 @@
     "legacyImportProof": "Existing confirmLegacy writer adds legacyImportProfileId in the same transaction as copying historical rows and clearing legacyMeals; proof validation belongs to the separate rules verification."
   },
   "sha256": {
-    "server/trainer/coach-portions.test.mjs": "e4436d22a92787f2911aa8c5df3b0657ff52396e18f74b5c25297cb3a9945162",
+    "server/trainer/coach-portions.test.mjs": "f07626f2b71b9c59c6087517ab2f3c0256ddc2a46548d1f6a9f106b1d38f8084",
     "server/trainer/food-resolver.mjs": "e2c54ea8f9f5bf9ed56392a3d9f9b3f38a5b6fe67a3250a867aa0bb7fb37170d",
     "server/trainer/drafts.mjs": "8c75c2086a32a185f6751873d01feb93f047588a93d3b064a38b313a2f4afe86",
     "server/trainer/food-lookup.test.mjs": "31d436cbe49dd506f2ecd651fe5d03cbcbd903c238e6c610c21e73964784892a",
     "server/trainer/food-acceptance.test.mjs": "762009c1f97b1f09af8ef79ab65e11d9195570ad0acbb18a5e5380c9b8b232ce",
     "server/trainer/drafts-retention.test.mjs": "e956a41c0aa4652acb12e1b17344db8da789a848678c6352daddc1eedf42d9ce",
-    "src/services/foodProvenance.js": "b2f02af784d343ba15c187b4f90ca2b747fd512ea6a589c19a32c3c1ba9c19c9",
+    "src/services/foodProvenance.js": "5a3a818e4ccc99340513de4397de61d5882b4b944561bd20ddbe5f0922ffa997",
     "src/services/mealItems.js": "e651cb1d9d0f4984925f371f23d7e3b10f6d8bb1351f7583473ce37c979c20d9",
     "src/services/foodNotes.js": "765f6c91b80f64d68458da2b05fe41cda7afb95116c38ebc6a778cdd452cc934",
     "src/services/mealStore.js": "6c027e5fb2fdc65f0b0bf2642cb3ddefb1b05919e0f98296fe4691fe2388744a"
@@ -96,7 +96,9 @@
       "redFail": 3,
       "redLog": ".agents/runtime/coach-portions-binding-red.log",
       "compoundNameRedLog": ".agents/runtime/coach-portions-binding-compound-red.log",
-      "rangeRedLog": ".agents/runtime/coach-portions-binding-range-red.log"
+      "rangeRedLog": ".agents/runtime/coach-portions-binding-range-red.log",
+      "approximateWordingRedLog": ".agents/runtime/coach-portions-binding-approx-red.log",
+      "latinGramLiteralRedLog": ".agents/runtime/coach-portions-binding-latin-red.log"
     },
     "acceptedCases": [
       "different food weight cannot imply a precise portion",
