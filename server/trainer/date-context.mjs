@@ -28,7 +28,7 @@ export function dateHints(text,sentAt) {
  for(const match of text.matchAll(/(?<![\d.])(\d{2})\.(\d{2})(?:\.(\d{4}))?(?![\d.])/g)){
   if(!match[3]){
    const before=text.slice(0,match.index),after=text.slice(match.index+match[0].length);
-   const clock=Number(match[1])<24&&Number(match[2])<60&&/(?:^|[^\p{L}])(?:о|об|at)\s*$/iu.test(before);
+   const clock=Number(match[1])<24&&Number(match[2])<60&&/(?:^|[^\p{L}])(?:о|об|в|at)\s*$/iu.test(before);
    const amount=/^\s*(?:грн|uah|usd|eur|₴|\$|€|г|гр|грам\p{L}*|мл|кг|g|grams?|ml|kg)(?=$|[^\p{L}])/iu.test(after);
    if(!clock&&!amount)invalid=true;
    continue;

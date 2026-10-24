@@ -15,7 +15,7 @@ import { buildPlanCatalog } from '../../src/services/planCatalog.js';
 
 test('review C02 dotted time and decimal amounts do not become partial dates', () => {
   const at = '2026-10-24T10:00:00Z';
-  for (const text of ['О 12.30 з’їв бутерброд', 'о 10.05 з’їв яблуко', 'Купив за 12.50 грн', 'З’їв 12.50 г яблука']) {
+  for (const text of ['О 12.30 з’їв бутерброд', 'о 10.05 з’їв яблуко', 'в 12.30 съел бутерброд', 'Купив за 12.50 грн', 'З’їв 12.50 г яблука']) {
     assert.equal(dateHints(text, at).ambiguous, false, text);
     assert.deepEqual(dateHints(text, at).dates, [], text);
   }
