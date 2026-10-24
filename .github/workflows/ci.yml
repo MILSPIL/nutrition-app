@@ -62,8 +62,8 @@ jobs:
             tmp/coach-ui-qa/
           retention-days: 7
 
-      - name: Build app
-        run: npm run build
+      - name: Build exact committed app with trainer disabled
+        run: npm run build:hermes-off
 
   groq-free-resource-check:
     runs-on: ubuntu-24.04
