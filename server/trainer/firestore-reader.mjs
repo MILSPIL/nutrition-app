@@ -162,55 +162,34 @@ export function createFirestoreReader({
       ).catch(() => {});
     }
   }
+  async function readDayInTransaction(uid,date,get) {
+    const [raw,cap]=await get([`users/${uid}/mealHistory/${date}`,`releaseCapabilities/${uid}`]);
+    const day=raw||{meals:{},revision:0},ids=Object.keys(day.foodNotes||{});
+    if(ids.length>1000||ids.some(id=>!/^[-a-zA-Z0-9_]{17,161}$/.test(id)))fail("trusted_read_invalid",503);
+    const notes=ids.length?await get(ids.map(id=>`users/${uid}/foodNotes/${id}`)):[];
+    if(notes.some(n=>!n||n.state!=="active"||n.targetDate!==date))fail("note_conflict",409);
+    return {...day,...foodNotesSummary(notes.map((n,i)=>({...n,noteId:ids[i]}))),
+      notesEnabled:cap?.notesEnabled===true&&cap.minimumWriterVersion===3};
+  }
+  async function readPlanInTransaction(uid,get) {
+    const [root]=await get([`users/${uid}`]),profile=root?.users?.[profileId];
+    if(!profile)fail("profile_missing",409);
+    const planContext={profile:{portions:profile.portions||{},customProducts:profile.customProducts||{},hiddenProducts:profile.hiddenProducts||[]},
+      globalCustomProducts:root.globalCustomProducts||{},productOverrides:root.productOverrides||{}};
+    return {planContext,catalog:buildPlanCatalog(planContext)};
+  }
   return {
-    readDay(uid, date, signal) {
-      if (!validDate(date)) fail("invalid_date");
-      return transaction(uid, signal, async (get) => {
-        const [raw, cap] = await get([
-          `users/${uid}/mealHistory/${date}`,
-          `releaseCapabilities/${uid}`,
-        ]);
-        const day = raw || { meals: {}, revision: 0 },
-          ids = Object.keys(day.foodNotes || {});
-        if (
-          ids.length > 1000 ||
-          ids.some((id) => !/^[-a-zA-Z0-9_]{17,161}$/.test(id))
-        )
-          fail("trusted_read_invalid", 503);
-        const notes = ids.length
-          ? await get(ids.map((id) => `users/${uid}/foodNotes/${id}`))
-          : [];
-        if (
-          notes.some((n) => !n || n.state !== "active" || n.targetDate !== date)
-        )
-          fail("note_conflict", 409);
-        const summary = foodNotesSummary(
-          notes.map((n, i) => ({ ...n, noteId: ids[i] })),
-        );
-        return {
-          ...day,
-          ...summary,
-          notesEnabled:
-            cap?.notesEnabled === true && cap.minimumWriterVersion === 3,
-        };
-      });
+    readDay(uid,date,signal) {
+      if(!validDate(date))fail("invalid_date");
+      return transaction(uid,signal,get=>readDayInTransaction(uid,date,get));
     },
-    readPlan(uid, signal) {
-      return transaction(uid, signal, async (get) => {
-        const [root] = await get([`users/${uid}`]),
-          profile = root?.users?.[profileId];
-        if (!profile) fail("profile_missing", 409);
-        const planContext = {
-          profile: {
-            portions: profile.portions || {},
-            customProducts: profile.customProducts || {},
-            hiddenProducts: profile.hiddenProducts || [],
-          },
-          globalCustomProducts: root.globalCustomProducts || {},
-          productOverrides: root.productOverrides || {},
-        };
-        return { planContext, catalog: buildPlanCatalog(planContext) };
-      });
+    readPlan(uid,signal) {return transaction(uid,signal,get=>readPlanInTransaction(uid,get));},
+    readSnapshot(uid,date,signal) {
+      if(!validDate(date))fail("invalid_date");
+      // Both reads (and every referenced note) share this exact read-only transaction.
+      return transaction(uid,signal,async get=>({
+        day:await readDayInTransaction(uid,date,get),plan:await readPlanInTransaction(uid,get),
+      }));
     },
   };
 }

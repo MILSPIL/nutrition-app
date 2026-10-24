@@ -225,11 +225,13 @@ test("lost ACK replay uses saved result without rereading changed or unavailable
     body = input();
   assert.equal((await f.send("/turns", "POST", body)).status, 202);
   assert.equal((await settled(f, body.turnId)).state, "completed");
+  const contextReads=f.calls.context;
+  assert.equal(contextReads,2); // Admission and pre-publication freshness check.
   f.failContext();
   const res = await f.send("/turns", "POST", body);
   assert.equal(res.status, 200);
   assert.equal((await res.json()).state, "completed");
-  assert.equal(f.calls.context, 1);
+  assert.equal(f.calls.context, contextReads);
   assert.equal(f.calls.start, 1);
   assert.equal(
     (await f.send("/turns", "POST", { ...body, text: "other" })).status,

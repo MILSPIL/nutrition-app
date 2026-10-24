@@ -431,7 +431,7 @@ test("real default plan fits model snapshot without profile meals or duplicated 
   const { buildPlanCatalog } = await import(
       "../../src/services/planCatalog.js"
     ),
-    { modelPlan, buildSnapshot } = await import("./snapshot.mjs");
+    { modelPlan, buildSnapshot, decodeModelPlan } = await import("./snapshot.mjs");
   const catalog = buildPlanCatalog(),
     plan = modelPlan({
       catalog,
@@ -439,7 +439,8 @@ test("real default plan fits model snapshot without profile meals or duplicated 
         profile: { privateWeight: 999, meals: { private: "canary" } },
       },
     });
-  assert.equal(plan.catalog.references.length, catalog.references.length);
+  assert.equal(plan.catalog.rows.length, catalog.references.length);
+  assert.deepEqual(decodeModelPlan(plan),catalog.references.map(r=>Object.fromEntries(plan.catalog.columns.map(key=>[key,r[key]??null]))));
   assert.ok(Buffer.byteLength(JSON.stringify(plan)) < 16000);
   assert.ok(!JSON.stringify(plan).includes("canary"));
   assert.doesNotThrow(() =>

@@ -23,7 +23,9 @@ import { createTrainerTools } from "../server/trainer/tools.mjs";
 import { openFoodIndex } from "../server/trainer/food-lookup.mjs";
 import { buildPlanCatalog } from "../src/services/planCatalog.js";
 import { localBudget } from "./phone-lab/sqlite.mjs";
-const resourceProbe = process.argv.includes("--resource-probe");
+import { coachCapacityFixture } from "../server/trainer/fixtures/coach-capacity.mjs";
+const resourceProbe = process.argv.includes("--resource-probe"), capacityProbe = process.argv.includes("--capacity-probe");
+const capacity = capacityProbe ? coachCapacityFixture("2026-01-03") : null;
 const processStart = Date.now();
 const lab = realpathSync(
     resolve(process.env.HERMES_SYNTHETIC_LAB || ".agents/runtime/hermes-lab"),
@@ -38,11 +40,10 @@ writeFileSync(
   readFileSync("server/trainer/hermes-config.json"),
   { mode: 0o600 },
 );
-writeFileSync(
-  join(profile, "SOUL.md"),
-  "Synthetic trainer. Never save without confirmation. SOUL_GATE_CANARY",
-  { mode: 0o600 },
-);
+const profileTemplate=JSON.parse(readFileSync("server/trainer/profile-template.json","utf8"));
+assert.deepEqual(Object.keys(profileTemplate).sort(),["MEMORY.md","SOUL.md","USER.md"]);
+assert.ok(Object.values(profileTemplate).every(text=>typeof text==="string"&&Buffer.byteLength(text)>0));
+for(const [name,text] of Object.entries(profileTemplate))writeFileSync(join(profile,name),text,{mode:0o600});
 const file = join(root, "turns.sqlite"),
   store = openTurnStore(file, { hmacKey: randomBytes(32) }),
   media = createMediaStore(mediaDir, { hash: store.hash });
@@ -127,12 +128,12 @@ const proxy = createModelProxy({
             preparation: "cooked",
           },
         },
-        {
+        ...(!capacityProbe ? [        {
           type: "tool_use",
           id: "tool_blocked",
           name: "terminal",
           input: { command: "forbidden" },
-        },
+        }] : []),
       ]);
     if (mode === "complete" && call === 2)
       return sse([
@@ -142,6 +143,7 @@ const proxy = createModelProxy({
           name: "propose_food_draft",
           input: {
             baseRevision: 0,
+            dayRef: "explicit",
             targetDate: "2026-01-03",
             meal: 1,
             items: [
@@ -161,16 +163,25 @@ const proxy = createModelProxy({
     ]);
   },
 });
+if(capacityProbe){
+ const invoke=proxy.invoke.bind(proxy);
+ proxy.invoke=(token,payload)=>{
+  const text=JSON.stringify(payload,(_key,value)=>value?.type==="base64"?{...value,data:""}:value);
+  console.log(JSON.stringify({capacityInputBytes:Buffer.byteLength(text),systemBytes:Buffer.byteLength(JSON.stringify(payload.system)),toolsBytes:Buffer.byteLength(JSON.stringify(payload.tools)),messages:payload.messages.length}));
+  return invoke(token,payload);
+ };
+}
 const index = openFoodIndex(
   resolve(".agents/runtime/food-data/foods-v1-reviewed.sqlite"),
   "a8e60fe05956869df3bc9d04371994c5ff8adf0d6014e474457f52191b591ad8",
 );
 const readDay = async () => ({
+  ...(capacity?.day || {}),
   receipts: [],
   text: "DAY_GATE_CANARY",
-  meals: {},
-  notes: [],
-  incomplete: false,
+  meals: capacity?.day.meals || {},
+  notes: capacity?.day.notes || [],
+  incomplete: !!capacity,
 });
 const readPlan = async () => ({
   catalog: buildPlanCatalog(),
@@ -213,13 +224,23 @@ const makeGateway = (runDeadlineMs = 45000) =>
     media,
     proxy,
     backend,
-    readContext: async () => ({ text: "CURATED_GATE_CANARY", revision: 1 }),
+    readContext: async () => ({ text: capacity ? "CURATED_GATE_CANARY"+"x".repeat(8000-"CURATED_GATE_CANARY".length) : "CURATED_GATE_CANARY", revision: 1 }),
     readDay,
     readPlan,
     releaseTools: kit.release,
   });
 let gateway = makeGateway();
-const owner = store.conversation("pilot");
+let owner = store.conversation("pilot");
+if(capacity){
+ for(let i=0;i<12;i++){
+  const input={turnId:randomUUID(),baseRevision:i,text:capacity.history[i*2].content,targetDate:"2026-01-03",media:[]};
+  store.admit("pilot",owner.conversationId,input,{});
+  const turn=store.begin("pilot",input.turnId);
+  store.complete(turn.id,turn.generation,{text:capacity.history[i*2+1].content});
+  store.cleaned(turn.id);
+ }
+ owner=store.conversation("pilot");
+}
 let last;
 async function waitTurn(id) {
   const deadline = Date.now() + 47000;
@@ -242,7 +263,7 @@ try {
   };
   const input = {
     turnId: randomUUID(),
-    baseRevision: 0,
+    baseRevision: owner.revision,
     text: "Синтетична картопля 200 г",
     targetDate: "2026-01-03",
     images: [{ type: image.media_type, data: image.data }],
@@ -262,8 +283,8 @@ try {
   );
   assert.ok(bodies.some((b) => JSON.stringify(b).includes("DAY_GATE_CANARY")));
   assert.ok(bodies.some((b) => JSON.stringify(b).includes("carbs:potato")));
-  assert.ok(bodies.some((b) => JSON.stringify(b).includes("SOUL_GATE_CANARY")));
-  assert.ok(
+  assert.ok(bodies.some((b) => JSON.stringify(b).includes(profileTemplate["SOUL.md"].trim())));
+  if(!capacityProbe)assert.ok(
     bodies.some((b) =>
       JSON.stringify(b).includes("Tool 'terminal' does not exist"),
     ),
@@ -300,7 +321,7 @@ try {
     200,
   );
   assert.equal(call, 3);
-  if (!resourceProbe) {
+  if (!resourceProbe && !capacityProbe) {
     // Lost native admission ACK plus lost Node result commit: recover by status only.
     mode = "recover";
     call = 0;
@@ -470,17 +491,20 @@ try {
     firstTurnSeconds,
     suiteSeconds: (Date.now() - processStart) / 1000,
     resourceProbe,
+    capacityProbe,
+    profileTemplateSha256:createHash("sha256").update(readFileSync("server/trainer/profile-template.json")).digest("hex"),
+    modelTextBytes: bodies.map(payload=>Buffer.byteLength(JSON.stringify(payload,(_key,value)=>value?.type==="base64"?{...value,data:""}:value))),
     isolation:
       process.platform === "darwin" ? "macos-seatbelt" : "linux-bubblewrap",
     fullFoodIndex: true,
     realTools: true,
     draftKcal: 174,
     providerCalls: bodies.length,
-    recoveryNoNewCalls: !resourceProbe,
-    cancelNoResult: !resourceProbe,
-    upstream429Calls: resourceProbe ? null : 1,
-    deadlineStopsNative: !resourceProbe,
-    killedUnknownCancelled: !resourceProbe,
+    recoveryNoNewCalls: !resourceProbe && !capacityProbe,
+    cancelNoResult: !resourceProbe && !capacityProbe,
+    upstream429Calls: resourceProbe || capacityProbe ? null : 1,
+    deadlineStopsNative: !resourceProbe && !capacityProbe,
+    killedUnknownCancelled: !resourceProbe && !capacityProbe,
     tools: toolCalls,
     profileFilesScanned: files,
     mediaFragments: needles.length,
@@ -489,6 +513,18 @@ try {
     replayCalls: 0,
     syntheticOnly: true,
   };
+  if(capacityProbe){
+    const snapshot=JSON.parse(store.internal(last).snapshot);
+    assert.equal(snapshot.context.length,8000);
+    assert.equal(snapshot.day.foods.length,24);
+    assert.equal(snapshot.day.notes.length,4);
+    assert.equal(snapshot.plan.catalog.rows.length,82);
+    assert.ok(summary.modelTextBytes.every(bytes=>bytes<=32000));
+    for(const payload of bodies)for(const msg of capacity.history.slice(-2))assert.ok(JSON.stringify(payload).includes(msg.content));
+    summary.retainedLatestPairEveryCall=true;
+    assert.ok(bodies.every(payload=>!JSON.stringify(payload).includes("# Finishing the job")&&!JSON.stringify(payload).includes("# Parallel tool calls")));
+    summary.foodCoachConfigApplied=true;
+  }
   if (resourceProbe) {
     assert.ok(firstTurnSeconds <= 45);
     if (process.platform === "linux") {
@@ -510,7 +546,7 @@ try {
     }
   }
   writeFileSync(
-    join(lab, resourceProbe ? "resource-summary.json" : "gateway-summary.json"),
+    join(lab, capacityProbe ? "capacity-summary.json" : resourceProbe ? "resource-summary.json" : "gateway-summary.json"),
     JSON.stringify(summary, null, 2),
   );
   console.log(JSON.stringify(summary));

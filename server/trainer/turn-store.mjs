@@ -1,5 +1,6 @@
 import { attachRetention } from "./retention.mjs";
 import { attachDraftStore } from "./drafts.mjs";
+import { sameFreshness } from "./day-snapshot.mjs";
 import { DatabaseSync } from "node:sqlite";
 import {
   openSync,
@@ -80,6 +81,9 @@ export function openTurnStore(
    CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL REFERENCES conversations(id),turn_id TEXT NOT NULL,role TEXT NOT NULL,content TEXT NOT NULL,created INTEGER NOT NULL);
    CREATE TABLE IF NOT EXISTS call_receipts(reserve_id TEXT PRIMARY KEY,turn_id TEXT NOT NULL REFERENCES turns(id),payload_hmac TEXT NOT NULL,history_ids TEXT NOT NULL,created INTEGER NOT NULL);
    CREATE TABLE IF NOT EXISTS cleanup_jobs(turn_id TEXT PRIMARY KEY REFERENCES turns(id),session_id TEXT,created INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0);
+   CREATE TABLE IF NOT EXISTS first_admissions(turn_id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL,payload_hmac TEXT NOT NULL,sent_at TEXT NOT NULL,created INTEGER NOT NULL);
+   CREATE TABLE IF NOT EXISTS turn_days(turn_id TEXT NOT NULL,target_date TEXT NOT NULL,proof TEXT NOT NULL,PRIMARY KEY(turn_id,target_date));
+   CREATE TABLE IF NOT EXISTS draft_previews(draft_id TEXT PRIMARY KEY,proof TEXT NOT NULL,stale INTEGER NOT NULL DEFAULT 0);
    CREATE INDEX IF NOT EXISTS messages_conversation ON messages(conversation_id,created,id);`);
     if (!db.prepare("SELECT version FROM trainer_meta").get())
       db.prepare("INSERT INTO trainer_meta VALUES(1)").run();
@@ -176,6 +180,7 @@ export function openTurnStore(
       cleanupPending,
       generation: row.generation,
       targetDate: JSON.parse(row.input).targetDate,
+      sentAt: JSON.parse(row.input).sentAt,
       text: JSON.parse(row.input).text,
       error: row.error,
       result: row.result && !cleanupPending ? JSON.parse(row.result) : null,
@@ -192,7 +197,7 @@ export function openTurnStore(
       uid,
       conversationId: id,
       input: {
-        ...input,
+        ...((({sentAt,targetDate,...request}) => input.dateContext ? request : {...request,targetDate})(input)),
         media: (input.media || []).map(({ expiresAt, ...m }) => m),
       },
     });
@@ -229,9 +234,20 @@ export function openTurnStore(
     db.close();
     throw e;
   }
+  const pruneMetadata = () => {
+    db.prepare("DELETE FROM first_admissions WHERE created<? OR conversation_id IN (SELECT id FROM closed_conversations)").run(now()-LIMITS.retentionMs);
+    db.exec("DELETE FROM turn_days WHERE turn_id NOT IN (SELECT id FROM turns WHERE expired=0); DELETE FROM draft_previews WHERE draft_id NOT IN (SELECT id FROM drafts)");
+  };
+  const preview = d => {
+    const row=db.prepare("SELECT proof,stale FROM draft_previews WHERE draft_id=?").get(d.draftId);
+    if(!row)return d;
+    const freshness=JSON.parse(row.proof);
+    return {...d,freshness,stale:row.stale===1||freshness.targetDate!==d.targetDate};
+  };
   const retentionTimer = setInterval(() => {
     try {
       retention.sync();
+      pruneMetadata();
     } catch {
       /* All public operations recheck and refuse on failure. */
     }
@@ -239,8 +255,53 @@ export function openTurnStore(
   retentionTimer.unref();
   return {
     ...drafts,
-    maintainRetention: () => retention.sync(),
-    forget: retention.forget,
+    maintainRetention: () => {retention.sync();pruneMetadata();},
+    forget: (...args) => {const result=retention.forget(...args);pruneMetadata();return result;},
+    drafts: (uid,cid) => drafts.drafts(uid,cid).map(preview),
+    draft: (uid,cid,did) => preview(drafts.draft(uid,cid,did)),
+    captureAdmission(uid,cid,input) {
+      requireId(input.turnId);
+      return tx(()=>{
+        const c=conversation(uid,cid);
+        if(retention.gone(input.turnId))fail("turn_gone",410);
+        const key=payloadHash(uid,cid,input), previous=db.prepare("SELECT * FROM first_admissions WHERE turn_id=?").get(input.turnId);
+        if(previous){
+          if(previous.conversation_id!==cid)fail("not_found",404);
+          if(previous.payload_hmac!==key)fail("turn_conflict",409);
+          return previous.sent_at;
+        }
+        if(c.revision!==input.baseRevision)fail("history_conflict",409);
+        const at=now(),sentAt=new Date(at).toISOString();
+        db.prepare("INSERT INTO first_admissions VALUES(?,?,?,?,?)").run(input.turnId,cid,key,sentAt,at);
+        return sentAt;
+      });
+    },
+    dayProofs(uid,id) {
+      own(uid,id);
+      return db.prepare("SELECT proof FROM turn_days WHERE turn_id=?").all(id).map(r=>JSON.parse(r.proof));
+    },
+    recordDayProof(id,generation,proof) {
+      return tx(()=>{
+        const turn=internal(id);active(turn);if(turn.generation!==generation)fail("stale_result",409);
+        const existing=db.prepare("SELECT target_date,proof FROM turn_days WHERE turn_id=?").all(id);
+        if(existing.some(r=>{const p=JSON.parse(r.proof);return p.planFingerprint!==proof.planFingerprint||(r.target_date===proof.targetDate&&!sameFreshness(p,proof));}))fail("stale_snapshot",409);
+        db.prepare("INSERT OR IGNORE INTO turn_days VALUES(?,?,?)").run(id,proof.targetDate,stableJSON(proof));
+      });
+    },
+    refreshPreview(uid,cid,did,baseRevision,proof) {
+      return tx(()=>{
+        const d=drafts.draft(uid,cid,did);
+        if(d.revision!==baseRevision)fail("draft_conflict",409);
+        if(d.targetDate!==proof.targetDate)fail("draft_conflict",409);
+        if(["saving","unknown","saved"].includes(d.state))fail("draft_frozen",409);
+        db.prepare("INSERT INTO draft_previews VALUES(?,?,0) ON CONFLICT(draft_id) DO UPDATE SET proof=excluded.proof,stale=0").run(did,stableJSON(proof));
+        return preview(d);
+      });
+    },
+    stalePreview(uid,cid,did) {
+      drafts.draft(uid,cid,did);
+      db.prepare("UPDATE draft_previews SET stale=1 WHERE draft_id=?").run(did);
+    },
     expiredPending: retention.expiredPending,
     hash,
     replay,
@@ -295,7 +356,7 @@ export function openTurnStore(
         return { text: value.text, revision: value.revision };
       });
     },
-    admit(uid, id, input, snapshot) {
+    admit(uid, id, input, snapshot, {dayProof=snapshot.day?.freshness}={}) {
       requireId(input.turnId);
       return tx(() => {
         if (retention.gone(input.turnId)) fail("turn_gone", 410);
@@ -319,6 +380,8 @@ export function openTurnStore(
         )
           fail("trainer_busy", 409);
         if (c.revision !== input.baseRevision) fail("history_conflict", 409);
+        const anchor=db.prepare("SELECT * FROM first_admissions WHERE turn_id=?").get(input.turnId);
+        if(input.dateContext && (!anchor||anchor.payload_hmac!==key||anchor.sent_at!==input.sentAt))fail("admission_conflict",409);
         const at = now();
         db.prepare(
           "INSERT INTO turns(id,conversation_id,payload_hmac,snapshot_hmac,snapshot,input,state,generation,base_revision,created,deadline) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
@@ -335,6 +398,7 @@ export function openTurnStore(
           at,
           at + LIMITS.deadlineMs,
         );
+        if(dayProof)db.prepare("INSERT INTO turn_days VALUES(?,?,?)").run(input.turnId,dayProof.targetDate,stableJSON(dayProof));
         // Admission and removal of exactly the sent composer are one durable commit.
         // An edit made in another tab is preserved when it differs from this input.
         const composer = JSON.parse(c.composer);
@@ -511,6 +575,10 @@ export function openTurnStore(
         )
           fail("invalid_response", 502);
         const draftResults = drafts.publish(row);
+        for(const result of draftResults)if(result.state==="applied"){
+          const d=drafts.draft(row.owner,row.conversation_id,result.draftId),proof=db.prepare("SELECT proof FROM turn_days WHERE turn_id=? AND target_date=?").get(id,d.targetDate);
+          if(proof)db.prepare("INSERT INTO draft_previews VALUES(?,?,0) ON CONFLICT(draft_id) DO UPDATE SET proof=excluded.proof,stale=0").run(d.draftId,proof.proof);
+        }
         const committed = {
           ...result,
           ...(draftResults.length ? { drafts: draftResults } : {}),

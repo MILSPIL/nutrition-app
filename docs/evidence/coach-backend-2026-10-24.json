@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 1,
+  "task": "HERMES-COACH-02 / C02 C05 C06",
+  "recordedAt": "2026-10-24T20:42:04.841Z",
+  "runtime": "v24.22.1",
+  "scope": "local-synthetic-only",
+  "productionChanged": false,
+  "realModelCalls": 0,
+  "secretsRead": false,
+  "sourceSha256": {
+    "server/trainer/gateway.mjs": "6f26b7ee419535055f870f4000434bc3d52512e8043718cc557a45967140042f",
+    "server/trainer/tools.mjs": "d4499a8bfb80a32e51ceb2a565afb038da2f710b0137b7d447fd2cea60998b1b",
+    "server/trainer/snapshot.mjs": "041898753dbb94f91a751897688920ad42a54cbfe06136e058ad6c2443299ccc",
+    "server/trainer/turn-store.mjs": "e308a41a9b31a7753461580e1c77716869602d1e59a24c555bc18859d578fc32",
+    "server/trainer/firestore-reader.mjs": "253663cedcafd8a489c405d7697282df91c3a68ef6f019e484b1f8323e65aaa4",
+    "server/trainer/date-context.mjs": "e2e4bfdf36e5ec9dc3293804c0098cfa56eba9bf74b2310a3f23ec93b23c3c19",
+    "server/trainer/day-snapshot.mjs": "b1e23cde267eb52e5885afe9b4daf0e167c32fa7108b0701d2388bfd659dda83",
+    "server/trainer/coach-backend.test.mjs": "b8eb3a90a72b27eb1f9cec4e73c3af2105d2a941a406fbcb263110dc6a2497cd",
+    "server/trainer/gateway-core.test.mjs": "f374db8db8bb71c7c64bf2c37521df1cec47ab316fb75cac3f71af10fb1751e8",
+    "server/trainer/gateway-http.test.mjs": "eb1d9885449904fb2eb7e9f7cbb2b0dc91353a9b4004ea0972722c7ed95075ad",
+    "server/trainer/tools.test.mjs": "c6229255a5850da58a1d7551d3823ceb653f03d4eb9b016b09bb0f0d659444d1",
+    "server/trainer/hermes-config.json": "13e6c679cb417cdfa56bfd10c920593835362cac77679190b3591a5590b7f073",
+    "server/trainer/profile-template.json": "e24f3db595a8edc09bca03e9e80c07365ba80dccff4ecd50ef701986a42a8cce",
+    "server/trainer/fixtures/coach-capacity.mjs": "ef9ea87098ee63f71cb01a8fb7b3597f6991c42c642013d51ecf2ed52ae07e76",
+    "scripts/hermes-gateway-test.mjs": "d35d7ffb267e7b3cb51b0c269e0e92928fd5d2910e86fbe89b7d412c6991c079",
+    "scripts/hermes-reader-emulator.mjs": "6d183691b1df17459303a6ef2a21440a62b40904a42fd6808aab8b42b20e65b2"
+  },
+  "tests": {
+    "server": {
+      "command": "node --test server/*.test.mjs server/trainer/*.test.mjs",
+      "passed": 191,
+      "failed": 0,
+      "logSha256": "43b94f9fc23d64af8f5ad8f41caa3101a2a2ceec31fa89f1a81efc3035ccf3d2"
+    },
+    "backendTargeted": {
+      "command": "node --test server/trainer/coach-backend.test.mjs server/trainer/tools.test.mjs server/trainer/gateway-core.test.mjs server/trainer/gateway-http.test.mjs",
+      "passed": 53,
+      "failed": 0
+    },
+    "nativeCapacity": {
+      "command": "node scripts/hermes-gateway-test.mjs --capacity-probe",
+      "contextBytes": 8000,
+      "contextPattern": "synthetic ASCII",
+      "persistedFoodItems": 24,
+      "distinctQuantities": true,
+      "distinctNutrients": true,
+      "meals": 4,
+      "unknownNotes": 4,
+      "planReferences": 82,
+      "historyInputPairs": 12,
+      "historyInputMessageBytes": 250,
+      "photo": true,
+      "payloadCapBytes": 32000,
+      "actualHermes": true,
+      "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+      "firstTurnSeconds": 5.452,
+      "suiteSeconds": 5.453,
+      "resourceProbe": false,
+      "capacityProbe": true,
+      "profileTemplateSha256": "e24f3db595a8edc09bca03e9e80c07365ba80dccff4ecd50ef701986a42a8cce",
+      "modelTextBytes": [
+        31366,
+        31903,
+        31888
+      ],
+      "isolation": "macos-seatbelt",
+      "fullFoodIndex": true,
+      "realTools": true,
+      "draftKcal": 174,
+      "providerCalls": 3,
+      "recoveryNoNewCalls": false,
+      "cancelNoResult": false,
+      "upstream429Calls": null,
+      "deadlineStopsNative": false,
+      "killedUnknownCancelled": false,
+      "tools": [
+        "food_lookup",
+        "propose_food_draft"
+      ],
+      "profileFilesScanned": 22,
+      "mediaFragments": 9,
+      "mediaLeaks": 0,
+      "ownerIsolation": true,
+      "replayCalls": 0,
+      "syntheticOnly": true,
+      "retainedLatestPairEveryCall": true,
+      "foodCoachConfigApplied": true,
+      "logSha256": "cd833c8fc7e62b356b8e00d0edcf407852fd54de605abbef63957ea72e9d3def"
+    },
+    "nativeRegression": {
+      "command": "node scripts/hermes-gateway-test.mjs",
+      "actualHermes": true,
+      "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+      "firstTurnSeconds": 6.786,
+      "suiteSeconds": 24.898,
+      "resourceProbe": false,
+      "capacityProbe": false,
+      "profileTemplateSha256": "e24f3db595a8edc09bca03e9e80c07365ba80dccff4ecd50ef701986a42a8cce",
+      "modelTextBytes": [
+        13813,
+        16170,
+        16909,
+        5152,
+        15468,
+        15468,
+        15468,
+        15468
+      ],
+      "isolation": "macos-seatbelt",
+      "fullFoodIndex": true,
+      "realTools": true,
+      "draftKcal": 174,
+      "providerCalls": 8,
+      "recoveryNoNewCalls": true,
+      "cancelNoResult": true,
+      "upstream429Calls": 1,
+      "deadlineStopsNative": true,
+      "killedUnknownCancelled": true,
+      "tools": [
+        "food_lookup",
+        "propose_food_draft",
+        "food_lookup"
+      ],
+      "profileFilesScanned": 44,
+      "mediaFragments": 9,
+      "mediaLeaks": 0,
+      "ownerIsolation": true,
+      "replayCalls": 0,
+      "syntheticOnly": true,
+      "logSha256": "fe706bafca29da936754f6ccf2a6a39e945fe2dbbf26499db5fd4a7d7ca7d0bb"
+    },
+    "readerEmulator": {
+      "actualOwnerTokenReadOnlyREST": true,
+      "snapshotTransaction": true,
+      "crossOwnerDenied": true,
+      "notesNullable": true,
+      "noPrivateExtra": true,
+      "syntheticOnly": true,
+      "command": "node tmp/hermes-reader-emulator.mjs",
+      "overallRunnerPassed": false,
+      "overallRunnerNote": "Reader і store пройшли. Два окремі rules тести 20-item batch перевищили Firebase expression budget; передано власнику rules.",
+      "logSha256": "b39730d978e79f369e0658237439644665a95f49fafe054e6c63bee4a6f33025"
+    },
+    "redEvidence": {
+      "backendLogSha256": "7b9c54b3234f85cb06c8323b3d60c9e413402088ec9f575ef4313b3b97609895",
+      "nativeCapacityLogSha256": "32b3421b22b90cadde7f5a74b3284d344c240902c05699b6d64d872a9eeb53a7"
+    }
+  },
+  "contracts": {
+    "dateContext": [
+      "default",
+      "pinned"
+    ],
+    "calendar": "Europe/Kyiv",
+    "sentAt": "Перший серверний admission зберігає час до context/Firestore I/O; точний replay зберігає той самий час.",
+    "dayRef": [
+      "today",
+      "yesterday",
+      "explicit",
+      "ambiguous",
+      "draft"
+    ],
+    "explicitDate": "Лише повна дата, буквально вказана користувачем, або перевірений pin з UI.",
+    "advice": "Поради не записують їжу. Поширені питання про поради/історію відхиляються deterministic guard; збереження потребує Add.",
+    "freshness": "День, пов’язані примітки та план читаються однією read-only транзакцією Firestore. Початковий proof записується атомарно з admission окремо від модельної проєкції. Кожен прочитаний день і revision контексту звіряються перед публікацією.",
+    "preview": "GET /days/:date повертає raw meals, поточний catalog та freshness; PUT /drafts/:id/refresh не запускає inference; застаріле збереження відхиляється; команда містить канонічний day expectedRevision.",
+    "memoryWriteEnabledDefault": false
+  },
+  "modelProjection": {
+    "omittedFields": {
+      "day": [
+        "submissionMarkers",
+        "rejectedSubmissions",
+        "writerVersion",
+        "writerNonce",
+        "foodNotes",
+        "totalMacros",
+        "legacyImportProfileId",
+        "freshness",
+        "planFingerprint",
+        "notesRevision"
+      ],
+      "food": [
+        "itemId",
+        "originalTextRef"
+      ],
+      "allocation": [
+        "version",
+        "referenceKey",
+        "referenceName",
+        "conversion",
+        "normSource"
+      ],
+      "note": [
+        "commandHash",
+        "submissionId",
+        "originDraft",
+        "writerVersion",
+        "writerNonce",
+        "createdAt",
+        "updatedAt",
+        "resolvedAt"
+      ]
+    },
+    "note": "Це модельна проєкція, не копія повного об’єкта. Решта харчових фактів, повний source/provenance, кількості, БЖВ, estimated, планові літери й частки, unknown, активність і текст приміток зберігаються. Табличне кодування перевірено точним roundtrip у межах проєкції; raw API/store дані не змінюються.",
+    "lookup": "Компактна таблиця вибору; resolver зберігає повні канонічні записи. propose повертає квитанцію з сумою, incomplete і припущеннями; UI читає повну чернетку зі store."
+  },
+  "profileProvisioning": {
+    "source": "server/trainer/profile-template.json",
+    "sha256": "e24f3db595a8edc09bca03e9e80c07365ba80dccff4ecd50ef701986a42a8cce",
+    "requireExactTemplate": true,
+    "privateContextLocation": "Лише curated context store",
+    "config": "server/trainer/hermes-config.json",
+    "configChanges": [
+      "agent.task_completion_guidance=false",
+      "agent.parallel_tool_call_guidance=false",
+      "platform_hints.api_server.replace"
+    ],
+    "nativeSystemNotReplaced": true
+  },
+  "limits": "Це функціональний native proof на Mac. Ресурси 2 CPU / 2 GiB не обмежувалися. Приватний контекст, справжня модель і production тут не перевірялися."
+}

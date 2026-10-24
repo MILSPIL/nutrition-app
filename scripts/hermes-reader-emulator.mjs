@@ -85,6 +85,15 @@ try {
   const plan = await withOwnerToken(uid, token, () => reader.readPlan(uid));
   assert.ok(plan.catalog.references.length > 50);
   assert.equal(JSON.stringify(plan).includes("MUST_NOT_ENTER_MODEL"), false);
+  const before=requests.length;
+  const combined=await withOwnerToken(uid,token,()=>reader.readSnapshot(uid,date));
+  const combinedCalls=requests.slice(before),combinedReads=combinedCalls.filter(r=>r.method==="batchGet");
+  assert.equal(combinedCalls.filter(r=>r.method==="beginTransaction").length,1);
+  assert.equal(new Set(combinedReads.map(r=>r.body.transaction)).size,1);
+  assert.equal(combinedReads.length,3);
+  assert.equal(combined.day.notes[0].knownNutrients.cal,null);
+  assert.ok(combined.plan.catalog.references.length>50);
+  assert.equal(JSON.stringify(combined).includes("MUST_NOT_ENTER_MODEL"),false);
   await assert.rejects(
     withOwnerToken(uid, "invalid-synthetic-token", () =>
       reader.readDay(uid, date),

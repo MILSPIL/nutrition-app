@@ -77,7 +77,8 @@ test("H02 H04 H05 tools use actual lookup values and publish complete draft only
     { baseRevision: 0, targetDate: input.targetDate, meal: 1, items: [raw] },
     ctx,
   );
-  assert.equal(d.items[0].nutrients.cal, 87);
+  assert.equal(d.totals.cal, 174);
+  assert.equal(d.saved,false);
   assert.equal(store.drafts("owner", cid).length, 0);
   await assert.rejects(
     kit.tools.propose_food_draft(
@@ -104,6 +105,8 @@ test("H02 H04 H05 tools use actual lookup values and publish complete draft only
   assert.equal(store.drafts("owner", cid)[0].blocked, true);
   store.cleaned(turn.id);
   assert.equal(store.drafts("owner", cid)[0].blocked, false);
+  assert.equal(store.drafts("owner", cid)[0].items[0].nutrients.cal,87);
+  assert.equal(store.drafts("owner", cid)[0].items[0].source.recordId,candidate.id);
   await assert.rejects(
     kit.tools.food_lookup({ query: "potato", preparation: "cooked" }, ctx),
     /turn_inactive/,

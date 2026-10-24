@@ -31,7 +31,9 @@
       "skill_manage",
       "cronjob",
       "session_search"
-    ]
+    ],
+    "task_completion_guidance": false,
+    "parallel_tool_call_guidance": false
   },
   "memory": {
     "memory_enabled": false,
@@ -74,6 +76,11 @@
   "tools": {
     "tool_search": {
       "enabled": "off"
+    }
+  },
+  "platform_hints": {
+    "api_server": {
+      "replace": "SciSense food-coach conversation. Reply briefly in Ukrainian; use the supplied policy and tools."
     }
   }
 }

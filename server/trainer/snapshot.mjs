@@ -1,5 +1,6 @@
 import { TRAINER_POLICY } from "./tools.mjs";
 import { LIMITS, fail, jsonBytes } from "./limits.mjs";
+import { modelDay } from "./day-snapshot.mjs";
 // A bounded suffix of complete user/assistant pairs. Mandatory facts are never trimmed.
 export function buildSnapshot({
   conversationId,
@@ -14,6 +15,10 @@ export function buildSnapshot({
   history = [],
   mediaBindings = [],
   sentAt,
+  targetDate,
+  dateContext,
+  dateResolution,
+  memoryWriteEnabled = false,
 }) {
   if (
     typeof context !== "string" ||
@@ -26,13 +31,15 @@ export function buildSnapshot({
     policy: TRAINER_POLICY,
     mediaBindings,
     ...(sentAt ? { sentAt, timeZone: "Europe/Kyiv" } : {}),
+    ...(targetDate ? {targetDate, dateContext, dateResolution} : {}),
+    memoryWriteEnabled: memoryWriteEnabled === true,
     conversationId,
     historyRevision,
     context,
     contextRevision,
     draft: draft ?? null,
     receipts: receipts ?? [],
-    day,
+    day: modelDay(day),
     plan: modelPlan(plan),
     message,
     history: [],
@@ -65,21 +72,25 @@ export function buildSnapshot({
   return snapshot;
 }
 
+export const PLAN_COLUMNS = Object.freeze(["refId","name","letter","norm","basisState","normSource","coef","source"]);
 export function modelPlan(plan) {
   if (!plan?.catalog?.references) return plan;
   if (plan.catalog.overLimit) fail("context_too_large", 413);
-  return {
-    catalog: {
-      references: plan.catalog.references.map(
-        ({ refId, name, letter, norm, basisState }) => ({
-          refId,
-          name,
-          letter,
-          norm,
-          basisState,
-        }),
-      ),
-    },
-    freeCalorieLimit: plan.catalog.projection?.free,
-  };
+  const defaults={normSource:"catalog",coef:1,source:"standard"};
+  const rows=plan.catalog.references.map(reference=>{
+    const row=PLAN_COLUMNS.map(key=>reference[key]??null);
+    while(row.length>5&&row.at(-1)===defaults[PLAN_COLUMNS[row.length-1]])row.pop();
+    return row;
+  });
+  const dictionaries={};
+  for(const index of [2,4]){
+    const values=[...new Set(rows.map(row=>row[index]))];
+    dictionaries[index]=values;
+    for(const row of rows)row[index]=values.indexOf(row[index]);
+  }
+  return {catalog:{columns:PLAN_COLUMNS,defaults,dictionaries,rows},freeCalorieLimit:plan.catalog.projection?.free};
+}
+export function decodeModelPlan(plan) {
+ const {columns,defaults={},dictionaries={},rows}=plan.catalog;
+ return rows.map(row=>Object.fromEntries(columns.map((key,i)=>[key,i>=row.length?defaults[key]:dictionaries[i]?dictionaries[i][row[i]]:row[i]])));
 }
