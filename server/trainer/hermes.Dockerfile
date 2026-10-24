@@ -8,9 +8,9 @@ ENV UV_PYTHON_INSTALL_DIR=/opt/scisense/python
 WORKDIR /app
 COPY server/trainer/hermes-pin.json server/trainer/hermes-pin.json
 COPY scripts/hermes-source-prepare.py scripts/hermes-source-prepare.py
-RUN python3 scripts/hermes-source-prepare.py
+RUN python3 scripts/hermes-source-prepare.py && mkdir -p /opt/scisense/hermes && mv .agents/runtime/hermes-lab/source .agents/runtime/hermes-lab/source-manifest.json /opt/scisense/hermes/
 RUN curl -fL 'https://github.com/astral-sh/python-build-standalone/releases/download/20260804/cpython-3.14.6%2B20260804-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz' -o /tmp/python.tar.gz && echo 'ba960817e542642021135db330d875f410f4e14c64a62e2ae5faf3697ada08b2  /tmp/python.tar.gz' | sha256sum -c - && mkdir -p /opt/scisense/python && tar -xf /tmp/python.tar.gz -C /opt/scisense/python --strip-components=1 && rm /tmp/python.tar.gz
-RUN uv sync --project .agents/runtime/hermes-lab/source --python /opt/scisense/python/bin/python3.14 --frozen --no-dev --extra anthropic --extra messaging && uv cache clean
+RUN uv sync --project /opt/scisense/hermes/source --python /opt/scisense/python/bin/python3.14 --frozen --no-dev --extra anthropic --extra messaging && uv cache clean
 COPY server/trainer/food-data*.mjs server/trainer/food-data-manifest.json server/trainer/
 COPY scripts/food-data-import.mjs scripts/hermes-food-prepare.mjs scripts/
 RUN node scripts/hermes-food-prepare.mjs && rm .agents/runtime/food-data/*.zip
@@ -21,7 +21,7 @@ COPY server server
 RUN gcc -O2 -Wall -Werror server/trainer/worker-seccomp.c -lseccomp -o /tmp/seccomp-policy && /tmp/seccomp-policy > server/trainer/worker-seccomp.bpf && rm /tmp/seccomp-policy
 COPY src/services src/services
 COPY src/data src/data
-COPY scripts/hermes-gateway-test.mjs scripts/hermes-linux-isolation-test.mjs scripts/
+COPY scripts/hermes-gateway-test.mjs scripts/hermes-linux-isolation-test.mjs scripts/hermes-runtime-export.py scripts/
 COPY scripts/phone-lab scripts/phone-lab
 COPY workers/meal-parser/src workers/meal-parser/src
 RUN chown -R 10001:10001 .agents/runtime/hermes-lab && chmod 700 .agents/runtime/hermes-lab

@@ -30,6 +30,3 @@ test('H03: негативний контроль не пропускає під�
   mutated.nutrients.cal = 0;
   assert.throws(() => assert.equal(mutated.nutrients.cal, null));
 });
-for (const criterion of ['H01', 'H02', 'H03', 'H04', 'H05', 'H06', 'H07', 'H08', 'H09', 'H10']) {
-  test(`${criterion}: інтеграційне приймання ще не реалізоване`, { todo: true }, () => {});
-}

@@ -93,7 +93,9 @@ jobs:
           retention-days: 7
 
   hermes-resource-check:
-    runs-on: ubuntu-24.04
+    # Ubuntu 24 host AppArmor restricts unprivileged userns even in unconfined containers.
+    # Keep the pinned Ubuntu24 payload; no runner sysctl or extra capability is changed.
+    runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -112,9 +114,27 @@ jobs:
           mkdir -p tmp/hermes-linux
           docker cp hermes-resource:/app/.agents/runtime/hermes-lab/resource-summary.json tmp/hermes-linux/resource-summary.json || true
           docker inspect hermes-resource --format '{{json .State}}' > tmp/hermes-linux/container-state.json || true
-          docker rm -f hermes-resource || true
+          if docker ps -a --filter name=^/hermes-resource$ --format '{{.ID}}' | grep -q .; then docker rm -f hermes-resource; fi
+          test -z "$(docker ps -a --filter name=^/hermes-resource$ --format '{{.ID}}')"
+          printf '{"removed":true}\n' > tmp/hermes-linux/cleanup.json
       - name: Native recovery and failure cases with the same resource limits
         run: docker run --rm --init --network=none --cpus=2 --memory=2g --memory-swap=2g --pids-limit=128 --cap-drop=ALL --security-opt=no-new-privileges --security-opt=seccomp=unconfined --security-opt=apparmor=unconfined scisense-hermes-ci
+      - name: Prove the candidate systemd unit with the same resource limits
+        run: node scripts/hermes-systemd-ci.mjs
+      - name: Export verified public Linux runtime without state or credentials
+        run: |
+          docker run --name hermes-export --network=none --entrypoint python3 scisense-hermes-ci scripts/hermes-runtime-export.py
+          mkdir -p tmp/hermes-runtime
+          docker cp hermes-export:/tmp/hermes-public-runtime/. tmp/hermes-runtime/
+          docker rm hermes-export
+          test -z "$(docker ps -a --filter name=^/hermes-export$ --format '{{.ID}}')"
+      - name: Keep disabled public runtime payload
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-public-runtime
+          path: tmp/hermes-runtime/
+          compression-level: 0
+          retention-days: 7
       - name: Keep synthetic Linux evidence
         if: always()
         uses: actions/upload-artifact@v4

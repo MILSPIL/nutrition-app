@@ -54,12 +54,12 @@ print('isolation_verified')
 `;
 async function probe(mutation) {
   const [exe, base] = linuxWorkerCommand({
-    source: join(lab, "source"),
+    source: "/opt/scisense/hermes/source",
     profile,
     workDirectory,
   });
   const args = base.slice(0, base.lastIndexOf("--") + 1);
-  args.push(join(lab, "source/.venv/bin/python"), "-c", python);
+  args.push("/opt/scisense/hermes/source/.venv/bin/python", "-c", python);
   if (mutation === "network") args.splice(args.indexOf("--unshare-net"), 1);
   if (mutation === "seccomp") args.splice(args.indexOf("--seccomp"), 2);
   const fd = openSync("server/trainer/worker-seccomp.bpf", "r");

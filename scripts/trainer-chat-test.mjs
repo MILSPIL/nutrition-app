@@ -16,7 +16,15 @@ if (args.includes('--baseline')) {
   process.exitCode = failures.length ? 1 : 0;
 } else {
   const selection = args.find(value => /^H\d\d$/.test(value));
-  const filter = selection ? ['--test-name-pattern', selection] : [];
-  const result = spawnSync(process.execPath, ['--test', ...filter, 'server/trainer/contracts.test.mjs'], { cwd: root, stdio: 'inherit' });
+  const matrix={
+    H02:['food-acceptance.test.mjs','food-lookup.test.mjs','tools.test.mjs'],
+    H03:['drafts-retention.test.mjs'],H04:['gateway-core.test.mjs','runtime.test.mjs'],
+    H05:['drafts-retention.test.mjs','tools.test.mjs'],H06:['gateway-core.test.mjs','gateway-http.test.mjs','drafts-retention.test.mjs'],
+    H07:['gateway-http.test.mjs','tools.test.mjs','runtime.test.mjs'],H08:['quota.test.mjs','gateway-core.test.mjs'],
+    H10:['drafts-retention.test.mjs','gateway-core.test.mjs']
+  };
+  if(selection&&!matrix[selection])throw Error('Use npm run test:hermes-ui for H01/H09; H11 requires separate approval');
+  const files=selection?matrix[selection]:[...new Set(Object.values(matrix).flat()),'contracts.test.mjs'];
+  const result = spawnSync(process.execPath, ['--test',...files.map(f=>'server/trainer/'+f)], { cwd: root, stdio: 'inherit' });
   process.exitCode = result.status ?? 1;
 }

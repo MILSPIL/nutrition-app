@@ -25,7 +25,9 @@ import { buildPlanCatalog } from "../src/services/planCatalog.js";
 import { localBudget } from "./phone-lab/sqlite.mjs";
 const resourceProbe = process.argv.includes("--resource-probe");
 const processStart = Date.now();
-const lab = realpathSync(resolve(".agents/runtime/hermes-lab")),
+const lab = realpathSync(
+    resolve(process.env.HERMES_SYNTHETIC_LAB || ".agents/runtime/hermes-lab"),
+  ),
   root = mkdtempSync(join(lab, "native-gateway-synthetic-"));
 const profile = join(root, "profile"),
   work = join(root, "worker"),
@@ -187,8 +189,14 @@ const tools = Object.fromEntries(
 );
 const toolSchemas = kit.schemas;
 const backend = createNativeBackend({
-  source: join(lab, "source"),
-  sourceManifest: join(lab, "source-manifest.json"),
+  source:
+    process.platform === "linux"
+      ? "/opt/scisense/hermes/source"
+      : join(lab, "source"),
+  sourceManifest:
+    process.platform === "linux"
+      ? "/opt/scisense/hermes/source-manifest.json"
+      : join(lab, "source-manifest.json"),
   profile,
   workDirectory: work,
   apiKey: store.hash({ purpose: "synthetic-native-auth" }),
