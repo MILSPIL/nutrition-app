@@ -21,7 +21,7 @@ COPY server server
 RUN gcc -O2 -Wall -Werror server/trainer/worker-seccomp.c -lseccomp -o /tmp/seccomp-policy && /tmp/seccomp-policy > server/trainer/worker-seccomp.bpf && rm /tmp/seccomp-policy
 COPY src/services src/services
 COPY src/data src/data
-COPY scripts/hermes-gateway-test.mjs scripts/hermes-gateway-test.mjs
+COPY scripts/hermes-gateway-test.mjs scripts/hermes-linux-isolation-test.mjs scripts/
 COPY scripts/phone-lab scripts/phone-lab
 COPY workers/meal-parser/src workers/meal-parser/src
 RUN chown -R 10001:10001 .agents/runtime/hermes-lab && chmod 700 .agents/runtime/hermes-lab

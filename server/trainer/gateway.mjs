@@ -394,9 +394,8 @@ export function createTrainerGateway({
         await boundedOperation(() => backend.stop(t)).catch(() => null);
       }
       await Promise.allSettled(running.values());
-      await cleanup();
-      await backend.shutdown?.();
-      proxy.close();
+      try { await cleanup(); }
+      finally { try { await backend.shutdown?.(); } finally { proxy.close(); } }
     },
   };
 }

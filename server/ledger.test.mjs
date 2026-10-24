@@ -62,3 +62,18 @@ test('v2 transfer binds the new config while preserving every paid and free rese
  assert.throws(()=>openServerLedger({directory,receipt:{...receipt,configHash:'f'.repeat(64)},groqFree:true}));
  }finally{Date.now=clock;budget?.close();rmSync(root,{recursive:true,force:true});}
 });
+
+// Actual transferred synthetic ledger: a failed trainer shutdown must not strand its lock.
+test('Runtime shutdown releases the ledger even when API or startup trainer cleanup fails',()=>fixture(async({open,directory})=>{
+ const {closeServerResources}=await import('./runtime.mjs');
+ for(const stage of ['api','trainer']){
+  const budget=open();let closes=0;
+  const broken={close:async()=>{closes++;throw Error('synthetic_shutdown_failure');}};
+  await assert.rejects(closeServerResources({[stage]:broken,budget}),/synthetic_shutdown_failure/);
+  assert.equal(closes,1);assert.equal(existsSync(path.join(directory,'budget.lock')),false);
+  const reopened=open();reopened.close();
+ }
+ const budget=open();let apiCloses=0;
+ await closeServerResources({api:{close:async()=>{apiCloses++;}},trainer:{close:()=>{throw Error('double_owner');}},budget});
+ assert.equal(apiCloses,1);const reopened=open();reopened.close();
+}));

@@ -1,4 +1,3 @@
-import {createTrainerRuntime,validateTrainerActivation} from './trainer/runtime.mjs';
 import {openSync,readFileSync,fstatSync,closeSync,constants,realpathSync,lstatSync} from 'node:fs';
 import path from 'node:path';
 import {createMealApi} from './api.mjs';
@@ -26,6 +25,11 @@ function readProtected(file,{owner,secret=false}={}){
   if(!stat.isFile()||stat.size>65536||!ownerValid||(stat.mode&(secret?0o337:0o022))!==0)fail();return readFileSync(fd);
  }finally{closeSync(fd);}
 }
+// The HTTP API owns the trainer once constructed. Budget ownership stays here,
+// including failed startup and failed trainer cleanup.
+export async function closeServerResources({api,trainer,budget}){
+ try{if(api)await api.close();else await trainer?.close();}finally{budget?.close();}
+}
 export async function createServerRuntime(manifest,{proposal,createApi=createMealApi,fetcher=fetch}={}){
  validateManifest(manifest);
  const env={FIREBASE_PROJECT:manifest.firebaseProject,ALLOWED_ORIGINS:manifest.origin,ALLOWED_UIDS:manifest.allowedUids.join(',')||'disabled',LIVE_ENABLED:'false'};
@@ -34,7 +38,8 @@ export async function createServerRuntime(manifest,{proposal,createApi=createMea
  try{
   if(manifest.liveEnabled){
    const receipt=validateActivation(manifest,JSON.parse(readProtected(manifest.activationFile,{owner:0}).toString('utf8')),proposal);
-   const trainerActivation=manifest.trainer?.enabled?validateTrainerActivation(JSON.parse(readProtected(manifest.trainer.activationFile,{owner:0}).toString('utf8')),manifest,receipt):null;
+   const trainerModule=manifest.trainer?.enabled?await import('./trainer/runtime.mjs'):null;
+   const trainerActivation=trainerModule?trainerModule.validateTrainerActivation(JSON.parse(readProtected(manifest.trainer.activationFile,{owner:0}).toString('utf8')),manifest,receipt):null;
    budget=openServerLedger({hermesPolicy:!!trainerActivation,directory:manifest.budgetDirectory,receipt,groqFree:true,onFault:()=>{env.LIVE_ENABLED='false';}});
    const dir=process.env.CREDENTIALS_DIRECTORY;
    if(dir!=='/run/credentials/scisense-api.service'||realpathSync(dir)!==dir)fail();
@@ -46,13 +51,13 @@ export async function createServerRuntime(manifest,{proposal,createApi=createMea
    Object.assign(env,approvedSettings(proposal),{PILOT_BUDGET:budget.binding});
    if(trainerActivation){
     const bytes=readProtected(path.join(dir,'trainer-state'),{owner:process.getuid(),secret:true});
-    try{trainer=await createTrainerRuntime({activation:trainerActivation,budget:budget.binding,platformKey:bytes,anthropicKey:env.ANTHROPIC_API_KEY,project:manifest.firebaseProject,fetcher});}
+    try{trainer=await trainerModule.createTrainerRuntime({activation:trainerActivation,budget:budget.binding,platformKey:bytes,anthropicKey:env.ANTHROPIC_API_KEY,project:manifest.firebaseProject,fetcher});}
     finally{bytes.fill(0);}
     env.TRAINER_ENABLED='true';env.TRAINER_OWNER_UID=trainerActivation.ownerUid;
    }
   }
   const provider=(kind,payload,settings,context)=>callProvider(kind,payload,settings,fetcher,{...context,timeoutMs:manifest.transcription.timeoutMs});
   api=createApi({env,provider,trainer,maxConcurrent:manifest.maxConcurrent});
-  return {listen:()=>api.listen(manifest.port),async close(){clear();await api.close();await trainer?.close();budget?.close();}};
- }catch{clear();await trainer?.close();budget?.close();throw Error('server_start_refused');}
+  let closing;return {listen:()=>api.listen(manifest.port),close(){clear();return closing??=closeServerResources({api,trainer,budget});}};
+ }catch{clear();try{await closeServerResources({api,trainer,budget});}finally{throw Error('server_start_refused');}}
 }

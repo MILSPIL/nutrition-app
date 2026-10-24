@@ -108,7 +108,30 @@ export async function createTrainerRuntime({
       profileId: activation.profileId,
       fetcher,
     });
-  let store, index, proxy, backend, gateway;
+  let store, index, proxy, backend, gateway, closing;
+  const close = () =>
+    (closing ??= (async () => {
+      try {
+        if (gateway) await gateway.close();
+        else
+          try {
+            await backend?.shutdown();
+          } finally {
+            proxy?.close();
+          }
+      } finally {
+        try {
+          store?.close();
+        } finally {
+          try {
+            index?.close();
+          } finally {
+            keys.state.fill(0);
+            keys.context.fill(0);
+          }
+        }
+      }
+    })());
   try {
     const contextStore = openContextStore(paths.context, { key: keys.context });
     store = openTurnStore(paths.turns, { hmacKey: keys.state });
@@ -161,24 +184,10 @@ export async function createTrainerRuntime({
           gateway.handle(uid, route, method, body, { signal }),
         );
       },
-      async close() {
-        await gateway.close();
-        store.close();
-        index.close();
-        keys.state.fill(0);
-        keys.context.fill(0);
-      },
+      close,
     };
   } catch (error) {
-    if (gateway) await gateway.close();
-    else {
-      await backend?.shutdown();
-      proxy?.close();
-    }
-    store?.close();
-    index?.close();
-    keys.state.fill(0);
-    keys.context.fill(0);
+    await close().catch(() => {});
     throw error;
   }
 }

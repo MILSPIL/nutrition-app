@@ -16,6 +16,7 @@ import {
   trainerConfigHash,
   trainerKeys,
 } from "./runtime.mjs";
+import { createMealApi } from "../api.mjs";
 import { provisionContext } from "./context-store.mjs";
 const manifest = {
     liveEnabled: true,
@@ -120,7 +121,7 @@ test("H04 actual runtime stores share lifecycle and never infer on state/context
     key: trainerKeys(key).context,
   });
   let runtime,
-    shutdown = false;
+    shutdown = 0;
   t.after(async () => {
     await runtime?.close();
     rmSync(root, { recursive: true, force: true });
@@ -161,7 +162,7 @@ test("H04 actual runtime stores share lifecycle and never infer on state/context
     },
     backendFactory: () => ({
       shutdown: async () => {
-        shutdown = true;
+        shutdown++;
       },
     }),
   });
@@ -179,7 +180,17 @@ test("H04 actual runtime stores share lifecycle and never infer on state/context
     }),
     /pilot_forbidden/,
   );
-  await runtime.close();
+  const api = createMealApi({
+    env: {
+      FIREBASE_PROJECT: "synthetic-scisense",
+      ALLOWED_ORIGINS: "https://ntzg.pp.ua",
+      ALLOWED_UIDS: "owner",
+      LIVE_ENABLED: "false",
+    },
+    trainer: runtime,
+  });
+  await api.close();
+  await Promise.all([runtime.close(), runtime.close()]);
   runtime = null;
-  assert.equal(shutdown, true);
+  assert.equal(shutdown, 1);
 });
