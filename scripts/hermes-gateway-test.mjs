@@ -268,7 +268,7 @@ try {
       JSON.stringify(b).includes("Tool 'terminal' does not exist"),
     ),
   );
-  assert.equal(store.cleanupJobs().length, 0);
+  assert.equal(store.cleanupJobs().length, 0, JSON.stringify(backend.diagnostics()));
   assert.deepEqual(readdirSync(mediaDir), []);
   const needles = [Buffer.from(image.data, "base64"), Buffer.from(image.data)];
   for (const b of [...needles])
@@ -372,7 +372,7 @@ try {
     assert.equal(limitedResult.state, "failed");
     assert.equal(call, 1);
     for (let n = 0; n < 250 && store.cleanupJobs().length; n++) await sleep(20);
-    assert.equal(store.cleanupJobs().length, 0);
+    assert.equal(store.cleanupJobs().length, 0, JSON.stringify(backend.diagnostics()));
     // A tool that ignores AbortSignal cannot keep the native worker alive past the deadline.
     await gateway.close();
     gateway = makeGateway(3500);
@@ -403,7 +403,7 @@ try {
         "POST",
         {},
       );
-    assert.equal(store.cleanupJobs().length, 0);
+    assert.equal(store.cleanupJobs().length, 0, JSON.stringify(backend.diagnostics()));
     // SIGKILL leaves an exact canonical unknown generation. Resolve only on explicit cancel.
     await gateway.close();
     gateway = makeGateway();
@@ -433,7 +433,7 @@ try {
       "POST",
       {},
     );
-    assert.equal(store.cleanupJobs().length, 0);
+    assert.equal(store.cleanupJobs().length, 0, JSON.stringify(backend.diagnostics()));
     assert.equal(call, 1);
     // A crash before metadata rename must not leave an owned hash artifact behind.
     const interruptedId = randomUUID(),
@@ -452,7 +452,7 @@ try {
       { mode: 0o600 },
     );
     await gateway.recover();
-    assert.equal(store.cleanupJobs().length, 0);
+    assert.equal(store.cleanupJobs().length, 0, JSON.stringify(backend.diagnostics()));
     assert.equal(
       readdirSync(work).some((n) => n.endsWith(".cleanup.json.tmp")),
       false,
