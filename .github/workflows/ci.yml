@@ -109,7 +109,7 @@ jobs:
         # namespace and /proc setup allowances. Child BPF remains enforced.
         # No host mount, socket, key, capability or network; container UID10001.
         run: |
-          docker run --name hermes-resource --init --network=none --cpus=2 --memory=2g --memory-swap=2g --pids-limit=128 --cap-drop=ALL --security-opt=no-new-privileges --security-opt=seccomp=unconfined --security-opt=apparmor=unconfined --security-opt=systempaths=unconfined --entrypoint timeout scisense-hermes-ci --signal=TERM --kill-after=5s 45s node scripts/hermes-gateway-test.mjs --resource-probe
+          docker run --name hermes-resource --init --network=none --cpus=2 --memory=2g --memory-swap=2g --pids-limit=128 --cap-drop=ALL --security-opt=no-new-privileges --security-opt=seccomp=unconfined --security-opt=apparmor=unconfined --security-opt=systempaths=unconfined --entrypoint timeout scisense-hermes-ci --signal=TERM --kill-after=5s 45s node scripts/hermes-gateway-test.mjs --resource-probe --capacity-probe
       - name: Collect resource evidence
         if: always()
         run: |
