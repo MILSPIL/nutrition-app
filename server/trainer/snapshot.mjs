@@ -88,9 +88,13 @@ export function modelPlan(plan) {
     dictionaries[index]=values;
     for(const row of rows)row[index]=values.indexOf(row[index]);
   }
-  return {catalog:{columns:PLAN_COLUMNS,defaults,dictionaries,rows},freeCalorieLimit:plan.catalog.projection?.free};
+  const ambiguousRefIds=[...new Set(plan.catalog.references.filter(r=>r.ambiguous).map(r=>r.refId))];
+  return {catalog:{columns:PLAN_COLUMNS,defaults,dictionaries,rows,...(ambiguousRefIds.length?{ambiguousRefIds}:{})},freeCalorieLimit:plan.catalog.projection?.free};
 }
 export function decodeModelPlan(plan) {
- const {columns,defaults={},dictionaries={},rows}=plan.catalog;
- return rows.map(row=>Object.fromEntries(columns.map((key,i)=>[key,i>=row.length?defaults[key]:dictionaries[i]?dictionaries[i][row[i]]:row[i]])));
+ const {columns,defaults={},dictionaries={},rows,ambiguousRefIds=[]}=plan.catalog;
+ return rows.map(row=>{
+  const reference=Object.fromEntries(columns.map((key,i)=>[key,i>=row.length?defaults[key]:dictionaries[i]?dictionaries[i][row[i]]:row[i]]));
+  return ambiguousRefIds.includes(reference.refId)?{...reference,ambiguous:true}:reference;
+ });
 }

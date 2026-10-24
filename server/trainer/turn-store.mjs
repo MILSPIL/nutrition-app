@@ -240,7 +240,7 @@ export function openTurnStore(
   };
   const preview = d => {
     const row=db.prepare("SELECT proof,stale FROM draft_previews WHERE draft_id=?").get(d.draftId);
-    if(!row)return d;
+    if(!row)return d.save||["saved","saving","unknown"].includes(d.state)?d:{...d,stale:true};
     const freshness=JSON.parse(row.proof);
     return {...d,freshness,stale:row.stale===1||freshness.targetDate!==d.targetDate};
   };

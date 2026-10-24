@@ -26,7 +26,13 @@ export function dateHints(text,sentAt) {
   if(validDate(match[1])){dates.add(match[1]);explicitDates.add(match[1]);}else invalid=true;refs.add('explicit');
  }
  for(const match of text.matchAll(/(?<![\d.])(\d{2})\.(\d{2})(?:\.(\d{4}))?(?![\d.])/g)){
-  if(!match[3]){invalid=true;continue;}
+  if(!match[3]){
+   const before=text.slice(0,match.index),after=text.slice(match.index+match[0].length);
+   const clock=Number(match[1])<24&&Number(match[2])<60&&/(?:^|[^\p{L}])(?:о|об|at)\s*$/iu.test(before);
+   const amount=/^\s*(?:грн|uah|usd|eur|₴|\$|€|г|гр|грам\p{L}*|мл|кг|g|grams?|ml|kg)(?=$|[^\p{L}])/iu.test(after);
+   if(!clock&&!amount)invalid=true;
+   continue;
+  }
   const date=`${match[3]}-${match[2].padStart(2,'0')}-${match[1].padStart(2,'0')}`;
   if(validDate(date)){dates.add(date);explicitDates.add(date);}else invalid=true;refs.add('explicit');
  }
@@ -64,6 +70,7 @@ export function resolveToolDate(input,ctx,{draft}={}) {
 }
 export function foodIntentAllowed(text) {
  const normalized=text.trim();
+ if(/^(?:якщо|если|if)(?=$|[^\p{L}])/iu.test(normalized))return false;
  if(/^(?:(?:будь ласка|пожалуйста)[,\s]+)?(?:нагадай|напомни|покажи|перелічи|перечисли|які|какие|що\s+(?:саме\s+)?я|что\s+(?:именно\s+)?я|скільки\s+(?:я\s+)?|сколько\s+(?:я\s+)?|when did i|what did i|remind me|show me)(?=$|[^\p{L}])/iu.test(normalized))return false;
  if(/(?:не\s+буду\s+(?:їсти|есть)|планую|планирую|збираюсь|собираюсь|(?:я\s+)?хочу\s+(?:поїсти|поесть|з[’']?їсти|съесть)|going to eat|will eat)/iu.test(text)&&!/(?:вже|уже|already)\s+(?:з[’']?їв|съел|ate)/iu.test(text))return false;
  if(/(?:^|[^\p{L}])(?:не|not)\s+(?:з[’']?їв|з[’']?їла|їв|їла|съел|съела|випив|выпил|ate|eaten|drank)(?=$|[^\p{L}])/iu.test(text))return false;

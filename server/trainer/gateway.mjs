@@ -121,7 +121,14 @@ export function createTrainerGateway({
         }),
         controller.signal,
       );
-      await verifyTurn(turn,controller.signal);
+      try {
+        await verifyTurn(turn,controller.signal);
+      } catch (error) {
+        // The backend already returned. A failed final read must not turn that
+        // known execution into an unknown run or publish an unchecked result.
+        if(error?.message==="stale_snapshot")throw error;
+        fail("day_unavailable",503);
+      }
       store.complete(id, turn.generation, result);
     } catch (error) {
       const state = store.internal(id).state;
@@ -275,8 +282,9 @@ export function createTrainerGateway({
             fail("invalid_request");
           if (draft.save) return reply(draft);
           if (body.baseRevision !== draft.revision) fail("draft_conflict", 409);
+          if(!draft.freshness||draft.stale)fail("stale_preview",409);
           const {day,plan}=await fresh(uid,draft.targetDate,signal);
-          if(draft.freshness&&!sameFreshness(draft.freshness,day.freshness)||draft.stale){
+          if(!sameFreshness(draft.freshness,day.freshness)){
             store.stalePreview(uid,id,draft.draftId);fail("stale_preview",409);
           }
           const prepared = await commandFromDraft(draft, {
