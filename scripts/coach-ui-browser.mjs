@@ -51,13 +51,15 @@ await new Promise(ok=>server.listen(4189,'127.0.0.1',ok));
 let browser,context,page;
 try {
  browser=await chromium.launch({executablePath:process.env.AGENT_TEST_CHROME_EXECUTABLE,headless:true});
- context=await browser.newContext({viewport:{width:390,height:844},locale:'uk-UA'});page=await context.newPage();page.setDefaultTimeout(20000);
+ context=await browser.newContext({viewport:{width:390,height:844},locale:'uk-UA',timezoneId:'America/New_York'});page=await context.newPage();page.setDefaultTimeout(20000);
  page.on('pageerror',e=>evidence.consoleErrors.push(e.message));
  await context.route('**/*',r=>['127.0.0.1','localhost','fonts.googleapis.com','fonts.gstatic.com'].includes(new URL(r.request().url()).hostname)?r.continue():r.abort());
+ await page.clock.setFixedTime('2026-10-24T21:10:00Z');
  await page.goto('http://127.0.0.1:4189/');await page.getByRole('button',{name:'Увійти через Google'}).click();
  await page.getByRole('button',{name:'Почати!',exact:true}).click();await page.getByRole('button',{name:'Почати!',exact:true}).waitFor({state:'hidden'});
  await page.locator('.fixed.z-50').filter({has:page.getByRole('heading',{name:'Налаштування',exact:true})}).locator('button:has(svg.lucide-x)').first().click();
  await page.locator('[data-modal-surface]').waitFor({state:'hidden'});
+ check('login opens Kyiv today across browser timezone',await page.getByLabel('Дата записів',{exact:true}).inputValue()==='2026-10-25'&&await page.getByRole('button',{name:'Сьогодні',exact:true}).getAttribute('aria-pressed')==='true');
  const launcher=page.getByRole('button',{name:'Відкрити тренера',exact:true});await launcher.waitFor();
  for(const width of [375,390,1366]){
   await page.setViewportSize({width,height:width===1366?900:844});await page.evaluate(()=>scrollTo(0,document.body.scrollHeight));
@@ -85,9 +87,29 @@ try {
  const icons=await page.locator('img[src*="category-"]').evaluateAll(nodes=>nodes.map(n=>({src:n.src,naturalWidth:n.naturalWidth,box:n.getBoundingClientRect().width})));
  check('versioned icons exact visual box',icons.length>=3&&icons.every(x=>x.src.includes('/static/media/')&&x.src.endsWith('.webp')&&x.naturalWidth===192&&x.box<=44));
  evidence.icons=icons;
+ await page.getByRole('button',{name:'Вчора',exact:true}).click();
+ await launcher.click();await page.locator('#trainer-message:not(:disabled)').waitFor();
+ await page.locator('#trainer-message').fill('Порадь їжу для обраного дня');
+ await Promise.all([
+  page.waitForResponse(r=>r.url().endsWith('/trainer/turns')&&r.request().method()==='POST'),
+  page.getByRole('button',{name:'Надіслати повідомлення',exact:true}).click(),
+ ]);
+ await page.waitForFunction(()=>document.querySelector('#trainer-message')?.disabled===false);
+ check('explicit diary choice pins coach date',lastInput.dateContext.mode==='pinned'&&lastInput.dateContext.targetDate==='2026-10-24');
+ await page.getByRole('button',{name:'Закрити чат',exact:true}).click();
  await context.unroute('**/*');
  await page.reload();await page.locator('img[src*="category-"]').first().waitFor();
  await page.waitForFunction(()=>[...document.querySelectorAll('img[src*="category-"]')].every(n=>n.complete&&n.naturalWidth));
+ check('profile reload resets to Kyiv today',await page.getByLabel('Дата записів',{exact:true}).inputValue()==='2026-10-25');
+ await launcher.click();await page.locator('#trainer-message:not(:disabled)').waitFor();
+ await page.locator('#trainer-message').fill('Порадь їжу на сьогодні');
+ await Promise.all([
+  page.waitForResponse(r=>r.url().endsWith('/trainer/turns')&&r.request().method()==='POST'),
+  page.getByRole('button',{name:'Надіслати повідомлення',exact:true}).click(),
+ ]);
+ await page.waitForFunction(()=>document.querySelector('#trainer-message')?.disabled===false);
+ check('profile reload clears explicit coach date',lastInput.dateContext.mode==='default');
+ await page.getByRole('button',{name:'Закрити чат',exact:true}).click();
  const warmBodies=iconBodies;await page.reload();await page.locator('img[src*="category-"]').first().waitFor();
  await page.waitForFunction(()=>[...document.querySelectorAll('img[src*="category-"]')].every(n=>n.complete&&n.naturalWidth));
  check('repeat icons served from browser cache',iconBodies===warmBodies);

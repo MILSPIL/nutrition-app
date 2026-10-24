@@ -329,6 +329,16 @@ try {
     (await page.locator(".voice-nutrition").textContent()) ===
       "106 ккал · Б 5.8 · Ж 5 · В 8",
   );
+  // C04: нове джерело скидає відповідник, але зберігає ручну літеру.
+  const normReference = page.getByLabel("Відповідник продукту 1", { exact: true });
+  check("Фото зберігає ручну Ж й скидає попередній відповідник",
+    await page.getByLabel("Літера продукту 1", { exact: true }).inputValue() === "ж" &&
+    await normReference.inputValue() === "" &&
+    (await page.locator(".voice-plan-badge").textContent()).includes("норму не визначено"));
+  if (!await normReference.isVisible()) await page.getByText("Змінити літеру або норму", { exact: true }).click();
+  await normReference.selectOption("dairy:kefir:ж");
+  check("Явний вибір відповідника після фото повертає Ж 54.8%",
+    (await page.locator(".voice-plan-badge").textContent()).includes("54.8%"));
   await page.getByRole("button", { name: "Додати", exact: true }).click();
   await page.getByRole("heading", { name: "Прийом збережено" }).waitFor();
   await page
@@ -336,6 +346,7 @@ try {
     .click();
   const rows = await readLedger();
   const savedRow=rows.find(r=>r.status==='saved');
+  evidence.finalAllocationCounts={assigned:savedRow?.planAssignedCount,unresolved:savedRow?.planUnresolvedCount,manual:savedRow?.planManualCount};
   check("Лічильники фінального preview без дублювання",savedRow.planAssignedCount===1&&savedRow.planUnresolvedCount===0&&savedRow.planManualCount===1);
   check(
     "Закриті спроби є в знаменнику, успіх один",
@@ -390,6 +401,7 @@ try {
   const next = new Date(`${targetDate}T12:00:00`);
   next.setDate(next.getDate() + 1);
   const tomorrow = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
+  await page.getByLabel("Обрати дату записів", { exact: true }).click();
   await page.getByLabel("Дата записів", { exact: true }).fill(tomorrow);
   await page
     .getByRole("button", { name: "Додати їжу голосом", exact: true })

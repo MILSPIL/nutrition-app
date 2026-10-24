@@ -225,7 +225,8 @@ export default function ClientApp() {
     }
 
     setCurrentWeight(user.currentWeight || null);
-    setMealsDateKey(getTodayDateKey());
+    setMealsDateKey(kyivDateKey());
+    setDiaryDatePinned(false);
     setActivity(user.activity || "");
     setOtherActivity(user.otherActivity || "");
   };
@@ -255,7 +256,8 @@ export default function ClientApp() {
       setCurrentUser(null);
       setUsers({});
       setGlobalCustomProducts({});
-      setMealsDateKey(getTodayDateKey());
+      setMealsDateKey(kyivDateKey());
+      setDiaryDatePinned(false);
     } catch (error) {
       console.error('Error signing out:', error);
     }
