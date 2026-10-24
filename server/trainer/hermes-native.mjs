@@ -1,3 +1,4 @@
+import { createServer as createNetServer } from "node:net";
 import { linuxWorkerCommand } from "./linux-isolation.mjs";
 import { spawn, spawnSync } from "node:child_process";
 import {
@@ -86,6 +87,17 @@ export function createNativeBackend({
     copyFileSync(join(here, name), join(workDirectory, name));
   for (const name of ["tmp", "empty-home"])
     mkdirSync(join(workDirectory, name), { recursive: true, mode: 0o700 });
+  let outsidePort = 0;
+  const outside = createNetServer((socket) => socket.end());
+  const canaryReady = new Promise((ok, no) => {
+    outside.once("error", no);
+    outside.listen(0, "127.0.0.1", () => {
+      outsidePort = outside.address().port;
+      outside.unref();
+      ok();
+    });
+  });
+  canaryReady.catch(() => {});
   const workers = new Map(),
     faults = [],
     eventsMeta = [];
@@ -100,7 +112,7 @@ export function createNativeBackend({
       return ["/usr/bin/sandbox-exec", ["-f", file, python, script]];
     }
     if (process.platform === "linux" && isolation === "linux-bubblewrap")
-      return linuxWorkerCommand({source,profile,workDirectory,pythonRoot});
+      return linuxWorkerCommand({ source, profile, workDirectory, pythonRoot });
     // CI runs the entire synthetic stack in a network-none container. This is NOT a
     // production activation option: runtime manifests reject this isolation kind.
     if (
@@ -168,25 +180,33 @@ export function createNativeBackend({
     if (workers.size) fail("trainer_busy", 409);
     const cleanupMedia = cleanupMetadata(turn, args, mode);
     const [exe, argv] = command();
-    let filterFd,child;
+    let filterFd, child;
     try {
-    if(isolation==="linux-bubblewrap") filterFd=openSync(join(here,"worker-seccomp.bpf"),"r");
-    child = spawn(exe, argv, {
-      cwd: source,
-      env: {
-        PATH: "/usr/bin:/bin",
-        HOME: join(workDirectory, "empty-home"),
-        HERMES_HOME: profile,
-        SCISENSE_IPC_KEY: "local-ipc-not-a-provider-credential",
-        PYTHONUNBUFFERED: "1",
-        PYTHONDONTWRITEBYTECODE: "1",
-        TMPDIR: join(workDirectory, "tmp"),
-        XDG_CONFIG_HOME: join(workDirectory, "empty-home/config"),
-        XDG_CACHE_HOME: join(workDirectory, "empty-home/cache"),
-      },
-      stdio: ["pipe", "pipe", "ignore",...(filterFd===undefined?[]:[filterFd])],
-    });
-    } finally { if(filterFd!==undefined)closeSync(filterFd); }
+      if (isolation === "linux-bubblewrap")
+        filterFd = openSync(join(here, "worker-seccomp.bpf"), "r");
+      child = spawn(exe, argv, {
+        cwd: source,
+        env: {
+          PATH: "/usr/bin:/bin",
+          HOME: join(workDirectory, "empty-home"),
+          HERMES_HOME: profile,
+          SCISENSE_IPC_KEY: "local-ipc-not-a-provider-credential",
+          PYTHONUNBUFFERED: "1",
+          PYTHONDONTWRITEBYTECODE: "1",
+          TMPDIR: join(workDirectory, "tmp"),
+          XDG_CONFIG_HOME: join(workDirectory, "empty-home/config"),
+          XDG_CACHE_HOME: join(workDirectory, "empty-home/cache"),
+        },
+        stdio: [
+          "pipe",
+          "pipe",
+          "ignore",
+          ...(filterFd === undefined ? [] : [filterFd]),
+        ],
+      });
+    } finally {
+      if (filterFd !== undefined) closeSync(filterFd);
+    }
     const lifetime = new AbortController(),
       signal = args.signal
         ? AbortSignal.any([args.signal, lifetime.signal])
@@ -378,6 +398,7 @@ export function createNativeBackend({
       apiKey,
       cleanupMedia,
       isolation,
+      outsidePort,
       readDenyCanary: resolve(here, "../../package.json"),
       turnId: turn.id,
       runId: turn.run_id,
@@ -410,11 +431,13 @@ export function createNativeBackend({
       events: eventsMeta,
     }),
     async start(args) {
+      await canaryReady;
       const value = await startWorker(args).result;
       if (value.state !== "completed") throw Error("hermes_failed");
       return value.result;
     },
     async status(turn, { onRun } = {}) {
+      await canaryReady;
       return (workers.get(turn.id) ?? startWorker({ turn, onRun }, "recover"))
         .result;
     },
@@ -424,6 +447,7 @@ export function createNativeBackend({
       return stopWorker(worker, { reconcile: turn.state === "cancelled" });
     },
     async cleanup(turn) {
+      await canaryReady;
       let worker = workers.get(turn.id);
       if (!worker) {
         worker = startWorker({ turn }, "recover");
@@ -452,6 +476,8 @@ export function createNativeBackend({
       return { cleaned: code === 0, proof: proof.proof };
     },
     async shutdown() {
+      await canaryReady.catch(() => {});
+      await new Promise((ok) => outside.close(ok));
       for (const worker of [...workers.values()]) {
         await stopWorker(worker);
         worker.child.stdin.end();
@@ -467,7 +493,8 @@ export function createNativeBackend({
     async killForTest(turnId) {
       if (
         isolation !== "macos-seatbelt" &&
-        isolation !== "synthetic-network-none"
+        isolation !== "synthetic-network-none" &&
+        isolation !== "linux-bubblewrap"
       )
         fail("forbidden");
       const worker = workers.get(turnId);
@@ -479,7 +506,8 @@ export function createNativeBackend({
     async disconnectForTest(turnId) {
       if (
         isolation !== "macos-seatbelt" &&
-        isolation !== "synthetic-network-none"
+        isolation !== "synthetic-network-none" &&
+        isolation !== "linux-bubblewrap"
       )
         fail("forbidden");
       const worker = workers.get(turnId);

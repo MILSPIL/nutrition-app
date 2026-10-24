@@ -1,3 +1,4 @@
+import {createTrainerRuntime,validateTrainerActivation} from './trainer/runtime.mjs';
 import {openSync,readFileSync,fstatSync,closeSync,constants,realpathSync,lstatSync} from 'node:fs';
 import path from 'node:path';
 import {createMealApi} from './api.mjs';
@@ -9,6 +10,7 @@ const validDate=value=>typeof value==='string'&&Number.isFinite(Date.parse(value
 export function validateManifest(manifest){
  if(manifest?.version!==2||manifest.proposalRevision!==2||!/^[a-f0-9]{64}$/.test(manifest.configHash||'')||typeof manifest.liveEnabled!=='boolean'||manifest.firebaseProject!=='nutrition-tracker-ua'||manifest.origin!=='https://ntzg.pp.ua'||!Array.isArray(manifest.allowedUids)||manifest.allowedUids.some(uid=>typeof uid!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(uid))||!Number.isInteger(manifest.port)||manifest.port<1024||manifest.port>65535||manifest.budgetDirectory!=='/var/lib/scisense'||manifest.activationFile!=='/etc/scisense/activation.json'||JSON.stringify(manifest.credentialNames)!=='["groq","anthropic"]'||manifest.maxConcurrent!==1||manifest.transcription?.provider!=='groq'||manifest.transcription?.model!=='whisper-large-v3'||manifest.transcription?.accountTier!=='free'||manifest.transcription?.timeoutMs!==45000)fail();
  if(manifest.liveEnabled&&(!/^[a-f0-9]{40}$/.test(manifest.releaseId)||!manifest.allowedUids.length||new Set(manifest.allowedUids).size!==manifest.allowedUids.length))fail();
+ if(manifest.trainer!==undefined&&(typeof manifest.trainer.enabled!=='boolean'||Object.keys(manifest.trainer).some(k=>!['enabled','activationFile'].includes(k))||manifest.trainer.activationFile!=='/etc/scisense/trainer-activation.json'||manifest.trainer.enabled&&!manifest.liveEnabled))fail();
  return manifest;
 }
 export function validateActivation(manifest,receipt,proposal){
@@ -27,12 +29,13 @@ function readProtected(file,{owner,secret=false}={}){
 export async function createServerRuntime(manifest,{proposal,createApi=createMealApi,fetcher=fetch}={}){
  validateManifest(manifest);
  const env={FIREBASE_PROJECT:manifest.firebaseProject,ALLOWED_ORIGINS:manifest.origin,ALLOWED_UIDS:manifest.allowedUids.join(',')||'disabled',LIVE_ENABLED:'false'};
- let budget,api;
- const clear=()=>{env.LIVE_ENABLED='false';delete env.ANTHROPIC_API_KEY;delete env.GROQ_API_KEY;};
+ let budget,api,trainer;
+ const clear=()=>{env.TRAINER_ENABLED='false';env.LIVE_ENABLED='false';delete env.ANTHROPIC_API_KEY;delete env.GROQ_API_KEY;};
  try{
   if(manifest.liveEnabled){
    const receipt=validateActivation(manifest,JSON.parse(readProtected(manifest.activationFile,{owner:0}).toString('utf8')),proposal);
-   budget=openServerLedger({directory:manifest.budgetDirectory,receipt,groqFree:true,onFault:()=>{env.LIVE_ENABLED='false';}});
+   const trainerActivation=manifest.trainer?.enabled?validateTrainerActivation(JSON.parse(readProtected(manifest.trainer.activationFile,{owner:0}).toString('utf8')),manifest,receipt):null;
+   budget=openServerLedger({hermesPolicy:!!trainerActivation,directory:manifest.budgetDirectory,receipt,groqFree:true,onFault:()=>{env.LIVE_ENABLED='false';}});
    const dir=process.env.CREDENTIALS_DIRECTORY;
    if(dir!=='/run/credentials/scisense-api.service'||realpathSync(dir)!==dir)fail();
    const directory=lstatSync(dir);if(!directory.isDirectory()||![0,process.getuid()].includes(directory.uid)||(directory.mode&0o227)!==0)fail();
@@ -41,9 +44,15 @@ export async function createServerRuntime(manifest,{proposal,createApi=createMea
     try{const secret=bytes.toString('utf8').trim();if(!(name==='groq'?/^gsk_[A-Za-z0-9_-]{16,}$/:/^sk-ant-[A-Za-z0-9_-]{16,}$/).test(secret))fail();env[name==='groq'?'GROQ_API_KEY':'ANTHROPIC_API_KEY']=secret;}finally{bytes.fill(0);}
    }
    Object.assign(env,approvedSettings(proposal),{PILOT_BUDGET:budget.binding});
+   if(trainerActivation){
+    const bytes=readProtected(path.join(dir,'trainer-state'),{owner:process.getuid(),secret:true});
+    try{trainer=await createTrainerRuntime({activation:trainerActivation,budget:budget.binding,platformKey:bytes,anthropicKey:env.ANTHROPIC_API_KEY,project:manifest.firebaseProject,fetcher});}
+    finally{bytes.fill(0);}
+    env.TRAINER_ENABLED='true';env.TRAINER_OWNER_UID=trainerActivation.ownerUid;
+   }
   }
   const provider=(kind,payload,settings,context)=>callProvider(kind,payload,settings,fetcher,{...context,timeoutMs:manifest.transcription.timeoutMs});
-  api=createApi({env,provider,maxConcurrent:manifest.maxConcurrent});
-  return {listen:()=>api.listen(manifest.port),async close(){clear();await api.close();budget?.close();}};
- }catch{clear();budget?.close();throw Error('server_start_refused');}
+  api=createApi({env,provider,trainer,maxConcurrent:manifest.maxConcurrent});
+  return {listen:()=>api.listen(manifest.port),async close(){clear();await api.close();await trainer?.close();budget?.close();}};
+ }catch{clear();await trainer?.close();budget?.close();throw Error('server_start_refused');}
 }

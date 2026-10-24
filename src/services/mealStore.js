@@ -1,7 +1,7 @@
 import { foodNotesSummary } from './foodNotes';
 import { PRODUCTS_DB } from '../data/products';
 import { buildPlanCatalog, planFingerprint } from './planCatalog';
-import { doc, getDocFromServer, runTransaction } from 'firebase/firestore';
+import { doc, getDocFromServer, runTransaction, FieldPath } from 'firebase/firestore';
 import { db } from '../firebase';
 import { writerStamp } from './writerFence';
 import { applyDayCommand, hasMeals, isDateKey, selectDay, stableJson } from './mealCommands';
@@ -69,7 +69,7 @@ export async function commitMealDay(uid, profileId, date, command) {
         const catalog=buildPlanCatalog({profile:user,globalCustomProducts:root.globalCustomProducts,productOverrides:root.productOverrides});
         if(command.planFingerprint!==await planFingerprint(catalog)) {
           if(!trainerCommand)throw Error('plan_conflict');
-          tx.set(ref.day,{...(daySnap.data()||{}),rejectedSubmissions:{...(daySnap.data()?.rejectedSubmissions||{}),[command.submissionId]:hash},...stamp});
+          tx.set(ref.day,{rejectedSubmissions:{[command.submissionId]:hash},...stamp},{mergeFields:[new FieldPath('rejectedSubmissions',command.submissionId),'writerVersion','writerNonce']});
           return {rejected:true};
         }
         for(const item of command.items||[]) {
@@ -116,7 +116,12 @@ export async function commitMealDay(uid, profileId, date, command) {
       for (const key of ['activity','otherActivity','currentWeight','programDay']) if (command.metadata?.[key] !== undefined) projection[key]=command.metadata[key];
       (result.noteWrites||[]).forEach((note,index)=>tx.set(noteRefs[index],{...note,...stamp}));
       if(result.resolvedNote)tx.set(doc(db,'users',uid,'foodNotes',command.noteId),{...result.resolvedNote,...stamp});
-      tx.set(ref.day,{...result.day,...stamp});
+      // Update only this command's marker. Replacing the whole map makes a
+      // concurrent sibling marker look deleted to rules before Firestore's
+      // transaction precondition can trigger its normal ABORTED retry.
+      const dayValue={...result.day,...stamp};
+      const dayFields=Object.keys(dayValue).filter(k=>!['submissionMarkers','rejectedSubmissions'].includes(k));
+      tx.set(ref.day,dayValue,{mergeFields:[...dayFields,new FieldPath('submissionMarkers',command.submissionId)]});
       tx.set(ref.owner,{ users:{ ...root.users,[profileId]:projection },...stamp,updatedAt:command.updatedAt },{mergeFields:['users','writerVersion','writerNonce','updatedAt']});
       return result.day;
     });

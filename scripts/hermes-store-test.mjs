@@ -34,6 +34,15 @@ run(path.join(cwd, "workers/meal-parser/node_modules/.bin/esbuild"), [
   '--define:process.env.REACT_APP_LOCAL_LAB="1"',
   "--outfile=tmp/hermes-store-emulator.mjs",
 ]);
+run(path.join(cwd, "workers/meal-parser/node_modules/.bin/esbuild"), [
+  "scripts/hermes-reader-emulator.mjs",
+  "--bundle",
+  "--platform=node",
+  "--format=esm",
+  "--packages=external",
+  '--define:process.env.REACT_APP_LOCAL_LAB="1"',
+  "--outfile=tmp/hermes-reader-emulator.mjs",
+]);
 run(process.env.FIREBASE_CLI || "firebase", [
   "emulators:exec",
   "--config",
@@ -42,5 +51,5 @@ run(process.env.FIREBASE_CLI || "firebase", [
   "demo-scisense",
   "--only",
   "auth,firestore",
-  "node tmp/hermes-store-emulator.mjs && node --test scripts/hermes-notes-rules.test.mjs",
+  "node tmp/hermes-store-emulator.mjs && node tmp/hermes-reader-emulator.mjs && node --test scripts/hermes-notes-rules.test.mjs",
 ]);

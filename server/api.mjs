@@ -107,7 +107,7 @@ export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, 
         if(req.method==='POST'&&route==='/meal-api/trainer/turns'&&env.LIVE_ENABLED!=='true')throw Object.assign(Error('live_disabled'),{status:503});
         let body;
         if(['POST','PUT'].includes(req.method)){if(headers['Content-Type']!=='application/json')throw Error('bad_request');const bytes=await readBody(req,controller.signal,bodyTimeoutMs);body=bytes.length?JSON.parse(bytes.toString('utf8')):{};}
-        const response=await trainer.handle(uid,route.slice('/meal-api/trainer'.length),req.method,body,{signal:controller.signal});
+        const response=await trainer.handle(uid,route.slice('/meal-api/trainer'.length),req.method,body,{signal:controller.signal,ownerToken:headers.Authorization.slice(7)});
         return send(res,response.status,await response.text(),{'Access-Control-Allow-Origin':env.ALLOWED_ORIGINS,...Object.fromEntries(response.headers)});
       }
       if (req.method === 'POST') await handler.authorize(new Request(url, { headers }), env);

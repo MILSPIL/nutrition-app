@@ -19,7 +19,7 @@ try {
  const first=append('one');await Promise.all([commitMealDay(uid,uid,date,first),commitMealDay(uid,uid,date,first)]);
  let day=await loadMealDay(uid,uid,date);assert.equal(day.meals[1].voice.length,1);assert.equal(day.totalMacros.cal,106);
  await Promise.all([commitMealDay(uid,uid,date,append('two')),commitMealDay(uid,uid,date,append('three'))]);
- day=await loadMealDay(uid,uid,date);assert.equal(day.meals[1].voice.length,3);assert.equal(day.revision,3);
+ day=await loadMealDay(uid,uid,date);assert.equal(day.meals[1].voice.length,3);assert.equal(day.revision,3);assert.deepEqual(Object.keys(day.submissionMarkers).sort(),['one','three','two']);
  await assert.rejects(()=>commitMealDay(uid,uid,date,{type:'replace',submissionId:'stale',expectedRevision:0,meals:empty.meals,updatedAt:'x'}),/revision_conflict/);
  await saveProfileSettings(uid,uid,{name:'Змінене ім’я',meals:empty.meals});
  const root=(await getDocFromServer(doc(db,'users',uid))).data();assert.equal(root.users[uid].meals[1].voice.length,3);assert.equal(root.users[uid].mealsDateKey,date);

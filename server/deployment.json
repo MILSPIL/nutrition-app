@@ -20,5 +20,9 @@
     "model": "whisper-large-v3",
     "accountTier": "free",
     "timeoutMs": 45000
+  },
+  "trainer": {
+    "enabled": false,
+    "activationFile": "/etc/scisense/trainer-activation.json"
   }
 }

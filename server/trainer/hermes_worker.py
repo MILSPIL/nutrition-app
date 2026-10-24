@@ -120,6 +120,16 @@ async def main(setup):
             network_denied = error.errno in (errno.EACCES, errno.EPERM, errno.ENETUNREACH)
         finally:
             sock.close()
+        outside_denied = False
+        outside = socket.socket()
+        outside.settimeout(1)
+        try:
+            outside.connect(('127.0.0.1', setup['outsidePort']))
+        except OSError as error:
+            outside_denied = error.errno in (errno.EACCES, errno.EPERM, errno.ECONNREFUSED, errno.ENETUNREACH)
+        finally:
+            outside.close()
+        assert outside_denied, 'shared_host_loopback'
         if setup['isolation'] == 'linux-bubblewrap':
             namespace_denied = False
             try:
@@ -127,6 +137,11 @@ async def main(setup):
             except PermissionError:
                 namespace_denied = True
             assert namespace_denied, 'namespace_escape'
+            import ctypes
+            libc=ctypes.CDLL(None,use_errno=True)
+            # EBADF without the child policy; EPERM proves the filter is active.
+            assert libc.syscall(308,-1,0)==-1 and ctypes.get_errno()==errno.EPERM, 'setns_filter_missing'
+            assert libc.syscall(435,0,0)==-1 and ctypes.get_errno()==errno.ENOSYS, 'clone3_filter_missing'
         assert file_denied and network_denied, 'isolation_failed'
         emit({'type': 'isolation', 'fileDenied': True, 'networkDenied': True})
     expected = json.loads(Path(__file__).with_name('hermes-config.json').read_text())
