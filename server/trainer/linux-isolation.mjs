@@ -1,5 +1,21 @@
-import { realpathSync, lstatSync, existsSync } from "node:fs";
+import { realpathSync, lstatSync, existsSync, readdirSync } from "node:fs";
 import { join, sep } from "node:path";
+// Reject aliases to host files before exposing the two writable trees.
+export function verifyWritableTree(root) {
+  let count = 0;
+  const visit = (p) => {
+    if (++count > 20000) throw Error("hermes_profile_too_large");
+    const s = lstatSync(p);
+    if (
+      s.isSymbolicLink() ||
+      (!s.isDirectory() && (!s.isFile() || s.nlink !== 1))
+    )
+      throw Error("hermes_profile_alias");
+    if (s.isDirectory())
+      for (const name of readdirSync(p)) visit(join(p, name));
+  };
+  visit(root);
+}
 // Fixed paths supplied only by the deployment manifest. Never mount host /, /run,
 // /etc, /home or the Node state/credentials. All namespace failures are fatal.
 export function linuxWorkerCommand({
@@ -21,6 +37,8 @@ export function linuxWorkerCommand({
     for (const [j, q] of dirs.entries())
       if (i !== j && (p === q || p.startsWith(q + sep)))
         throw Error("hermes_path_overlap");
+  verifyWritableTree(profile);
+  verifyWritableTree(workDirectory);
   const python = join(source, ".venv/bin/python");
   if (!realpathSync(python).startsWith(pythonRoot + sep))
     throw Error("hermes_python_invalid");
@@ -56,7 +74,7 @@ export function linuxWorkerCommand({
     "--bind",
     workDirectory,
     workDirectory,
-    ...["config.yaml", "SOUL.md", "USER.md", "MEMORY.md"]
+    ...["config.yaml", "SOUL.md", "USER.md", "MEMORY.md", "memories"]
       .filter((n) => existsSync(join(profile, n)))
       .flatMap((n) => ["--ro-bind", join(profile, n), join(profile, n)]),
     "--proc",

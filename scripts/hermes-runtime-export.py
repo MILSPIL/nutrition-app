@@ -2,7 +2,7 @@
 import pathlib,json,hashlib,tarfile,subprocess,os
 root=pathlib.Path('/tmp/hermes-public-runtime');root.mkdir(exist_ok=False)
 target=root/'runtime.tar.gz'
-entries=[('/opt/scisense/hermes','hermes'),('/opt/scisense/python','python'),('/usr/local/bin/node','node/bin/node'),('/usr/bin/bwrap','isolation/bwrap'),('/app/server/trainer/worker-seccomp.bpf','isolation/worker-seccomp.bpf'),('/app/.agents/runtime/food-data/foods-v1-reviewed.sqlite','data/foods-v1-reviewed.sqlite')]
+entries=[('/opt/scisense/hermes','hermes'),('/opt/scisense/python','python'),('/usr/local/bin/node','node/bin/node'),('/usr/local/LICENSE','node/LICENSE'),('/opt/scisense/isolation/LICENSE.bubblewrap','isolation/LICENSE.bubblewrap'),('/usr/bin/bwrap','isolation/bwrap'),('/app/server/trainer/worker-seccomp.bpf','isolation/worker-seccomp.bpf'),('/app/.agents/runtime/food-data/foods-v1-reviewed.sqlite','data/foods-v1-reviewed.sqlite')]
 manifest={'version':1,'syntheticStateIncluded':False,'credentialsIncluded':False,'platform':'linux-x64','os':'ubuntu-24.04','files':[],'packages':subprocess.check_output(['dpkg-query','-W','libc6','libcap2','libseccomp2'],text=True).strip().splitlines()}
 with tarfile.open(target,'w:gz') as tf:
  for src,dest in entries:
@@ -12,7 +12,7 @@ with tarfile.open(target,'w:gz') as tf:
    arc=dest+('/'+str(p.relative_to(source)) if p!=source else '')
    if p.is_symlink():
     link=os.readlink(p)
-    if link.startswith('/') and not link.startswith('/opt/scisense/python/'): raise RuntimeError('external_symlink:'+arc)
+    if not any(p.resolve().is_relative_to(pathlib.Path(srcroot)) for srcroot,_ in entries if pathlib.Path(srcroot).is_dir()): raise RuntimeError('external_symlink:'+arc)
     manifest['files'].append({'path':arc,'link':link})
    elif p.is_file():
     manifest['files'].append({'path':arc,'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size})
