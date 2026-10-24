@@ -44,6 +44,8 @@ function quantityClauses(text) {
   // binding; a bare "apple, 150 g" may borrow the immediately preceding name.
   const boundaries = /[;!?\n]|(?<!\d)[.,]|[.,](?!\d)|\s+(?:і|й|та|и|and|а|але|но|but)\s+/gu;
   for (const boundary of text.matchAll(boundaries)) {
+    // A unit abbreviation does not end the food clause: "150 гр. курки".
+    if (boundary[0] === '.' && /\d\s*гр$/u.test(text.slice(0,boundary.index))) continue;
     result.push({start:from,end:boundary.index,text:text.slice(from,boundary.index)});
     from = boundary.index + boundary[0].length;
   }
@@ -54,7 +56,7 @@ function quantityClauses(text) {
 export function explicitQuantityInText(quantity, userText, { itemName = '', trustedSingleItem = false } = {}) {
   if (!quantity || !Number.isFinite(quantity.value) || quantity.value <= 0 || typeof userText !== 'string') return false;
   const text = normalized(userText), name = words(itemName), clauses = quantityClauses(text);
-  const pattern = /(\d+(?:[.,]\d+)?)\s*(кілограм(?:и|ів|а)?|килограмм(?:а|ов|ы)?|kg|кг|грам(?:и|ів|а)?|грамм(?:а|ов|ы)?|grams?|g|г|мілілітр(?:и|ів|а)?|миллилитр(?:а|ов|ы)?|milliliters?|мл|ml|порц(?:ія|ії|ій|и|ий)?\.?|portion|уп(?:аковка|аковки|аковок)?\.?|package)(?![\p{L}\p{N}])/gu;
+  const pattern = /(\d+(?:[.,]\d+)?)\s*(кілограм(?:и|ів|а)?|килограмм(?:а|ов|ы)?|kg|кг|грам(?:и|ів|а)?|грамм(?:а|ов|ы)?|grams?|g|гр\.?|г|мілілітр(?:и|ів|а)?|миллилитр(?:а|ов|ы)?|milliliters?|мл|ml|порц(?:ія|ії|ій|и|ий)?\.?|portion|уп(?:аковка|аковки|аковок)?\.?|package)(?![\p{L}\p{N}])/gu;
   const matches = [...text.matchAll(pattern)];
   for (const match of matches) {
     const unit = match[2];

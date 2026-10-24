@@ -165,11 +165,16 @@ export function patchDraft(
       const partialConcrete = old && ["label","database","personal"].includes(old.source?.kind) &&
         ["p","f","c","cal"].some(key => old.nutrients?.[key] == null);
       const retainedLabel = old?.source?.kind === "label" && updated.source.kind !== "label" && !explicitNewProduct;
-      if ((partialConcrete && updated.source.kind === "estimate" && !explicitNewProduct) || retainedLabel)
+      if ((partialConcrete && updated.source.kind === "estimate" && !explicitNewProduct) || retainedLabel) {
         updated = explicitQuantityInText(updated.quantity, patch.originalText, {itemName:old.name, trustedSingleItem:previous?.items?.length === 1 && patch.items.length === 1})
           ? measuredQuantity(old, updated.quantity) : structuredClone(old);
+        updated.nutritionStatus = itemProblems(updated).length
+          ? "unknown"
+          : "complete";
+      }
       if (old && raw.source?.kind === "label") {
-        updated = preservePortion(old, updated);
+        updated = explicitQuantityInText(updated.quantity, patch.originalText, {itemName:updated.name, trustedSingleItem:previous?.items?.length === 1 && patch.items.length === 1})
+          ? measuredQuantity(updated, updated.quantity) : preservePortion(old, updated);
         updated.nutritionStatus = itemProblems(updated).length
           ? "unknown"
           : "complete";

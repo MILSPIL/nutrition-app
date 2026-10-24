@@ -1,6 +1,6 @@
 {
   "scope": "HERMES-COACH-02 C03/C04 local portions and provenance",
-  "generatedAt": "2026-10-24T21:03:32.221847+00:00",
+  "generatedAt": "2026-10-24T21:12:54.991769+00:00",
   "syntheticOnly": true,
   "realAPICalls": 0,
   "productionWrites": 0,
@@ -24,21 +24,26 @@
   "checks": [
     {
       "command": "node --test server/trainer/food-lookup.test.mjs server/trainer/food-acceptance.test.mjs server/trainer/drafts-retention.test.mjs server/trainer/coach-portions.test.mjs",
-      "pass": 66,
+      "pass": 70,
       "fail": 0,
-      "newCoachCases": 20,
-      "log": ".agents/runtime/coach-portions-binding-green.log"
+      "newCoachCases": 24,
+      "log": ".agents/runtime/coach-portions-fable-green.log"
     },
     {
       "command": "CI=true npm test -- --watchAll=false --runInBand src/services/mealItems.test.js src/services/foodNotes.test.js src/services/mealCommands.test.js src/services/planAllocation.test.js",
       "pass": 59,
       "fail": 0,
-      "log": ".agents/runtime/coach-portions-jest.log"
+      "log": ".agents/runtime/coach-portions-fable-jest.log"
     },
     {
       "command": "eslint src/services/foodProvenance.js src/services/mealItems.js src/services/foodNotes.js src/services/mealStore.js",
       "exit": 0,
       "log": ".agents/runtime/coach-portions-eslint.log"
+    },
+    {
+      "command": "eslint src/services/foodProvenance.js",
+      "exit": 0,
+      "log": ".agents/runtime/coach-portions-fable-eslint.log"
     }
   ],
   "contracts": {
@@ -69,16 +74,18 @@
     "literalBindingLimit": "Conservative Ukrainian/Russian/English lexical binding; unrecognized wording keeps estimate provenance and does not block an otherwise valid food entry.",
     "completeLabel": "Concrete label remains ahead of a same-food model estimate. A genuinely named new product or an attached new label may replace it.",
     "completeSourceKeys": "JS complete-item and note validators reject keys outside the source contract. New portion origin validates kind and a nonempty assumption of at most 400 characters.",
-    "legacyImportProof": "Existing confirmLegacy writer adds legacyImportProfileId in the same transaction as copying historical rows and clearing legacyMeals; proof validation belongs to the separate rules verification."
+    "legacyImportProof": "Existing confirmLegacy writer adds legacyImportProfileId in the same transaction as copying historical rows and clearing legacyMeals; proof validation belongs to the separate rules verification.",
+    "newLabelQuantity": "Current explicit quantity for the named food, or a canonical single-item quantity-only reply, wins over the prior consumed quantity. Otherwise a photo changes nutrients while retaining the old portion.",
+    "retainedConcreteStatus": "After retaining concrete nutrition and changing quantity, recompute itemProblems before choosing complete versus unknown."
   },
   "sha256": {
-    "server/trainer/coach-portions.test.mjs": "f07626f2b71b9c59c6087517ab2f3c0256ddc2a46548d1f6a9f106b1d38f8084",
+    "server/trainer/coach-portions.test.mjs": "8ac95ecfb6e9c4ef2afb8b80dac194ee1af5f019cbe80fbf9657267b68fb140f",
     "server/trainer/food-resolver.mjs": "e2c54ea8f9f5bf9ed56392a3d9f9b3f38a5b6fe67a3250a867aa0bb7fb37170d",
-    "server/trainer/drafts.mjs": "8c75c2086a32a185f6751873d01feb93f047588a93d3b064a38b313a2f4afe86",
+    "server/trainer/drafts.mjs": "815fdf3d4846a9cef4e319ac5f303b955eabdb5407ac472cea229184a62c4ef1",
     "server/trainer/food-lookup.test.mjs": "31d436cbe49dd506f2ecd651fe5d03cbcbd903c238e6c610c21e73964784892a",
     "server/trainer/food-acceptance.test.mjs": "762009c1f97b1f09af8ef79ab65e11d9195570ad0acbb18a5e5380c9b8b232ce",
     "server/trainer/drafts-retention.test.mjs": "e956a41c0aa4652acb12e1b17344db8da789a848678c6352daddc1eedf42d9ce",
-    "src/services/foodProvenance.js": "5a3a818e4ccc99340513de4397de61d5882b4b944561bd20ddbe5f0922ffa997",
+    "src/services/foodProvenance.js": "589008be257e1e69a9d19081c39489b1581fd243502ca0ac940274c0af9d8c42",
     "src/services/mealItems.js": "e651cb1d9d0f4984925f371f23d7e3b10f6d8bb1351f7583473ce37c979c20d9",
     "src/services/foodNotes.js": "765f6c91b80f64d68458da2b05fe41cda7afb95116c38ebc6a778cdd452cc934",
     "src/services/mealStore.js": "6c027e5fb2fdc65f0b0bf2642cb3ddefb1b05919e0f98296fe4691fe2388744a"
@@ -107,7 +114,19 @@
       "bare quantity reply requires exactly one canonical existing draft item",
       "complete and partial concrete labels outrank a same-food model estimate",
       "unknown source keys fail complete-item validation"
-    ]
+    ],
+    "fableTargeted": {
+      "independentlyConfirmed": true,
+      "redPass": 0,
+      "redFail": 4,
+      "redLog": ".agents/runtime/coach-portions-fable-red.log",
+      "findings": [
+        "Retained label after quantity clarification recomputes nutritionStatus in both directions.",
+        "A new photographed label accepts a current literal quantity bound to the same item; absent or ambiguous new quantity preserves prior consumed portion.",
+        "Common gram abbreviations гр and гр. match exact user quantities without accepting approximate or different-food weights."
+      ],
+      "greenLog": ".agents/runtime/coach-portions-fable-green.log"
+    }
   },
   "historicalRulesCheck": {
     "command": "npm run test:hermes-store",

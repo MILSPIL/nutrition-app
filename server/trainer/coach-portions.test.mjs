@@ -225,3 +225,66 @@ test('review P2 quantity replies require a canonical single item or name binding
  assert.equal(update(one,'Ще з’їв 150 г гречки').items[0].source.portionOrigin.kind,'estimate');
  assert.equal(update(one,'Не 150 г, а 180 г').items[0].source.portionOrigin.kind,'estimate');
 });
+
+
+test('Fable retained label becomes complete after an explicit missing-quantity clarification',async()=>{
+ const r=make({photos:[{ref:'photo-synthetic',itemId:raw().itemId}]});
+ const label=raw({quantity:{value:null,unit:'g'},source:{kind:'label',photoRef:'photo-synthetic',nutritionBasis:{value:100,unit:'g'},nutrients}});
+ const first=patchDraft(null,patch(null,[label]),{resolve:r.resolve});
+ assert.equal(first.items[0].nutritionStatus,'unknown');
+ const userText='З’їв плід, 150 г';
+ const next=patchDraft(first,patch(first,[estimate({quantity:{value:150,unit:'g'}})],{originalText:userText}),{resolve:raw=>r.resolve(raw,{userText})});
+ assert.equal(next.items[0].source.kind,'label');
+ assert.deepEqual(next.items[0].nutrients,nutrients);
+ assert.equal(next.items[0].source.portionOrigin.kind,'user');
+ assert.equal(itemProblems(next.items[0]).length,0);
+ assert.equal(next.items[0].nutritionStatus,'complete');
+ const save=await commandFromDraft(next);
+ assert.equal(save.command.items.length,1);
+ assert.equal(itemMacros(save.command.items[0]).cal,90);
+});
+
+test('Fable retained label becomes unknown after an explicit incompatible quantity unit',async()=>{
+ const r=make({photos:[{ref:'photo-synthetic',itemId:raw().itemId}]});
+ const label=raw({quantity:{value:150,unit:'g'},source:{kind:'label',photoRef:'photo-synthetic',nutritionBasis:{value:100,unit:'g'},nutrients}});
+ const first=patchDraft(null,patch(null,[label]),{resolve:r.resolve});
+ assert.equal(first.items[0].nutritionStatus,'complete');
+ const userText='Плід, 150 мл';
+ const next=patchDraft(first,patch(first,[estimate({quantity:{value:150,unit:'ml'}})],{originalText:userText}),{resolve:raw=>r.resolve(raw,{userText})});
+ assert.equal(next.items[0].source.kind,'label');
+ assert.deepEqual(next.items[0].quantity,{value:150,unit:'ml'});
+ assert.ok(itemProblems(next.items[0]).length);
+ assert.equal(next.items[0].nutritionStatus,'unknown');
+ await assert.rejects(commandFromDraft(next),/note_confirmation_required/);
+});
+
+test('Fable a new label accepts an explicit current user quantity and otherwise preserves the eaten portion',()=>{
+ const r=make({photos:[{ref:'photo-synthetic',itemId:raw().itemId}]});
+ const first=patchDraft(null,patch(null,[estimate()]),{resolve:r.resolve});
+ const label=raw({quantity:{value:200,unit:'g'},source:{kind:'label',photoRef:'photo-synthetic',nutritionBasis:{value:100,unit:'g'},nutrients}});
+ const update=userText=>patchDraft(first,patch(first,[label],{originalText:userText}),{resolve:raw=>r.resolve(raw,{userText})}).items[0];
+ const exact=update('З’їв 200 г');
+ assert.equal(exact.quantity.value,200);
+ assert.equal(exact.source.portionOrigin.kind,'user');
+ assert.equal(exact.estimated,false);
+ assert.equal(itemMacros(exact).cal,120);
+ assert.equal(exact.nutritionStatus,'complete');
+ for(const userText of ['Ось фото етикетки','Приблизно 200 г','200 г гречки і один плід']) {
+  const preserved=update(userText);
+  assert.equal(preserved.quantity.value,180,userText);
+  assert.equal(preserved.source.portionOrigin.kind,'estimate',userText);
+  assert.equal(preserved.estimated,true,userText);
+ }
+});
+
+test('Fable gram abbreviations bind a literal quantity to the named food',async()=>{
+ const r=await offered();
+ const food=raw({name:'Курка',quantity:{value:150,unit:'g'},source:{kind:'database',recordId:candidate.id}});
+ for(const userText of ['150гр курки','150 гр курки','Курки 150гр','150 гр. курки','Курка 150гр.']) {
+  const exact=r.resolve(food,{userText});
+  assert.equal(exact.source.portionOrigin.kind,'user',userText);
+  assert.equal(exact.estimated,false,userText);
+ }
+ for(const userText of ['Близько 150гр курки','150гр гречки і курка без зважування'])
+  assert.equal(r.resolve(food,{userText}).source.portionOrigin.kind,'estimate',userText);
+});
