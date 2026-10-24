@@ -68,6 +68,7 @@ try {
     }),
   );
 } catch (error) {
+  console.error(spawnSync("systemctl", ["show", unit, "-p", "ReadOnlyPaths,ProtectSystem,ProtectKernelTunables,PrivateMounts,FragmentPath,DropInPaths"], { encoding: "utf8" }).stdout);
   console.error(
     spawnSync("journalctl", ["-u", unit, "--no-pager", "-n", "40"], {
       encoding: "utf8",

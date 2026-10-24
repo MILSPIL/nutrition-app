@@ -8,9 +8,18 @@ const status = readFileSync("/proc/self/status", "utf8");
 for (const field of ["CapEff", "CapPrm", "CapAmb"])
   assert.match(status, new RegExp("^" + field + ":[\\t ]+0+$", "m"));
 assert.match(status, /^NoNewPrivs:[\t ]+1$/m);
-const sys = readFileSync("/proc/self/mountinfo", "utf8").split("\n")
-  .filter((line) => line.split(" ")[4] === "/sys");
-assert.ok(sys.length && sys.at(-1).split(" ")[5].split(",").includes("ro"));
+// mountinfo order does not identify the visible mount when mounts are stacked.
+// Resolve the actual /sys descriptor's mount ID, never select the last row.
+const sysFd = openSync("/sys", constants.O_RDONLY | constants.O_DIRECTORY);
+let sysMountId;
+try { sysMountId = readFileSync(`/proc/self/fdinfo/${sysFd}`, "utf8").match(/^mnt_id:[\t ]+(\d+)$/m)?.[1]; }
+finally { closeSync(sysFd); }
+const mounts = readFileSync("/proc/self/mountinfo", "utf8").trim().split("\n").map(line => line.split(" "));
+const sys = mounts.find(fields => fields[0] === sysMountId);
+assert.ok(sys && sys[5].split(",").includes("ro"), JSON.stringify({
+  error: "visible_sys_not_read_only", sysMountId,
+  visibleMount: sys?.join(" "), sysMounts: mounts.filter(fields => fields[4] === "/sys").map(fields => fields.join(" ")),
+}));
 for (const file of ["/proc/sys/kernel/hostname", "/proc/sysrq-trigger"]) {
   let fd, denied = false;
   try { fd = openSync(file, constants.O_WRONLY); }
