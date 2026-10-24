@@ -5,18 +5,20 @@ title: "HERMES-FOOD-01: локальна реалізація чату 0–7"
 project: nutrition-app
 product: scisense
 phase_id: phase_870a15952663
-status: open
+status: done
 importance: high
 signal: verification
 complexity: high
 tags: [HERMES-FOOD-01, local-only, implementation]
 links: [{to: card_29bef280dd54, kind: related}]
+summary_on_close: "Незалежний Codex reviewer hermes_final_local_review: ВЕРДИКТ done для локальних кроків0–7/H01–H10 наce62052,0відкритих блокерів. Звірив source/runtime/CI/артефакт, відмови та ізоляцію. Функція локально готова з вимкненими інтеграціями; H11, B1/B2/C, реальний телефон, пілот і продуктове приймання не виконані та потребують окремих дозволів."
 review_required: true
 acceptance: "[{\"reviewer_rubric\":\"Погоджені локальні0–7 та H01–H10 перевірені на конкретному SHA, з actual pinned Hermes/mock provider і незалежним verdict; приватні/production дії відсутні. H11 окремо.\"}]"
-evidence: "2026-10-24: журнал1326 у main PR27/2a71687 (лише журнал). Крок0 05054d4, крок1 57c76d8, actual canonical Hermes pinned3f2afed privacy gate PASS independent Codex. Крок2 локально: 88 server PASS/10 future H01-H10 TODO, actual Node→Hermes→fake8calls, independent19.652s; 114media fragments/0leaks/0cleanupjobs. Незалежний hermes_gateway_review PASS, відкритих знахідок0. Кроки3–7 ще попереду; H11/B/C/Gxx не прийняті. Приватний профіль/ключі/API/$5/сервер не зачіпалися."
+commit_range: "{\"from\":\"94ea293\",\"to\":\"ce62052bb43aa21195af784201aa330c9221bf00\"}"
+evidence: "2026-10-24: погоджені локальні0–7 завершено на ce62052bb43aa21195af784201aa330c9221bf00. Журнал1326 main PR27/2a71687 exactblob. CI40099514295 attempt2 SUCCESS4/4;250Jest/43Worker/47oldwriter,локально150server,38rules+7notesrules,31Hermes browser375/390/1366 edges0/gutter16/44px. Actual pinned Hermes3f2afed/fullUSDA13588:2CPU/2GiB/45s,turn9.428s,systemdpeak311238656B/OOM0;fullfailure cancel/429/deadline/SIGKILL/recovery PASS,0media leaks. Вимкнений пакет209app/31726runtime,manifestSHA50209c011c545a3868aa4838d31610bb93bcf6e1d0a3822c415820d77cd06c97;незалежно77source/28build byte-equal,5packagedHTTP/external0/keys0. ПершийCI502batchGet невстановленої причини збережено; незмінний локальний іCIповторPASS без послабленняassertions. docs/evidence/hermes-food-local-acceptance-2026-10-24.json;docs/deployment/hermes-food-local.md. Реальні API/приватний профіль/ключі/$5/сервер не зачіпались. H11/B/C/G02–G11 pending."
 valid_from: "2026-10-24T11:19:34.460257+00:00"
 created_at: "2026-10-24T11:19:34.460257+00:00"
-updated_at: "2026-10-24T12:09:27.723897+00:00"
+updated_at: "2026-10-24T14:02:37.419173+00:00"
 created_for: Codex
 author: Codex
 content_hash: "sha256:1c00f216425e1d13a8ec74e1d0bb7807d01b04884d59f93d59fbd2930028adca"

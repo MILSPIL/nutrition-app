@@ -1,0 +1,437 @@
+{
+  "plan": "HERMES-FOOD-01",
+  "date": "2026-10-24",
+  "status": "local_steps_0_7_verified",
+  "scope": "approved local steps 0-7 and A1-A4; no B/C, product main merge or product acceptance",
+  "codeSha": "ce62052bb43aa21195af784201aa330c9221bf00",
+  "branch": "codex/hermes-food-chat-local",
+  "journalTransfer": {
+    "journal": "2026-10-24-1326-codex-gpt-6-hermes-food-plan.md",
+    "pr": 27,
+    "mainCommit": "2a71687",
+    "blob": "c53fc31df7fbd1733b230307c246c71386dbc14d",
+    "exactBlobVerified": true
+  },
+  "scopeAudit": {
+    "syntheticOnly": true,
+    "privateProfileReads": 0,
+    "realModelCalls": 0,
+    "keychainReads": 0,
+    "realBudgetChanges": 0,
+    "serverChanges": 0,
+    "productionFirebaseChanges": 0,
+    "productMainMerged": false
+  },
+  "contracts": [
+    {
+      "id": "H01",
+      "local": "passed",
+      "proof": "hermes-chat-local-2026-10-24.json: text, explicit recording, photos and one Add"
+    },
+    {
+      "id": "H02",
+      "local": "passed",
+      "proof": "server/trainer/contracts.test.mjs: 12 frozen cases use actual source resolver and drafts; full USDA index separately checked"
+    },
+    {
+      "id": "H03",
+      "local": "passed",
+      "proof": "hermes-drafts-local-2026-10-24.json: atomic mixed/notes-only/resolve, partial totals visible"
+    },
+    {
+      "id": "H04",
+      "local": "passed",
+      "proof": "pinned canonical Hermes profile/context/snapshot; owner-isolated Firestore reader and explicit memory CAS"
+    },
+    {
+      "id": "H05",
+      "local": "passed",
+      "proof": "draft revisions, stable item IDs, date/quantity/manual-letter and conflicting saves"
+    },
+    {
+      "id": "H06",
+      "local": "passed",
+      "proof": "durable ACK/unknown/recovery, killed native worker, two tabs/reload/logout/stale responses"
+    },
+    {
+      "id": "H07",
+      "local": "passed",
+      "proof": "child network and seccomp positive/negative controls; candidate systemd parent canaries"
+    },
+    {
+      "id": "H08",
+      "local": "passed",
+      "proof": "shared ledger reservations, no retry after upstream error, bounded 3 calls/45s, no paid-parser fallback"
+    },
+    {
+      "id": "H09",
+      "local": "passed",
+      "proof": "31 browser checks at 375/390/1366; overflow 0, edge deltas 0, gutter 16px, controls >=44px"
+    },
+    {
+      "id": "H10",
+      "local": "passed",
+      "proof": "media cleanup, durable jobs, 30-day retention and authenticated backup TTL/deletion protection"
+    },
+    {
+      "id": "H11",
+      "local": "not_authorized",
+      "proof": "real APIs, phone with Mac off, private profile migration and product pilot require separate B/C approval"
+    }
+  ],
+  "nativePin": {
+    "commit": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+    "sourceFiles": 20685,
+    "python": "3.14.6",
+    "node": "24.22.1",
+    "bubblewrap": "0.11.0"
+  },
+  "foodIndex": {
+    "records": 13588,
+    "partialRecords": 53,
+    "skippedNullRows": 32,
+    "bytes": 12079104,
+    "sha256": "a8e60fe05956869df3bc9d04371994c5ff8adf0d6014e474457f52191b591ad8",
+    "readOnly": true
+  },
+  "tests": {
+    "latestLocalServer": {
+      "passed": 150,
+      "failed": 0,
+      "todo": 0,
+      "skipped": 0
+    },
+    "packageValidatorNegativeCases": 10,
+    "nativePrivacyCases": 18,
+    "finalCi": "passed",
+    "deadlineTestCorrection": "40ms legacy test could expire during auth on 1CPU; test-only1000ms, explicit provider readiness/abort and successful next request. Production deadlines unchanged.",
+    "application": {
+      "passed": 250,
+      "suites": 28
+    },
+    "oldWriter": 47,
+    "browser": {
+      "phoneLab": 50,
+      "sttOnly": 34,
+      "hermesChat": 31,
+      "cleanup": true,
+      "phoneLabHttpErrors": 0,
+      "trainerAccess": 7,
+      "voicePhoto": 71
+    },
+    "ciServer": {
+      "total": 150,
+      "passed": 149,
+      "skipped": 1,
+      "failed": 0,
+      "todo": 0,
+      "skipReason": "H04 full-index runtime case skipped in test-and-build; actual full index verified in hermes-resource-check, and local server run passed150/150."
+    },
+    "worker": 43,
+    "legacyRules": 38,
+    "phoneLabGateway": 17,
+    "notesRules": 7
+  },
+  "ci": {
+    "runId": 40099514295,
+    "url": "https://github.com/MILSPIL/nutrition-app/actions/runs/40099514295",
+    "headSha": "ce62052bb43aa21195af784201aa330c9221bf00",
+    "status": "completed",
+    "attempt": 2,
+    "firstAttempt": {
+      "conclusion": "failure",
+      "successfulJobs": [
+        "hermes-resource-check",
+        "systemd-credential-check",
+        "groq-free-resource-check"
+      ],
+      "failedStep": "phone-lab browser strict HTTP assertion",
+      "response": {
+        "route": "Firestore documents:batchGet",
+        "status": 502
+      },
+      "cause": "not established; no upstream error metadata saved",
+      "localExactShaRepeat": {
+        "checks": 50,
+        "passed": true,
+        "httpErrors": 0,
+        "cleanup": true
+      },
+      "assertionsWeakened": false,
+      "codeChangedForRerun": false
+    },
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "test-and-build",
+        "conclusion": "success"
+      },
+      {
+        "name": "systemd-credential-check",
+        "conclusion": "success"
+      },
+      {
+        "name": "hermes-resource-check",
+        "conclusion": "success"
+      },
+      {
+        "name": "groq-free-resource-check",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "systemdCompatibility": {
+    "abRunId": 40098641722,
+    "originalResult": "FAIL: procfs mount EPERM",
+    "singleChange": "ProtectKernelTunables=false",
+    "alternateExit": 0,
+    "alternateSeconds": 9.459,
+    "originalCiStayedFailed": true,
+    "permanentCandidate": [
+      "ProtectKernelTunables=false",
+      "ReadOnlyPaths=/sys",
+      "non-root UID",
+      "empty capabilities",
+      "NoNewPrivileges",
+      "BindReadOnlyPaths=/sys"
+    ],
+    "canaries": [
+      "UID10001",
+      "CapEff/CapPrm/CapAmb zero",
+      "NoNewPrivileges",
+      "read-only /sys",
+      "open-only proc kernel controls denied"
+    ],
+    "tradeoff": "proc metadata no longer hidden by ProtectKernelTunables; write denial relies on DAC/UID/capabilities. Real host rehearsal still required.",
+    "ciBoundary": "resource/failure outer container unprivileged UID10001; separate systemd outer container privileged in disposable CI, no host binds/ports/network; unit itself unprivileged",
+    "readOnlyProbe": {
+      "runId": 40099328463,
+      "descriptorMountId": "787",
+      "visibleSysOptions": "rw,nosuid,nodev,noexec,relatime",
+      "before": "ReadOnlyPaths alone",
+      "fix": "explicit BindReadOnlyPaths; exact ce62052 candidate unit passed including parent and nested isolation canaries"
+    }
+  },
+  "package": {
+    "status": "verified",
+    "featureOffBuild": "passed",
+    "buildSha": "ce62052bb43aa21195af784201aa330c9221bf00",
+    "buildReceipt": {
+      "codeSha": "ce62052bb43aa21195af784201aa330c9221bf00",
+      "trainerChatEnabled": false,
+      "localLabEnabled": false
+    },
+    "relativeDirectory": ".agents/runtime/hermes-package/release-ce62052",
+    "appFiles": 209,
+    "runtimeFiles": 31726,
+    "manifestSha256": "50209c011c545a3868aa4838d31610bb93bcf6e1d0a3822c415820d77cd06c97",
+    "verificationSha256": "3b1a0312d17c3d120a4ede85fdb0ba52bd64bd38ea966820bd3463b4d132ee5a",
+    "files": {
+      "app.tar.gz": {
+        "sha256": "58528be4da34e5709758d2a6d09b9cff92ee8bb01afb07de03f9ee3ed6fcd34c",
+        "bytes": 11317527
+      },
+      "app-manifest.json": {
+        "sha256": "62906edc9cfd7804e37f6514c9a6d00d001d11ff067a13f690cea193c69be233",
+        "bytes": 31041
+      },
+      "runtime.tar.gz": {
+        "sha256": "3c3be36dc483a6fc08d907f175a8d51dc7cff8515688789e63cbe4c9dc3c9a04",
+        "bytes": 222861415
+      },
+      "runtime-manifest.json": {
+        "sha256": "0a82ef852e2acb31e200f9ba4ad9999d990ae6eba60ea55e3646ec8d3035e707",
+        "bytes": 5064173
+      }
+    },
+    "verification": {
+      "codeSha": "ce62052bb43aa21195af784201aa330c9221bf00",
+      "archiveHashesVerified": true,
+      "appFiles": 209,
+      "appManifestVerified": true,
+      "offBuildReceipt": true,
+      "api": {
+        "passed": true,
+        "packagedRuntime": true,
+        "requests": 5,
+        "externalFetches": 0,
+        "featureOff": true,
+        "credentialsLoaded": false,
+        "closed": true
+      },
+      "temporaryExtractionRemoved": true
+    },
+    "publicRuntimeArtifact": {
+      "id": 12561769831,
+      "bytes": 227925848,
+      "zipSha256": "f0eff953334e3d417c6fbc7cad41d907291cdae19c65f8fbb5ea276049d5e018",
+      "digestVerified": true,
+      "retentionDays": 7,
+      "localCopyRetained": true
+    }
+  },
+  "review": {
+    "finalAgent": "hermes_final_local_review",
+    "status": "passed",
+    "previousFindingsFixed": [
+      "empty/escaping runtime archives",
+      "Docker local endpoint and signal cleanup",
+      "authenticated context backup expiry",
+      "exact native lease recovery after confirmed worker exit"
+    ],
+    "sourceReviewer": "hermes_draft_storage_review",
+    "sourceReview": "no blocking code findings; CI isolation documentation corrected",
+    "narrowFinalDiff": "ce62052 readonly review: no open findings; production deadlines unchanged",
+    "verdict": "done for local steps0-7/H01-H10; zero open blockers; H11/B/C/product acceptance pending",
+    "codeSha": "ce62052bb43aa21195af784201aa330c9221bf00",
+    "independentArchiveHashes": true,
+    "sourceFilesCompared": 77,
+    "buildFilesCompared": 28,
+    "publicRuntimeGithubDigestRechecked": true,
+    "temporaryFilesRemoved": true
+  },
+  "nextApproval": {
+    "readOnly": "B1: actual host, curated private context ownership and existing ledger inventory",
+    "install": "B2 separate exact cutover approval",
+    "activate": "C separate keys/live API and pilot approval",
+    "proposedMaxLiveTurns": 8,
+    "maxCallsPerTurn": 3,
+    "maxReservedUsd": 3.47904,
+    "existingBudgetCapUsd": 5,
+    "spendApprovedThisTask": false,
+    "calculationVerified": true
+  },
+  "limits": [
+    "Synthetic provider timing is not Sonnet latency or accuracy.",
+    "Without in-memory confirmed worker exit, recovery retains cleanup pending until canonical lease TTL, up to 300 seconds.",
+    "Real host sandbox compatibility, prior private Firebase incident and phone acceptance remain separate release gates.",
+    "Local H01-H10 evidence does not mark product Gxx or the 7-day pilot accepted."
+  ],
+  "runbook": "docs/deployment/hermes-food-local.md",
+  "productAcceptance": "pending owner release and pilot",
+  "linux": {
+    "isolation": {
+      "passed": true,
+      "nativeThreads": true,
+      "namespaceCloneDenied": true,
+      "x32Killed": true,
+      "networkMutationDetected": true,
+      "seccompMutationDetected": true,
+      "syntheticOnly": true
+    },
+    "resource": {
+      "actualHermes": true,
+      "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+      "firstTurnSeconds": 9.428,
+      "suiteSeconds": 9.43,
+      "resourceProbe": true,
+      "isolation": "linux-bubblewrap",
+      "fullFoodIndex": true,
+      "realTools": true,
+      "draftKcal": 174,
+      "providerCalls": 3,
+      "recoveryNoNewCalls": false,
+      "cancelNoResult": false,
+      "upstream429Calls": null,
+      "deadlineStopsNative": false,
+      "killedUnknownCancelled": false,
+      "tools": [
+        "food_lookup",
+        "propose_food_draft"
+      ],
+      "profileFilesScanned": 20,
+      "mediaFragments": 9,
+      "mediaLeaks": 0,
+      "ownerIsolation": true,
+      "replayCalls": 0,
+      "syntheticOnly": true,
+      "resources": {
+        "cpu": 2,
+        "memoryMax": 2147483648,
+        "swap": 0,
+        "memoryPeak": 274898944,
+        "oomKills": 0
+      }
+    },
+    "failureSuite": {
+      "actualHermes": true,
+      "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+      "firstTurnSeconds": 9.391,
+      "suiteSeconds": 55.507,
+      "resourceProbe": false,
+      "isolation": "linux-bubblewrap",
+      "fullFoodIndex": true,
+      "realTools": true,
+      "draftKcal": 174,
+      "providerCalls": 7,
+      "recoveryNoNewCalls": true,
+      "cancelNoResult": true,
+      "upstream429Calls": 1,
+      "deadlineStopsNative": true,
+      "killedUnknownCancelled": true,
+      "tools": [
+        "food_lookup",
+        "propose_food_draft"
+      ],
+      "profileFilesScanned": 40,
+      "mediaFragments": 9,
+      "mediaLeaks": 0,
+      "ownerIsolation": true,
+      "replayCalls": 0,
+      "syntheticOnly": true
+    },
+    "candidateSystemd": {
+      "passed": true,
+      "syntheticOnly": true,
+      "actualUnit": "deploy/hermes/scisense-api.service",
+      "parentCanaries": true,
+      "nestedIsolationCanaries": true,
+      "resource": {
+        "actualHermes": true,
+        "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+        "firstTurnSeconds": 9.37,
+        "suiteSeconds": 9.371,
+        "resourceProbe": true,
+        "isolation": "linux-bubblewrap",
+        "fullFoodIndex": true,
+        "realTools": true,
+        "draftKcal": 174,
+        "providerCalls": 3,
+        "recoveryNoNewCalls": false,
+        "cancelNoResult": false,
+        "upstream429Calls": null,
+        "deadlineStopsNative": false,
+        "killedUnknownCancelled": false,
+        "tools": [
+          "food_lookup",
+          "propose_food_draft"
+        ],
+        "profileFilesScanned": 20,
+        "mediaFragments": 9,
+        "mediaLeaks": 0,
+        "ownerIsolation": true,
+        "replayCalls": 0,
+        "syntheticOnly": true,
+        "resources": {
+          "cpu": 2,
+          "memoryMax": 2147483648,
+          "swap": 0,
+          "memoryPeak": 311238656,
+          "oomKills": 0
+        }
+      },
+      "isolation": {
+        "architecture": "x86_64",
+        "platform": "linux/amd64",
+        "dockerTransport": "local-unix",
+        "noHostBinds": true,
+        "noPublishedPorts": true,
+        "network": "none",
+        "cpu": 2,
+        "memoryBytes": 2147483648
+      },
+      "containerName": "scisense-hermes-systemd-9a9020a9-94b1-48c8-ab10-b762b2c9f4a2",
+      "cleanup": true
+    }
+  }
+}

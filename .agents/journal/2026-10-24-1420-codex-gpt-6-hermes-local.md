@@ -1,4 +1,4 @@
-# HERMES-FOOD-01: початок локальної реалізації
+# HERMES-FOOD-01: локальна реалізація 0–7 перевірена
 
 - Дата і час: 2026-10-24 14:20 EEST
 - IDE / агент: Codex desktop
@@ -34,16 +34,16 @@
 - SQLite draft/CAS/save freeze/replay, explicit context commit з encrypted predecessor/readback, 30-day TTL/startup/hourly/read + separate deletion manifest/anchor, tools integration написані, ще проходять review. Server123=113PASS10TODO;15нових targeted tests PASS. Storage reviewer відтворив3race/TTL defects, виправлено з regressiontests, перевірка триває. Це не завершення step4 чи прийманняH01–H10.
 
 ## Змінені файли
-Spec/plan, PROJECT-INFO.md, PRODUCT-GOAL.md, цей журнал, package scripts, server/trainer fixtures і contract checks, scripts/trainer-chat-*.mjs, docs/evidence/hermes-food-local-baseline-2026-10-24.json, .codeindexer export.
+server/trainer/* і server runtime/API/ledger; src/components/TrainerChat*, FoodNotesPanel, src/services/trainer*, mealStore/mealCommands/foodNotes, показ дня/звіту/тренера; firestore.rules; scripts/hermes*, food importer, browser/emulator runners; deploy/hermes unit; package scripts/CI; spec/plan/Goal, docs/evidence/* і docs/deployment/hermes-food-local.md, PROJECT-INFO.md, цей журнал та .codeindexer export. Точний diff:94ea293..ce62052,128 файлів, включно з публічними fixtures й тестами.
 
 ## Перевірки
 GitHub account MILSPIL; Git status/worktrees; CI40086707530 на базі94ea293 SUCCESS; Code Indexer briefing обох дерев і roadmap next. Старі незакомічені файли primary не чіпалися.
 
 ## Результат
-Робота триває. H01–H11 не прийняті; ранній runtime/privacy gate визначає можливість наступних блоків.
+Кроки 0–7 локально завершено на ce62052. Точний CI40099514295 attempt2 SUCCESS4/4, незалежний Codex hermes_final_local_review: done для H01–H10, відкритих блокерів0. Пакет release-ce62052 має manifestSHA50209c011c545a3868aa4838d31610bb93bcf6e1d0a3822c415820d77cd06c97, всі209app/31726runtime файли перевірені,5API requests/external0/keys0/cleanuptrue. H11 і продуктові G02–G11 не прийняті; живі дані й інфраструктура не використовувалися.
 
 ## Наступні кроки
-Кроки0/1 commit+push05054d4/57c76d8. Крок2/3 прийнято незалежними reviewers; далі4–7; runtime/keys/server лишаються заморожені.
+Новий журнал1420 у main лише після окремого дозволу. Наступний можливий етап B1: конкретно погоджене читання приватного профілю/сервера/ledger; потім окремі B2 перенесення і C активація/телефон. Пакет та інструкція готові, виконання B/C і продуктовий merge не дозволені.
 
 ## Ризики / нотатки
 Context7 quota exhausted у цій сесії; використовуємо офіційні документи, CLI help і pinned source. Наявний профіль заборонено читати. Новий журнал потребує окремого дозволу на main.
@@ -56,3 +56,19 @@ Context7 quota exhausted у цій сесії; використовуємо оф
 - Save rejection має атомарний незмінний content-free hash marker у Firestore; rules виключають success/rejection та стирання старих markers, trusted receipt розморожує з CAS і новимID.7rules і actual emulator storePASS.
 - Браузер31checksPASS: текст→голос→фото→reload→Add, unknownnote, contextconfirmation, question nofood;375/390/1366 overflow0/edges0/gutter16/control44+.7fake model turns,1fakeSTT,0analyze. Власні браузер/контексти/емулятори прибрані launcher cleanup_ok/removed.
 - Повний Jest249PASS, додатковаSessionTTL10PASS; server123PASS10TODO. Доказ docs/evidence/hermes-chat-local-2026-10-24.json. Кроки6–7 тривають. Context7 quota раніше вичерпана; React/MDN/Firestore офіційні docs, локальний pinned source використані.
+
+- Крок6/7: runtime factory, authenticated owner-only Firestore REST snapshot, activation receipt+shared ledger та lazy disabled import реалізовано. Виправлено double-close, marker FieldPath concurrency і неправильний W09 test selector. 12 H02 contracts виконують actual resolver/draft; TODO прибрано, не замінено вигаданим live-verdict.
+- Public pinned Linux build Node24.22.1/Python3.14.6/Hermes3f2afed, bwrap0.11.0+BPF+USDA. CI40097626035 b415653: child isolation/negativecontrols та realtools/fullindex turn PASS9.288s/274219008B/OOM0 у2CPU2GiBswap0; rootapp/Groq/systemdcredential jobsPASS. Linux failure-suite виявив лишений300s canonical lease післяSIGKILL. CI40098033548 e0260d3 coarse diagnostic підтвердила native_delete AssertionError.
+- e42a8e4: вузький native recovery вимагає exactNodeexit→run/session/pidns, explicitunknownresolve, oldepoch/currentownership, canonical exactholderrelease/readback. Після Noderestart без exitproof залишається pending доTTL. Не змінює upstream чи300sTTL.18Pythonprivacy testsPASS, включно activeepoch/foreignnamespace/CASreplacement.
+- Незалежний final reviewer знайшов4issues: empty/escaping package, remoteDocker/SIGTERM, contextbackupбезTTL. Усе виправлено: requiredsource/index/version pin/safelinks; localUnix і8runnerstubs; authenticated30daybackupexpiry startup/read/idle.32targetedNode+10package+18privacy independentPASS. Поточний fullserver150PASS0TODO, nativeMac22.72s/8fakecalls/0leaks. CI40098346913 pending; candidateunit/export/package ще не зараховано.
+
+- 617c0e7/CI40098641722 підтвердив systemd procfs conflict; A/B лише ProtectKernelTunablesfalse PASS9.459с/310693888B/OOM0, початковий CI лишився FAIL. a598afc candidate-only false+/sysRO, actual parent canaries, A/B fallback прибрано. Source reviewer без блокувальних code findings; уточнено, що лише зовнішній systemd-CI container privileged, unit непривілейований. Точний CI40098997723 триває. Buildoff a598afc PASS; остаточна упаковка ще pending.
+
+- ce62052: exact systemd canary через fdinfo mnt_id довів /sysRO після BindReadOnlyPaths; actual Linux resource9.428с/274898944B і systemd9.370с/311238656B, CPU2/RAM2GiB/swap0/OOM0. Full failure-suite55.507с/7fakecalls, cancel/429/deadline/SIGKILL/recovery PASS,0media leaks. Source review звірив systemd255/Linux/pinnedNode; діагностичний A/B не лишився автоматичним fallback.
+- CI40099514295 attempt1: Hermes/resource/systemd/Groq PASS; strict browser HTTP check зупинився на batchGet502, точна причина не встановлена. Локальний повтор exactSHA50PASS/0HTTP/cleanuptrue; жодної speculative правки чи послаблення assertion. Attempt2 лише failedjob триває.
+- Goal синхронізовано з наданим дозволом0–7/А1–А4; G01passed, G02–G11pending. Пороги пілоту й межі B/C незмінні. Publicruntime artifact12561769831 завантажується частинами через gh із повною перевіркою GitHub SHA256; payload не містить приватного профілю. Остаточний пакет і verdict ще pending.
+
+- CI40099514295 attempt2 на незмінному ce62052 SUCCESS4/4. 250Jest/28suites,43Worker,47oldwriter, server149PASS+1full-index skip (локально150PASS; окремий LinuxfullindexPASS),38legacyrules,17gateway,7notesrules. Браузер7access/71voice-photo/50phone/34STT/31Hermes, усі buildPASS; HTTP0, відповідні cleanuptrue. Перший502 збережено в доказах як невстановлену одноразову причину, не як виправлений дефект.
+
+- Крок7 завершено: повний GitHub ZIP digest f0eff953334e3d417c6fbc7cad41d907291cdae19c65f8fbb5ea276049d5e018 звірено двома перевіряльниками; actual runtime validator31726filesPASS, app209files+hashesPASS, exact offreceipt, jose6.1.0 безwrangler. Незалежно77source/28build byte-equal. Упакований API5HTTP/external0/keys0, тимчасовий каталог видалено. Публічний архів і вимкнений пакет лишаються локально позаGit; зайві частини завантаження прибрані.
+- Фінальний reviewer hermes_final_local_review: done локальних0–7/H01–H10 наce62052,0відкритихблокерів. Кандидат unit потребує нового host-specific probe під час B; жодного автоматичного послаблення чи збільшенняресурсів. Runbook має B1/B2/C, сумісний writer fence/rollback,8майбутніх turns/24calls/max$3.47904 тільки після нового дозволу й перевірки залишку$5.
