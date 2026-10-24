@@ -55,10 +55,24 @@ test('disconnect aborts inference; in-flight work is bounded and cleaned',async 
  for(let n=0;n<100&&!state.finished;n++)await sleep(5);
  assert.equal(aborted,1);assert.equal(state.finished,1);assert.equal(state.reserved,1);
 });
-test('transport deadline aborts upstream independently and releases resources',async t=>{
- let aborted=0;
- const {post,state}=await fixture(t,{deadlineMs:40,provider:async(_kind,_body,_env,{signal})=>new Promise((_resolve,reject)=>signal.addEventListener('abort',()=>{aborted++;reject(Error('upstream_timeout'));},{once:true}))});
- assert.equal((await post()).status,504);await sleep(10);assert.equal(aborted,1);assert.equal(state.finished,1);
+test('transport deadline aborts upstream independently and releases resources',{timeout:5000},async t=>{
+ // Include auth/startup headroom on the constrained 1-CPU runner. The test must
+ // enter the provider before testing its cancellation, not expire during auth.
+ let started,stopped,aborted=0,attempts=0;
+ const ready=new Promise(resolve=>started=resolve),abortObserved=new Promise(resolve=>stopped=resolve);
+ const {post,state}=await fixture(t,{deadlineMs:1000,provider:async(_kind,_body,_env,{signal})=>{
+  if(++attempts>1)return {items:[],unparsed:['synthetic']};
+  return new Promise((_resolve,reject)=>{
+   signal.addEventListener('abort',()=>{aborted++;stopped();reject(Error('upstream_timeout'));},{once:true});
+   started();
+  });
+ }});
+ const response=post();
+ await Promise.race([ready,response.then(()=>{throw Error('transport_expired_before_upstream_started');})]);
+ assert.equal((await response).status,504);await abortObserved;
+ for(let n=0;n<200&&!state.finished;n++)await sleep(5);
+ assert.equal(aborted,1);assert.equal(state.calls,1);assert.equal(state.reserved,1);assert.equal(state.finished,1);
+ assert.equal((await post()).status,200);assert.equal(state.calls,2);assert.equal(state.finished,2);
 });
 test('invalid or emulator config cannot be served',()=>{
  for(const env of [{...baseEnv,FIREBASE_PROJECT:'demo-scisense'},{...baseEnv,ALLOWED_ORIGINS:'*'},{...baseEnv,ALLOWED_UIDS:''}])assert.throws(()=>createMealApi({env}),/server_config_invalid/);

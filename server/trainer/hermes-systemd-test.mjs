@@ -54,6 +54,7 @@ try {
   assert.equal(log.status, 0, log.stderr);
   assert.match(log.stdout, /"parentCanaries":true/);
   assert.match(log.stdout, /"networkMutationDetected":true/);
+  assert.match(ctl("show", unit, "-p", "BindReadOnlyPaths", "--value"), /(^| )\/sys:\/sys:rbind($| )/);
   const resource = JSON.parse(
     readFileSync("/var/lib/scisense/hermes-lab/resource-summary.json"),
   );
@@ -68,7 +69,7 @@ try {
     }),
   );
 } catch (error) {
-  console.error(spawnSync("systemctl", ["show", unit, "-p", "ReadOnlyPaths,ProtectSystem,ProtectKernelTunables,PrivateMounts,FragmentPath,DropInPaths"], { encoding: "utf8" }).stdout);
+  console.error(spawnSync("systemctl", ["show", unit, "-p", "ReadOnlyPaths,BindReadOnlyPaths,ProtectSystem,ProtectKernelTunables,PrivateMounts,FragmentPath,DropInPaths"], { encoding: "utf8" }).stdout);
   console.error(
     spawnSync("journalctl", ["-u", unit, "--no-pager", "-n", "40"], {
       encoding: "utf8",

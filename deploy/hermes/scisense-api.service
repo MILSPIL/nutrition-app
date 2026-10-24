@@ -26,6 +26,8 @@ NoNewPrivileges=true
 # non-root UID, empty capabilities and NoNewPrivileges guard proc tunable writes.
 ProtectKernelTunables=false
 ReadOnlyPaths=/sys
+# Force an applied recursive bind even when container /sys is already mounted.
+BindReadOnlyPaths=/sys
 ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
