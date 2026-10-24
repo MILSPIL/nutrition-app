@@ -27,6 +27,9 @@
 - Незалежне step2 review підтвердило виправлення owner cross-access,429 retry,latecontext replay,pre-admission hang,pre-upstream unknown,cleanup visibility/reload,cache reservation,actual history receipt,metadata crash handling,native deadline/unknown reconciliation. Кінцевий незалежний verdict PASS; metadata .tmp cleanup перевірено. Незалежний scan26 файлів/114фрагментів:0витоків,0cleanup jobs,0unfinished,8квитанцій. Один запуск перетнувся з іншим тестом на фіксованих портах; exclusive repeat PASS.
 - Повний серверний набір98:88PASS/10TODO/0FAIL. TODO позначають ще не завершені інтеграційні H01–H10 наступних блоків; їх не зараховано як PASS. Prettier3.6.2 використано тільки для нових модулів, кеш у ignored runtime.
 
+- Крок2 commit+push2eb2dc7; точний CI40092797054 усі3jobs SUCCESS.
+- Крок3: manifest3USDA ZIP+SHA256+CC0, SQLite13588/53partial/32null source rows, серверний numeric snapshot із offeredID, label/estimate/unknown, без змішування г/мл. 13targeted PASS, незалежний hermes_food_lookup_review PASS. Повторний повний імпорт SHAa8e60fe05956869df3bc9d04371994c5ff8adf0d6014e474457f52191b591ad8,12079104bytes,0444,quick_checkok. Підтверджені2findings виправлено; runtimeархіви/індекс позаGit.
+
 ## Змінені файли
 Spec/plan, PROJECT-INFO.md, PRODUCT-GOAL.md, цей журнал, package scripts, server/trainer fixtures і contract checks, scripts/trainer-chat-*.mjs, docs/evidence/hermes-food-local-baseline-2026-10-24.json, .codeindexer export.
 
@@ -37,7 +40,7 @@ GitHub account MILSPIL; Git status/worktrees; CI40086707530 на базі94ea293
 Робота триває. H01–H11 не прийняті; ранній runtime/privacy gate визначає можливість наступних блоків.
 
 ## Наступні кроки
-Кроки0/1 commit+push05054d4/57c76d8. Крок2 прийнято незалежним reviewer; commit/push, потім3–7; runtime/keys/server лишаються заморожені.
+Кроки0/1 commit+push05054d4/57c76d8. Крок2/3 прийнято незалежними reviewers; далі4–7; runtime/keys/server лишаються заморожені.
 
 ## Ризики / нотатки
 Context7 quota exhausted у цій сесії; використовуємо офіційні документи, CLI help і pinned source. Наявний профіль заборонено читати. Новий журнал потребує окремого дозволу на main.

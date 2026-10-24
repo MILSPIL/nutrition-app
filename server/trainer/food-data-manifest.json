@@ -1,0 +1,41 @@
+{
+  "version": "scisense-usda-2026-10-24-v1",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://fdc.nal.usda.gov/",
+  "documentation": "https://fdc.nal.usda.gov/Foundation_Foods_Documentation/",
+  "sources": [
+    {
+      "id": "foundation",
+      "version": "2026-04-30",
+      "file": "FoodData_Central_foundation_food_json_2026-04-30.zip",
+      "sha256": "186e988ec542e913f51ef62b86a47758e8cdd0d1dc3889e7b055581f3c09c77a",
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_foundation_food_json_2026-04-30.zip",
+      "member": "FoodData_Central_foundation_food_json_2026-04-30.json",
+      "rootKey": "FoundationFoods",
+      "count": 395,
+      "nullRows": 32
+    },
+    {
+      "id": "sr-legacy",
+      "version": "2018-04",
+      "file": "FoodData_Central_sr_legacy_food_json_2018-04.zip",
+      "sha256": "0fe8ae486a2c8eb42cb96413f058deb51863a46c8fb8eeb4b1fb45006dd338ef",
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_sr_legacy_food_json_2018-04.zip",
+      "member": "FoodData_Central_sr_legacy_food_json_2018-04.json",
+      "rootKey": "SRLegacyFoods",
+      "count": 7793,
+      "nullRows": 0
+    },
+    {
+      "id": "fndds",
+      "version": "2024-10-31",
+      "file": "FoodData_Central_survey_food_json_2024-10-31.zip",
+      "sha256": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb",
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_json_2024-10-31.zip",
+      "member": "surveyDownload.json",
+      "rootKey": "SurveyFoods",
+      "count": 5432,
+      "nullRows": 0
+    }
+  ]
+}

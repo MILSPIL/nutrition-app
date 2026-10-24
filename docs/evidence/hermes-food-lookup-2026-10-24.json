@@ -1,0 +1,119 @@
+{
+  "plan": "HERMES-FOOD-01",
+  "step": 3,
+  "index": {
+    "version": "scisense-usda-2026-10-24-v1",
+    "sources": [
+      {
+        "id": "foundation",
+        "count": 363,
+        "nullRows": 32,
+        "partial": 52,
+        "sha256": "186e988ec542e913f51ef62b86a47758e8cdd0d1dc3889e7b055581f3c09c77a"
+      },
+      {
+        "id": "sr-legacy",
+        "count": 7793,
+        "nullRows": 0,
+        "partial": 0,
+        "sha256": "0fe8ae486a2c8eb42cb96413f058deb51863a46c8fb8eeb4b1fb45006dd338ef"
+      },
+      {
+        "id": "fndds",
+        "count": 5432,
+        "nullRows": 0,
+        "partial": 1,
+        "sha256": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb"
+      }
+    ],
+    "nutrientMapping": {
+      "p": [
+        1003
+      ],
+      "f": [
+        1004
+      ],
+      "c": [
+        1005
+      ],
+      "cal": [
+        2048,
+        2047,
+        1008
+      ]
+    },
+    "license": "CC0-1.0",
+    "count": 13588,
+    "partial": 53,
+    "sha256": "a8e60fe05956869df3bc9d04371994c5ff8adf0d6014e474457f52191b591ad8",
+    "bytes": 12079104
+  },
+  "queries": [
+    {
+      "query": "potatoes boiled",
+      "preparation": "cooked",
+      "ids": [
+        "fdc:170049",
+        "fdc:170114",
+        "fdc:170116",
+        "fdc:170438",
+        "fdc:170439"
+      ],
+      "ms": 0.598
+    },
+    {
+      "query": "buckwheat",
+      "preparation": "cooked",
+      "ids": [
+        "fdc:170686"
+      ],
+      "ms": 0.136
+    },
+    {
+      "query": "buckwheat",
+      "preparation": "dry",
+      "ids": [
+        "fdc:170685",
+        "fdc:172774"
+      ],
+      "ms": 0.056
+    },
+    {
+      "query": "apples",
+      "preparation": "raw",
+      "ids": [
+        "fdc:168171",
+        "fdc:168175",
+        "fdc:171689",
+        "fdc:1750340",
+        "fdc:1750341"
+      ],
+      "ms": 0.195
+    },
+    {
+      "query": "kefir",
+      "preparation": "as_sold",
+      "ids": [
+        "fdc:2705394",
+        "fdc:170904",
+        "fdc:171301"
+      ],
+      "ms": 0.053
+    }
+  ],
+  "tests": {
+    "passed": 13,
+    "failed": 0
+  },
+  "review": {
+    "reviewer": "Codex hermes_food_lookup_review",
+    "status": "PASS",
+    "resolved": [
+      "final cooked state wins over acquisition raw/from dried",
+      "brand analogue restriction cannot be erased by a broader lookup"
+    ],
+    "independentFullImport": "13588 records; 53 partial; same SHA256; 12079104 bytes; mode0444; quick_check ok"
+  },
+  "realAPI": 0,
+  "privateAccess": false
+}
