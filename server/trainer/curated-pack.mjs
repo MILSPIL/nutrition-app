@@ -44,17 +44,20 @@ export function buildCuratedPack(input) {
   return { ...registry, text: rendered, manifest };
 }
 
-export function validateCuratedPack(pack, { currentSourceHashes } = {}) {
+export function validateCuratedPack(pack, { currentSourceHashes, approvedRegistryHash } = {}) {
   if (!keys(pack, ["revision", "persona", "sources", "facts", "includedFactIds", "omissions", "text", "manifest"])) reject();
   const { text: suppliedText, manifest, ...input } = pack;
   const rebuilt = buildCuratedPack(input);
   if (rebuilt.text !== suppliedText || stableJSON(rebuilt.manifest) !== stableJSON(manifest)) reject();
+  // Approval is an external pin, not the self-declared manifest. Rebuilding a
+  // smaller registry cannot silently claim that all required facts survived.
+  if (!hash(approvedRegistryHash) || manifest.registrySha256 !== approvedRegistryHash) fail("registry_changed", 409);
   if (!plain(currentSourceHashes) || stableJSON(currentSourceHashes) !== stableJSON(manifest.sourceHashes)) fail("source_changed", 409);
   return rebuilt;
 }
 
-export function provisionCuratedPack(directory, { pack, key, currentSourceHashes }) {
-  const validated = validateCuratedPack(pack, { currentSourceHashes });
+export function provisionCuratedPack(directory, { pack, key, currentSourceHashes, approvedRegistryHash }) {
+  const validated = validateCuratedPack(pack, { currentSourceHashes, approvedRegistryHash });
   provisionContext(directory, { text: validated.text, key });
   return { revision: 0, contextSha256: validated.manifest.contextSha256, requiredCoverage: 1 };
 }

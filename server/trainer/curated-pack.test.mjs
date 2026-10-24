@@ -11,22 +11,22 @@ const input = () => ({ revision: 1, persona: "Синтетичний трене�
 const current = { profile: h("source") };
 test("C05 pack has exact coverage, deterministic hashes and explicit unknown", () => {
  const pack = buildCuratedPack(input());
- assert.deepEqual(validateCuratedPack(pack, { currentSourceHashes: current }), pack);
+ assert.deepEqual(validateCuratedPack(pack, { currentSourceHashes: current, approvedRegistryHash: pack.manifest.registrySha256 }), pack);
  assert.equal(pack.manifest.requiredCoverage, 1); assert.match(pack.text, /\[unknown\]/); assert.equal(pack.manifest.contextSha256, h(pack.text));
  assert.deepEqual(buildCuratedPack(input()), pack);
 });
 test("C05 8000 UTF8 bytes pass and 8001 fail at pack boundary", () => {
  const src = input(), base = buildCuratedPack(src); src.persona += "x".repeat(8000 - Buffer.byteLength(base.text));
  const pack = buildCuratedPack(src); assert.equal(Buffer.byteLength(pack.text), 8000);
- validateCuratedPack(pack, { currentSourceHashes: current });
+ validateCuratedPack(pack, { currentSourceHashes: current, approvedRegistryHash: pack.manifest.registrySha256 });
  assert.throws(() => buildCuratedPack({ ...src, persona: src.persona + "x" }), /context_too_large/);
 });
 test("C05 missing required fact and source changes reject", () => {
  assert.throws(() => buildCuratedPack({ ...input(), includedFactIds: ["optional"] }), /required_fact_missing/);
  const pack = buildCuratedPack(input());
- assert.throws(() => validateCuratedPack(pack, { currentSourceHashes: { profile: h("changed") } }), /source_changed/);
+ assert.throws(() => validateCuratedPack(pack, { currentSourceHashes: { profile: h("changed") }, approvedRegistryHash: pack.manifest.registrySha256 }), /source_changed/);
  const changed = structuredClone(pack); changed.text = changed.text.replace("[unknown]", "[confirmed]");
- assert.throws(() => validateCuratedPack(changed, { currentSourceHashes: current }), /curated_pack_invalid/);
+ assert.throws(() => validateCuratedPack(changed, { currentSourceHashes: current, approvedRegistryHash: pack.manifest.registrySha256 }), /curated_pack_invalid/);
 });
 test("C05 optional omission is explicit; extra metadata/invalid status/duplicated IDs denied", () => {
  const pack = buildCuratedPack({ ...input(), includedFactIds: ["preference", "unknown"], omissions: [{ factId: "optional", reason: "Не є сталим фактом" }] });
@@ -38,8 +38,15 @@ test("C05 optional omission is explicit; extra metadata/invalid status/duplicate
 });
 test("C05 validated pack provisions the existing API context store once", () => {
  const dir = realpathSync(mkdtempSync(join(tmpdir(), "scisense-curated-"))), key = Buffer.alloc(32, 7);
- try { const pack = buildCuratedPack(input()); provisionCuratedPack(dir, { pack, key, currentSourceHashes: current });
+ try { const pack = buildCuratedPack(input()); provisionCuratedPack(dir, { pack, key, currentSourceHashes: current, approvedRegistryHash: pack.manifest.registrySha256 });
  const store = openContextStore(dir, { key }); assert.deepEqual(store.read(), { text: pack.text, revision: 0 });
- assert.throws(() => provisionCuratedPack(dir, { pack, key, currentSourceHashes: current }), /context_exists/);
+ assert.throws(() => provisionCuratedPack(dir, { pack, key, currentSourceHashes: current, approvedRegistryHash: pack.manifest.registrySha256 }), /context_exists/);
  } finally { key.fill(0); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("C05 rebuilding a registry with a removed required fact cannot self-approve", () => {
+ const original = buildCuratedPack(input()), changed = input(); changed.facts.shift();
+ const forged = buildCuratedPack(changed);
+ assert.throws(() => validateCuratedPack(forged, { currentSourceHashes: current, approvedRegistryHash: original.manifest.registrySha256 }), /registry_changed/);
+ assert.throws(() => validateCuratedPack(original, { currentSourceHashes: current }), /registry_changed/);
 });
