@@ -4,6 +4,7 @@ root=pathlib.Path('/tmp/hermes-public-runtime');root.mkdir(exist_ok=False)
 target=root/'runtime.tar.gz'
 entries=[('/opt/scisense/hermes','hermes'),('/opt/scisense/python','python'),('/usr/local/bin/node','node/bin/node'),('/usr/local/LICENSE','node/LICENSE'),('/opt/scisense/isolation/LICENSE.bubblewrap','isolation/LICENSE.bubblewrap'),('/usr/bin/bwrap','isolation/bwrap'),('/app/server/trainer/worker-seccomp.bpf','isolation/worker-seccomp.bpf'),('/app/.agents/runtime/food-data/foods-v1-reviewed.sqlite','data/foods-v1-reviewed.sqlite')]
 manifest={'version':1,'syntheticStateIncluded':False,'credentialsIncluded':False,'platform':'linux-x64','os':'ubuntu-24.04','files':[],'packages':subprocess.check_output(['dpkg-query','-W','libc6','libcap2','libseccomp2'],text=True).strip().splitlines()}
+manifest['components']={'node':subprocess.check_output(['/usr/local/bin/node','--version'],text=True).strip(),'python':subprocess.check_output(['/opt/scisense/python/bin/python3.14','--version'],text=True).strip(),'bubblewrap':subprocess.check_output(['/usr/bin/bwrap','--version'],text=True).strip()}
 with tarfile.open(target,'w:gz') as tf:
  for src,dest in entries:
   source=pathlib.Path(src)

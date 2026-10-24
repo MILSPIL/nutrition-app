@@ -136,6 +136,7 @@ export function createTrainerGateway({
   async function maintain() {
     try {
       store.maintainRetention();
+      contextStore?.maintainRetention?.();
       for (const expired of store.expiredPending()) {
         proxy.cancel(expired.id);
         controllers.get(expired.id)?.abort();

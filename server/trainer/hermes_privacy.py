@@ -72,3 +72,45 @@ def finish_media_cleanup(profile, media, *, ownership, database, session_id):
         finally:
             os.close(fd)
     return {'checkpointBusy':result[0], 'removedStagingFiles':len(removed)}
+
+
+def release_exited_turn_lease(profile, *, ownership, database, authority_epoch,
+                              before, exited_worker, current_namespace):
+    """Release only a terminal interrupted turn whose original namespace exited.
+
+    Node keeps this proof only after its exact bwrap child closes. Across a Node
+    restart there is no proof: the canonical lease must expire normally instead.
+    The pinned API's exact-holder release still guards against replacement races.
+    """
+    if not exited_worker:
+        return False
+    session_id = before['target_session_id']
+    namespace = exited_worker.get('pidNamespace')
+    if (not ownership.owns(Path(profile)) or not re.fullmatch(r'\d+', namespace or '')
+            or namespace == current_namespace
+            or exited_worker.get('runId') != session_id
+            or exited_worker.get('sessionId') != session_id
+            or before['owner_epoch'] >= authority_epoch
+            or before['status'] != 'unknown'):
+        raise RuntimeError('recovery_ownership_invalid')
+    with database._read_ctx() as conn:
+        after = conn.execute('SELECT * FROM session_admissions WHERE admission_id=?',
+                             (before['admission_id'],)).fetchone()
+        if (after is None or any(after[key] != before[key] for key in
+                ('target_session_id', 'generation', 'owner_epoch'))
+                or after['status'] != 'terminal' or after['outcome'] != 'interrupted'
+                or conn.execute("SELECT 1 FROM session_admissions WHERE status<>'terminal' LIMIT 1").fetchone()):
+            raise RuntimeError('recovery_generation_invalid')
+        conversation = database._session_turn_lease_key_on_conn(conn, session_id)
+        lease = conn.execute('SELECT holder FROM session_turn_leases WHERE conversation_id=?', (conversation,)).fetchone()
+    if lease is None:
+        return True
+    holder = lease['holder']
+    token = re.search(r'(?:^|:)pidns=(\d+)(?::|$)', holder)
+    if not token or token.group(1) != namespace or ':turn=' + session_id + ':' not in holder:
+        raise RuntimeError('recovery_holder_invalid')
+    database.release_session_turn_lease(session_id, holder)
+    with database._read_ctx() as conn:
+        if conn.execute('SELECT 1 FROM session_turn_leases WHERE conversation_id=?', (conversation,)).fetchone():
+            raise RuntimeError('recovery_holder_changed')
+    return True

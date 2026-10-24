@@ -1,22 +1,41 @@
 import { join } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, unlinkSync } from "node:fs";
 import { createHmac, createCipheriv, randomBytes } from "node:crypto";
 import {
   privateDirectory,
   privateRead,
   privateWrite,
   privateAppend,
+  syncDirectory,
 } from "./private-files.mjs";
-import { fail, stableJSON } from "./limits.mjs";
+import { fail, stableJSON, LIMITS } from "./limits.mjs";
 // Called only for an explicitly provisioned curated context, never searches a profile.
 export function openContextStore(directory, { key, now = Date.now } = {}) {
   privateDirectory(directory);
   if (!Buffer.isBuffer(key) || key.length < 32) fail("trainer_config", 503);
   const file = join(directory, "context.json"),
-    journal = join(directory, "context-receipts.jsonl");
+    journal = join(directory, "context-receipts.jsonl"),
+    backup = join(directory, "context.previous.enc");
   const mac = (v) =>
     createHmac("sha256", key).update(stableJSON(v)).digest("hex");
+  // The rollback copy has an authenticated absolute expiry. Legacy/invalid
+  // envelopes cannot extend retention and are discarded, never restored.
+  function maintainRetention() {
+    if (!existsSync(backup)) return;
+    const raw = privateRead(backup);
+    let value;
+    try { value = JSON.parse(raw); } catch { value = {}; }
+    const { hmac, ...body } = value && typeof value === "object" ? value : {};
+    const valid = body.v === 2 && hmac === mac(body) &&
+      Number.isSafeInteger(body.createdAt) && body.createdAt >= 0 && body.createdAt <= now() &&
+      body.expiresAt === body.createdAt + LIMITS.retentionMs;
+    if (!valid || now() >= body.expiresAt) {
+      unlinkSync(backup);
+      syncDirectory(directory);
+    }
+  }
   const read = () => {
+    maintainRetention();
     let value;
     try {
       value = JSON.parse(privateRead(file));
@@ -38,6 +57,7 @@ export function openContextStore(directory, { key, now = Date.now } = {}) {
   };
   read();
   return {
+    maintainRetention,
     read() {
       const { text, revision } = read();
       return { text, revision };
@@ -70,15 +90,16 @@ export function openContextStore(directory, { key, now = Date.now } = {}) {
         cipher.update(privateRead(file)),
         cipher.final(),
       ]);
-      privateWrite(
-        join(directory, "context.previous.enc"),
-        JSON.stringify({
-          v: 1,
-          iv: iv.toString("base64"),
-          tag: cipher.getAuthTag().toString("base64"),
-          data: encrypted.toString("base64"),
-        }),
-      );
+      const createdAt = now();
+      const envelope = {
+        v: 2,
+        createdAt,
+        expiresAt: createdAt + LIMITS.retentionMs,
+        iv: iv.toString("base64"),
+        tag: cipher.getAuthTag().toString("base64"),
+        data: encrypted.toString("base64"),
+      };
+      privateWrite(backup, JSON.stringify({ ...envelope, hmac: mac(envelope) }));
       const value = {
         revision: old.revision + 1,
         text,

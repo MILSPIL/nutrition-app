@@ -8,7 +8,8 @@ import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
-from hermes_privacy import finish_media_cleanup, enable_secure_deletion
+from hermes_privacy import finish_media_cleanup, enable_secure_deletion, release_exited_turn_lease
+from contextlib import contextmanager
 
 LAB = Path(__file__).resolve().parents[2] / '.agents/runtime/hermes-lab'
 
@@ -123,6 +124,53 @@ else:
         db=SimpleNamespace(_execute_write=lambda fn:0)
         with self.assertRaisesRegex(RuntimeError,'not enabled'):
             enable_secure_deletion(db)
+
+class ExitedLeaseTests(unittest.TestCase):
+    def setUp(self):
+        self.conn=sqlite3.connect(':memory:');self.conn.row_factory=sqlite3.Row
+        self.conn.executescript("CREATE TABLE session_admissions(admission_id TEXT,target_session_id TEXT,generation INTEGER,owner_epoch INTEGER,status TEXT,outcome TEXT);CREATE TABLE session_turn_leases(conversation_id TEXT,holder TEXT);")
+        self.conn.execute("INSERT INTO session_admissions VALUES('admission','session',3,1,'terminal','interrupted')")
+        self.holder='pid=2:pidns=100:turn=session:task:nonce:platform=api'
+        self.conn.execute('INSERT INTO session_turn_leases VALUES(?,?)',('session',self.holder));self.conn.commit()
+        self.calls=0;self.replacement=False
+        @contextmanager
+        def read():yield self.conn
+        def release(session, holder):
+            self.calls+=1
+            if self.replacement:self.conn.execute("UPDATE session_turn_leases SET holder='replacement'")
+            self.conn.execute('DELETE FROM session_turn_leases WHERE conversation_id=? AND holder=?',(session,holder));self.conn.commit()
+        self.db=SimpleNamespace(_read_ctx=read,_session_turn_lease_key_on_conn=lambda c,s:s,release_session_turn_lease=release)
+        self.before={'admission_id':'admission','target_session_id':'session','generation':3,'owner_epoch':1,'status':'unknown'}
+        self.proof={'runId':'session','sessionId':'session','pidNamespace':'100'}
+        self.owns=True
+    def tearDown(self):self.conn.close()
+    def apply(self,**overrides):
+        args=dict(ownership=SimpleNamespace(owns=lambda p:self.owns),database=self.db,authority_epoch=2,before=self.before,exited_worker=self.proof,current_namespace='200')
+        args.update(overrides)
+        return release_exited_turn_lease(Path('/synthetic'),**args)
+    def test_exact_exited_namespace_releases_once(self):
+        self.assertTrue(self.apply());self.assertEqual(self.calls,1)
+        self.assertTrue(self.apply());self.assertEqual(self.calls,1)
+    def test_missing_exit_proof_leaves_unexpired_lease(self):
+        self.assertFalse(self.apply(exited_worker=None));self.assertEqual(self.calls,0)
+    def test_current_or_unowned_epoch_cannot_release(self):
+        for patch in [dict(authority_epoch=1),dict(current_namespace='100'),dict(exited_worker={**self.proof,'runId':'other'})]:
+            with self.assertRaisesRegex(RuntimeError,'ownership'):self.apply(**patch)
+        self.owns=False
+        with self.assertRaisesRegex(RuntimeError,'ownership'):self.apply()
+        self.assertEqual(self.calls,0)
+    def test_active_or_changed_generation_cannot_release(self):
+        for sql in ["UPDATE session_admissions SET status='started'", "UPDATE session_admissions SET status='terminal',generation=4"]:
+            self.conn.execute(sql)
+            with self.assertRaisesRegex(RuntimeError,'generation'):self.apply()
+        self.assertEqual(self.calls,0)
+    def test_foreign_namespace_is_not_proof_of_death(self):
+        with self.assertRaisesRegex(RuntimeError,'holder_invalid'):self.apply(exited_worker={**self.proof,'pidNamespace':'300'})
+        self.assertEqual(self.calls,0)
+    def test_replaced_holder_survives_canonical_compare_and_delete(self):
+        self.replacement=True
+        with self.assertRaisesRegex(RuntimeError,'holder_changed'):self.apply()
+        self.assertEqual(self.conn.execute('SELECT holder FROM session_turn_leases').fetchone()[0],'replacement')
 
 if __name__=='__main__':
     unittest.main()

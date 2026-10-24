@@ -98,6 +98,7 @@ export function createNativeBackend({
     });
   });
   canaryReady.catch(() => {});
+  const exitedNamespaces = new Map();
   const workers = new Map(),
     faults = [],
     eventsMeta = [];
@@ -217,6 +218,8 @@ export function createNativeBackend({
       exited = false,
       modelRequests = 0,
       terminal = false,
+      nativeIdentity,
+      pidNamespace,
       isolationVerified = isolation === "synthetic-network-none";
     const result = new Promise((ok, no) => {
       resolveResult = ok;
@@ -243,6 +246,10 @@ export function createNativeBackend({
         eventsMeta.push({ type: "exit", code, signal });
         exited = true;
         lifetime.abort();
+        // bwrap's PID-namespace init and die-with-parent policy end its children.
+        // Never infer this proof from a PID number, a timeout or a Node restart.
+        if (mode === "start" && isolation === "linux-bubblewrap" && nativeIdentity && pidNamespace)
+          exitedNamespaces.set(turn.id, { ...nativeIdentity, pidNamespace });
         args.onWorkerExit?.();
         failure();
         workers.delete(turn.id);
@@ -287,11 +294,16 @@ export function createNativeBackend({
       if (message.type === "isolation") {
         if (message.fileDenied !== true || message.networkDenied !== true)
           throw Error("isolation_failed");
+        if (isolation === "linux-bubblewrap") {
+          if (!/^[0-9]+$/.test(message.pidNamespace || "")) throw Error("isolation_failed");
+          pidNamespace = message.pidNamespace;
+        }
         isolationVerified = true;
         return;
       }
       if (message.type === "run") {
-        args.onRun?.({ runId: message.runId, sessionId: message.sessionId });
+        nativeIdentity = { runId: message.runId, sessionId: message.sessionId };
+        args.onRun?.(nativeIdentity);
         return;
       }
       if (message.type === "result") {
@@ -397,6 +409,7 @@ export function createNativeBackend({
       source,
       apiKey,
       cleanupMedia,
+      exitedWorker: mode === "start" ? null : (exitedNamespaces.get(turn.id) ?? null),
       isolation,
       outsidePort,
       readDenyCanary: resolve(here, "../../package.json"),
@@ -459,6 +472,7 @@ export function createNativeBackend({
       if (!proof.cleaned) return { cleaned: false };
       const code = await boundedOperation(() => worker.exit);
       if (code === 0) {
+        exitedNamespaces.delete(turn.id);
         const file = join(workDirectory, turn.id + ".cleanup.json");
         for (const candidate of [file, file + ".tmp"]) {
           if (!existsSync(candidate)) continue;

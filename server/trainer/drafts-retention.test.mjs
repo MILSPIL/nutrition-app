@@ -9,6 +9,7 @@ import {
   copyFileSync,
   writeFileSync,
   unlinkSync,
+  existsSync,
 } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -608,3 +609,45 @@ test('terminal save rejection needs exact trusted proof, keeps old command, crea
  f.store.beginSave('owner',f.cid,d.draftId,ready.revision,next);
  assert.throws(()=>f.store.confirmRejected('owner',f.cid,d.draftId,sid,proof),/save_unconfirmed/);
 });
+
+for (const route of ["read", "startup", "idle-maintenance"]) {
+  test("H10 context predecessor expires after 30 days via " + route, async (t) => {
+    const f = fixture(t), backup = join(f.dir, "context.previous.enc");
+    let clock = Date.now();
+    const options = { key: f.key, now: () => clock };
+    provisionContext(f.dir, { text: "Синтетичний попередній контекст", key: f.key });
+    let context = openContextStore(f.dir, options);
+    const proposal = { proposalId: randomUUID(), baseRevision: 0, text: "Синтетичний чинний контекст" };
+    context.commit(proposal);
+    const oldBackup = readFileSync(backup);
+    clock += LIMITS.retentionMs - 1;
+    context.read();
+    assert.equal(existsSync(backup), true);
+    clock += 1;
+    if (route === "read") context.read();
+    else if (route === "startup") context = openContextStore(f.dir, options);
+    else {
+      t.mock.timers.enable({ apis: ["setInterval"] });
+      const { createTrainerGateway } = await import("./gateway.mjs");
+      const gateway = createTrainerGateway({
+        ownerUid: "owner", store: f.store, contextStore: context,
+        backend: {}, proxy: { close() {} }, media: { sweep: () => ({faults: 0}) },
+      });
+      try { t.mock.timers.tick(30000); await Promise.resolve(); }
+      finally { await gateway.close(); }
+    }
+    assert.equal(existsSync(backup), false);
+    assert.equal(context.read().text, proposal.text);
+    assert.equal(context.commit(proposal).replayed, true);
+    assert.equal(existsSync(join(f.dir, "context-receipts.jsonl")), true);
+    // A restored historical encrypted backup cannot reset its absolute expiry.
+    writeFileSync(backup, oldBackup, { mode: 0o600 });
+    context.maintainRetention();
+    assert.equal(existsSync(backup), false);
+    // Tampering with expiry is rejected by its HMAC.
+    const changed = JSON.parse(oldBackup); changed.expiresAt = clock + LIMITS.retentionMs;
+    writeFileSync(backup, JSON.stringify(changed), { mode: 0o600 });
+    context.maintainRetention();
+    assert.equal(existsSync(backup), false);
+  });
+}

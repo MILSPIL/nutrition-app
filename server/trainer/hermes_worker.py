@@ -143,12 +143,13 @@ async def main(setup):
             assert libc.syscall(308,-1,0)==-1 and ctypes.get_errno()==errno.EPERM, 'setns_filter_missing'
             assert libc.syscall(435,0,0)==-1 and ctypes.get_errno()==errno.ENOSYS, 'clone3_filter_missing'
         assert file_denied and network_denied, 'isolation_failed'
-        emit({'type': 'isolation', 'fileDenied': True, 'networkDenied': True})
+        pid_namespace = str(os.stat('/proc/self/ns/pid').st_ino) if sys.platform == 'linux' else None
+        emit({'type': 'isolation', 'fileDenied': True, 'networkDenied': True, 'pidNamespace': pid_namespace})
     expected = json.loads(Path(__file__).with_name('hermes-config.json').read_text())
     assert json.loads((home / 'config.yaml').read_text()) == expected, 'runtime_config_mismatch'
     assert setup['mode'] in ('start', 'recover', 'cleanup')
     sys.path.insert(0, str(source))
-    from hermes_privacy import enable_secure_deletion, finish_media_cleanup
+    from hermes_privacy import enable_secure_deletion, finish_media_cleanup, release_exited_turn_lease
     from aiohttp import ClientSession
     from tools.registry import registry
     from toolsets import create_custom_toolset
@@ -193,8 +194,18 @@ async def main(setup):
                     return
                 status, current = await request('GET', '/v1/runs/' + run_id)
                 if status == 200 and current.get('status') == 'unknown' and allowed:
+                    authority = runner.session_authority
+                    with authority.db._read_ctx() as conn:
+                        row = conn.execute('SELECT * FROM session_admissions WHERE admission_id=?', (current['admission_id'],)).fetchone()
+                        before = dict(row) if row else None
+                    assert before and before['generation'] == current['execution_generation'], 'recovery_generation_invalid'
                     status, _ = await request('POST', '/v1/runs/' + run_id + '/resolve-unknown', {'admission_id': current['admission_id'], 'execution_generation': current['execution_generation']})
                     assert status == 200, 'reconcile_failed'
+                    if setup['mode'] != 'start' and setup.get('exitedWorker'):
+                        release_exited_turn_lease(home, ownership=process_ownership,
+                            database=authority.db, authority_epoch=authority.epoch,
+                            before=before, exited_worker=setup['exitedWorker'],
+                            current_namespace=str(os.stat('/proc/self/ns/pid').st_ino))
 
             if setup['mode'] == 'start':
                 content = [{'type': 'text', 'text': setup['input']['text']}]

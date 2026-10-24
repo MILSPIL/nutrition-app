@@ -3,6 +3,7 @@ Usage: python3 scripts/hermes-package.py RUNTIME_DIR OUTPUT_DIR
 No installation, private profile access, credential loading or network operations.
 """
 import pathlib,sys,subprocess,json,hashlib,tarfile,shutil,tempfile,datetime,re
+from hermes_runtime_validation import validate_runtime
 repo=pathlib.Path(__file__).resolve().parents[1]
 runtime=pathlib.Path(sys.argv[1]).resolve(); output=pathlib.Path(sys.argv[2]).resolve()
 if output.exists():raise SystemExit('output_already_exists')
@@ -13,26 +14,8 @@ def digest(path):
  return h.hexdigest()
 code_sha=subprocess.check_output(['git','rev-parse','HEAD'],cwd=repo,text=True).strip()
 if subprocess.check_output(['git','diff','HEAD','--name-only','--','src','server','workers','scripts','deploy','package.json','package-lock.json','firestore.rules','.github'],cwd=repo,text=True).strip():raise SystemExit('uncommitted_code')
-manifest=json.loads((runtime/'manifest.json').read_text())
-if manifest['credentialsIncluded'] or manifest['syntheticStateIncluded'] or digest(runtime/'runtime.tar.gz')!=manifest['archiveSha256']:raise SystemExit('runtime_manifest_invalid')
-expected={f['path']:f for f in manifest['files']};seen=set()
-with tarfile.open(runtime/'runtime.tar.gz') as tf:
- for m in tf:
-  p=pathlib.PurePosixPath(m.name)
-  if p.is_absolute() or '..' in p.parts:raise SystemExit('archive_path')
-  if m.isdir():continue
-  row=expected.get(m.name)
-  if not row or m.name in seen:raise SystemExit('archive_unexpected')
-  seen.add(m.name)
-  if m.issym():
-   if m.linkname!=row.get('link'):raise SystemExit('archive_link')
-  elif m.isfile():
-   h=hashlib.sha256();f=tf.extractfile(m)
-   with f:
-    for chunk in iter(lambda:f.read(1024*1024),b''):h.update(chunk)
-   if h.hexdigest()!=row.get('sha256') or m.size!=row.get('bytes'):raise SystemExit('archive_bytes')
-  else:raise SystemExit('archive_special')
-if seen!=set(expected):raise SystemExit('archive_incomplete')
+manifest=validate_runtime(runtime,json.loads((repo/'server/trainer/hermes-pin.json').read_text()))
+expected={f['path']:f for f in manifest['files']}
 build=repo/'build'
 if not (build/'index.html').is_file() or not (build/'asset-manifest.json').is_file():raise SystemExit('build_missing')
 # The caller must build with the exact feature-off command recorded below.
