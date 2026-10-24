@@ -41,9 +41,9 @@ export function useMealDay(uid,profileId,date) {
   const g=generation.current;
   pending.current=command;setBusy(true);setError('');
   const promise=commitMealDay(uid,profileId,date,command).then(result=>{
-   if(g===generation.current){const next={...result,planContext:dayRef.current.planContext,mealsDateKey:date,legacy:null};dayRef.current=next;setDay(next);pending.current=null;}
+   if(g===generation.current){const next={notes:dayRef.current.notes||[],incomplete:dayRef.current.incomplete||false,...result,planContext:result.planContext||dayRef.current.planContext,mealsDateKey:date,legacy:null};dayRef.current=next;setDay(next);pending.current=null;}
    return result;
-  }).catch(e=>{if(g===generation.current){if(['revision_conflict','plan_conflict','submission_conflict'].includes(e.message))needsRead.current=true;if((['revision_conflict','plan_conflict','submission_conflict','invalid_allocation','invalid_command','duplicate_item','legacy_conflict','legacy_date_required','invalid_item','invalid_quantity'].includes(e.message)||['permission-denied','invalid-argument','failed-precondition','unauthenticated','aborted'].includes(e.code))) pending.current=null;setError(saveError(e));}throw e;}).finally(()=>{if(g===generation.current){lock.current=null;setBusy(false);if(reloadQueued.current){reloadQueued.current=false;readyRef.current=false;setReady(false);setReload(x=>x+1);}}});
+  }).catch(e=>{if(g===generation.current){if(['revision_conflict','plan_conflict','submission_conflict','note_conflict'].includes(e.message))needsRead.current=true;if((['revision_conflict','plan_conflict','submission_conflict','invalid_allocation','invalid_command','duplicate_item','legacy_conflict','legacy_date_required','invalid_item','invalid_quantity','notes_disabled','note_conflict','invalid_food_note','invalid_target','profile_missing'].includes(e.message)||['permission-denied','invalid-argument','failed-precondition','unauthenticated','aborted'].includes(e.code))) pending.current=null;setError(saveError(e));}throw e;}).finally(()=>{if(g===generation.current){lock.current=null;setBusy(false);if(reloadQueued.current){reloadQueued.current=false;readyRef.current=false;setReady(false);setReload(x=>x+1);}}});
   lock.current=promise;return promise;
  },[uid,profileId,date]);
  const commit=useCallback((action)=>{

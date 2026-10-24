@@ -1,6 +1,6 @@
-import { PRODUCTS_DB } from '../data/products';
-import { itemMacros } from './mealItems';
-import { planName, validatedPlanMatch } from './planCatalog';
+import { PRODUCTS_DB } from '../data/products.js';
+import { itemMacros } from './mealItems.js';
+import { planName, validatedPlanMatch } from './planCatalog.js';
 const positive=x=>typeof x==='number'&&Number.isFinite(x)&&x>0;
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const letters=Object.keys(PRODUCTS_DB);

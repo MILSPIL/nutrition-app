@@ -1,3 +1,5 @@
+import { loadConfirmedDay } from '../../services/mealStore';
+import FoodNotesPanel from '../FoodNotesPanel';
 import React, { useState, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import { X, User, Utensils, TrendingDown, TrendingUp, Minus, Ruler, ChevronDown, ChevronLeft, Calendar } from 'lucide-react';
@@ -23,6 +25,7 @@ const MEAL_NAMES = {
 export default function ClientDetailsModal({ isOpen, onClose, client, onAccessLost }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dayData, setDayData] = useState(null);
+  const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [availableDates, setAvailableDates] = useState([]);
   const [measurements, setMeasurements] = useState([]);
@@ -35,7 +38,7 @@ export default function ClientDetailsModal({ isOpen, onClose, client, onAccessLo
   const epoch=useRef(0), revoked=useRef(false), lost=useRef(onAccessLost);
   lost.current=onAccessLost;
   const [accessError,setAccessError]=useState('');
-  const clear=()=>{setDayData(null);setAvailableDates([]);setMeasurements([]);setShowMeasurements(false);setLoading(false);};
+  const clear=()=>{setDayData(null);setNotes([]);setAvailableDates([]);setMeasurements([]);setShowMeasurements(false);setLoading(false);};
   const deny=()=>{
     revoked.current=true;epoch.current = epoch.current + 1;
     flushSync(()=>{clear();setAccessError('Дані прибрано: доступ не підтверджено.');});
@@ -60,13 +63,16 @@ export default function ClientDetailsModal({ isOpen, onClose, client, onAccessLo
     return ()=>{active=false;epoch.current = epoch.current + 1;offs.forEach(off=>off());};
   },[isOpen,client?.id]);
   useEffect(()=>{
-    let active=true;const version=epoch.current;
-    setDayData(null);
+    let active=true,readVersion=0;const version=epoch.current;
+    setDayData(null);setNotes([]);
     if(!isOpen||!client?.id||revoked.current)return undefined;
     setLoading(true);
     const valid=()=>active&&!revoked.current&&epoch.current===version;
     const off=onSnapshot(doc(db,'users',client.id,'mealHistory',formatLocalDateKey(selectedDate)),{includeMetadataChanges:true},snapshot=>{
-      if(valid()&&!snapshot.metadata.fromCache){setDayData(snapshot.exists()?snapshot.data():null);setLoading(false);}
+      if(valid()&&!snapshot.metadata.fromCache){
+        setLoading(true);const read=++readVersion;
+        loadConfirmedDay(client.id,formatLocalDateKey(selectedDate)).then(day=>{if(valid()&&read===readVersion){setDayData(day);setNotes(day?.notes||[]);setLoading(false);}}).catch(()=>{if(valid())denyRef.current();});
+      }
     },()=>{if(valid())denyRef.current();});
     return ()=>{active=false;off();};
   },[isOpen,client?.id,selectedDate]);
@@ -239,6 +245,7 @@ export default function ClientDetailsModal({ isOpen, onClose, client, onAccessLo
             </div>
           ) : (
             <>
+              <FoodNotesPanel notes={notes}/>
               {/* Macros Card */}
               <div className="bg-white rounded-2xl p-4 mb-4">
                 <div className="flex items-center justify-between mb-3">

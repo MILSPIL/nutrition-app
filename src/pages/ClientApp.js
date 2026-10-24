@@ -1,3 +1,5 @@
+import FoodNotesPanel from '../components/FoodNotesPanel';
+import { foodNotesReport } from '../services/foodNotes';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { auth, googleProvider, db, IS_LOCAL_LAB, IS_PHONE_LAB } from '../firebase';
 import { signInWithPopup, signInWithCustomToken, signInAnonymously, signOut, onAuthStateChanged } from 'firebase/auth';
@@ -471,7 +473,7 @@ export default function ClientApp() {
     const totalCalories = totalMacros.cal;
     report += `\nКалорії: ${totalCalories} ккал / 2305 ккал (${Math.round(totalCalories / 2305 * 100)}%)`;
 
-    return report;
+    return report + foodNotesReport(mealDay.day.notes);
   };
 
   // Handlers
@@ -558,6 +560,7 @@ export default function ClientApp() {
           <ul>{Object.values(mealDay.day.legacy).flatMap(m=>Object.values(m).flat()).map((item,i)=><li key={i}>{item.name}: {quantityText(item)}</li>)}</ul>
         </div>}
       </div>
+      <div className="max-w-lg mx-auto px-4"><FoodNotesPanel notes={mealDay.day.notes}/></div>
       <fieldset disabled={!mealDay.ready || mealDay.busy || mealDay.hasPending || !!mealDay.day.legacy}>
       <MealSection
         selectedMeal={selectedMeal}

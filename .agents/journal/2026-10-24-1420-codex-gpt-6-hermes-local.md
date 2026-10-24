@@ -30,6 +30,9 @@
 - Крок2 commit+push2eb2dc7; точний CI40092797054 усі3jobs SUCCESS.
 - Крок3: manifest3USDA ZIP+SHA256+CC0, SQLite13588/53partial/32null source rows, серверний numeric snapshot із offeredID, label/estimate/unknown, без змішування г/мл. 13targeted PASS, незалежний hermes_food_lookup_review PASS. Повторний повний імпорт SHAa8e60fe05956869df3bc9d04371994c5ff8adf0d6014e474457f52191b591ad8,12079104bytes,0444,quick_checkok. Підтверджені2findings виправлено; runtimeархіви/індекс позаGit.
 
+- Крок4 WIP: нові foodNotes і атомарні mixed/notes-only/resolve команди, exact previous-v2 writer, trusted per-owner v3 gate; read transaction повертає day+notes одним snapshot. День/звіт/тренер показують неповний підсумок і відомі значення на названу основу. Notes reviewer знайшов split read/pending/підпис основи/rules marker/legacy nonce; усе виправлено, FINALPASS. Emulator mixed+20 notes+concurrent resolve і5negative/access tests PASS.
+- SQLite draft/CAS/save freeze/replay, explicit context commit з encrypted predecessor/readback, 30-day TTL/startup/hourly/read + separate deletion manifest/anchor, tools integration написані, ще проходять review. Server123=113PASS10TODO;15нових targeted tests PASS. Storage reviewer відтворив3race/TTL defects, виправлено з regressiontests, перевірка триває. Це не завершення step4 чи прийманняH01–H10.
+
 ## Змінені файли
 Spec/plan, PROJECT-INFO.md, PRODUCT-GOAL.md, цей журнал, package scripts, server/trainer fixtures і contract checks, scripts/trainer-chat-*.mjs, docs/evidence/hermes-food-local-baseline-2026-10-24.json, .codeindexer export.
 
@@ -44,3 +47,7 @@ GitHub account MILSPIL; Git status/worktrees; CI40086707530 на базі94ea293
 
 ## Ризики / нотатки
 Context7 quota exhausted у цій сесії; використовуємо офіційні документи, CLI help і pinned source. Наявний профіль заборонено читати. Новий журнал потребує окремого дозволу на main.
+
+- Крок4 перевірки після виправлень: 228Jest/25suites,47old-writer,5rules+actual notes store PASS; actual native8calls/21.521s/0leaks. Додатково виправлено labelquantity, originalText кожного item і його видалення з повних confirmed meals; final review reread очікується.
+
+- Крок4 завершено: два незалежні reviewers PASS. Storage reviewer відтворив7дефектів, усі виправлено; фінально19/19 PASS незалежно. Походження тексту дедупліковане у приватній чернетці; notes зберігають його, knownmeals не отримують. Доказ docs/evidence/hermes-drafts-local-2026-10-24.json. Далі крок5UI.

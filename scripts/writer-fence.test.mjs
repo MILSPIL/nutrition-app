@@ -109,7 +109,7 @@ test('W09 regression assertions detect weakening nonce-change or mealHistory che
  await withRules('mutation-nonce',rules.replace(change,''),async database=>{
   await assert.rejects(()=>assertFails(oldWrite(database,0)),/Expected request to fail/);
  });
- const marker='allow update: if owner(uid) && writerChanged();';assert.ok(rules.includes(marker));
+ const marker='allow update: if owner(uid) && writerChanged(uid);';assert.ok(rules.includes(marker));
  await withRules('mutation-day',rules.replace(marker,'allow update: if owner(uid);'),async database=>{
   await assert.rejects(()=>assertFails(oldWrite(database,1)),/Expected request to fail/);
  });

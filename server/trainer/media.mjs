@@ -27,7 +27,8 @@ export function validateImages(images) {
   return images.map((image) => {
     if (
       !image ||
-      Object.keys(image).some((k) => !["type", "data"].includes(k)) ||
+      Object.keys(image).some((k) => !["type", "data", "itemId"].includes(k)) ||
+      (image.itemId!==undefined&&!/^[a-zA-Z0-9-]{8,80}$/.test(image.itemId)) ||
       !["image/jpeg", "image/png", "image/webp"].includes(image.type) ||
       typeof image.data !== "string" ||
       image.data.length > Math.ceil(MAX_IMAGE / 3) * 4 ||
@@ -93,6 +94,7 @@ export function createMediaStore(directory, { hash, now = Date.now }) {
         tempRef: hash({ owner, turnId, index }),
         hmac: hash({ image: bytes.toString("base64") }),
         mime: images[index].type,
+        ...(images[index].itemId?{itemId:images[index].itemId}:{}),
         size: bytes.length,
         expiresAt: now() + LIMITS.mediaTtlMs,
       }));

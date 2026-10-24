@@ -52,12 +52,12 @@ try {
  await legacySeed(['users',uid,'mealHistory','2026-10-24'],{meals:legacy,currentWeight:65,programDay:3});
  await commitMealDay(uid,uid,'2026-10-24',{...migration,submissionId:'existing-legacy'});
  await commitMealDay(uid,uid,'2026-10-24',{type:'metadata',metadata:{activity:'Ходьба'},submissionId:'activity',updatedAt:'x'});
- const upgraded=(await getDocFromServer(doc(db,'users',uid,'mealHistory','2026-10-24'))).data();assert.equal(upgraded.writerVersion,2);assert.ok(upgraded.writerNonce);
+ const upgraded=(await getDocFromServer(doc(db,'users',uid,'mealHistory','2026-10-24'))).data();assert.equal(upgraded.writerVersion,3);assert.ok(upgraded.writerNonce);
  const history=await loadMealDay(uid,uid,'2026-10-24');assert.equal(history.totalMacros.cal,17);assert.equal(history.currentWeight,65);assert.equal(history.programDay,3);
  await Promise.all([saveProfileSettings(uid,uid,{name:'Паралельні налаштування'}),commitMealDay(uid,uid,'2026-10-25',append('parallel'))]);
  const finalRoot=(await getDocFromServer(doc(db,'users',uid))).data();
  assert.equal(finalRoot.users[uid].name,'Паралельні налаштування');assert.equal(finalRoot.users[uid].meals[1].voice.length,1);
- assert.equal(finalRoot.writerVersion,2);assert.match(finalRoot.writerNonce,/^[a-f0-9-]{36}$/);
+ assert.equal(finalRoot.writerVersion,3);assert.match(finalRoot.writerNonce,/^[a-f0-9-]{36}$/);
  // Старий фактичний writer зберігає additive allocation і масштабує кеш.
  const allocated={...item('compat'),quantity:{value:200,unit:'ml'},nutritionBasis:{value:100,unit:'ml'},portion:206/270*100,
   planAllocation:{version:1,status:'allocated',letter:'б',referenceKey:'standard:dairy:3:б',referenceName:'кефір 1%',basis:{value:270,unit:'g',state:'as_sold'},conversion:{baseQuantity:{value:200,unit:'ml'},baseMassGrams:206,factor:1},normSource:'catalog',assignment:'manual'}};

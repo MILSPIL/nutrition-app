@@ -226,13 +226,13 @@ export default function TrainerDashboard() {
             </div>
             <div className="bg-white rounded-2xl p-3 text-center">
               <div className="text-[22px] font-bold text-[#34C759]">
-                {Object.values(clientMeals).filter(m => m?.totalMacros?.p >= 100).length}
+                {Object.values(clientMeals).filter(m => m?.totalMacros?.p >= 100 && !Object.keys(m?.foodNotes || {}).length).length}
               </div>
               <div className="text-[13px] text-[#8E8E93]">Норма ✓</div>
             </div>
             <div className="bg-white rounded-2xl p-3 text-center">
               <div className="text-[22px] font-bold text-[#FF9500]">
-                {Object.values(clientMeals).filter(m => m && m?.totalMacros?.p < 100).length}
+                {Object.values(clientMeals).filter(m => m && (m?.totalMacros?.p < 100 || Object.keys(m?.foodNotes || {}).length > 0)).length}
               </div>
               <div className="text-[13px] text-[#8E8E93]">В процесі</div>
             </div>

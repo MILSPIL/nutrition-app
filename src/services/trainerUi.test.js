@@ -42,7 +42,7 @@ beforeEach(()=>{
  jest.useRealTimers();Object.values(__access).forEach(fn=>fn.mockReset());__streams.length=0;__authListeners.length=0;
  user={uid:`client-${Date.now()}-${Math.random()}`,email:'client@example.test',emailVerified:true};props={isOpen:true,onClose:jest.fn(),firebaseUser:user,userName:'Клієнт'};
  __access.readState.mockResolvedValue(state());getDocsFromServer.mockResolvedValue({docs:[]});
- runTransaction.mockImplementation(async(db,fn)=>fn({get:async()=>({exists:()=>true}),set:jest.fn()}));
+ runTransaction.mockImplementation(async(db,fn)=>fn({get:async()=>({exists:()=>true,data:()=>undefined}),set:jest.fn()}));
  container=document.createElement('div');document.body.appendChild(container);root=createRoot(container);
 });
 afterEach(async()=>{await act(async()=>root.unmount());container.remove();jest.useRealTimers();});
@@ -78,6 +78,7 @@ test('A06 details clear all health state on denial and ignore later callbacks',a
  const meals=__streams.find(s=>s.ref.startsWith('users/client/mealHistory/'));
  const dates=stream('users/client/mealHistory'),measurements=stream('users/client/measurements');
  const food={meals:{1:{'Б':[{name:'Секретний кефір',weight:200,portion:100,p:3,f:2,c:4}]}},totalMacros:{p:6,f:4,c:8,cal:106}};
+ runTransaction.mockImplementation(async(db,fn)=>fn({get:async()=>snapshot(food)}));
  await act(async()=>{meals.next(snapshot(food));measurements.next({...snapshot({}),docs:[{id:'one',data:()=>({date:'2026-10-21',weight:70})}]});dates.next({...snapshot({}),docs:[{id:'2026-10-21'}]});});
  expect(container.textContent).toContain('Секретний кефір');
  await act(async()=>meals.error({code:'permission-denied'}));expect(container.textContent).not.toContain('Секретний кефір');expect(props.onAccessLost).toHaveBeenCalledTimes(1);

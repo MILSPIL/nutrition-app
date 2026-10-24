@@ -3,6 +3,7 @@ import { User, ChevronRight, Clock } from 'lucide-react';
 
 export default function ClientCard({ client, todayMeals, onClick, isLast }) {
   const macros = todayMeals?.totalMacros || { p: 0, f: 0, c: 0, cal: 0 };
+  const incomplete = Object.keys(todayMeals?.foodNotes || {}).length > 0;
   const proteinPercent = Math.round((macros.p / 140) * 100);
   const hasActivity = todayMeals && (Object.keys(todayMeals.meals || {}).some(k =>
     Object.keys(todayMeals.meals[k] || {}).length > 0
@@ -32,6 +33,8 @@ export default function ClientCard({ client, todayMeals, onClick, isLast }) {
       progressColor = '#FF9500';
     }
   }
+
+  if (incomplete) { statusBg = 'bg-[#FF9500]/10'; statusColor = 'text-[#9B6000]'; statusText = 'Підсумок неповний'; }
 
   // Час останнього оновлення
   const lastUpdate = todayMeals?.updatedAt

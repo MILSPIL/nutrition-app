@@ -33,7 +33,8 @@
     "test:trainer-ui": "node scripts/browser-test.mjs trainer-access",
     "test:hermes": "node scripts/trainer-chat-test.mjs",
     "test:hermes-ui": "node scripts/trainer-chat-ui.mjs",
-    "test:hermes-native": "node scripts/hermes-gateway-test.mjs"
+    "test:hermes-native": "node scripts/hermes-gateway-test.mjs",
+    "test:hermes-store": "node scripts/hermes-store-test.mjs"
   },
   "eslintConfig": {
     "extends": [

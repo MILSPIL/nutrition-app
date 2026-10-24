@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-24",
+  "plan": "HERMES-FOOD-01",
+  "step": 4,
+  "syntheticOnly": true,
+  "noPrivateProfileOrLiveApi": true,
+  "checks": {
+    "server": {
+      "passed": 118,
+      "todo": 10,
+      "failed": 0
+    },
+    "jest": {
+      "passed": 228,
+      "suites": 25
+    },
+    "previousWriterStore": 47,
+    "actualNotesStore": true,
+    "notesRules": 5,
+    "native": {
+      "actualHermes": true,
+      "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+      "firstTurnSeconds": 4.57,
+      "suiteSeconds": 21.521,
+      "providerCalls": 8,
+      "recoveryNoNewCalls": true,
+      "cancelNoResult": true,
+      "upstream429Calls": 1,
+      "deadlineStopsNative": true,
+      "killedUnknownCancelled": true,
+      "tools": [
+        "food_lookup",
+        "propose_food_draft",
+        "food_lookup"
+      ],
+      "profileFilesScanned": 40,
+      "mediaFragments": 114,
+      "mediaLeaks": 0,
+      "ownerIsolation": true,
+      "replayCalls": 0,
+      "syntheticOnly": true
+    },
+    "targetedDraftAndTools": 19
+  },
+  "reviews": {
+    "notes": "PASS",
+    "draftStorage": "PASS, independently repeated19/19"
+  },
+  "fixed": [
+    "atomic day+notes read",
+    "old marker and legacy nonce rules",
+    "concurrent conversion proof",
+    "native cleanup edit fence",
+    "save preparation CAS race",
+    "independent composer TTL",
+    "photo preserves consumed quantity",
+    "per-item note original text",
+    "complete meals exclude chat original text",
+    "deduplicated note provenance bounded at7900bytes and20rows"
+  ],
+  "remaining": [
+    "steps5-7",
+    "H01-H10 combined acceptance",
+    "live H11 and product acceptance"
+  ]
+}

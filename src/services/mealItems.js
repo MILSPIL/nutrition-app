@@ -1,6 +1,6 @@
-import { validatedPlanMatch } from './planCatalog';
+import { validatedPlanMatch } from './planCatalog.js';
 export const UNITS = { g: 'г', ml: 'мл', portion: 'порц.', package: 'уп.' };
-export const SOURCE_LABELS = { label: 'Етикетка', database: 'База продуктів', catalog: 'Каталог', estimate: 'Оцінка моделі', manual: 'Введено вручну', legacy: 'Попередній запис' };
+export const SOURCE_LABELS = { label: 'Етикетка', database: 'База продуктів', personal: 'Підтверджений особистий запис', catalog: 'Каталог', estimate: 'Оцінка моделі', manual: 'Введено вручну', legacy: 'Попередній запис' };
 export const newId = () => crypto.randomUUID();
 const finite = (x) => typeof x === 'number' && Number.isFinite(x);
 export const parseDecimal = (x) => x === '' || x == null ? null : Number(String(x).replace(',', '.'));

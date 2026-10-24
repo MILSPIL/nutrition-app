@@ -1,4 +1,4 @@
-import { itemMacros, roundMacros } from './mealItems';
+import { itemMacros, roundMacros } from './mealItems.js';
 const roundToOneDecimal = (value) => Math.round((value + 1e-9) * 10) / 10;
 
 export const createEmptyMeals = () => ({

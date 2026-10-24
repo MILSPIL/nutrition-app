@@ -1,5 +1,5 @@
-import { PRODUCTS_DB, DEFAULT_PORTIONS } from '../data/products';
-import { LETTER_GROUPS, STANDARD_FAMILIES, PLAN_CATALOG_VERSION } from '../data/planReferences';
+import { PRODUCTS_DB, DEFAULT_PORTIONS } from '../data/products.js';
+import { LETTER_GROUPS, STANDARD_FAMILIES, PLAN_CATALOG_VERSION } from '../data/planReferences.js';
 const own=(o,k)=>Object.prototype.hasOwnProperty.call(o||{},k);
 const positive=x=>typeof x==='number'&&Number.isFinite(x)&&x>0;
 export const planName=name=>String(name||'').normalize('NFKC').trim().toLocaleLowerCase('uk').replace(/\s+/g,' ');

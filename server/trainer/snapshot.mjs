@@ -1,3 +1,4 @@
+import { TRAINER_POLICY } from "./tools.mjs";
 import { LIMITS, fail, jsonBytes } from "./limits.mjs";
 // A bounded suffix of complete user/assistant pairs. Mandatory facts are never trimmed.
 export function buildSnapshot({
@@ -11,6 +12,8 @@ export function buildSnapshot({
   plan,
   message,
   history = [],
+  mediaBindings = [],
+  sentAt,
 }) {
   if (
     typeof context !== "string" ||
@@ -20,6 +23,9 @@ export function buildSnapshot({
     fail("message_too_large", 413);
   const snapshot = {
     schemaVersion: 1,
+    policy: TRAINER_POLICY,
+    mediaBindings,
+    ...(sentAt ? { sentAt, timeZone: "Europe/Kyiv" } : {}),
     conversationId,
     historyRevision,
     context,

@@ -1,3 +1,4 @@
+import { foodNotesSummary } from './foodNotes';
 import { PRODUCTS_DB } from '../data/products';
 import { buildPlanCatalog, planFingerprint } from './planCatalog';
 import { doc, getDocFromServer, runTransaction } from 'firebase/firestore';
@@ -14,11 +15,31 @@ const refs = (uid,date) => {
   if (!uid || !isDateKey(date)) throw new Error('invalid_target');
   return { owner: doc(db,'users',uid), day: doc(db,'users',uid,'mealHistory',date) };
 };
+async function readNotes(tx, uid, day) {
+  const notes=[];
+  for(const noteId of Object.keys(day?.foodNotes||{})) {
+    if(!/^[-a-zA-Z0-9_]{17,161}$/.test(noteId)) throw Error('invalid_food_note');
+    const snap=await tx.get(doc(db,'users',uid,'foodNotes',noteId));
+    if(!snap.exists()||snap.data().state!=='active') throw Error('note_conflict');
+    notes.push({...snap.data(),noteId});
+  }
+  return foodNotesSummary(notes);
+}
+export async function loadConfirmedDay(uid,date) {
+  return runTransaction(db,async tx=>{
+    const day=(await tx.get(refs(uid,date).day)).data();
+    if(!day)return null;
+    const summary=await readNotes(tx,uid,day);
+    return {...day,notes:summary.notes,incomplete:summary.incomplete};
+  });
+}
 export async function loadMealDay(uid, profileId, date) {
   const ref=refs(uid,date);
-  const [owner,day]=await Promise.all([getDocFromServer(ref.owner),getDocFromServer(ref.day)]);
-  const root=owner.data()||{},profile=root.users?.[profileId]||{};
-  return {...selectDay(profile,day.data(),date),planContext:{profile:{portions:profile.portions||{},customProducts:profile.customProducts||{},hiddenProducts:profile.hiddenProducts||[]},globalCustomProducts:root.globalCustomProducts||{},productOverrides:root.productOverrides||{}}};
+  return runTransaction(db,async tx=>{
+    const owner=await tx.get(ref.owner),day=await tx.get(ref.day),cap=await tx.get(doc(db,'releaseCapabilities',uid));
+    const root=owner.data()||{},profile=root.users?.[profileId]||{},summary=await readNotes(tx,uid,day.data());
+    return {...selectDay(profile,day.data(),date),notes:summary.notes,incomplete:summary.incomplete,notesEnabled:cap.data()?.notesEnabled===true&&cap.data()?.minimumWriterVersion===3,planContext:{profile:{portions:profile.portions||{},customProducts:profile.customProducts||{},hiddenProducts:profile.hiddenProducts||[]},globalCustomProducts:root.globalCustomProducts||{},productOverrides:root.productOverrides||{}}};
+  });
 }
 export async function readSubmission(uid,date,submissionId,hash) {
   const snap=await getDocFromServer(refs(uid,date).day);
@@ -30,8 +51,10 @@ export async function readSubmission(uid,date,submissionId,hash) {
 // У callback немає мережі провайдерів, генерації ID або змін React: Firestore може повторити його.
 export async function commitMealDay(uid, profileId, date, command) {
   const ref=refs(uid,date), hash=await commandHash(command), stamp=writerStamp();
+  const trainerCommand=['saveTrainerDraft','resolveFoodNote'].includes(command.type);
+  if(trainerCommand&&command.targetDate!==date) throw Error('invalid_target');
   try {
-    return await runTransaction(db, async tx => {
+    await runTransaction(db, async tx => {
       const ownerSnap=await tx.get(ref.owner);
       const daySnap=await tx.get(ref.day);
       const root=ownerSnap.data();
@@ -40,7 +63,7 @@ export async function commitMealDay(uid, profileId, date, command) {
       const legacy=user.legacyMeals || (!user.mealsDateKey && hasMeals(user.meals) ? user.meals : null);
       const previous=daySnap.data()?.submissionMarkers?.[command.submissionId];
       if(previous) {if(previous!==hash) throw Error('submission_conflict');return daySnap.data();}
-      if(command.type==='appendAllocated') {
+      if(command.type==='appendAllocated'||trainerCommand&&(command.items||[]).length) {
         const catalog=buildPlanCatalog({profile:user,globalCustomProducts:root.globalCustomProducts,productOverrides:root.productOverrides});
         if(command.planFingerprint!==await planFingerprint(catalog)) throw Error('plan_conflict');
         for(const item of command.items||[]) {
@@ -50,6 +73,23 @@ export async function commitMealDay(uid, profileId, date, command) {
             const ref=catalog.references.find(r=>r.referenceKey===a.referenceKey&&r.letter===a.letter);
             if(!ref||a.basis?.value!==ref.norm||a.basis?.state!==ref.basisState||a.normSource!==ref.normSource||a.referenceName!==ref.name) throw Error('invalid_allocation');
           }
+        }
+      }
+      let resolvedNote,cap;
+      const noteRefs=[];
+      if(trainerCommand) {
+        cap=(await tx.get(doc(db,'releaseCapabilities',uid))).data();
+        if((command.notes?.length||command.type==='resolveFoodNote')&&(cap?.notesEnabled!==true||cap?.minimumWriterVersion!==3))throw Error('notes_disabled');
+        if(command.type==='resolveFoodNote') {
+          if(typeof command.noteId!=='string'||!command.noteId||command.noteId.includes('/'))throw Error('invalid_food_note');
+          resolvedNote=(await tx.get(doc(db,'users',uid,'foodNotes',command.noteId))).data();
+          if(resolvedNote?.targetDate!==date)throw Error('note_conflict');
+        }
+        for(const note of command.notes||[]) {
+          if(typeof note?.itemId!=='string'||!/^[a-zA-Z0-9-]{8,80}$/.test(note.itemId))throw Error('invalid_food_note');
+          const noteRef=doc(db,'users',uid,'foodNotes',`${command.submissionId}_${note.itemId}`);
+          if((await tx.get(noteRef)).exists())throw Error('note_conflict');
+          noteRefs.push(noteRef);
         }
       }
       if (legacy && !command.confirmLegacy) throw new Error('legacy_date_required');
@@ -62,21 +102,24 @@ export async function commitMealDay(uid, profileId, date, command) {
         }
         effective={...command,meals:combined};
       }
-      const result=applyDayCommand(daySnap.data(),effective,hash);
+      const result=applyDayCommand(daySnap.data(),effective,hash,{resolvedNote});
       if (result.duplicate) return result.day;
       const projection={ ...user, meals: result.day.meals, mealsDateKey:date, mealRevision:result.day.revision };
       if (legacy) { projection.legacyMeals=legacy; projection.legacyMealsDateKey=date; }
       if (command.confirmLegacy) projection.legacyMeals=null;
       for (const key of ['activity','otherActivity','currentWeight','programDay']) if (command.metadata?.[key] !== undefined) projection[key]=command.metadata[key];
+      (result.noteWrites||[]).forEach((note,index)=>tx.set(noteRefs[index],{...note,...stamp}));
+      if(result.resolvedNote)tx.set(doc(db,'users',uid,'foodNotes',command.noteId),{...result.resolvedNote,...stamp});
       tx.set(ref.day,{...result.day,...stamp});
       tx.set(ref.owner,{ users:{ ...root.users,[profileId]:projection },...stamp,updatedAt:command.updatedAt },{mergeFields:['users','writerVersion','writerNonce','updatedAt']});
       return result.day;
     });
+    return await loadMealDay(uid,profileId,date);
   } catch (error) {
     // Читання з сервера може довести commit після невизначеного транспортного збою.
-    if (['unavailable','deadline-exceeded','unknown'].includes(error.code)) {
-      try { const day=await readSubmission(uid,date,command.submissionId,hash); if(day) return day; } catch (_) { /* чернетка залишається */ }
-      throw new Error('save_unknown');
+    if (['unavailable','deadline-exceeded','unknown','permission-denied','aborted'].includes(error.code)) {
+      try { const day=await readSubmission(uid,date,command.submissionId,hash); if(day) return await loadMealDay(uid,profileId,date); } catch (_) { /* чернетка залишається */ }
+      if (['unavailable','deadline-exceeded','unknown'].includes(error.code)) throw new Error('save_unknown');
     }
     throw error;
   }

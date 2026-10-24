@@ -1,3 +1,4 @@
+import { commandFromDraft } from "./drafts.mjs";
 import { abortable, boundedOperation } from "./deadline.mjs";
 import { buildSnapshot } from "./snapshot.mjs";
 import { LIMITS, fail, requireId } from "./limits.mjs";
@@ -40,6 +41,8 @@ export function createTrainerGateway({
   readContext,
   readDay,
   readPlan,
+  contextStore,
+  releaseTools = () => {},
   now = Date.now,
   runDeadlineMs = LIMITS.deadlineMs,
 }) {
@@ -65,6 +68,7 @@ export function createTrainerGateway({
         if (proof?.cleaned !== true) continue;
         media.remove(JSON.parse(turn.input).media || []);
         store.cleaned(turn.id);
+        releaseTools(turn.id);
       } catch {
         /* A durable job remains for independent timer/startup recovery. */
       }
@@ -131,6 +135,15 @@ export function createTrainerGateway({
   };
   async function maintain() {
     try {
+      store.maintainRetention();
+      for (const expired of store.expiredPending()) {
+        proxy.cancel(expired.id);
+        controllers.get(expired.id)?.abort();
+        const proof = await boundedOperation(() =>
+          backend.stop(store.internal(expired.id)),
+        ).catch(() => null);
+        if (proof?.stopped === true) store.cancel(expired.owner, expired.id);
+      }
       await cleanup();
       maintenanceFault = media.sweep().faults > 0;
     } catch {
@@ -154,6 +167,8 @@ export function createTrainerGateway({
       if (route === "/state" && method === "GET")
         return reply({
           ...c,
+          drafts: store.drafts(uid, id),
+          contextProposals: store.contextProposals(uid, id),
           maintenanceBlocked: maintenanceFault,
           currentTurn: store.current(uid, id),
           messages: store.history(uid, id),
@@ -194,7 +209,12 @@ export function createTrainerGateway({
           historyRevision: c.revision,
           context: context.text,
           contextRevision: context.revision,
-          draft: c.draft,
+          draft: store.drafts(uid, id).filter((d) => d.state !== "saved"),
+          mediaBindings: descriptors.map((p) => ({
+            ref: p.tempRef,
+            itemId: p.itemId,
+          })),
+          sentAt: new Date(now()).toISOString(),
           receipts: day.receipts || [],
           day,
           plan,
@@ -215,6 +235,95 @@ export function createTrainerGateway({
           store.get(uid, input.turnId),
           admitted.replayed ? 200 : 202,
         );
+      }
+      if (route === "/notes" && method === "POST") {
+        if (
+          !body ||
+          Object.keys(body).some(
+            (k) =>
+              !["text", "targetDate", "meal", "noteId", "itemId"].includes(k),
+          )
+        )
+          fail("invalid_request");
+        if (body.noteId) {
+          const day = await boundedOperation(
+            (s) => readDay(uid, body.targetDate, s),
+            5000,
+            signal,
+          );
+          const note = day.notes?.find(
+            (n) => n.noteId === body.noteId && n.state === "active",
+          );
+          if (!note || note.itemId !== body.itemId) fail("note_conflict", 409);
+        }
+        return reply(store.manualNote(uid, id, body));
+      }
+      const dmatch = route.match(
+        /^\/drafts\/([a-zA-Z0-9-]{16,80})(\/save|\/receipt|\/unknown)?$/,
+      );
+      if (dmatch) {
+        const draft = store.draft(uid, id, dmatch[1]);
+        if (method === "PUT" && !dmatch[2])
+          return reply(store.editDraft(uid, id, draft.draftId, body));
+        if (method === "POST" && dmatch[2] === "/save") {
+          if (!body || Object.keys(body).some((k) => k !== "baseRevision"))
+            fail("invalid_request");
+          if (draft.save) return reply(draft);
+          if (body.baseRevision !== draft.revision) fail("draft_conflict", 409);
+          const [day, plan] = await boundedOperation(
+            (s) =>
+              Promise.all([
+                readDay(uid, draft.targetDate, s),
+                readPlan(uid, s),
+              ]),
+            5000,
+            signal,
+          );
+          const prepared = await commandFromDraft(draft, {
+            planContext: plan.planContext || {},
+            meals: day.meals || {},
+            now,
+          });
+          if (prepared.command.notes?.length && !day.notesEnabled)
+            fail("notes_disabled", 409);
+          return reply(
+            store.beginSave(
+              uid,
+              id,
+              draft.draftId,
+              body.baseRevision,
+              prepared,
+            ),
+          );
+        }
+        if (method === "POST" && dmatch[2] === "/receipt") {
+          const proof = await boundedOperation(
+            (s) => readDay(uid, draft.targetDate, s),
+            5000,
+            signal,
+          );
+          return reply(store.confirmSaved(uid, id, draft.draftId, proof));
+        }
+        if (method === "POST" && dmatch[2] === "/unknown")
+          return reply(store.saveUnknown(uid, id, draft.draftId));
+      }
+      if (route === "/context" && method === "GET")
+        return reply(
+          await boundedOperation((s) => readContext(uid, s), 5000, signal),
+        );
+      const cmatch = route.match(/^\/context\/([a-zA-Z0-9-]{16,80})\/confirm$/);
+      if (cmatch && method === "POST") {
+        if (!contextStore) fail("context_unavailable", 503);
+        const p = store.contextProposal(uid, id, cmatch[1]);
+        const saved = contextStore.commit(p);
+        store.contextApplied(uid, id, p.proposalId);
+        return reply({ revision: saved.revision, proposalId: p.proposalId });
+      }
+      if (route === "/conversation/delete" && method === "POST") {
+        if (body?.conversationId !== id) fail("conversation_conflict", 409);
+        store.forget(uid, id);
+        await maintain();
+        return reply({ deleted: true });
       }
       const match = route.match(
         /^\/turns\/([a-zA-Z0-9-]{16,80})(\/cancel|\/recover)?$/,

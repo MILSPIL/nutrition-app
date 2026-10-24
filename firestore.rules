@@ -84,13 +84,16 @@ service cloud.firestore {
         && exists(userPath(uid)) && get(userPath(uid)).data.get('trainerId', null) == null;
     }
     function regularFields() { return ['users','globalCustomProducts','productOverrides','createdAt','updatedAt','writerVersion','writerNonce']; }
-    function writerValid(d) {
-      return d.get('writerVersion', 0) is int && d.get('writerVersion', 0) == 2
+    function capabilityPath(uid) { return /databases/$(database)/documents/releaseCapabilities/$(uid); }
+    function minimumWriter(uid) { return exists(capabilityPath(uid)) ? get(capabilityPath(uid)).data.get('minimumWriterVersion', 2) : 2; }
+    function notesEnabled(uid) { return exists(capabilityPath(uid)) && get(capabilityPath(uid)).data.get('notesEnabled', false) == true && minimumWriter(uid) == 3; }
+    function writerValid(d, uid) {
+      return d.get('writerVersion', 0) is int && d.get('writerVersion', 0) in [2,3] && d.writerVersion >= minimumWriter(uid)
         && d.get('writerNonce', '') is string
         && d.get('writerNonce', '').matches('^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$');
     }
-    function writerChanged() {
-      return writerValid(request.resource.data)
+    function writerChanged(uid) {
+      return writerValid(request.resource.data, uid)
         && request.resource.data.diff(resource.data).affectedKeys().hasAny(['writerNonce']);
     }
     function linkChangeOnly() {
@@ -112,23 +115,92 @@ service cloud.firestore {
       return owner(uid) && linkChangeOnly() && !acceptedProof(uid)
         && request.resource.data.trainerId == null && request.resource.data.trainerEmail == null;
     }
+    match /releaseCapabilities/{uid} {
+      allow read: if owner(uid);
+      allow write: if false;
+    }
+    function noteQuantity(q) {
+      return q is map && q.keys().hasAll(['value','unit']) && q.keys().hasOnly(['value','unit'])
+        && (q.value == null || q.value is number && q.value > 0 && q.value <= 100000)
+        && q.unit in ['g','ml','portion','package','unknown'];
+    }
+    function nullableNutrient(n) { return n == null || n is number && n >= 0 && n <= 100000; }
+    function noteNutrients(n) {
+      return n is map && n.keys().hasAll(['p','f','c','cal']) && n.keys().hasOnly(['p','f','c','cal'])
+        && nullableNutrient(n.p) && nullableNutrient(n.f) && nullableNutrient(n.c) && nullableNutrient(n.cal);
+    }
+    function noteSource(s) {
+      return s is map && s.keys().hasOnly(['kind','label','recordId','dataset','version','url','assumptions'])
+        && s.kind in ['label','database','personal','estimate','unknown','manual']
+        && s.get('label','') is string && s.get('label','').size() <= 400
+        && s.get('recordId','') is string && s.get('recordId','').size() <= 400
+        && s.get('dataset','') is string && s.get('dataset','').size() <= 400
+        && (s.get('version','') is string || s.get('version',0) is int)
+        && s.get('url','') is string && s.get('url','').size() <= 400
+        && s.get('assumptions',[]) is list && s.get('assumptions',[]).size() <= 9;
+    }
+    function noteMarker(uid, n) {
+      let day = getAfter(/databases/$(database)/documents/users/$(uid)/mealHistory/$(n.targetDate)).data;
+      return n.submissionId.matches('^[a-zA-Z0-9-]{8,80}$') && n.commandHash.matches('^[a-f0-9]{64}$')
+        && day.writerVersion == 3 && day.writerNonce == n.writerNonce && day.submissionMarkers[n.submissionId] == n.commandHash
+        && (!exists(/databases/$(database)/documents/users/$(uid)/mealHistory/$(n.targetDate)) || (
+          get(/databases/$(database)/documents/users/$(uid)/mealHistory/$(n.targetDate)).data.get('writerNonce','') != day.writerNonce
+          && !(n.submissionId in get(/databases/$(database)/documents/users/$(uid)/mealHistory/$(n.targetDate)).data.get('submissionMarkers',{}))));
+    }
+    function resolvedItem(uid,n) {
+      let path = /databases/$(database)/documents/users/$(uid)/mealHistory/$(n.targetDate);
+      let rows = getAfter(path).data.meals[n.mealKey][n.group];
+      let oldRows = get(path).data.get('meals',{}).get(n.mealKey,{}).get(n.group,[]);
+      let item = rows[n.itemIndex];
+      return n.mealKey in ['1','2','3','4'] && n.group in ['voice','а','б','в','г','д','е','є','ж','з','и','і','ї','й']
+        && n.itemIndex is int && n.itemIndex == oldRows.size() && rows.size() == oldRows.size()+1
+        && item.itemId == n.itemId && text(item.name,160)
+        && noteQuantity(item.quantity) && item.quantity.value != null && item.quantity.unit != 'unknown'
+        && noteQuantity(item.nutritionBasis) && item.nutritionBasis.value != null && item.nutritionBasis.unit != 'unknown'
+        && (item.quantity.unit == item.nutritionBasis.unit || item.get('density',0) > 0 && item.quantity.unit in ['g','ml'] && item.nutritionBasis.unit in ['g','ml'])
+        && noteNutrients(item.nutrients) && item.nutrients.p != null && item.nutrients.f != null && item.nutrients.c != null && item.nutrients.cal != null;
+    }
+    function validNote(n, id) {
+      return n.keys().hasAll(['itemId','name','quantity','knownNutrients','nutritionBasis','provenance','originalText','originDraft','noteId','state','targetDate','meal','submissionId','commandHash','createdAt','writerVersion','writerNonce'])
+        && n.keys().hasOnly(['itemId','name','quantity','knownNutrients','nutritionBasis','provenance','originalText','originDraft','noteId','state','targetDate','meal','submissionId','commandHash','createdAt','writerVersion','writerNonce'])
+        && n.noteId == id && id == n.submissionId + '_' + n.itemId && n.itemId.matches('^[a-zA-Z0-9-]{8,80}$')
+        && n.state == 'active' && n.targetDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && n.meal in [1,2,3,4] && text(n.name,160) && text(n.originDraft,80)
+        && n.originalText is string && n.originalText.size() <= 8000 && text(n.createdAt,80)
+        && noteQuantity(n.quantity) && noteQuantity(n.nutritionBasis) && noteNutrients(n.knownNutrients) && noteSource(n.provenance);
+    }
     match /users/{uid} {
       allow get, list: if owner(uid);
       allow create: if owner(uid) && request.resource.data.keys().hasOnly(regularFields().concat(['trainerId','trainerEmail']))
         && request.resource.data.get('trainerId', null) == null
-        && request.resource.data.get('trainerEmail', null) == null && writerValid(request.resource.data);
+        && request.resource.data.get('trainerEmail', null) == null && writerValid(request.resource.data, uid);
       allow update: if (owner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(regularFields())
-        && writerChanged()) || legacyClear(uid) || linkAccept(uid) || linkDisconnect(uid);
+        && writerChanged(uid)) || legacyClear(uid) || linkAccept(uid) || linkDisconnect(uid);
       allow delete: if false;
       match /mealHistory/{day} {
         allow read: if owner(uid) || assigned(uid);
-        allow create: if owner(uid) && writerValid(request.resource.data);
-        allow update: if owner(uid) && writerChanged();
+        allow create: if owner(uid) && writerValid(request.resource.data, uid);
+        allow update: if owner(uid) && writerChanged(uid);
+      }
+      match /foodNotes/{noteId} {
+        allow read: if owner(uid) || assigned(uid);
+        allow create: if owner(uid) && notesEnabled(uid) && request.resource.data.writerVersion == 3
+          && writerValid(request.resource.data,uid) && validNote(request.resource.data,noteId) && noteMarker(uid,request.resource.data)
+          && noteId in getAfter(/databases/$(database)/documents/users/$(uid)/mealHistory/$(request.resource.data.targetDate)).data.foodNotes;
+        allow update: if owner(uid) && notesEnabled(uid) && writerChanged(uid)
+          && resource.data.state == 'active' && request.resource.data.state == 'resolved'
+          && request.resource.data.keys().hasAll(['noteId','itemId','targetDate','state','submissionId','commandHash','resolvedAt','writerVersion','writerNonce','mealKey','group','itemIndex'])
+          && request.resource.data.keys().hasOnly(['noteId','itemId','targetDate','state','submissionId','commandHash','resolvedAt','writerVersion','writerNonce','mealKey','group','itemIndex'])
+          && request.resource.data.noteId == noteId && request.resource.data.itemId == resource.data.itemId
+          && request.resource.data.targetDate == resource.data.targetDate && text(request.resource.data.resolvedAt,80)
+          && noteMarker(uid,request.resource.data) && resolvedItem(uid,request.resource.data)
+          && !(noteId in getAfter(/databases/$(database)/documents/users/$(uid)/mealHistory/$(resource.data.targetDate)).data.foodNotes);
+        allow delete: if false;
       }
       match /measurements/{measurement} {
         allow read: if owner(uid) || assigned(uid);
-        allow create: if owner(uid) && writerValid(request.resource.data);
-        allow update: if owner(uid) && writerChanged();
+        allow create: if owner(uid) && writerValid(request.resource.data, uid);
+        allow update: if owner(uid) && writerChanged(uid);
       }
     }
     match /trainers/{uid} {

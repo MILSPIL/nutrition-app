@@ -1,3 +1,5 @@
+import { attachRetention } from "./retention.mjs";
+import { attachDraftStore } from "./drafts.mjs";
 import { DatabaseSync } from "node:sqlite";
 import {
   openSync,
@@ -28,7 +30,8 @@ export function openTurnStore(
     dir.mode & 0o077
   )
     fail("trainer_permissions", 503);
-  if (!existsSync(file)) closeSync(openSync(file, "wx", 0o600));
+  const fresh = !existsSync(file);
+  if (fresh) closeSync(openSync(file, "wx", 0o600));
   const identity = lstatSync(file);
   if (
     !identity.isFile() ||
@@ -41,10 +44,13 @@ export function openTurnStore(
     nonce = randomUUID();
   let closed = false,
     claimed = false;
+  let retention = null,
+    inTransaction = false;
   const hash = (value) =>
     createHmac("sha256", hmacKey).update(stableJSON(value)).digest("hex");
   const check = () => {
     if (closed) fail("trainer_unavailable", 503);
+    if (!inTransaction) retention?.sync();
     const s = lstatSync(file);
     if (s.ino !== identity.ino || s.dev !== identity.dev)
       fail("trainer_replaced", 503);
@@ -52,6 +58,7 @@ export function openTurnStore(
   const tx = (fn) => {
     check();
     db.exec("BEGIN IMMEDIATE");
+    inTransaction = true;
     try {
       const value = fn();
       db.exec("COMMIT");
@@ -59,6 +66,8 @@ export function openTurnStore(
     } catch (e) {
       db.exec("ROLLBACK");
       throw e;
+    } finally {
+      inTransaction = false;
     }
   };
   try {
@@ -66,7 +75,7 @@ export function openTurnStore(
    CREATE TABLE IF NOT EXISTS trainer_meta(version INTEGER NOT NULL);
    CREATE TABLE IF NOT EXISTS runtime_owner(id INTEGER PRIMARY KEY CHECK(id=1),pid INTEGER NOT NULL,nonce TEXT NOT NULL);
    CREATE TABLE IF NOT EXISTS conversations(id TEXT PRIMARY KEY,owner TEXT UNIQUE NOT NULL,generation INTEGER NOT NULL DEFAULT 1,revision INTEGER NOT NULL DEFAULT 0,composer TEXT NOT NULL DEFAULT '{"text":"","revision":0}',draft TEXT,created INTEGER NOT NULL);
-   CREATE TABLE IF NOT EXISTS turns(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL REFERENCES conversations(id),payload_hmac TEXT NOT NULL,snapshot_hmac TEXT NOT NULL,snapshot TEXT NOT NULL,input TEXT NOT NULL,state TEXT NOT NULL,generation INTEGER NOT NULL,base_revision INTEGER NOT NULL,created INTEGER NOT NULL,deadline INTEGER NOT NULL,run_id TEXT,session_id TEXT,result TEXT,error TEXT,call_count INTEGER NOT NULL DEFAULT 0);
+   CREATE TABLE IF NOT EXISTS turns(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL REFERENCES conversations(id),payload_hmac TEXT NOT NULL,snapshot_hmac TEXT NOT NULL,snapshot TEXT NOT NULL,input TEXT NOT NULL,state TEXT NOT NULL,generation INTEGER NOT NULL,base_revision INTEGER NOT NULL,created INTEGER NOT NULL,deadline INTEGER NOT NULL,run_id TEXT,session_id TEXT,result TEXT,error TEXT,call_count INTEGER NOT NULL DEFAULT 0,expired INTEGER NOT NULL DEFAULT 0);
    CREATE TABLE IF NOT EXISTS leases(token_hash TEXT PRIMARY KEY,turn_id TEXT NOT NULL REFERENCES turns(id),generation INTEGER NOT NULL,call_number INTEGER NOT NULL,deadline INTEGER NOT NULL,consumed INTEGER NOT NULL DEFAULT 0,reserve_id TEXT UNIQUE NOT NULL);
    CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY,conversation_id TEXT NOT NULL REFERENCES conversations(id),turn_id TEXT NOT NULL,role TEXT NOT NULL,content TEXT NOT NULL,created INTEGER NOT NULL);
    CREATE TABLE IF NOT EXISTS call_receipts(reserve_id TEXT PRIMARY KEY,turn_id TEXT NOT NULL REFERENCES turns(id),payload_hmac TEXT NOT NULL,history_ids TEXT NOT NULL,created INTEGER NOT NULL);
@@ -79,6 +88,15 @@ export function openTurnStore(
       db.prepare("PRAGMA quick_check").get().quick_check !== "ok"
     )
       fail("trainer_store_invalid", 503);
+    if (
+      !db
+        .prepare("PRAGMA table_info(turns)")
+        .all()
+        .some((c) => c.name === "expired")
+    )
+      db.exec(
+        "ALTER TABLE turns ADD COLUMN expired INTEGER NOT NULL DEFAULT 0",
+      );
     tx(() => {
       const owner = db.prepare("SELECT * FROM runtime_owner WHERE id=1").get();
       if (owner) {
@@ -121,6 +139,7 @@ export function openTurnStore(
   }
   const conversation = (uid, id) => {
     check();
+    if (retention?.closed(id)) fail("conversation_gone", 410);
     const row = db
       .prepare("SELECT * FROM conversations WHERE id=? AND owner=?")
       .get(id, uid);
@@ -143,6 +162,7 @@ export function openTurnStore(
     return row;
   };
   const view = (row) => {
+    if (row.expired) fail("turn_gone", 410);
     const cleanupPending = !!db
       .prepare("SELECT 1 FROM cleanup_jobs WHERE turn_id=?")
       .get(row.id);
@@ -162,6 +182,7 @@ export function openTurnStore(
     };
   };
   const active = (row) => {
+    if (row.expired) fail("turn_gone", 410);
     if (row.state !== "running" || row.generation !== row.current_generation)
       fail("turn_inactive", 409);
     if (now() >= row.deadline) fail("turn_expired", 409);
@@ -177,6 +198,7 @@ export function openTurnStore(
     });
   const replay = (uid, id, input) => {
     conversation(uid, id);
+    if (retention?.gone(input.turnId)) fail("turn_gone", 410);
     const previous = db
       .prepare("SELECT * FROM turns WHERE id=?")
       .get(input.turnId);
@@ -190,7 +212,36 @@ export function openTurnStore(
     db
       .prepare("INSERT OR IGNORE INTO cleanup_jobs VALUES(?,?,?,0)")
       .run(row.id, row.session_id ?? null, now());
+  const drafts = attachDraftStore({
+    db,
+    tx,
+    conversation,
+    own,
+    internal,
+    active,
+    now,
+  });
+  try {
+    retention = attachRetention({ db, file, key: hmacKey, now, fresh });
+    retention.sync();
+  } catch (e) {
+    db.prepare("DELETE FROM runtime_owner WHERE id=1 AND nonce=?").run(nonce);
+    db.close();
+    throw e;
+  }
+  const retentionTimer = setInterval(() => {
+    try {
+      retention.sync();
+    } catch {
+      /* All public operations recheck and refuse on failure. */
+    }
+  }, 3600000);
+  retentionTimer.unref();
   return {
+    ...drafts,
+    maintainRetention: () => retention.sync(),
+    forget: retention.forget,
+    expiredPending: retention.expiredPending,
     hash,
     replay,
     conversation(uid) {
@@ -211,7 +262,9 @@ export function openTurnStore(
           conversationId: c.id,
           revision: c.revision,
           generation: c.generation,
-          composer: JSON.parse(c.composer),
+          composer: (({ text, revision }) => ({ text, revision }))(
+            JSON.parse(c.composer),
+          ),
           draft: c.draft ? JSON.parse(c.draft) : null,
         };
       });
@@ -234,17 +287,18 @@ export function openTurnStore(
         const c = conversation(uid, id),
           old = JSON.parse(c.composer);
         if (old.revision !== baseRevision) fail("composer_conflict", 409);
-        const value = { text, revision: baseRevision + 1 };
+        const value = { text, revision: baseRevision + 1, updatedAt: now() };
         db.prepare("UPDATE conversations SET composer=? WHERE id=?").run(
           JSON.stringify(value),
           id,
         );
-        return value;
+        return { text: value.text, revision: value.revision };
       });
     },
     admit(uid, id, input, snapshot) {
       requireId(input.turnId);
       return tx(() => {
+        if (retention.gone(input.turnId)) fail("turn_gone", 410);
         const c = conversation(uid, id),
           key = payloadHash(uid, id, input);
         const previous = db
@@ -285,6 +339,7 @@ export function openTurnStore(
       });
     },
     get(uid, id) {
+      if (retention.gone(id)) fail("turn_gone", 410);
       return view(own(uid, id));
     },
     current(uid, id) {
@@ -406,6 +461,7 @@ export function openTurnStore(
       return tx(() => {
         const row = internal(id);
         if (
+          row.expired ||
           !["running", "unknown"].includes(row.state) ||
           row.generation !== generation ||
           row.current_generation !== generation
@@ -423,6 +479,11 @@ export function openTurnStore(
           /data:image\/|data:audio\//i.test(result.text)
         )
           fail("invalid_response", 502);
+        const draftResults = drafts.publish(row);
+        const committed = {
+          ...result,
+          ...(draftResults.length ? { drafts: draftResults } : {}),
+        };
         db.prepare("INSERT INTO messages VALUES(?,?,?,?,?,?)").run(
           id + "-u",
           row.conversation_id,
@@ -444,7 +505,7 @@ export function openTurnStore(
         ).run(row.conversation_id);
         db.prepare(
           "UPDATE turns SET state='completed',result=?,error=NULL WHERE id=?",
-        ).run(stableJSON(result), id);
+        ).run(stableJSON(committed), id);
         job(row);
         return view(internal(id));
       });
@@ -475,7 +536,9 @@ export function openTurnStore(
           "UPDATE conversations SET generation=generation+1 WHERE id=?",
         ).run(row.conversation_id);
         job(row);
-        return view(internal(id));
+        return row.expired
+          ? { turnId: id, state: "cancelled", expired: true }
+          : view(internal(id));
       });
     },
     cleanupJobs() {
@@ -505,6 +568,7 @@ export function openTurnStore(
     },
     close() {
       if (closed) return;
+      clearInterval(retentionTimer);
       try {
         if (claimed)
           db.prepare("DELETE FROM runtime_owner WHERE id=1 AND nonce=?").run(
