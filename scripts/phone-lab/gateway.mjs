@@ -499,6 +499,7 @@ export async function createPhoneGateway({
             ".js": "application/javascript",
             ".css": "text/css",
             ".png": "image/png",
+            ".webp": "image/webp",
             ".ico": "image/x-icon",
             ".json": "application/json",
             ".svg": "image/svg+xml",

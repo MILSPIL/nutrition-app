@@ -1,0 +1,307 @@
+{
+  "plan": "HERMES-COACH-02",
+  "date": "2026-10-24",
+  "scope": "Локальна синтетична перевірка phone-lab, без реальних API, ключів і сервера.",
+  "appVersion": "1.9.0",
+  "sourceSha256": {
+    "scripts/phone-lab-browser.mjs": "4a58c6f4de1282741aac00a13a2c4a10ba58b30e12a4935c701a451dea99d8f7",
+    "scripts/phone-lab/gateway.mjs": "6b16a6bfdbda4b324495f05288808c62b05ecaeab2ffbcf5efdd52b436475525",
+    "scripts/phone-lab/gateway.test.mjs": "bcaac4e263bf5a3ec44503284fa3a3dc2407e276ba931e09f97d155c52eb3a55"
+  },
+  "changes": [
+    "Перевірка версії та новин бере поточний реліз і звіряє його з package.json.",
+    "Вісім версійованих WebP перевіряються через asset-manifest зібраного застосунку.",
+    "Локальний gateway повертає image/webp; помилку MIME відтворено тестом до виправлення.",
+    "HTTP-помилки будь-якого ресурсу в усіх власних вкладках залишаються блокером, діагностика зберігає шлях, статус, метод, тип і timing без заголовків, query та вмісту відповіді."
+  ],
+  "unit": {
+    "gatewayRed": {
+      "expected": "image/webp",
+      "observed": "application/octet-stream"
+    },
+    "gatewayGreen": {
+      "passed": 3,
+      "failed": 0
+    },
+    "phoneLabSuite": {
+      "passed": 17,
+      "failed": 0
+    }
+  },
+  "browserRuns": [
+    {
+      "command": "/Users/user/.local/bin/agent-test-browser run scisense-phone-lab",
+      "mode": "full",
+      "passed": 50,
+      "fixtureOnly": true,
+      "paidCalls": 0,
+      "providerFixtureCalls": {
+        "transcribe": 1,
+        "analyze": 2
+      },
+      "httpFailures": 0,
+      "javascriptErrors": 0,
+      "unexpectedNetwork": 0,
+      "categoryIcons": [
+        {
+          "path": "/static/media/category-vegetables.3348e6dd4b1722ff21a7.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        },
+        {
+          "path": "/static/media/category-carbs.4374b9b5c895a1c17870.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        },
+        {
+          "path": "/static/media/category-protein.d3327617c6e42b69c4a2.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        },
+        {
+          "path": "/static/media/category-nuts.0764884f5cfdf57bfacd.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        },
+        {
+          "path": "/static/media/category-fruits.4315d2648341b7c58321.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        },
+        {
+          "path": "/static/media/category-treats.56d2d973943a022e83fe.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        },
+        {
+          "path": "/static/media/category-dairy.e41aff5432433ffb9fd9.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        },
+        {
+          "path": "/static/media/category-fats.366560c3c205cb8694fd.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        }
+      ],
+      "checks": [
+        "STT-only не має ключа Anthropic",
+        "Контрольний діагностичний запит SDK заблоковано локально",
+        "Форма сполучення: зовнішні відступи 24/24",
+        "Новини показують людську версію та погоджений сценарій старту",
+        "Історія новин зберігає актуальний домен",
+        "welcome 390: межі header/content/footer 0 px",
+        "welcome 390: спільні внутрішні відступи 16 px",
+        "Закриття новин зберігає людську версію",
+        "SDK увійшов через HTTPS Auth emulator",
+        "Усі 8 іконок мають image content-type та декодуються",
+        "Початкова мова автоматична",
+        "Мова 375: горизонтальні відхилення 0 px",
+        "Мова 375: проміжок до запису 10 px",
+        "Мова 390: горизонтальні відхилення 0 px",
+        "Мова 390: проміжок до запису 10 px",
+        "Мова 1366: горизонтальні відхилення 0 px",
+        "Мова 1366: проміжок до запису 10 px",
+        "Сервер прочитав справжній WAV браузера",
+        "Мова з select дійшла до parser",
+        "Groq: точні URL, модель, мова та WAV filename",
+        "Аналіз дозволений тільки звичайному сценарію",
+        "Аналіз дозволений тільки звичайному сценарію",
+        "Сервер прочитав нормалізоване фото",
+        "200 г із фото дає 106 ккал",
+        "Firestore HTTPS запис перечитано після reload без дубля",
+        "Після reload закриті новини не повторюються",
+        "Оновлення з 1.6.0: показана версія 1.9.0",
+        "Оновлення з 1.6.0: збережений прийом не втрачений і не дубльований",
+        "Оновлення з bad8217421d0eff859b920885d849e3e121cbf72: показана версія 1.9.0",
+        "Оновлення з bad8217421d0eff859b920885d849e3e121cbf72: збережений прийом не втрачений і не дубльований",
+        "Оновлену збірку не утримує старий service worker",
+        "Прев’ю звіту містить збережені 200 г і 106 ккал без Telegram CTA",
+        "Справжній clipboard містить точний текст синтетичного звіту",
+        "report 375: межі header/content/footer 0 px",
+        "report 375: спільні внутрішні відступи 16 px",
+        "report 390: межі header/content/footer 0 px",
+        "report 390: спільні внутрішні відступи 16 px",
+        "report 1366: межі header/content/footer 0 px",
+        "report 1366: спільні внутрішні відступи 16 px",
+        "Мовна перевага пережила reload і повторне відкриття",
+        "У localStorage записана тільки мовна перевага",
+        "Запис належить дозволеному тестовому UID",
+        "Історію прийомів прочитано без помилки",
+        "Запит пройшов Groq adapter з підставним транспортом",
+        "Повний сценарій: два аналізи та одне збереження",
+        "Один день має revision 1 і один маркер збереження",
+        "Жодного прямого HTTP, production або AI API браузера",
+        "Немає помилок JavaScript",
+        "Немає HTTP-помилок застосунку, API та статичних ресурсів",
+        "Немає зламаних зображень"
+      ],
+      "buildMainJs": "main.ed83f7a0.js",
+      "cleanup": {
+        "context": true,
+        "browser": true,
+        "gateway": true,
+        "budget": true,
+        "ok": true
+      },
+      "launcher": {
+        "session": "07daefa784404455-b614gl1e",
+        "exitCode": 0,
+        "cleanup_ok": true,
+        "removed": true
+      },
+      "localEvidence": "tmp/phone-lab-qa/evidence.json"
+    },
+    {
+      "command": "/Users/user/.local/bin/agent-test-browser run scisense-phone-lab -- --stt-only",
+      "mode": "stt_only",
+      "passed": 34,
+      "fixtureOnly": true,
+      "paidCalls": 0,
+      "providerFixtureCalls": {
+        "transcribe": 1,
+        "analyze": 0
+      },
+      "httpFailures": 0,
+      "javascriptErrors": 0,
+      "unexpectedNetwork": 0,
+      "categoryIcons": [
+        {
+          "path": "/static/media/category-vegetables.3348e6dd4b1722ff21a7.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        },
+        {
+          "path": "/static/media/category-carbs.4374b9b5c895a1c17870.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        },
+        {
+          "path": "/static/media/category-protein.d3327617c6e42b69c4a2.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        },
+        {
+          "path": "/static/media/category-nuts.0764884f5cfdf57bfacd.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        },
+        {
+          "path": "/static/media/category-fruits.4315d2648341b7c58321.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        },
+        {
+          "path": "/static/media/category-treats.56d2d973943a022e83fe.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        },
+        {
+          "path": "/static/media/category-dairy.e41aff5432433ffb9fd9.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        },
+        {
+          "path": "/static/media/category-fats.366560c3c205cb8694fd.webp",
+          "status": 200,
+          "type": "image/webp",
+          "width": 192,
+          "height": 192
+        }
+      ],
+      "checks": [
+        "STT-only не має ключа Anthropic",
+        "Контрольний діагностичний запит SDK заблоковано локально",
+        "Форма сполучення: зовнішні відступи 24/24",
+        "Новини показують людську версію та погоджений сценарій старту",
+        "Історія новин зберігає актуальний домен",
+        "welcome 390: межі header/content/footer 0 px",
+        "welcome 390: спільні внутрішні відступи 16 px",
+        "Закриття новин зберігає людську версію",
+        "SDK увійшов через HTTPS Auth emulator",
+        "Усі 8 іконок мають image content-type та декодуються",
+        "Початкова мова автоматична",
+        "Мова 375: горизонтальні відхилення 0 px",
+        "Мова 375: проміжок до запису 10 px",
+        "Мова 390: горизонтальні відхилення 0 px",
+        "Мова 390: проміжок до запису 10 px",
+        "Мова 1366: горизонтальні відхилення 0 px",
+        "Мова 1366: проміжок до запису 10 px",
+        "Сервер прочитав справжній WAV браузера",
+        "Мова з select дійшла до parser",
+        "Groq: точні URL, модель, мова та WAV filename",
+        "STT-only показує транскрипцію без редагування",
+        "STT-only не показує фото, продукти та Додати",
+        "STT-only пояснює обмеження українською",
+        "Після reload закриті новини не повторюються",
+        "Мовна перевага пережила reload і повторне відкриття",
+        "У localStorage записана тільки мовна перевага",
+        "Запис належить дозволеному тестовому UID",
+        "Історію прийомів прочитано без помилки",
+        "Запит пройшов Groq adapter з підставним транспортом",
+        "STT-only: нуль analyze, записів прийому й резерву Anthropic",
+        "Жодного прямого HTTP, production або AI API браузера",
+        "Немає помилок JavaScript",
+        "Немає HTTP-помилок застосунку, API та статичних ресурсів",
+        "Немає зламаних зображень"
+      ],
+      "buildMainJs": "main.bef71e91.js",
+      "cleanup": {
+        "context": true,
+        "browser": true,
+        "gateway": true,
+        "budget": true,
+        "ok": true
+      },
+      "launcher": {
+        "session": "f13eab2ac2f9414c-06hp8g7y",
+        "exitCode": 0,
+        "cleanup_ok": true,
+        "removed": true
+      },
+      "localEvidence": "tmp/phone-lab-stt-only-qa/evidence.json"
+    }
+  ],
+  "priorCiFailure": {
+    "runId": "40129239987",
+    "path": "/google.firestore.v1.Firestore/Listen/channel",
+    "status": 502,
+    "reproducedLocally": false,
+    "proxyCancellationChanged": false,
+    "conclusion": "Причину попереднього 502 не встановлено. Жодної помилки API не ігнорують; локально в обох режимах HTTP-помилок не було."
+  },
+  "limitations": [
+    "Це синтетична локальна перевірка, вона не підтверджує приймання Юрієм або розгортання на ntzg.pp.ua.",
+    "Повторний CI на остаточному SHA потрібний після інтеграції паралельних змін."
+  ]
+}

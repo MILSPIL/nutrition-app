@@ -92,6 +92,7 @@ test("HTTPS pairing, origin, expiry, private static files; no unpaired API", asy
     });
   try {
     await writeFile(path.join(dir, "index.html"), "LAB");
+    await writeFile(path.join(dir, "category-fixture.webp"), "RIFF0000WEBPfixture");
     gateway = await createPhoneGateway({
       host: "127.0.0.1",
       port: 9445,
@@ -148,6 +149,10 @@ test("HTTPS pairing, origin, expiry, private static files; no unpaired API", asy
       401,
     );
     assert.equal((await get("/", "GET", { cookie })).body, "LAB");
+    const icon = await get("/category-fixture.webp", "GET", { cookie });
+    assert.equal(icon.status, 200);
+    assert.equal(icon.headers["content-type"], "image/webp");
+    assert.equal(icon.body, "RIFF0000WEBPfixture");
     assert.equal(
       (await get("/lab/status", "GET", { cookie })).body,
       JSON.stringify({ project: PROJECT, uid: UID, live: false, mode: "full" }),

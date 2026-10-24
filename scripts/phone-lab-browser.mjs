@@ -7,6 +7,7 @@ import { generateTls } from "./phone-lab/tls.mjs";
 import { localBudget } from "./phone-lab/sqlite.mjs";
 import { callProvider } from "../workers/meal-parser/src/providers.js";
 import { browserRuntime } from "./browser-runtime.mjs";
+import { APP_VERSION, CURRENT_RELEASE } from "../src/data/releases.js";
 
 const args = process.argv.slice(2);
 if (args.some((arg) => arg !== "--stt-only")) throw Error("unknown_qa_argument");
@@ -16,10 +17,14 @@ const language = sttOnly ? "ru" : "uk";
 const transcript = "Випив тестовий кефір, 200 грамів";
 const { chromium } = await browserRuntime();
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const packageVersion = JSON.parse(await readFile(path.join(root, "package.json"), "utf8")).version;
+assert.equal(APP_VERSION, packageVersion, "release version must match package version");
+const buildDir = path.join(root, "tmp/phone-lab-qa-build");
 const out = path.join(root, sttOnly ? "tmp/phone-lab-stt-only-qa" : "tmp/phone-lab-qa");
 await mkdir(out, { recursive: true });
 const evidence = {
   mode,
+  appVersion: APP_VERSION,
   fixtureOnly: true,
   paidCalls: 0,
   checks: [],
@@ -149,7 +154,7 @@ try {
     port: 8444,
     key: tls.key,
     cert: tls.cert,
-    buildDir: path.join(root, "tmp/phone-lab-qa-build"),
+    buildDir,
     apiEnv,
     provider: async (kind, payload, env, options) => {
       evidence.providerCalls[kind]++;
@@ -212,9 +217,15 @@ try {
   page = await context.newPage();
   page.setDefaultTimeout(15000);
   page.on("pageerror", (e) => evidence.errors.push(e.message));
-  page.on("response", (res) => {
-    if (res.status() >= 400)
-      evidence.failedRoutes.push({ path: new URL(res.url()).pathname, status: res.status() });
+  const failedResponseReads = [];
+  context.on("response", (res) => {
+    if (res.status() < 400) return;
+    const request = res.request(), url = new URL(res.url());
+    const failure = { path: url.pathname, status: res.status(), method: request.method(), type: request.resourceType(), timing: request.timing() };
+    evidence.failedRoutes.push(failure);
+    failedResponseReads.push(res.text().then(body => {
+      try { const code = JSON.parse(body)?.error; if(typeof code === 'string' && /^[a-z_]+$/.test(code)) failure.error = code; } catch { /* No response payload is persisted. */ }
+    }).catch(() => { failure.responseBodyUnavailable = true; }));
   });
   page.on("dialog", (dialog) => dialog.accept());
   await context.route("**/*", async (route) => {
@@ -267,24 +278,28 @@ try {
   await page.getByLabel("Код сполучення").fill(code);
   await page.getByRole("button", { name: "Підключити телефон" }).click();
   await page.getByRole("button", { name: "Увійти в тестовий простір" }).click();
-  await page.getByText("Що нового у v1.8.0", { exact: true }).waitFor();
+  await page.getByText(`Що нового у v${APP_VERSION}`, { exact: true }).waitFor();
   check("Новини показують людську версію та погоджений сценарій старту",
-    await page.getByText("Версія 1.8.0", { exact: true }).count() === 1 &&
-    await page.getByText("Запис починається після кнопки «Почати запис»", { exact: true }).count() === 1);
+    await page.getByText(`Версія ${APP_VERSION}`, { exact: true }).count() === 1 &&
+    (await Promise.all(CURRENT_RELEASE.changes.map(change => page.getByText(change, { exact: true }).count()))).every(count => count === 1));
   check("Історія новин зберігає актуальний домен",
     await page.locator("details").getByText("• Адреса застосунку: ntzg.pp.ua", { exact: true }).count() === 1);
-  await measureModal("welcome", page.getByText("Що нового у v1.8.0", { exact: true }), 390);
+  await measureModal("welcome", page.getByText(`Що нового у v${APP_VERSION}`, { exact: true }), 390);
   await page.getByRole("button", { name: "Почати!", exact: true }).click();
   await page.getByRole("button", { name: "Почати!", exact: true }).waitFor({ state: "hidden" });
   check("Закриття новин зберігає людську версію",
-    await page.evaluate(() => localStorage.getItem("app_version_seen")) === "1.8.0");
+    await page.evaluate(() => localStorage.getItem("app_version_seen")) === APP_VERSION);
   await page.locator(".fixed.z-50")
     .filter({ has: page.getByRole("heading", { name: "Налаштування", exact: true }) })
     .locator("button:has(svg.lucide-x)").first().click();
   await page.waitForFunction(() => document.querySelectorAll(".fixed.z-50").length === 0);
   check("SDK увійшов через HTTPS Auth emulator", true);
-  const categoryIconPaths = [...new Set((await readFile(path.join(root, "src/data/products.js"), "utf8"))
-    .match(/"\/icons\/category-[a-z]+\.png"/g).map(value => JSON.parse(value)))];
+  const assetManifest = JSON.parse(await readFile(path.join(buildDir, "asset-manifest.json"), "utf8"));
+  const categoryIconPaths = [...new Set(Object.entries(assetManifest.files)
+    .filter(([name]) => /^static\/media\/category-[a-z]+\.webp$/.test(name))
+    .map(([,url]) => url))];
+  assert.equal(categoryIconPaths.length, 8, "built manifest must include eight category WebP files");
+  assert.ok(categoryIconPaths.every(url => /^\/static\/media\/category-[a-z]+\.[a-f0-9]+\.webp$/.test(url)), "category assets must be versioned");
   evidence.categoryIcons = await page.evaluate(async (paths) => Promise.all(paths.map(async (url) => {
     const response = await fetch(url, { cache: "no-store" });
     const type = response.headers.get("content-type") || "";
@@ -298,7 +313,7 @@ try {
   })), categoryIconPaths);
   check("Усі 8 іконок мають image content-type та декодуються",
     evidence.categoryIcons.length === 8 && evidence.categoryIcons.every(icon =>
-      icon.status === 200 && icon.type.startsWith("image/") && icon.width > 0 && icon.height > 0));
+      icon.status === 200 && icon.type === "image/webp" && icon.width === 192 && icon.height === 192));
   await page.getByRole("button", { name: "Додати їжу голосом", exact: true }).click();
   await page.getByRole("button", { name: "Почати запис", exact: true }).click();
   await page.getByRole("button", { name: "Зупинити запис", exact: true }).waitFor();
@@ -354,7 +369,7 @@ try {
   }
 
   check("Після reload закриті новини не повторюються",
-    await page.getByText("Що нового у v1.8.0", { exact: true }).count() === 0);
+    await page.getByText(`Що нового у v${APP_VERSION}`, { exact: true }).count() === 0);
   if (!sttOnly) {
     evidence.upgrade = [];
     for (const previousVersion of ["1.6.0", "bad8217421d0eff859b920885d849e3e121cbf72"]) {
@@ -363,9 +378,9 @@ try {
       upgraded.on("pageerror", error => evidence.errors.push(error.message));
       try {
         await upgraded.goto(gateway.origin);
-        await upgraded.getByText("Що нового у v1.8.0", { exact: true }).waitFor();
-        check(`Оновлення з ${previousVersion}: показана версія 1.8.0`,
-          await upgraded.getByText("Версія 1.8.0", { exact: true }).count() === 1 &&
+        await upgraded.getByText(`Що нового у v${APP_VERSION}`, { exact: true }).waitFor();
+        check(`Оновлення з ${previousVersion}: показана версія ${APP_VERSION}`,
+          await upgraded.getByText(`Версія ${APP_VERSION}`, { exact: true }).count() === 1 &&
           await upgraded.getByText(`Версія ${previousVersion}`, { exact: true }).count() === 0);
         await upgraded.getByRole("button", { name: "Почати!", exact: true }).click();
         await upgraded.getByRole("button", { name: "Почати!", exact: true }).waitFor({ state: "hidden" });
@@ -373,7 +388,7 @@ try {
         check(`Оновлення з ${previousVersion}: збережений прийом не втрачений і не дубльований`,
           await upgraded.getByText("Тестовий кефір", { exact: true }).count() === 1 &&
           await upgraded.getByText("106", { exact: true }).count() === 1 &&
-          await upgraded.evaluate(() => localStorage.getItem("app_version_seen")) === "1.8.0");
+          await upgraded.evaluate(() => localStorage.getItem("app_version_seen")) === APP_VERSION);
       } finally {
         await upgraded.close();
         evidence.upgrade.push({ previousVersion, closed: upgraded.isClosed() });
@@ -440,7 +455,8 @@ try {
   }
   check("Жодного прямого HTTP, production або AI API браузера", evidence.unexpectedNetwork.length === 0);
   check("Немає помилок JavaScript", evidence.errors.length === 0);
-  check("Немає HTTP-помилок статичних ресурсів", evidence.failedRoutes.length === 0);
+  await Promise.all(failedResponseReads);
+  check("Немає HTTP-помилок застосунку, API та статичних ресурсів", evidence.failedRoutes.length === 0);
   const failedImages = await page.locator('img').evaluateAll(images =>
     images.filter(image => !image.complete || image.naturalWidth === 0).map(image => image.getAttribute('src')));
   check("Немає зламаних зображень", failedImages.length === 0);
@@ -472,6 +488,6 @@ try {
 console.log(JSON.stringify({
   mode, passed: evidence.checks.length, fixtureOnly: true, paidCalls: 0,
   reservedMicros: evidence.reservedMicros,
-  staticAssetFailures: evidence.failedRoutes.length,
+  httpFailures: evidence.failedRoutes.length,
   cleanup: evidence.cleanup,
 }));
