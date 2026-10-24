@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "syntheticOnly": true,
+  "productionChanged": false,
+  "runUrl": "https://github.com/MILSPIL/nutrition-app/actions/runs/40131465855",
+  "codeSha": "ab1cb70672fad816641d20bd0d4c75c599dc2073",
+  "scope": "Linux resource and native regression only; full candidate application CI pending uncommitted implementation",
+  "capacity": {
+    "actualHermes": true,
+    "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+    "firstTurnSeconds": 5.585,
+    "suiteSeconds": 5.585,
+    "resourceProbe": true,
+    "capacityProbe": true,
+    "profileTemplateSha256": "e24f3db595a8edc09bca03e9e80c07365ba80dccff4ecd50ef701986a42a8cce",
+    "modelTextBytes": [
+      31944,
+      31727,
+      31712
+    ],
+    "isolation": "linux-bubblewrap",
+    "fullFoodIndex": true,
+    "realTools": true,
+    "draftKcal": 174,
+    "providerCalls": 3,
+    "recoveryNoNewCalls": false,
+    "cancelNoResult": false,
+    "upstream429Calls": null,
+    "deadlineStopsNative": false,
+    "killedUnknownCancelled": false,
+    "tools": [
+      "food_lookup",
+      "propose_food_draft"
+    ],
+    "profileFilesScanned": 22,
+    "mediaFragments": 9,
+    "mediaLeaks": 0,
+    "ownerIsolation": true,
+    "replayCalls": 0,
+    "syntheticOnly": true,
+    "retainedLatestPairEveryCall": true,
+    "foodCoachConfigApplied": true,
+    "resources": {
+      "cpu": 2,
+      "memoryMax": 2147483648,
+      "swap": 0,
+      "memoryPeak": 289853440,
+      "oomKills": 0
+    }
+  },
+  "regression": {
+    "actualHermes": true,
+    "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+    "firstTurnSeconds": 5.375,
+    "suiteSeconds": 36.031,
+    "resourceProbe": false,
+    "capacityProbe": false,
+    "profileTemplateSha256": "e24f3db595a8edc09bca03e9e80c07365ba80dccff4ecd50ef701986a42a8cce",
+    "modelTextBytes": [
+      13637,
+      15994,
+      16733,
+      5036,
+      15224,
+      15224,
+      15224,
+      15224
+    ],
+    "isolation": "linux-bubblewrap",
+    "fullFoodIndex": true,
+    "realTools": true,
+    "draftKcal": 174,
+    "providerCalls": 8,
+    "recoveryNoNewCalls": true,
+    "cancelNoResult": true,
+    "upstream429Calls": 1,
+    "deadlineStopsNative": true,
+    "killedUnknownCancelled": true,
+    "tools": [
+      "food_lookup",
+      "propose_food_draft"
+    ],
+    "profileFilesScanned": 44,
+    "mediaFragments": 9,
+    "mediaLeaks": 0,
+    "ownerIsolation": true,
+    "replayCalls": 0,
+    "syntheticOnly": true
+  },
+  "container": {
+    "Status": "exited",
+    "Running": false,
+    "Paused": false,
+    "Restarting": false,
+    "OOMKilled": false,
+    "Dead": false,
+    "Pid": 0,
+    "ExitCode": 0,
+    "Error": "",
+    "StartedAt": "2026-10-24T20:49:40.575225066Z",
+    "FinishedAt": "2026-10-24T20:49:46.235632444Z"
+  },
+  "systemd": {
+    "passed": true,
+    "syntheticOnly": true,
+    "actualUnit": "deploy/hermes/scisense-api.service",
+    "parentCanaries": true,
+    "nestedIsolationCanaries": true,
+    "resource": {
+      "actualHermes": true,
+      "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+      "firstTurnSeconds": 5.358,
+      "suiteSeconds": 5.359,
+      "resourceProbe": true,
+      "capacityProbe": false,
+      "profileTemplateSha256": "e24f3db595a8edc09bca03e9e80c07365ba80dccff4ecd50ef701986a42a8cce",
+      "modelTextBytes": [
+        13625,
+        15982,
+        16721
+      ],
+      "isolation": "linux-bubblewrap",
+      "fullFoodIndex": true,
+      "realTools": true,
+      "draftKcal": 174,
+      "providerCalls": 3,
+      "recoveryNoNewCalls": false,
+      "cancelNoResult": false,
+      "upstream429Calls": null,
+      "deadlineStopsNative": false,
+      "killedUnknownCancelled": false,
+      "tools": [
+        "food_lookup",
+        "propose_food_draft"
+      ],
+      "profileFilesScanned": 22,
+      "mediaFragments": 9,
+      "mediaLeaks": 0,
+      "ownerIsolation": true,
+      "replayCalls": 0,
+      "syntheticOnly": true,
+      "resources": {
+        "cpu": 2,
+        "memoryMax": 2147483648,
+        "swap": 0,
+        "memoryPeak": 320835584,
+        "oomKills": 0
+      }
+    },
+    "isolation": {
+      "architecture": "x86_64",
+      "platform": "linux/amd64",
+      "dockerTransport": "local-unix",
+      "noHostBinds": true,
+      "noPublishedPorts": true,
+      "network": "none",
+      "cpu": 2,
+      "memoryBytes": 2147483648
+    },
+    "containerName": "scisense-hermes-systemd-f73636a0-2672-4b4d-abce-bf9a3813ef8f",
+    "cleanup": true
+  },
+  "cleanup": {
+    "removed": true
+  }
+}
