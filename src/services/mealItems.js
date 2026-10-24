@@ -1,4 +1,5 @@
 import { validatedPlanMatch } from './planCatalog.js';
+import { validFoodProvenance, validPortionOrigin, measuredQuantity, preservePortion, sourceIdentity } from './foodProvenance.js';
 export const UNITS = { g: 'г', ml: 'мл', portion: 'порц.', package: 'уп.' };
 export const SOURCE_LABELS = { label: 'Етикетка', database: 'База продуктів', personal: 'Підтверджений особистий запис', catalog: 'Каталог', estimate: 'Оцінка моделі', manual: 'Введено вручну', legacy: 'Попередній запис' };
 export const newId = () => crypto.randomUUID();
@@ -15,6 +16,8 @@ export function itemProblems(item) {
   if (q?.unit !== b?.unit && !(finite(item?.density) && item.density > 0 && ['g','ml'].includes(q?.unit) && ['g','ml'].includes(b?.unit))) issues.push('Одиниці порції та етикетки несумісні');
   if (['p','f','c','cal'].some(k => !finite(n?.[k]) || n[k] < 0)) issues.push('Потрібні ккал і всі БЖВ з джерела');
   if (!SOURCE_LABELS[item?.source?.kind]) issues.push('Уточніть джерело значень');
+  if (item?.source && !validFoodProvenance(item.source)) issues.push('Уточніть походження порції та оцінки');
+  if (item?.preparation === 'unknown') issues.push('Уточніть спосіб приготування');
   if (item?.clarification) issues.push(item.clarification);
   return issues;
 }
@@ -35,7 +38,7 @@ export function itemMacros(item) {
 
 export function withQuantity(item, value, unit = item.quantity?.unit || 'g') {
   if (!finite(value) || value <= 0) throw new Error('invalid_quantity');
-  if (item.quantity) return { ...item, quantity: { value, unit }, ...(item.portion != null ? {portion:item.portion * value / item.quantity.value}: {}) };
+  if (item.quantity) return { ...measuredQuantity(item, { value, unit }), ...(item.portion != null ? {portion:item.portion * value / item.quantity.value}: {}) };
   const ratio = value / item.weight;
   return { ...item, weight: value, calories: itemMacros(item).cal * ratio,
     portion: (item.portion || 0) * ratio, cookedWeight: item.cookedWeight ? item.cookedWeight * ratio : null };
@@ -61,12 +64,16 @@ export const sourceText = item => SOURCE_LABELS[item.source?.kind] || SOURCE_LAB
 
 export function normalizeAnalysis(data, makeId = newId, catalog) {
   if (!data || !Array.isArray(data.items) || data.items.length > 20 || !Array.isArray(data.unparsed) || data.unparsed.length > 20) throw new Error('invalid_response');
+  if (data.items.some(raw => raw.source && !validFoodProvenance(raw.source))) throw new Error('invalid_response');
   return { items: data.items.map(raw => ({ itemId: makeId(), name: typeof raw.name === 'string' ? raw.name.slice(0,160) : '',
     quantity: { value: finite(raw.quantity?.value) ? raw.quantity.value : null, unit: raw.quantity?.unit || 'g' },
     nutritionBasis: { value: finite(raw.nutritionBasis?.value) ? raw.nutritionBasis.value : null, unit: raw.nutritionBasis?.unit || 'g' },
     nutrients: Object.fromEntries(['p','f','c','cal'].map(k => [k, finite(raw.nutrients?.[k]) ? raw.nutrients[k] : null])),
-    source: { kind: raw.source?.kind || 'estimate', label: String(raw.source?.label || '').slice(0,160) },
-    estimated: raw.source?.kind === 'estimate' || raw.estimated === true,
+    source: { kind: raw.source?.kind || 'estimate', label: String(raw.source?.label || '').slice(0,160),
+      ...(validPortionOrigin(raw.source?.portionOrigin) ? {portionOrigin:{...raw.source.portionOrigin}} : {}),
+      ...(raw.source?.kind==='estimate' && ['no_matching_source','recipe_estimate'].includes(raw.source?.estimateReason) ? {estimateReason:raw.source.estimateReason} : {}) },
+    ...(['raw','cooked','dry','as_sold','unknown'].includes(raw.preparation) ? {preparation:raw.preparation} : {}),
+    estimated: raw.source?.kind === 'estimate' || raw.source?.portionOrigin?.kind === 'estimate' || raw.estimated === true,
     clarification: String(raw.clarification || '').slice(0,300),
     ...(Object.prototype.hasOwnProperty.call(raw,'planMatch') ? {planMatch:validatedPlanMatch(raw.planMatch,catalog)} : {}),
     ...(finite(raw.density) && raw.density > 0 ? { density: raw.density } : {}) })),
@@ -79,9 +86,9 @@ export function mergePhotoItem(existing, response, catalog) {
   if (parsed.items.length !== 1 || parsed.unparsed.length) throw new Error('photo_clarification');
   const item = parsed.items[0];
   if (item.source.kind !== 'label' || itemProblems({ ...item, quantity: existing.quantity }).length) throw new Error('photo_clarification');
-  const sameName=existing.name.trim().toLocaleLowerCase('uk')===item.name.trim().toLocaleLowerCase('uk');
+  const sameIdentity=sourceIdentity(existing)===sourceIdentity(item);
   const choice=existing.planChoice;
-  return { ...item, itemId: existing.itemId, quantity: existing.quantity, estimated: false,
-    ...(choice?{planChoice:sameName?choice:{letter:choice.letter,assignment:choice.assignment,referenceKey:''}}:{}) };
+  return { ...preservePortion(existing,item), itemId: existing.itemId,
+    ...(choice?{planChoice:sameIdentity?choice:{letter:choice.letter,assignment:choice.assignment,referenceKey:''}}:{}) };
 
 }

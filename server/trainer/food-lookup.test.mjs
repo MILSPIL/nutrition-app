@@ -119,6 +119,7 @@ test("unknown brand may use explicit analogue only; model estimate has no counte
         input({
           source: {
             kind: "estimate",
+            estimateReason: "no_matching_source",
             recordId: "fdc:170438",
             assumptions: ["Типовий рецепт"],
           },
@@ -195,6 +196,7 @@ test("estimated portion and recipe require named assumptions", () => {
   const raw = input({
     source: {
       kind: "estimate",
+      estimateReason: "no_matching_source",
       nutritionBasis: { value: 100, unit: "g" },
       nutrients: { p: 2, f: 3, c: 20, cal: 115 },
     },

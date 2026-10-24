@@ -1,3 +1,4 @@
+import { validFoodProvenance } from './foodProvenance.js';
 const finite = (x) =>
   typeof x === "number" && Number.isFinite(x) && x >= 0 && x <= 100000;
 const keys = (x, allowed) =>
@@ -44,7 +45,9 @@ export function validFoodNote(note) {
       "version",
       "url",
       "assumptions",
-    ]) &&
+      "portionOrigin",
+      "estimateReason",
+    ]) && validFoodProvenance(s) &&
     ["label", "database", "personal", "estimate", "unknown", "manual"].includes(
       s.kind,
     ) &&

@@ -1,0 +1,128 @@
+{
+  "scope": "HERMES-COACH-02 C03/C04 local portions and provenance",
+  "generatedAt": "2026-10-24T21:02:03.201058+00:00",
+  "syntheticOnly": true,
+  "realAPICalls": 0,
+  "productionWrites": 0,
+  "baseline": {
+    "sha": "46f1cb763f8a740328e74ca3fca988fe687b783a",
+    "cases": 10,
+    "pass": 0,
+    "fail": 10,
+    "log": ".agents/runtime/coach-portions-red.log"
+  },
+  "revisionFenceRed": {
+    "case": "expectedRevision missing from commandFromDraft",
+    "failedAsExpected": true,
+    "log": ".agents/runtime/coach-portions-cas-red.log"
+  },
+  "rulesRed": {
+    "case": "canonical portionOrigin in partial-label note",
+    "failedAsExpected": true,
+    "log": ".agents/runtime/coach-portions-rules-red.log"
+  },
+  "checks": [
+    {
+      "command": "node --test server/trainer/food-lookup.test.mjs server/trainer/food-acceptance.test.mjs server/trainer/drafts-retention.test.mjs server/trainer/coach-portions.test.mjs",
+      "pass": 66,
+      "fail": 0,
+      "newCoachCases": 20,
+      "log": ".agents/runtime/coach-portions-binding-green.log"
+    },
+    {
+      "command": "CI=true npm test -- --watchAll=false --runInBand src/services/mealItems.test.js src/services/foodNotes.test.js src/services/mealCommands.test.js src/services/planAllocation.test.js",
+      "pass": 59,
+      "fail": 0,
+      "log": ".agents/runtime/coach-portions-jest.log"
+    },
+    {
+      "command": "eslint src/services/foodProvenance.js src/services/mealItems.js src/services/foodNotes.js src/services/mealStore.js",
+      "exit": 0,
+      "log": ".agents/runtime/coach-portions-eslint.log"
+    }
+  ],
+  "contracts": {
+    "newEstimateReasonRequired": [
+      "no_matching_source",
+      "recipe_estimate"
+    ],
+    "sourcePortionOrigin": {
+      "kinds": [
+        "user",
+        "catalog_measure",
+        "estimate"
+      ],
+      "assumptionMaxChars": 400
+    },
+    "catalogMeasureInput": "source.measureIndex selects a returned candidate.portions entry; quantity is count in portion; server converts count*grams/amount",
+    "catalogMeasurePersisted": false,
+    "legacySourceWithoutNewFields": "readable",
+    "partialLabel": "retained ahead of estimate or generic database replacement",
+    "manualReferenceIdentity": [
+      "name",
+      "preparation",
+      "source.kind",
+      "source.recordId"
+    ],
+    "stalePreparedCommand": "expectedRevision included in hash; writer persists terminal rejectedSubmissions marker and returns plan_conflict",
+    "quantityTrust": "Model proposals need a literal quantity adjacent to this food in actual user text. A canonical single-item draft may bind a reply containing only a quantity. Browser manual edits are explicit user input. Ambiguous, approximate, ranged or negated amounts remain estimates.",
+    "literalBindingLimit": "Conservative Ukrainian/Russian/English lexical binding; unrecognized wording keeps estimate provenance and does not block an otherwise valid food entry.",
+    "completeLabel": "Concrete label remains ahead of a same-food model estimate. A genuinely named new product or an attached new label may replace it.",
+    "completeSourceKeys": "JS complete-item and note validators reject keys outside the source contract. New portion origin validates kind and a nonempty assumption of at most 400 characters.",
+    "legacyImportProof": "Existing confirmLegacy writer adds legacyImportProfileId in the same transaction as copying historical rows and clearing legacyMeals; proof validation belongs to the separate rules verification."
+  },
+  "sha256": {
+    "server/trainer/coach-portions.test.mjs": "e4436d22a92787f2911aa8c5df3b0657ff52396e18f74b5c25297cb3a9945162",
+    "server/trainer/food-resolver.mjs": "e2c54ea8f9f5bf9ed56392a3d9f9b3f38a5b6fe67a3250a867aa0bb7fb37170d",
+    "server/trainer/drafts.mjs": "8c75c2086a32a185f6751873d01feb93f047588a93d3b064a38b313a2f4afe86",
+    "server/trainer/food-lookup.test.mjs": "31d436cbe49dd506f2ecd651fe5d03cbcbd903c238e6c610c21e73964784892a",
+    "server/trainer/food-acceptance.test.mjs": "762009c1f97b1f09af8ef79ab65e11d9195570ad0acbb18a5e5380c9b8b232ce",
+    "server/trainer/drafts-retention.test.mjs": "e956a41c0aa4652acb12e1b17344db8da789a848678c6352daddc1eedf42d9ce",
+    "src/services/foodProvenance.js": "b2f02af784d343ba15c187b4f90ca2b747fd512ea6a589c19a32c3c1ba9c19c9",
+    "src/services/mealItems.js": "e651cb1d9d0f4984925f371f23d7e3b10f6d8bb1351f7583473ce37c979c20d9",
+    "src/services/foodNotes.js": "765f6c91b80f64d68458da2b05fe41cda7afb95116c38ebc6a778cdd452cc934",
+    "src/services/mealStore.js": "6c027e5fb2fdc65f0b0bf2642cb3ddefb1b05919e0f98296fe4691fe2388744a"
+  },
+  "status": "js_verified_rules_followup_owned_by_backend",
+  "reviewRegressions": {
+    "initialP2": {
+      "cases": 4,
+      "failedAsExpected": true,
+      "redLog": ".agents/runtime/coach-portions-review-red.log"
+    },
+    "itemBoundLiteralQuantity": {
+      "cases": 3,
+      "redPass": 0,
+      "redFail": 3,
+      "redLog": ".agents/runtime/coach-portions-binding-red.log",
+      "compoundNameRedLog": ".agents/runtime/coach-portions-binding-compound-red.log",
+      "rangeRedLog": ".agents/runtime/coach-portions-binding-range-red.log"
+    },
+    "acceptedCases": [
+      "different food weight cannot imply a precise portion",
+      "negated, alternative, range, approximate, upper-bound and questioned masses stay estimates",
+      "literal named food weight is precise",
+      "bare quantity reply requires exactly one canonical existing draft item",
+      "complete and partial concrete labels outrank a same-food model estimate",
+      "unknown source keys fail complete-item validation"
+    ]
+  },
+  "historicalRulesCheck": {
+    "command": "npm run test:hermes-store",
+    "exit": 0,
+    "resolverWriterRulesReload": true,
+    "sourceAndPortionPreserved": true,
+    "partialLabelUnknownPreserved": true,
+    "dayRevisionTerminalFence": true,
+    "rulesTests": 8,
+    "unknownKeysDenied": true,
+    "emulatorsStopped": true,
+    "log": ".agents/runtime/coach-portions-rules-green.log",
+    "status": "historical_initial_contract_pass_before_strict_complete_source_guard"
+  },
+  "rulesFollowup": {
+    "status": "pending_separate_backend_verification",
+    "owner": "coach_backend",
+    "scope": "complete-item strict source delta guard, legacy import proof, expression budget and adversarial cases; no current rules success claimed here"
+  }
+}

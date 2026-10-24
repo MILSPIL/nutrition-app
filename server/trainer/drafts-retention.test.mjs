@@ -26,6 +26,7 @@ const raw = {
     quantity: { value: 200, unit: "g" },
     source: {
       kind: "estimate",
+      estimateReason: "no_matching_source",
       nutritionBasis: { value: 100, unit: "g" },
       nutrients: { p: 2, f: 3, c: 20, cal: 115 },
       assumptions: ["Типовий синтетичний рецепт"],

@@ -2,6 +2,7 @@ import { PRODUCTS_DB } from "../../src/data/products.js";
 import { randomUUID, createHash } from "node:crypto";
 import { fail, stableJSON, LIMITS } from "./limits.mjs";
 import { itemProblems } from "../../src/services/mealItems.js";
+import { measuredQuantity, modelQuantity, explicitQuantityInText, preservePortion, sourceIdentity } from "../../src/services/foodProvenance.js";
 import {
   assignPlanItems,
   persistedPlanItem,
@@ -137,7 +138,7 @@ export function patchDraft(
       updated = { ...old };
       if (raw.quantity !== undefined) {
         if (!quantity(raw.quantity)) fail("invalid_quantity");
-        updated.quantity = raw.quantity;
+        updated = measuredQuantity(updated, raw.quantity);
         updated.nutritionStatus = itemProblems(updated).length
           ? "unknown"
           : "complete";
@@ -150,21 +151,32 @@ export function patchDraft(
       }
     } else if (old && object(raw, ["itemId", "quantity"])) {
       if (!quantity(raw.quantity)) fail("invalid_quantity");
-      updated = { ...old, quantity: raw.quantity };
+      updated = modelQuantity(old, raw.quantity, patch.originalText, {trustedSingleItem:previous?.items?.length === 1 && patch.items.length === 1});
       updated.nutritionStatus = itemProblems(updated).length
         ? "unknown"
         : "complete";
     } else {
       updated = resolve(raw);
-      if (old && updated.source.kind === "label") {
-        updated.quantity = old.quantity;
+      // A partial concrete source is evidence, not a blank model template.
+      // Keep its unknown fields even if a later proposal supplies all numbers.
+      const normalizedName = String(updated.name).normalize("NFKC").trim().toLocaleLowerCase("uk");
+      const explicitNewProduct = old && String(old.name).normalize("NFKC").trim().toLocaleLowerCase("uk") !== normalizedName &&
+        String(patch.originalText || "").normalize("NFKC").toLocaleLowerCase("uk").includes(normalizedName);
+      const partialConcrete = old && ["label","database","personal"].includes(old.source?.kind) &&
+        ["p","f","c","cal"].some(key => old.nutrients?.[key] == null);
+      const retainedLabel = old?.source?.kind === "label" && updated.source.kind !== "label" && !explicitNewProduct;
+      if ((partialConcrete && updated.source.kind === "estimate" && !explicitNewProduct) || retainedLabel)
+        updated = explicitQuantityInText(updated.quantity, patch.originalText, {itemName:old.name, trustedSingleItem:previous?.items?.length === 1 && patch.items.length === 1})
+          ? measuredQuantity(old, updated.quantity) : structuredClone(old);
+      if (old && raw.source?.kind === "label") {
+        updated = preservePortion(old, updated);
         updated.nutritionStatus = itemProblems(updated).length
           ? "unknown"
           : "complete";
       }
       if (old?.planChoice?.assignment === "manual")
         updated.planChoice =
-          old.name === updated.name && old.preparation === updated.preparation
+          sourceIdentity(old) === sourceIdentity(updated)
             ? old.planChoice
             : {
                 assignment: "manual",
@@ -221,8 +233,10 @@ export function patchDraft(
 // chooses a letter/note before this step; server recomputes allocations against fresh plan.
 export async function commandFromDraft(
   draft,
-  { planContext = {}, meals = {}, now = Date.now } = {},
+  { planContext = {}, meals = {}, dayRevision, now = Date.now } = {},
 ) {
+  if (dayRevision !== undefined && (!Number.isSafeInteger(dayRevision) || dayRevision < 0))
+    fail("invalid_day_revision");
   const known = draft.items
       .filter((i) => i.nutritionStatus === "complete")
       .map(({ originalText, originalTextRef, noteSelected, ...item }) => item),
@@ -248,6 +262,7 @@ export async function commandFromDraft(
       ),
     ),
     planFingerprint: await planFingerprint(catalog),
+    ...(dayRevision !== undefined ? {expectedRevision:dayRevision} : {}),
     updatedAt: new Date(now()).toISOString(),
   };
   if (draft.noteId) {

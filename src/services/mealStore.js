@@ -65,6 +65,16 @@ export async function commitMealDay(uid, profileId, date, command) {
       if(previous) {if(previous!==hash) throw Error('submission_conflict');return daySnap.data();}
       const rejected=daySnap.data()?.rejectedSubmissions?.[command.submissionId];
       if(rejected){if(rejected!==hash)throw Error('submission_conflict');return {rejected:true};}
+      // A trainer preview is computed against one confirmed day revision.
+      // Persist a terminal rejection in the same transaction, so a lost ACK or
+      // reconnect cannot keep retrying this stale command as an unknown write.
+      if(trainerCommand && command.expectedRevision !== undefined) {
+        if(!Number.isSafeInteger(command.expectedRevision) || command.expectedRevision < 0) throw Error('invalid_command');
+        if(command.expectedRevision !== (daySnap.data()?.revision || 0)) {
+          tx.set(ref.day,{rejectedSubmissions:{[command.submissionId]:hash},...stamp},{mergeFields:[new FieldPath('rejectedSubmissions',command.submissionId),'writerVersion','writerNonce']});
+          return {rejected:true};
+        }
+      }
       if(command.type==='appendAllocated'||(trainerCommand&&(command.items||[]).length)) {
         const catalog=buildPlanCatalog({profile:user,globalCustomProducts:root.globalCustomProducts,productOverrides:root.productOverrides});
         if(command.planFingerprint!==await planFingerprint(catalog)) {
@@ -119,7 +129,7 @@ export async function commitMealDay(uid, profileId, date, command) {
       // Update only this command's marker. Replacing the whole map makes a
       // concurrent sibling marker look deleted to rules before Firestore's
       // transaction precondition can trigger its normal ABORTED retry.
-      const dayValue={...result.day,...stamp};
+      const dayValue={...result.day,...stamp,...(command.confirmLegacy ? {legacyImportProfileId:profileId} : {})};
       const dayFields=Object.keys(dayValue).filter(k=>!['submissionMarkers','rejectedSubmissions'].includes(k));
       tx.set(ref.day,dayValue,{mergeFields:[...dayFields,new FieldPath('submissionMarkers',command.submissionId)]});
       tx.set(ref.owner,{ users:{ ...root.users,[profileId]:projection },...stamp,updatedAt:command.updatedAt },{mergeFields:['users','writerVersion','writerNonce','updatedAt']});
