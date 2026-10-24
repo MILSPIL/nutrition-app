@@ -1,3 +1,4 @@
+import { linuxWorkerCommand } from "./linux-isolation.mjs";
 import { spawn, spawnSync } from "node:child_process";
 import {
   readFileSync,
@@ -51,6 +52,7 @@ export function createNativeBackend({
   tools,
   toolSchemas,
   isolation,
+  pythonRoot,
 }) {
   for (const folder of [source, profile, workDirectory])
     if (
@@ -97,6 +99,8 @@ export function createNativeBackend({
       writeFileSync(file, policy, { mode: 0o600 });
       return ["/usr/bin/sandbox-exec", ["-f", file, python, script]];
     }
+    if (process.platform === "linux" && isolation === "linux-bubblewrap")
+      return linuxWorkerCommand({source,profile,workDirectory,pythonRoot});
     // CI runs the entire synthetic stack in a network-none container. This is NOT a
     // production activation option: runtime manifests reject this isolation kind.
     if (
@@ -164,7 +168,10 @@ export function createNativeBackend({
     if (workers.size) fail("trainer_busy", 409);
     const cleanupMedia = cleanupMetadata(turn, args, mode);
     const [exe, argv] = command();
-    const child = spawn(exe, argv, {
+    let filterFd,child;
+    try {
+    if(isolation==="linux-bubblewrap") filterFd=openSync(join(here,"worker-seccomp.bpf"),"r");
+    child = spawn(exe, argv, {
       cwd: source,
       env: {
         PATH: "/usr/bin:/bin",
@@ -177,8 +184,9 @@ export function createNativeBackend({
         XDG_CONFIG_HOME: join(workDirectory, "empty-home/config"),
         XDG_CACHE_HOME: join(workDirectory, "empty-home/cache"),
       },
-      stdio: ["pipe", "pipe", "ignore"],
+      stdio: ["pipe", "pipe", "ignore",...(filterFd===undefined?[]:[filterFd])],
     });
+    } finally { if(filterFd!==undefined)closeSync(filterFd); }
     const lifetime = new AbortController(),
       signal = args.signal
         ? AbortSignal.any([args.signal, lifetime.signal])
@@ -188,7 +196,8 @@ export function createNativeBackend({
       buffer = "",
       exited = false,
       modelRequests = 0,
-      terminal = false;
+      terminal = false,
+      isolationVerified = isolation === "synthetic-network-none";
     const result = new Promise((ok, no) => {
       resolveResult = ok;
       rejectResult = no;
@@ -258,6 +267,7 @@ export function createNativeBackend({
       if (message.type === "isolation") {
         if (message.fileDenied !== true || message.networkDenied !== true)
           throw Error("isolation_failed");
+        isolationVerified = true;
         return;
       }
       if (message.type === "run") {
@@ -290,6 +300,7 @@ export function createNativeBackend({
       )
         throw Error("ipc_invalid");
       try {
+        if (!isolationVerified) throw Error("isolation_failed");
         if (mode !== "start" || terminal) fail("turn_inactive", 409);
         if (message.type === "model") {
           const lease = args.issueLease();

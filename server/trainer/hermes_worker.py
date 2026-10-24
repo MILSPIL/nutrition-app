@@ -2,6 +2,7 @@
 The launcher must enforce OS file/network isolation before this module loads.
 No real provider credential or arbitrary model URL is accepted by the protocol.
 """
+import errno
 import asyncio, base64, hashlib, json, os, queue, sys, threading, time, uuid, socket
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -105,20 +106,27 @@ class Relay(BaseHTTPRequestHandler):
 async def main(setup):
     global phase
     home, source = Path(os.environ['HERMES_HOME']), Path(setup['source'])
-    if setup['isolation'] == 'macos-seatbelt':
+    if setup['isolation'] in ('macos-seatbelt', 'linux-bubblewrap'):
         file_denied = network_denied = False
         try:
             Path(setup['readDenyCanary']).read_bytes()
-        except PermissionError:
+        except (PermissionError, FileNotFoundError):
             file_denied = True
         sock = socket.socket()
         sock.settimeout(1)
         try:
             sock.connect(('203.0.113.1', 443))
-        except PermissionError:
-            network_denied = True
+        except OSError as error:
+            network_denied = error.errno in (errno.EACCES, errno.EPERM, errno.ENETUNREACH)
         finally:
             sock.close()
+        if setup['isolation'] == 'linux-bubblewrap':
+            namespace_denied = False
+            try:
+                os.unshare(os.CLONE_NEWUSER)
+            except PermissionError:
+                namespace_denied = True
+            assert namespace_denied, 'namespace_escape'
         assert file_denied and network_denied, 'isolation_failed'
         emit({'type': 'isolation', 'fileDenied': True, 'networkDenied': True})
     expected = json.loads(Path(__file__).with_name('hermes-config.json').read_text())

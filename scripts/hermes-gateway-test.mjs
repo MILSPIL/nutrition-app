@@ -19,7 +19,12 @@ import { createModelProxy } from "../server/trainer/model-proxy.mjs";
 import { createTrainerGateway } from "../server/trainer/gateway.mjs";
 import { createNativeBackend } from "../server/trainer/hermes-native.mjs";
 import { MODEL, TOOLS } from "../server/trainer/limits.mjs";
+import { createTrainerTools } from "../server/trainer/tools.mjs";
+import { openFoodIndex } from "../server/trainer/food-lookup.mjs";
+import { buildPlanCatalog } from "../src/services/planCatalog.js";
 import { localBudget } from "./phone-lab/sqlite.mjs";
+const resourceProbe = process.argv.includes("--resource-probe");
+const processStart = Date.now();
 const lab = realpathSync(resolve(".agents/runtime/hermes-lab")),
   root = mkdtempSync(join(lab, "native-gateway-synthetic-"));
 const profile = join(root, "profile"),
@@ -115,7 +120,7 @@ const proxy = createModelProxy({
           type: "tool_use",
           id: "tool_food",
           name: "food_lookup",
-          input: { query: "cooked potato" },
+          input: { query: "potatoes boiled flesh without salt", preparation: "cooked" },
         },
         {
           type: "tool_use",
@@ -130,7 +135,7 @@ const proxy = createModelProxy({
           type: "tool_use",
           id: "tool_draft",
           name: "propose_food_draft",
-          input: { items: [] },
+          input: { baseRevision: 0, targetDate: "2026-01-03", meal: 1, items: [{itemId:"synthetic-potato-001",name:"Картопля",quantity:{value:200,unit:"g"},preparation:"cooked",source:{kind:"database",recordId:"fdc:170438"}}] },
         },
       ]);
     return sse([
@@ -138,32 +143,16 @@ const proxy = createModelProxy({
     ]);
   },
 });
-const tools = Object.fromEntries(
-  TOOLS.map((name) => [
-    name,
-    async () => {
-      toolCalls.push(name);
-      if (mode === "tool-delay") return new Promise(() => {});
-      return { synthetic: true };
-    },
-  ]),
-);
-const toolSchemas = Object.fromEntries(
-  TOOLS.map((name) => [
-    name,
-    {
-      name,
-      description: "SciSense " + name,
-      parameters: {
-        type: "object",
-        properties: {
-          query: { type: "string" },
-          items: { type: "array", items: { type: "object" } },
-        },
-      },
-    },
-  ]),
-);
+const index = openFoodIndex(resolve(".agents/runtime/food-data/foods-v1-reviewed.sqlite"),"a8e60fe05956869df3bc9d04371994c5ff8adf0d6014e474457f52191b591ad8");
+const readDay = async () => ({ receipts: [], text: "DAY_GATE_CANARY", meals: {}, notes: [], incomplete: false });
+const readPlan = async () => ({ catalog:buildPlanCatalog(),text:"PLAN_GATE_CANARY" });
+const kit = createTrainerTools({store,index,readDay,readPlan});
+const tools = Object.fromEntries(TOOLS.map(name=>[name, async(input,context)=>{
+ toolCalls.push(name);
+ if(mode==="tool-delay")return new Promise(()=>{});
+ return kit.tools[name](input,context);
+}]));
+const toolSchemas=kit.schemas;
 const backend = createNativeBackend({
   source: join(lab, "source"),
   sourceManifest: join(lab, "source-manifest.json"),
@@ -173,7 +162,7 @@ const backend = createNativeBackend({
   tools,
   toolSchemas,
   isolation:
-    process.platform === "darwin" ? "macos-seatbelt" : "synthetic-network-none",
+    process.platform === "darwin" ? "macos-seatbelt" : "linux-bubblewrap",
 });
 const makeGateway = (runDeadlineMs = 45000) =>
   createTrainerGateway({
@@ -184,14 +173,14 @@ const makeGateway = (runDeadlineMs = 45000) =>
     proxy,
     backend,
     readContext: async () => ({ text: "CURATED_GATE_CANARY", revision: 1 }),
-    readDay: async () => ({ receipts: [], text: "DAY_GATE_CANARY" }),
-    readPlan: async () => ({ text: "PLAN_GATE_CANARY" }),
+    readDay, readPlan, releaseTools:kit.release,
   });
 let gateway = makeGateway();
 const owner = store.conversation("pilot");
 let last;
 async function waitTurn(id) {
-  for (let n = 0; n < 500; n++) {
+  const deadline=Date.now()+47000;
+  while(Date.now()<deadline) {
     const value = store.get("pilot", id);
     if (!["queued", "running", "cleanup_pending"].includes(value.state))
       return value;
@@ -202,14 +191,7 @@ async function waitTurn(id) {
   );
 }
 try {
-  const prior = JSON.parse(
-    readFileSync(join(lab, "synthetic-provider-requests.json")),
-  );
-  const image = prior
-    .flatMap((p) =>
-      p.messages.flatMap((m) => (Array.isArray(m.content) ? m.content : [])),
-    )
-    .find((p) => p.type === "image").source;
+  const image = {media_type:"image/png",data:readFileSync("server/trainer/fixtures/synthetic-label.png").toString("base64")};
   const input = {
     turnId: randomUUID(),
     baseRevision: 0,
@@ -231,7 +213,7 @@ try {
     bodies.some((b) => JSON.stringify(b).includes("CURATED_GATE_CANARY")),
   );
   assert.ok(bodies.some((b) => JSON.stringify(b).includes("DAY_GATE_CANARY")));
-  assert.ok(bodies.some((b) => JSON.stringify(b).includes("PLAN_GATE_CANARY")));
+  assert.ok(bodies.some((b) => JSON.stringify(b).includes("carbs:potato")));
   assert.ok(bodies.some((b) => JSON.stringify(b).includes("SOUL_GATE_CANARY")));
   assert.ok(
     bodies.some((b) =>
@@ -258,12 +240,16 @@ try {
   }
   scan(profile);
   assert.ok(!readFileSync(file).includes(Buffer.from(image.data)));
-  const firstTurnSeconds = (Date.now() - start) / 1000;
+  const draft=store.drafts("pilot",owner.conversationId)[0];
+  assert.equal(draft.items[0].source.recordId,"fdc:170438");
+  assert.equal(draft.items[0].nutrients.cal*draft.items[0].quantity.value/100,174);
+  const firstTurnSeconds = (Date.now() - processStart) / 1000;
   assert.equal(
     (await gateway.handle("pilot", "/turns", "POST", input)).status,
     200,
   );
   assert.equal(call, 3);
+  if(!resourceProbe) {
   // Lost native admission ACK plus lost Node result commit: recover by status only.
   mode = "recover";
   call = 0;
@@ -426,17 +412,20 @@ try {
     readdirSync(work).some((n) => n.endsWith(".cleanup.json")),
     false,
   );
+  }
   const summary = {
     actualHermes: true,
     pin: backend.pin.commit,
     firstTurnSeconds,
-    suiteSeconds: (Date.now() - start) / 1000,
+    suiteSeconds: (Date.now() - processStart) / 1000,
+    resourceProbe, isolation:process.platform==="darwin"?"macos-seatbelt":"linux-bubblewrap",
+    fullFoodIndex:true, realTools:true, draftKcal:174,
     providerCalls: bodies.length,
-    recoveryNoNewCalls: true,
-    cancelNoResult: true,
-    upstream429Calls: 1,
-    deadlineStopsNative: true,
-    killedUnknownCancelled: true,
+    recoveryNoNewCalls: !resourceProbe,
+    cancelNoResult: !resourceProbe,
+    upstream429Calls: resourceProbe?null:1,
+    deadlineStopsNative: !resourceProbe,
+    killedUnknownCancelled: !resourceProbe,
     tools: toolCalls,
     profileFilesScanned: files,
     mediaFragments: needles.length,
@@ -445,8 +434,18 @@ try {
     replayCalls: 0,
     syntheticOnly: true,
   };
+  if(resourceProbe) {
+    assert.ok(firstTurnSeconds<=45);
+    if(process.platform==="linux") {
+      const cg=name=>readFileSync("/sys/fs/cgroup/"+name,"utf8").trim();
+      const [quota,period]=cg("cpu.max").split(" ").map(Number);
+      assert.equal(quota/period,2);assert.equal(Number(cg("memory.max")),2147483648);assert.equal(Number(cg("memory.swap.max")),0);
+      const oom=Number(cg("memory.events").match(/^oom_kill (\d+)$/m)?.[1]);assert.equal(oom,0);
+      summary.resources={cpu:2,memoryMax:2147483648,swap:0,memoryPeak:Number(cg("memory.peak")),oomKills:oom};
+    }
+  }
   writeFileSync(
-    join(lab, "gateway-summary.json"),
+    join(lab, resourceProbe?"resource-summary.json":"gateway-summary.json"),
     JSON.stringify(summary, null, 2),
   );
   console.log(JSON.stringify(summary));
@@ -454,4 +453,6 @@ try {
   await gateway.close();
   store.close();
   budget.close();
+  index.close();
+  rmSync(root,{recursive:true,force:true});
 }

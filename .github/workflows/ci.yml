@@ -40,13 +40,13 @@ jobs:
         run: npm run test:voice-photo
 
       - name: Server, consent and adapter tests
-        run: npm run test:server && npm run test:rules && npm run test:phone-lab
+        run: npm run test:server && npm run test:rules && npm run test:phone-lab && npm run test:hermes-store
 
       - name: Install pinned browser
         run: npx playwright install chromium
 
       - name: Browser flows on isolated demo accounts
-        run: npm run test:trainer-ui && npm run test:voice-photo-ui && npm run test:phone-lab-ui && node scripts/phone-lab-ui.mjs --stt-only
+        run: npm run test:trainer-ui && npm run test:voice-photo-ui && npm run test:phone-lab-ui && node scripts/phone-lab-ui.mjs --stt-only && npm run test:hermes-ui
 
       - name: Keep synthetic browser evidence
         if: always()
@@ -58,6 +58,7 @@ jobs:
             tmp/voice-photo-qa/
             tmp/phone-lab-qa/evidence.json
             tmp/phone-lab-stt-only-qa/evidence.json
+            tmp/hermes-chat-qa/evidence.json
           retention-days: 7
 
       - name: Build app
@@ -89,4 +90,33 @@ jobs:
         with:
           name: systemd-evidence
           path: tmp/systemd-check/evidence.json
+          retention-days: 7
+
+  hermes-resource-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build pinned Hermes and public food index without credentials
+        run: docker build --file server/trainer/hermes.Dockerfile --tag scisense-hermes-ci .
+      - name: Actual Hermes plus Node in a shared 2 CPU / 2 GiB cgroup
+        # Nested unprivileged user namespaces require the synthetic container's
+        # seccomp allowance. No host mount, socket, key, capability or network.
+        run: |
+          docker run --name hermes-resource --init --network=none --cpus=2 --memory=2g --memory-swap=2g --pids-limit=128 --cap-drop=ALL --security-opt=no-new-privileges --security-opt=seccomp=unconfined --entrypoint timeout scisense-hermes-ci --signal=TERM --kill-after=5s 45s node scripts/hermes-gateway-test.mjs --resource-probe
+      - name: Collect resource evidence
+        if: always()
+        run: |
+          mkdir -p tmp/hermes-linux
+          docker cp hermes-resource:/app/.agents/runtime/hermes-lab/resource-summary.json tmp/hermes-linux/resource-summary.json || true
+          docker inspect hermes-resource --format '{{json .State}}' > tmp/hermes-linux/container-state.json || true
+          docker rm -f hermes-resource || true
+      - name: Native recovery and failure cases with the same resource limits
+        run: docker run --rm --init --network=none --cpus=2 --memory=2g --memory-swap=2g --pids-limit=128 --cap-drop=ALL --security-opt=no-new-privileges --security-opt=seccomp=unconfined scisense-hermes-ci
+      - name: Keep synthetic Linux evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-linux-evidence
+          path: tmp/hermes-linux/
           retention-days: 7
