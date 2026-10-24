@@ -14,7 +14,7 @@
     "order_hint": 0,
     "author": "Codex",
     "created_at": "2026-10-20T08:46:52.926644+00:00",
-    "updated_at": "2026-10-24T20:09:29.350161+00:00",
+    "updated_at": "2026-10-24T21:08:40.752907+00:00",
     "valid_from": null,
     "expires_at": null,
     "importance": null,
@@ -25,8 +25,8 @@
     "last_exported_at": null,
     "last_exported_hash": null,
     "health": "at_risk",
-    "health_note": "HERMES-FOOD-01 локальні0–7 завершені на ce62052. HERMES-COACH-02/I01 пройшов документне D01–D06/Codex і перевірене Fable-review, чекає погодження0–5+I01. Продуктовий код/новий deployment не виконані. B/C, host/Firebase gate, телефон і G09 лишаються відкритими; новий G01 pending.",
-    "health_updated_at": "2026-10-24T20:09:29.350161+00:00"
+    "health_note": "HERMES-COACH-02/I01 погоджені. UI, порції, дати, кураторський контекст і Linux capacity перевірені; завершується Firestore guard20позицій та фінальний CI. Mac/Keychain досі locked, новий реліз/модельні API без змін. Потрібні actual host rehearsal, deployment, live smoke та перевірка власником.",
+    "health_updated_at": "2026-10-24T21:08:40.752907+00:00"
   },
   "phase_revisions": [
     {
@@ -460,6 +460,34 @@
       "actor_client": null,
       "actor_model": null,
       "at": "2026-10-24T20:09:29.350161+00:00",
+      "project": "nutrition-app",
+      "product": "scisense"
+    },
+    {
+      "id": "rev_66e044102880a5ee",
+      "phase_id": "phase_870a15952663",
+      "field": "health_note",
+      "old_value": "HERMES-FOOD-01 локальні0–7 завершені на ce62052. HERMES-COACH-02/I01 пройшов документне D01–D06/Codex і перевірене Fable-review, чекає погодження0–5+I01. Продуктовий код/новий deployment не виконані. B/C, host/Firebase gate, телефон і G09 лишаються відкритими; новий G01 pending.",
+      "new_value": "HERMES-COACH-02/I01 погоджено власником до робочого результату. Локальний UI/іконки перевірено, триває інтеграція порцій/дат і native capacity tests. Модельні API й production поки без змін: Mac/Keychain заблоковані. Exact CI, host sandbox, live smoke та приймання телефоном ще потрібні.",
+      "reason": null,
+      "author": null,
+      "actor_client": null,
+      "actor_model": null,
+      "at": "2026-10-24T20:34:34.279673+00:00",
+      "project": "nutrition-app",
+      "product": "scisense"
+    },
+    {
+      "id": "rev_1b9935ee21c80b7c",
+      "phase_id": "phase_870a15952663",
+      "field": "health_note",
+      "old_value": "HERMES-COACH-02/I01 погоджено власником до робочого результату. Локальний UI/іконки перевірено, триває інтеграція порцій/дат і native capacity tests. Модельні API й production поки без змін: Mac/Keychain заблоковані. Exact CI, host sandbox, live smoke та приймання телефоном ще потрібні.",
+      "new_value": "HERMES-COACH-02/I01 погоджені. UI, порції, дати, кураторський контекст і Linux capacity перевірені; завершується Firestore guard20позицій та фінальний CI. Mac/Keychain досі locked, новий реліз/модельні API без змін. Потрібні actual host rehearsal, deployment, live smoke та перевірка власником.",
+      "reason": null,
+      "author": null,
+      "actor_client": null,
+      "actor_model": null,
+      "at": "2026-10-24T21:08:40.752907+00:00",
       "project": "nutrition-app",
       "product": "scisense"
     }
