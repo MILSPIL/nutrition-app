@@ -702,13 +702,15 @@ test('L04/L07: AI визначає З без ручної дії, appendAllocate
  expect(command.items[0]).not.toHaveProperty('planMatch');expect(command.planFingerprint).toMatch(/^[a-f0-9]{64}$/);
  expect(rows[0]).toMatchObject({planAssignedCount:1,planUnresolvedCount:0,planManualCount:0,partial:false});
 });
-test('L04: літера й фото зберігають itemId, кількість і ручний вибір',async()=>{
+test('C04: нове джерело фото зберігає itemId, кількість і ручну літеру, скидає норму',async()=>{
  const response=()=>answer([{...food('Кефір 1%'),planMatch:{referenceId:'dairy:kefir',certainty:'matched',consumedState:'as_sold'}}]);
  props.api.analyze.mockResolvedValue(response());await openAndStart();await stop();await change('Літера продукту 1','ж');
  expect(container.textContent).toContain('54.8% норми');const id=container.querySelector('[aria-label="Продукт для фото"]')?.value;
  const label=response();label.items[0].source={kind:'label'};props.api.analyze.mockResolvedValue(label);await photo();
- expect(container.textContent).toContain('54.8% норми');await click('Додати');const item=props.onAdd.mock.calls[0][0].items[0];
- expect(item.planAllocation.letter).toBe('ж');expect(item.quantity.value).toBe(200);if(id)expect(item.itemId).toBe(id);expect(rows[0].planManualCount).toBe(1);expect(rows[0].planAssignedCount).toBe(1);
+ expect(container.textContent).toContain('Ж · Молочні · норму не визначено');expect(button('Додати').disabled).toBe(false);
+ await click('Додати');const item=props.onAdd.mock.calls[0][0].items[0];
+ expect(item.planAllocation.letter).toBe('ж');expect(item.planAllocation.status).toBe('unresolved');expect(item.quantity.value).toBe(200);if(id)expect(item.itemId).toBe(id);
+ expect(rows[0]).toMatchObject({planManualCount:1,planAssignedCount:0,planUnresolvedCount:1});
 });
 test('L04: інша етикетка зберігає ручну літеру, скидає тільки відповідник',async()=>{
  props.api.analyze.mockResolvedValue(answer([{...food('Кефір 1%'),planMatch:{referenceId:'dairy:kefir',certainty:'matched',consumedState:'as_sold'}}]));
