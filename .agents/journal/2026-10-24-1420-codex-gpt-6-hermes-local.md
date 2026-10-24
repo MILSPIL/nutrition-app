@@ -72,3 +72,5 @@ Context7 quota exhausted у цій сесії; використовуємо оф
 
 - Крок7 завершено: повний GitHub ZIP digest f0eff953334e3d417c6fbc7cad41d907291cdae19c65f8fbb5ea276049d5e018 звірено двома перевіряльниками; actual runtime validator31726filesPASS, app209files+hashesPASS, exact offreceipt, jose6.1.0 безwrangler. Незалежно77source/28build byte-equal. Упакований API5HTTP/external0/keys0, тимчасовий каталог видалено. Публічний архів і вимкнений пакет лишаються локально позаGit; зайві частини завантаження прибрані.
 - Фінальний reviewer hermes_final_local_review: done локальних0–7/H01–H10 наce62052,0відкритихблокерів. Кандидат unit потребує нового host-specific probe під час B; жодного автоматичного послаблення чи збільшенняресурсів. Runbook має B1/B2/C, сумісний writer fence/rollback,8майбутніх turns/24calls/max$3.47904 тільки після нового дозволу й перевірки залишку$5.
+
+- codeindexer 2026-10-24: solutions 3, картки 1; card_128eb6c248fb закрито з незалежним verdict, Goal і стан фази синхронізовані, export збережено у Git. G01passed/G02–G11pending. PROJECT-INFO.md оновлено, бо завершено локальні0–7; продуктовий main не змінено.
