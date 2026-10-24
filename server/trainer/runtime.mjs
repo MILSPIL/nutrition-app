@@ -137,7 +137,7 @@ export async function createTrainerRuntime({
     store = openTurnStore(paths.turns, { hmacKey: keys.state });
     const media = createMediaStore(paths.media, { hash: store.hash });
     index = openFoodIndex(paths.index, TRAINER_CONFIGURATION.foodIndexSha256);
-    const kit = createTrainerTools({ store, index, ...reader });
+    const kit = createTrainerTools({ store, index, ...reader, memoryWriteEnabled: activation.memoryWriteEnabled === true });
     proxy = createModelProxy({
       store,
       budget,
@@ -175,6 +175,7 @@ export async function createTrainerRuntime({
       readContext: () => contextStore.read(),
       ...reader,
       contextStore,
+      memoryWriteEnabled: activation.memoryWriteEnabled === true,
       releaseTools: kit.release,
     });
     await gateway.recover();

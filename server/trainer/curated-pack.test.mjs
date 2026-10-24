@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildCuratedPack, validateCuratedPack, provisionCuratedPack } from "./curated-pack.mjs";
@@ -37,7 +37,7 @@ test("C05 optional omission is explicit; extra metadata/invalid status/duplicate
  }
 });
 test("C05 validated pack provisions the existing API context store once", () => {
- const dir = mkdtempSync(join(tmpdir(), "scisense-curated-")), key = Buffer.alloc(32, 7);
+ const dir = realpathSync(mkdtempSync(join(tmpdir(), "scisense-curated-"))), key = Buffer.alloc(32, 7);
  try { const pack = buildCuratedPack(input()); provisionCuratedPack(dir, { pack, key, currentSourceHashes: current });
  const store = openContextStore(dir, { key }); assert.deepEqual(store.read(), { text: pack.text, revision: 0 });
  assert.throws(() => provisionCuratedPack(dir, { pack, key, currentSourceHashes: current }), /context_exists/);
