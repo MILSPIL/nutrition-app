@@ -17,13 +17,22 @@ export class PilotBudget {
       return this.storage.transactionSync(()=>{
         const now=Date.now(),dayStart=Math.floor(now/86400000)*86400000;
         if(this.sql.exec('SELECT id FROM calls WHERE id=?',body.id).toArray().length) return json({error:'request_reused'},409);
-        const rows=this.sql.exec('SELECT started,finished FROM calls WHERE uid=? AND started>=?',body.uid,dayStart-60000).toArray();
-        if(rows.filter(x=>x.started>now-60000).length>=6 || rows.filter(x=>x.started>=dayStart).length>=30 || rows.filter(x=>x.finished===null && x.started>now-65000).length>=2) return json({error:'rate_limited'},429);
-        // The Free organization quota is shared: conservatively count every legacy,
-        // STT and analysis row. Failed requests keep their slot; no schema/reset needed.
-        if(this.env.GROQ_FREE_LIMITS==='true') {
-          const all=this.sql.exec('SELECT started,finished FROM calls WHERE started>=?',dayStart-60000).toArray();
-          if(all.filter(x=>x.started>now-60000).length>=6 || all.filter(x=>x.started>=dayStart).length>=30 || all.some(x=>x.finished===null&&x.started>now-65000)) return json({error:'rate_limited'},429);
+        if (this.env.HERMES_QUOTA_POLICY === 'hermes-v1') {
+          // Opt-in release policy. The same rows count legacy, STT and every Hermes call.
+          const since=Math.min(dayStart,now-3600000);
+          const all=this.sql.exec('SELECT started,finished FROM calls WHERE started>=?',since).toArray();
+          if(all.filter(x=>x.started>now-60000).length>=12 ||
+             all.filter(x=>x.started>now-3600000).length>=80 ||
+             all.filter(x=>x.started>=dayStart).length>=120 ||
+             all.some(x=>x.finished===null&&x.started>now-65000)) return json({error:'rate_limited'},429);
+        } else {
+          const rows=this.sql.exec('SELECT started,finished FROM calls WHERE uid=? AND started>=?',body.uid,dayStart-60000).toArray();
+          if(rows.filter(x=>x.started>now-60000).length>=6 || rows.filter(x=>x.started>=dayStart).length>=30 || rows.filter(x=>x.finished===null && x.started>now-65000).length>=2) return json({error:'rate_limited'},429);
+          // Free organization quota is shared across legacy, STT and analysis.
+          if(this.env.GROQ_FREE_LIMITS==='true') {
+            const all=this.sql.exec('SELECT started,finished FROM calls WHERE started>=?',dayStart-60000).toArray();
+            if(all.filter(x=>x.started>now-60000).length>=6 || all.filter(x=>x.started>=dayStart).length>=30 || all.some(x=>x.finished===null&&x.started>now-65000)) return json({error:'rate_limited'},429);
+          }
         }
         const spent=this.sql.exec('SELECT COALESCE(SUM(cost),0) AS total FROM calls').one().total;
         if(spent+cost>budget) return json({error:'budget_exhausted'},429);

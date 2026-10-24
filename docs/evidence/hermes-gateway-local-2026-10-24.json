@@ -1,0 +1,80 @@
+{
+  "plan": "HERMES-FOOD-01",
+  "step": 2,
+  "scope": "local synthetic only",
+  "branch": "codex/hermes-food-chat-local",
+  "base": "57c76d8",
+  "serverTests": {
+    "passed": 88,
+    "todo": 10,
+    "failed": 0,
+    "todoReason": "H01-H10 full integration belongs to later steps"
+  },
+  "native": {
+    "actualHermes": true,
+    "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+    "firstTurnSeconds": 2.771,
+    "suiteSeconds": 19.652,
+    "providerCalls": 8,
+    "recoveryNoNewCalls": true,
+    "cancelNoResult": true,
+    "upstream429Calls": 1,
+    "deadlineStopsNative": true,
+    "killedUnknownCancelled": true,
+    "tools": [
+      "food_lookup",
+      "propose_food_draft",
+      "food_lookup"
+    ],
+    "profileFilesScanned": 40,
+    "mediaFragments": 114,
+    "mediaLeaks": 0,
+    "ownerIsolation": true,
+    "replayCalls": 0,
+    "syntheticOnly": true
+  },
+  "review": {
+    "reviewer": "Codex hermes_gateway_review",
+    "status": "PASS; no open findings",
+    "resolved": [
+      "owner binding",
+      "durable replay before context reads",
+      "pre-admission timeout/disconnect",
+      "no model retry after429/validation/limiter failure",
+      "prompt cache controls stripped",
+      "actual payload and selected history IDs HMAC-bound before reserve",
+      "native deadline/unknown generation reconciliation",
+      "raw media cleanup after native DELETE and process exit",
+      "interrupted metadata cleanup"
+    ],
+    "independentScan": {
+      "files": 26,
+      "needles": 114,
+      "leaks": 0,
+      "cleanupMetadata": 0,
+      "cleanupJobs": 0,
+      "unfinished": 0,
+      "callReceipts": 8
+    },
+    "repeatNote": "One overlapping fixed-port run failed; exclusive repeat passed. Actual suites must run serially."
+  },
+  "notVerified": [
+    "private trainer profile",
+    "real API accuracy or latency",
+    "Linux 2 CPU/2GiB",
+    "mobile UX and food writes",
+    "production deployment"
+  ],
+  "realModelCalls": 0,
+  "realBudgetAccess": false,
+  "serverAccess": false,
+  "defaultQuotaChanged": false,
+  "sources": [
+    "server/trainer/hermes-pin.json",
+    "docs/evidence/hermes-runtime-gate-2026-10-24.json"
+  ],
+  "commands": [
+    "node --test server/*.test.mjs server/trainer/*.test.mjs",
+    "node scripts/hermes-gateway-test.mjs"
+  ]
+}

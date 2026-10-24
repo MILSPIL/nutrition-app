@@ -1,0 +1,79 @@
+{
+  "model": {
+    "default": "claude-sonnet-5-5",
+    "provider": "custom",
+    "base_url": "http://127.0.0.1:18751",
+    "api_mode": "anthropic_messages",
+    "key_env": "SCISENSE_IPC_KEY"
+  },
+  "fallback_providers": [],
+  "platform_toolsets": {
+    "api_server": [
+      "scisense",
+      "no_mcp"
+    ],
+    "cli": [
+      "scisense",
+      "no_mcp"
+    ]
+  },
+  "agent": {
+    "max_turns": 3,
+    "image_input_mode": "native",
+    "disabled_toolsets": [
+      "memory",
+      "terminal",
+      "file",
+      "browser",
+      "web",
+      "delegate",
+      "skills",
+      "skill_manage",
+      "cronjob",
+      "session_search"
+    ]
+  },
+  "memory": {
+    "memory_enabled": false,
+    "user_profile_enabled": false,
+    "nudge_interval": 0,
+    "provider": ""
+  },
+  "auxiliary": {
+    "background_review": {
+      "enabled": false
+    },
+    "title_generation": {
+      "enabled": false,
+      "model_upgrade_enabled": false
+    },
+    "transient_retries": 0
+  },
+  "compression": {
+    "enabled": false
+  },
+  "model_overrides": {
+    "custom": {
+      "claude-sonnet-5-5": {
+        "supports_vision": true,
+        "supports_tools": true,
+        "context_window": 200000
+      }
+    }
+  },
+  "telemetry": {
+    "shared_metrics": {
+      "enabled": false,
+      "send": false
+    }
+  },
+  "mcp_servers": {},
+  "plugins": {
+    "enabled": false
+  },
+  "tools": {
+    "tool_search": {
+      "enabled": "off"
+    }
+  }
+}

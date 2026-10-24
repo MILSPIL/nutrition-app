@@ -2,7 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { writeFileSync } from "node:fs";
 import { PilotBudget } from "../../workers/meal-parser/src/budget.js";
 // Metadata перевіряється після open: порожній/відсутній/пошкоджений файл не є новим бюджетом.
-export function localBudget(file, cap, { initialize = false, groqFree = false } = {}) {
+export function localBudget(file, cap, { initialize = false, groqFree = false, hermesPolicy = false } = {}) {
   if (!Number.isSafeInteger(cap) || cap <= 0) throw Error("budget_disabled");
   if (initialize) writeFileSync(file, "", { flag: "wx", mode: 0o600 });
   const db = new DatabaseSync(file);
@@ -46,7 +46,7 @@ export function localBudget(file, cap, { initialize = false, groqFree = false } 
     };
     const budget = new PilotBudget(
       { storage },
-      { PILOT_BUDGET_MICROS: String(cap), GROQ_FREE_LIMITS: String(groqFree) },
+      { PILOT_BUDGET_MICROS: String(cap), GROQ_FREE_LIMITS: String(groqFree), HERMES_QUOTA_POLICY: hermesPolicy ? "hermes-v1" : "" },
     );
     if (initialize) {
       db.exec(

@@ -28,11 +28,12 @@
     "lab:phone": "node scripts/phone-lab.mjs start",
     "test:phone-lab": "node --test scripts/phone-lab/*.test.mjs",
     "test:phone-lab-ui": "node scripts/browser-test.mjs phone-lab",
-    "test:server": "node --test server/*.test.mjs",
+    "test:server": "node --test server/*.test.mjs server/trainer/*.test.mjs",
     "test:rules": "node scripts/trainer-access-test.mjs",
     "test:trainer-ui": "node scripts/browser-test.mjs trainer-access",
     "test:hermes": "node scripts/trainer-chat-test.mjs",
-    "test:hermes-ui": "node scripts/trainer-chat-ui.mjs"
+    "test:hermes-ui": "node scripts/trainer-chat-ui.mjs",
+    "test:hermes-native": "node scripts/hermes-gateway-test.mjs"
   },
   "eslintConfig": {
     "extends": [

@@ -25,7 +25,7 @@ export function durableJson(file,value,{exclusive=false}={}){
   const directory=openSync(path.dirname(file),'r');try{fsyncSync(directory);}finally{closeSync(directory);}
  }finally{if(fd!==undefined)closeSync(fd);if(existsSync(temporary))unlinkSync(temporary);}
 }
-export function openServerLedger({directory,receipt,groqFree=false,onFault=()=>{}}){
+export function openServerLedger({directory,receipt,groqFree=false,hermesPolicy=false,onFault=()=>{}}){
  if(receipt?.capMicros!==PILOT_CAP||!receipt.receiptId||receipt.target!=='https://ntzg.pp.ua')throw Error('receipt_invalid');
  const stat=lstatSync(directory);if(!stat.isDirectory()||stat.isSymbolicLink()||(stat.mode&0o077)!==0)throw Error('budget_permissions');
  const file=path.join(directory,'pilot-budget.sqlite'),anchorFile=path.join(directory,'budget-anchor.json'),lockFile=path.join(directory,'budget.lock');
@@ -42,7 +42,7 @@ export function openServerLedger({directory,receipt,groqFree=false,onFault=()=>{
    return state;
   };
   const synchronize=()=>{const state=validate();durableJson(anchorFile,{receiptId:receipt.receiptId,...(receipt.version===2?{proposalRevision:receipt.proposalRevision,configHash:receipt.configHash}:{}),...state});return state;};
-  synchronize();budget=localBudget(file,PILOT_CAP,{groqFree});
+  synchronize();budget=localBudget(file,PILOT_CAP,{groqFree,hermesPolicy});
   const fetch=async request=>{
    if(closed||faulted)return Response.json({error:'limiter_unavailable'},{status:503});
    try{

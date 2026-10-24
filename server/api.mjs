@@ -31,7 +31,7 @@ export function readBody(req, signal, timeoutMs = 15000) {
 }
 
 // OLS owns TLS/static files. This process exposes only the API on loopback.
-export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, bodyTimeoutMs = 15000, maxConcurrent = 1 }) {
+export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, bodyTimeoutMs = 15000, maxConcurrent = 1, trainer = null }) {
   if (env?.ALLOWED_ORIGINS !== 'https://ntzg.pp.ua' ||
       !/^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(env?.FIREBASE_PROJECT || '') ||
       env.FIREBASE_PROJECT.startsWith('demo-') || !env.ALLOWED_UIDS ||
@@ -39,10 +39,12 @@ export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, 
       !Number.isInteger(bodyTimeoutMs) || bodyTimeoutMs <= 0 || bodyTimeoutMs > 15000 ||
       !Number.isInteger(deadlineMs) || deadlineMs <= 0 || deadlineMs > 65000)
     throw Error('server_config_invalid');
+  if(env.TRAINER_ENABLED==='true'&&(!trainer||!env.TRAINER_OWNER_UID||!env.ALLOWED_UIDS.split(',').includes(env.TRAINER_OWNER_UID)))throw Error('server_config_invalid');
   const handler = createHandler({
     authenticate: createFirebaseAuthenticator({ keyResolver }),
     provider, localTranscription: true,
   });
+  const trainerAuthenticate = createFirebaseAuthenticator({ keyResolver });
   const active = new Set();
   const pending = new Set();
   let closing = false;
@@ -63,8 +65,9 @@ export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, 
     const route = req.url.split('?')[0];
     if (route === '/meal-api/health' && req.method === 'GET')
       return send(res, closing ? 503 : 200, { ok: !closing, inferenceEnabled: env.LIVE_ENABLED === 'true' });
-    if (!['/meal-api/transcribe', '/meal-api/analyze'].includes(route)) return reject(404, 'not_found');
-    if (!['POST', 'OPTIONS'].includes(req.method)) return reject(405, 'method_not_allowed');
+    const trainerRoute=trainer && env.TRAINER_ENABLED==='true' && route.startsWith('/meal-api/trainer/');
+    if (!trainerRoute && !['/meal-api/transcribe', '/meal-api/analyze'].includes(route)) return reject(404, 'not_found');
+    if (!(trainerRoute ? ['GET','PUT','POST','OPTIONS'] : ['POST','OPTIONS']).includes(req.method)) return reject(405, 'method_not_allowed');
     for (const name of ['origin', 'authorization', 'content-type']) {
       if (req.rawHeaders.filter((_, i) => i % 2 === 0).filter(x => x.toLowerCase() === name).length > 1)
         return reject(400, 'bad_request');
@@ -96,6 +99,16 @@ export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, 
       };
       // Authenticate before buffering even a chunk of an untrusted body. The handler
       // verifies again at inference time so this preflight cannot bypass its checks.
+      if (trainerRoute) {
+        if(req.method==='OPTIONS')return send(res,204,'',{'Access-Control-Allow-Origin':env.ALLOWED_ORIGINS,'Access-Control-Allow-Methods':'GET, PUT, POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type'});
+        const uid=await trainerAuthenticate(new Request(url,{headers}),env);
+        if(uid!==env.TRAINER_OWNER_UID||!(env.ALLOWED_UIDS||'').split(',').includes(uid))throw Object.assign(Error('pilot_forbidden'),{status:403});
+        if(req.method==='POST'&&route==='/meal-api/trainer/turns'&&env.LIVE_ENABLED!=='true')throw Object.assign(Error('live_disabled'),{status:503});
+        let body;
+        if(['POST','PUT'].includes(req.method)){if(headers['Content-Type']!=='application/json')throw Error('bad_request');const bytes=await readBody(req,controller.signal,bodyTimeoutMs);body=bytes.length?JSON.parse(bytes.toString('utf8')):{};}
+        const response=await trainer.handle(uid,route.slice('/meal-api/trainer'.length),req.method,body,{signal:controller.signal});
+        return send(res,response.status,await response.text(),{'Access-Control-Allow-Origin':env.ALLOWED_ORIGINS,...Object.fromEntries(response.headers)});
+      }
       if (req.method === 'POST') await handler.authorize(new Request(url, { headers }), env);
       if (controller.signal.aborted) return;
       const request = new Request(url, {
@@ -107,7 +120,7 @@ export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, 
       if (!controller.signal.aborted)
         send(res, response.status, await response.text(), Object.fromEntries(response.headers));
     } catch (error) {
-      const publicErrors = {unauthorized:401,pilot_forbidden:403,live_disabled:503,media_too_large:413,upstream_timeout:504};
+      const publicErrors = {invalid_request:400,invalid_date:400,invalid_image:400,message_too_large:413,context_too_large:413,not_found:404,turn_conflict:409,trainer_busy:409,history_conflict:409,composer_conflict:409,trainer_unavailable:503,unauthorized:401,pilot_forbidden:403,live_disabled:503,media_too_large:413,upstream_timeout:504};
       if (!controller.signal.aborted) reject(publicErrors[error.message] || 400, publicErrors[error.message] ? error.message : 'bad_request');
     } finally {
       clearTimeout(timer);
@@ -136,6 +149,7 @@ export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, 
       for (const controller of active) controller.abort();
       await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
       await Promise.all(pending);
+      await trainer?.close();
     },
   };
 }

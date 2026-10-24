@@ -22,6 +22,11 @@
 - Native complete/cancel повторно PASS, незалежний reviewer повторив: 3/1 fake requests; 1.271/1.510 с; canonical admission terminal; всі5 curated markers+SOUL+authoritative history; native image; лише6 tools; terminal/memory deny; exact replay; DELETE; нуль raw/base64/fragments після stop. Окремий незалежний scan902 фрагментів, sessions/messages/admissions0, WAL/SHM немає, quick_check ok. Це не latency Sonnet і не Linux ресурсний benchmark.
 - 12 failure-тестів wrapper PASS: live writer, ownership, native deletion missing, queued/started/unknown, changed bytes, symlinks, busy WAL, idempotency, secure_delete readback. Незалежний Codex hermes_runtime_gate_review: PASS, відкритих зауважень0. Додатковий P2 FIFO зависав до fstat; O_NONBLOCK і bounded subprocess test виправили це.
 
+- Крок2 завершено: owner-only gateway, durable SQLite admissions/leases/HMAC call receipts, early exact replay, status/recovery/cancel, bounded full payload/history, без кешування промптів, no retry після будь-якого upstream failure, спільна вимкнена quota policy. Старий ledger format/receipt/anchor/cap збережені.
+- Actual Node→pinned Hermes→fake provider: complete, native ACK + Node commit loss/recovery без нового inference, cancel,429, stuck-tool deadline, SIGKILL unknown та explicit cancel. 8 fake calls; останній власний набір21.041 с, незалежний повтор19.652 с. Перевірено114media fragments,0leaks, source/OSdeny. Реальних API/ключів/витрат0.
+- Незалежне step2 review підтвердило виправлення owner cross-access,429 retry,latecontext replay,pre-admission hang,pre-upstream unknown,cleanup visibility/reload,cache reservation,actual history receipt,metadata crash handling,native deadline/unknown reconciliation. Кінцевий незалежний verdict PASS; metadata .tmp cleanup перевірено. Незалежний scan26 файлів/114фрагментів:0витоків,0cleanup jobs,0unfinished,8квитанцій. Один запуск перетнувся з іншим тестом на фіксованих портах; exclusive repeat PASS.
+- Повний серверний набір98:88PASS/10TODO/0FAIL. TODO позначають ще не завершені інтеграційні H01–H10 наступних блоків; їх не зараховано як PASS. Prettier3.6.2 використано тільки для нових модулів, кеш у ignored runtime.
+
 ## Змінені файли
 Spec/plan, PROJECT-INFO.md, PRODUCT-GOAL.md, цей журнал, package scripts, server/trainer fixtures і contract checks, scripts/trainer-chat-*.mjs, docs/evidence/hermes-food-local-baseline-2026-10-24.json, .codeindexer export.
 
@@ -32,7 +37,7 @@ GitHub account MILSPIL; Git status/worktrees; CI40086707530 на базі94ea293
 Робота триває. H01–H11 не прийняті; ранній runtime/privacy gate визначає можливість наступних блоків.
 
 ## Наступні кроки
-Завершити незалежне приймання кроку1, commit/push. Після PASS продовжити кроки2–7; runtime/keys/server лишаються заморожені.
+Кроки0/1 commit+push05054d4/57c76d8. Крок2 прийнято незалежним reviewer; commit/push, потім3–7; runtime/keys/server лишаються заморожені.
 
 ## Ризики / нотатки
 Context7 quota exhausted у цій сесії; використовуємо офіційні документи, CLI help і pinned source. Наявний профіль заборонено читати. Новий журнал потребує окремого дозволу на main.
