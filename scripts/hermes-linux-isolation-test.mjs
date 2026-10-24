@@ -15,7 +15,7 @@ import { resolve, join } from "node:path";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { linuxWorkerCommand } from "../server/trainer/linux-isolation.mjs";
-const lab = realpathSync(resolve(".agents/runtime/hermes-lab"));
+const lab = realpathSync(resolve(process.env.HERMES_SYNTHETIC_LAB || ".agents/runtime/hermes-lab"));
 const root = mkdtempSync(join(lab, "isolation-synthetic-"));
 const profile = join(root, "profile"),
   workDirectory = join(root, "work");

@@ -7,6 +7,6 @@ RUN ln -s /app /opt/scisense/current && ln -s /usr/local /opt/scisense/node && m
 COPY deploy/hermes/scisense-api.service /etc/systemd/system/scisense-api.service
 COPY server/trainer/hermes-systemd-test.mjs server/trainer/hermes-systemd-test.mjs
 # Replaces only the entry point, for a synthetic native turn under actual protections.
-RUN printf '[Service]\nType=oneshot\nExecStart=\nExecStart=/opt/scisense/node/bin/node /opt/scisense/current/scripts/hermes-gateway-test.mjs --resource-probe\nEnvironment=HERMES_SYNTHETIC_LAB=/var/lib/scisense/hermes-lab\nTimeoutStartSec=45s\n' > /etc/systemd/system/scisense-api.service.d/90-synthetic.conf && systemctl set-default multi-user.target
+RUN printf '[Service]\nType=oneshot\nExecStartPre=/opt/scisense/node/bin/node /opt/scisense/current/scripts/hermes-linux-isolation-test.mjs\nExecStart=\nExecStart=/opt/scisense/node/bin/node /opt/scisense/current/scripts/hermes-gateway-test.mjs --resource-probe\nEnvironment=HERMES_SYNTHETIC_LAB=/var/lib/scisense/hermes-lab\nTimeoutStartSec=45s\n' > /etc/systemd/system/scisense-api.service.d/90-synthetic.conf && systemctl set-default multi-user.target
 STOPSIGNAL SIGRTMIN+3
 ENTRYPOINT ["/sbin/init"]

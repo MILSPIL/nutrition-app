@@ -2,7 +2,7 @@
 Usage: python3 scripts/hermes-package.py RUNTIME_DIR OUTPUT_DIR
 No installation, private profile access, credential loading or network operations.
 """
-import pathlib,sys,subprocess,json,hashlib,tarfile,shutil,tempfile,datetime,re
+import pathlib,sys,subprocess,json,hashlib,tarfile,shutil,tempfile,datetime,re,os
 from hermes_runtime_validation import validate_runtime
 repo=pathlib.Path(__file__).resolve().parents[1]
 runtime=pathlib.Path(sys.argv[1]).resolve(); output=pathlib.Path(sys.argv[2]).resolve()
@@ -33,7 +33,12 @@ with tempfile.TemporaryDirectory(prefix='scisense-off-package-') as tmp:
   if src.is_symlink() or not src.is_file():raise SystemExit('source_not_regular')
   dest=stage/name;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(src,dest)
  shutil.copytree(build,stage/'public')
- shutil.copytree(repo/'workers/meal-parser/node_modules',stage/'workers/meal-parser/node_modules',symlinks=True)
+ # Rehydrate only locked production dependencies from the local npm cache.
+ # No inherited .npmrc, network, install scripts or Mac-only dev binaries.
+ env={k:os.environ[k] for k in ['PATH','HOME','TMPDIR'] if k in os.environ}
+ env.update({'NPM_CONFIG_USERCONFIG':'/dev/null','NPM_CONFIG_GLOBALCONFIG':str(stage/'absent-npm-global-config')})
+ installed=subprocess.run(['npm','ci','--offline','--omit=dev','--ignore-scripts','--no-audit','--no-fund'],cwd=stage/'workers/meal-parser',env=env,capture_output=True,text=True)
+ if installed.returncode:raise SystemExit('locked_offline_dependencies_failed')
  settings=json.loads((stage/'server/deployment.json').read_text());settings['releaseId']=code_sha
  if settings['liveEnabled'] or settings['trainer']['enabled'] or settings['allowedUids']:raise SystemExit('inference_not_off')
  (stage/'server/deployment.json').write_text(json.dumps(settings,indent=2)+'\n')

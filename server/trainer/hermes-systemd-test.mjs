@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 if (
   process.env.container !== "docker" ||
@@ -53,6 +53,19 @@ try {
     }),
   );
 } catch (error) {
+  // Diagnostic only inside this disposable synthetic systemd container. This
+  // does not accept a weaker unit: the original failure remains a failing CI.
+  const diagnosticFile = "/etc/systemd/system/scisense-api.service.d/95-proc-diagnostic.conf";
+  const originalJournal = spawnSync("journalctl", ["-u", unit, "--no-pager", "-n", "60"], { encoding: "utf8" }).stdout;
+  if (originalJournal.includes("Can't mount proc")) {
+    try {
+      writeFileSync(diagnosticFile, "[Service]\nProtectKernelTunables=false\n");
+      ctl("daemon-reload"); ctl("reset-failed", unit);
+      const alternate = spawnSync("systemctl", ["start", unit], { encoding: "utf8", timeout: 55000 });
+      console.error(JSON.stringify({ diagnosticOnly: true, changed: "ProtectKernelTunables=false", alternateExit: alternate.status }));
+    } finally { unlinkSync(diagnosticFile); ctl("daemon-reload"); }
+  }
+  console.error(originalJournal);
   console.error(
     spawnSync("journalctl", ["-u", unit, "--no-pager", "-n", "40"], {
       encoding: "utf8",
