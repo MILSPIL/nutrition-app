@@ -1,6 +1,10 @@
 import { auth } from "../firebase";
 import { voiceError } from "./voiceApi";
 const messages = {
+  day_unavailable: "Не вдалося прочитати записи цього дня. Перечитайте прев’ю перед додаванням.",
+  stale_preview: "Записи дня змінилися. Оновіть прев’ю й перевірте підсумок.",
+  stale_snapshot: "День змінився під час відповіді. Перевірте актуальні записи перед новим повідомленням.",
+  memory_read_only: "Пам’ять тренера поки доступна для читання. Нове уподобання ще не збережено.",
   trainer_busy:
     "Тренер ще завершує попереднє повідомлення. Зачекайте або перевірте його стан.",
   trainer_unavailable:
@@ -27,7 +31,7 @@ const messages = {
   turn_gone: "Термін зберігання цього повідомлення минув.",
   invalid_quantity: "Вкажіть додатну кількість або залиште її невідомою.",
   plan_conflict:
-    "План змінився перед записом. Попередню спробу скасовано. Перевірте прев’ю й натисніть «Додати» ще раз.",
+    "Дані дня або план змінилися перед записом. Попередню спробу скасовано. Оновіть прев’ю й натисніть «Додати» ще раз.",
 };
 export const trainerError = (e) =>
   messages[e?.message] || voiceError(e || Error());
@@ -93,6 +97,8 @@ export function createTrainerApi(
   return {
     request,
     state: (s) => request("/state", "GET", undefined, s),
+    day: (date, s) => request(`/days/${date}`, "GET", undefined, s),
+    refreshDraft: (id, revision, s) => request(`/drafts/${id}/refresh`, "PUT", { baseRevision: revision }, s),
     composer: (b, s) => request("/composer", "PUT", b, s),
     send: (b, s) => request("/turns", "POST", b, s),
     turn: (id, s) => request(`/turns/${id}`, "GET", undefined, s),

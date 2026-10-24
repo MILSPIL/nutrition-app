@@ -132,22 +132,7 @@ export const MEAL_LETTERS = {
   4: ["і", "ї", "й"]
 };
 
-// Іконки категорій
-export const CATEGORY_ICONS = {
-  "а": "/icons/category-carbs.png",
-  "б": "/icons/category-dairy.png",
-  "в": "/icons/category-treats.png",
-  "г": "/icons/category-carbs.png",
-  "д": "/icons/category-protein.png",
-  "е": "/icons/category-vegetables.png",
-  "є": "/icons/category-fats.png",
-  "ж": "/icons/category-dairy.png",
-  "з": "/icons/category-fruits.png",
-  "и": "/icons/category-nuts.png",
-  "і": "/icons/category-protein.png",
-  "ї": "/icons/category-vegetables.png",
-  "й": "/icons/category-fats.png"
-};
+// Іконки категорій імпортуються окремо з categoryIcons.js тільки у браузері.
 
 // Іконки прийомів їжі
 export const MEAL_BADGE_ICONS = {

@@ -124,6 +124,7 @@ async function init(owner) {
     index: { lookup: () => [potato] },
     readDay,
     readPlan,
+    memoryWriteEnabled: true, // Synthetic fixture exercises explicit confirmation after cutover.
   });
   const backend = {
     async start(ctx) {
@@ -189,7 +190,7 @@ async function init(owner) {
         {
           ...(old ? { draftId: old.draftId } : {}),
           baseRevision: old?.revision || 0,
-          targetDate: ctx.input.targetDate,
+          dayRef: old ? "draft" : "today",
           meal: 1,
           items: [item],
         },
@@ -215,6 +216,7 @@ async function init(owner) {
     readContext: async () => contextStore.read(),
     readDay,
     readPlan,
+    memoryWriteEnabled: true, // Synthetic fixture exercises explicit confirmation after cutover.
   });
 }
 const server = createServer(async (req, res) => {
@@ -378,6 +380,7 @@ try {
     .locator("button:has(svg.lucide-x)")
     .first()
     .click();
+  await page.locator("[data-modal-surface]").waitFor({state:"hidden"});
   const date = await page
     .getByLabel("Дата записів", { exact: true })
     .inputValue();
@@ -437,6 +440,7 @@ try {
     await page
       .getByRole("button", { name: "Закрити чат", exact: true })
       .click();
+    await page.waitForFunction(()=>document.activeElement?.getAttribute("aria-label")==="Тренер · текст і голос");
     check(
       "Фокус повернуто " + width,
       await page
@@ -549,7 +553,7 @@ try {
     !JSON.stringify(confirmed.meals).includes("originalText"),
   );
   mode = "unknown";
-  await send("Ще домашня страва невідомого складу");
+  await send("З’їв ще домашню страву невідомого складу");
   await page
     .getByLabel("Зберегти як нотатку без повного розрахунку", { exact: true })
     .check();

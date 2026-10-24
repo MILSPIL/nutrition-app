@@ -176,6 +176,7 @@ export function createTrainerSession({
     text = state.text,
     images = [],
     targetDate,
+    dateContext,
     turnId = newId(),
   }) {
     return operate(async () => {
@@ -190,7 +191,7 @@ export function createTrainerSession({
         turnId,
         baseRevision: state.server.revision,
         text,
-        targetDate,
+        ...(dateContext ? { dateContext } : { targetDate }),
         images: images.map(({ type, data, itemId }) => ({
           type,
           data,
@@ -336,6 +337,7 @@ export function createTrainerSession({
           ),
         ),
       ),
+    refreshDraft: (draft) => operate(() => call((s) => api.refreshDraft(draft.draftId, draft.revision, s))),
     note: (body) => operate(() => call((s) => api.note(body, s))),
     recover: (id) => operate(() => call((s) => api.recover(id, s))),
     cancel: (id) => operate(() => call((s) => api.cancel(id, s))),

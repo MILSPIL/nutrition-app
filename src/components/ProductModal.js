@@ -1,6 +1,7 @@
+import { CATEGORY_ICONS } from '../data/categoryIcons';
 import React, { useState } from 'react';
 import { X, Plus, Pencil } from 'lucide-react';
-import { PRODUCTS_DB, CATEGORY_ICONS } from '../data/products';
+import { PRODUCTS_DB } from '../data/products';
 import {dailyPlanProgress,percentText} from '../services/planAllocation';
 import { getCategoryProgress } from '../services/nutrition';
 import AnimatedModal from './AnimatedModal';

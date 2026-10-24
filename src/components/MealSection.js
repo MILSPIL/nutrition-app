@@ -1,6 +1,7 @@
+import { CATEGORY_ICONS } from '../data/categoryIcons';
 import React, { useState } from 'react';
 import { Plus, Trash2, ChevronRight, Pencil, Check, X } from 'lucide-react';
-import { PRODUCTS_DB, MEAL_LETTERS, CATEGORY_ICONS } from '../data/products';
+import { PRODUCTS_DB, MEAL_LETTERS } from '../data/products';
 import { itemMacros, quantityText, sourceText, UNITS } from '../services/mealItems';
 import {dailyPlanProgress,itemPlanPercent,percentText} from '../services/planAllocation';
 import { getCategoryProgress } from '../services/nutrition';

@@ -1,0 +1,261 @@
+{
+  "syntheticOnly": true,
+  "realBuiltUI": true,
+  "mockedTrainerAPI": true,
+  "widths": [
+    {
+      "home": {
+        "width": 375,
+        "height": 56,
+        "right": 16,
+        "bottom": 16,
+        "reportGap": 16.5,
+        "overflow": 0
+      },
+      "chat": {
+        "left": 16,
+        "right": 16,
+        "edges": 0,
+        "overflow": 0,
+        "width": 375,
+        "heights": [
+          44,
+          44,
+          44,
+          44,
+          44,
+          44,
+          44,
+          44,
+          44
+        ]
+      }
+    },
+    {
+      "home": {
+        "width": 390,
+        "height": 56,
+        "right": 16,
+        "bottom": 16,
+        "reportGap": 16.5,
+        "overflow": 0
+      },
+      "chat": {
+        "left": 16,
+        "right": 16,
+        "edges": 0,
+        "overflow": 0,
+        "width": 390,
+        "heights": [
+          44,
+          44,
+          44,
+          44,
+          44,
+          44,
+          44,
+          44,
+          44
+        ]
+      }
+    },
+    {
+      "home": {
+        "width": 1366,
+        "height": 56,
+        "right": 16,
+        "bottom": 16,
+        "reportGap": 16.5,
+        "overflow": 0
+      },
+      "chat": {
+        "left": 16,
+        "right": 16,
+        "edges": 0,
+        "overflow": 0,
+        "width": 512,
+        "heights": [
+          44,
+          44,
+          44,
+          44,
+          44,
+          44,
+          44,
+          44,
+          44
+        ]
+      }
+    }
+  ],
+  "checks": [
+    "launcher 375",
+    "no automatic input 375",
+    "chat edges 375",
+    "food shortcut no call 375",
+    "launcher 390",
+    "no automatic input 390",
+    "chat edges 390",
+    "food shortcut no call 390",
+    "launcher 1366",
+    "no automatic input 1366",
+    "chat edges 1366",
+    "food shortcut no call 1366",
+    "one advice no draft",
+    "historical preview reads actual day",
+    "versioned icons exact visual box",
+    "repeat icons served from browser cache",
+    "no page errors"
+  ],
+  "consoleErrors": [],
+  "iconRequests": [
+    {
+      "url": "/static/media/category-carbs.4374b9b5c895a1c17870.webp",
+      "bytes": 7252
+    },
+    {
+      "url": "/static/media/category-dairy.e41aff5432433ffb9fd9.webp",
+      "bytes": 5542
+    },
+    {
+      "url": "/static/media/category-treats.56d2d973943a022e83fe.webp",
+      "bytes": 5556
+    }
+  ],
+  "icons": [
+    {
+      "src": "http://127.0.0.1:4189/static/media/category-carbs.4374b9b5c895a1c17870.webp",
+      "naturalWidth": 192,
+      "box": 42
+    },
+    {
+      "src": "http://127.0.0.1:4189/static/media/category-dairy.e41aff5432433ffb9fd9.webp",
+      "naturalWidth": 192,
+      "box": 42
+    },
+    {
+      "src": "http://127.0.0.1:4189/static/media/category-treats.56d2d973943a022e83fe.webp",
+      "naturalWidth": 192,
+      "box": 42
+    }
+  ],
+  "iconCache": {
+    "warmBodies": 3,
+    "repeatBodies": 3
+  },
+  "status": "passed",
+  "date": "2026-10-24",
+  "baseCommit": "6d600e64d08eee6029167654b8e22439709b0895",
+  "testedWorkingTree": true,
+  "scope": "C01/C04/I01 UI only; trainer transport mocked, production and owner acceptance not tested",
+  "jest": {
+    "suites": 6,
+    "tests": 36,
+    "status": "passed"
+  },
+  "red": {
+    "suites": 2,
+    "failed": 6,
+    "passed": 7,
+    "receipt": ".agents/runtime/coach-ui-red.log"
+  },
+  "iconOptimization": {
+    "displayBoxMax": 44,
+    "dprTarget": 3,
+    "target": 192,
+    "rows": [
+      {
+        "name": "carbs",
+        "sourceBytes": 980509,
+        "bytes": 7252,
+        "size": 192
+      },
+      {
+        "name": "dairy",
+        "sourceBytes": 693310,
+        "bytes": 5542,
+        "size": 192
+      },
+      {
+        "name": "treats",
+        "sourceBytes": 722443,
+        "bytes": 5556,
+        "size": 192
+      },
+      {
+        "name": "protein",
+        "sourceBytes": 768981,
+        "bytes": 6638,
+        "size": 192
+      },
+      {
+        "name": "vegetables",
+        "sourceBytes": 797402,
+        "bytes": 7600,
+        "size": 192
+      },
+      {
+        "name": "fats",
+        "sourceBytes": 680703,
+        "bytes": 5170,
+        "size": 192
+      },
+      {
+        "name": "fruits",
+        "sourceBytes": 792467,
+        "bytes": 5704,
+        "size": 192
+      },
+      {
+        "name": "nuts",
+        "sourceBytes": 965295,
+        "bytes": 5860,
+        "size": 192
+      }
+    ],
+    "total": 49322
+  },
+  "sourceHashes": {
+    "src/components/AnimatedModal.js": "9fc5ca3f79bce8ee69d2d16a859f7aec8ba76ea013e1862a67311e336e96cd1c",
+    "src/components/MealSection.js": "006dad6c36a5bd4f47a8d4a8b2fff6ce32da8b41f5e9f264953d7f2586b3360c",
+    "src/components/ProductModal.js": "05318a1fa6a61bfd51567cb161f0017675f68b608f5f792a533a8bc8e922068b",
+    "src/components/TrainerChat.css": "4b7870fc92e9447082a57b08435b0b256d961e5ef6cbbb93bac8fa118142fcd1",
+    "src/components/TrainerChat.js": "e95fef04025f06a6947d33b9779d4c78d800de61cd1e93fd136c64be611c3b08",
+    "src/components/TrainerLauncher.css": "a60a3f78c9d05e41c8de1ff60cbda47f414bfadf0bbf33cb29269bc79e7273fd",
+    "src/components/TrainerLauncher.js": "7a384fc2f820cf77049caad8f375017a18a07d1f20d0bb8fbb6b013114349d69",
+    "src/components/TrainerLauncher.test.js": "7a9a962fab1c6eb1070f7a1fe8e11f1d2ab53102961c7308fd24758cb658731f",
+    "src/data/categoryIcons.js": "fa764cfce70ea16f565e29642bc62e34f2f5257794dd18a4b878e449a8e13f86",
+    "src/data/products.js": "6c26631a435f5c3f2e37fd2d3c2a936beda153149b90c26f30fcc1ffa868071e",
+    "src/data/products.icons.test.js": "f6ca822539ddfe29c6dc9da1d15e82d301d510eacd1227c8c44b02f68dde8845",
+    "src/pages/ClientApp.js": "a4bbb815453b3991df8a321de5366b9e1c6cf4e8d8383fc8efff9d2f7fbbd87d",
+    "src/services/trainerApi.js": "27e719bf069e3378cf29d4e2781d1e059a72e3ae84857e87194a45bc403e88ef",
+    "src/services/trainerChatUi.test.js": "c6fa92ebc01b42e9dfc3363db98fa68bb624224223ea3a1e8bd5aef0633e5701",
+    "src/services/trainerDates.js": "908388221e50d8fd712395aa358872b52604855ad8a0327372b24ff80a0f8daa",
+    "src/services/trainerDates.test.js": "91ae2d53122fea54e488bcbc2eb4dd37ab448fded776a548fe0c444ccdbd24f5",
+    "src/services/trainerSession.js": "523d9e9f5c4bc7f14c5fab9906639674f55d82ff13f703cc3e53e7f07939f304",
+    "scripts/coach-ui-qa.mjs": "99b93005e8547cee91fe8fc0ac6317b3c1573c5c577b5575f68efa11b01cd07d",
+    "scripts/coach-ui-browser.mjs": "6f2b21f287527b82cb65f57b9af97135b775beaa8f7dacccfef6bbcf2f8e9a93",
+    "scripts/trainer-chat-browser.mjs": "9c6aa070aa231b55ec7290179ddf94249fade3f15ff7d006b5a7166be0d07b87",
+    "src/assets/categories/category-carbs.webp": "d5a5c9db02cb3a96eb16d9c8ce6165e3e319d65be5f0f2cef687a648d83da54f",
+    "src/assets/categories/category-dairy.webp": "9406f84bbae38d9f7e88611f87274faf3552023782c63a2f95b73ebb44514a54",
+    "src/assets/categories/category-fats.webp": "5597269ffdd0c19c722f4a25f6be49dd7fbde427532ba55d8dac9c96d016aae2",
+    "src/assets/categories/category-fruits.webp": "88579023534f24969106d391dd31486ff3be94cce9b60a222b1d0b8dece253e6",
+    "src/assets/categories/category-nuts.webp": "5696d517c56e66ca336322f8829de362745a3d00c4f1f98b41c98c3f0c68bf83",
+    "src/assets/categories/category-protein.webp": "afefdfc9cefd0befccf8286ea6bd345b86c99d38f3b7176310bcdb0dd2edd48c",
+    "src/assets/categories/category-treats.webp": "324a09d95983bd5f57e665d53af3d04a319854a197425a586f360014524c5653",
+    "src/assets/categories/category-vegetables.webp": "092e0e5b7cfbd724e172be5ca65ba929ec6a63d84d4ec0e362a77327f055ca1d"
+  },
+  "screenshots": [
+    "tmp/coach-ui-qa/chat-1366.png",
+    "tmp/coach-ui-qa/chat-375.png",
+    "tmp/coach-ui-qa/chat-390.png",
+    "tmp/coach-ui-qa/historical-preview-390.png",
+    "tmp/coach-ui-qa/launcher-1366.png",
+    "tmp/coach-ui-qa/launcher-375.png",
+    "tmp/coach-ui-qa/launcher-390.png"
+  ],
+  "browserCleanup": {
+    "cleanup_ok": true,
+    "removed": true
+  }
+}

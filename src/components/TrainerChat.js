@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Mic, Square, Camera, Send, X } from "lucide-react";
 import { createTrainerApi, trainerError } from "../services/trainerApi";
 import { createTrainerSession } from "../services/trainerSession";
+import { dateLabel, initialTrainerDate, kyivDateKey } from "../services/trainerDates";
 import {
   createRecorder,
   normalizeAudio,
@@ -71,6 +72,9 @@ function DraftCard({
   onSave,
   onPhoto,
   onOpenDay,
+  dayStatus,
+  stale,
+  onRefresh,
 }) {
   const allocated = assignPlanItems(
       draft.items.filter((i) => i.nutritionStatus === "complete"),
@@ -79,7 +83,7 @@ function DraftCard({
     ),
     byId = new Map(allocated.map((i) => [i.itemId, i]));
   const preview = { ...meals, preview: {} };
-  for (const i of allocated) {
+  for (const i of draft.state === "saved" ? [] : allocated) {
     const k = i.planAllocation.letter || "voice";
     preview.preview[k] = [...(preview.preview[k] || []), i];
   }
@@ -101,9 +105,11 @@ function DraftCard({
     <article className="trainer-draft" data-testid="trainer-draft">
       <div className="trainer-draft-heading">
         <h3>{draft.state === "saved" ? "Додано" : "Прев’ю їжі"}</h3>
-        <span>{draft.targetDate}</span>
+        <span>{dateLabel(draft.targetDate)} · {names[draft.meal]}</span>
       </div>
-      <div className="trainer-fields">
+      <details className="trainer-draft-date">
+        <summary>Змінити дату або прийом</summary>
+        <div className="trainer-fields">
         <label>
           Дата
           <input
@@ -129,7 +135,8 @@ function DraftCard({
             ))}
           </select>
         </label>
-      </div>
+        </div>
+      </details>
       {draft.items.map((raw, index) => {
         const item = byId.get(raw.itemId) || raw;
         return (
@@ -139,6 +146,8 @@ function DraftCard({
               {sourceText(item)}
               {item.estimated ? " · Приблизна оцінка" : ""}
             </p>
+            {item.source?.estimateReason === "recipe_estimate" && <p className="trainer-hint">Оцінка за типовим рецептом</p>}
+            {item.source?.portionOrigin?.assumption && <p className="trainer-hint">{item.source.portionOrigin.assumption}</p>}
             {(item.source?.assumptions || []).map((a, i) => (
               <p className="trainer-hint" key={i}>
                 {a}
@@ -254,6 +263,11 @@ function DraftCard({
           Підсумок неповний. Нотатки не входять у суму калорій.
         </p>
       )}
+      {dayStatus === "loading" && <p role="status">Перечитую записи за {dateLabel(draft.targetDate)}…</p>}
+      {(dayStatus === "error" || stale) && !frozen && <div className="trainer-warning" role="status">
+        <p>{dayStatus === "error" ? "Не вдалося прочитати цей день." : "Записи дня змінилися. Оновіть прев’ю перед додаванням."}</p>
+        <button disabled={disabled || dirty} onClick={onRefresh}>Оновити прев’ю</button>
+      </div>}
       {dirty && <p role="status">Зберігаю зміни прев’ю…</p>}
       {frozen && draft.state !== "saved" && (
         <p role="status">
@@ -272,6 +286,7 @@ function DraftCard({
           className="trainer-primary"
           disabled={
             disabled ||
+            (!frozen && (dirty || stale || dayStatus !== "ready")) ||
             draft.blocked ||
             draft.items.some(
               (i) => i.nutritionStatus !== "complete" && !i.noteSelected,
@@ -288,7 +303,6 @@ function DraftCard({
 export default function TrainerChat({
   ownerKey,
   uid,
-  date,
   meal = 1,
   planContext,
   dayMeals = empty,
@@ -303,6 +317,8 @@ export default function TrainerChat({
   photoNormalizer = normalizePhoto,
   transcribe = transcribeAudio,
   initialNote,
+  initialDateContext,
+  returnFocusRef,
 }) {
   const api = useMemo(
     () => providedApi || createTrainerApi(uid),
@@ -312,7 +328,10 @@ export default function TrainerChat({
     [error, setError] = useState(""),
     [recordState, setRecordState] = useState("ready"),
     [seconds, setSeconds] = useState(0),
-    [targetDate, setTargetDate] = useState(date),
+    [showDatePicker, setShowDatePicker] = useState(false),
+    [dateContext, setDateContext] = useState(() => initialTrainerDate(initialDateContext)),
+    [previewDays, setPreviewDays] = useState({}),
+    [dayRefresh, setDayRefresh] = useState(0),
     [photos, setPhotos] = useState([]),
     [edits, setEdits] = useState({}),
     [context, setContext] = useState(null),
@@ -338,7 +357,7 @@ export default function TrainerChat({
   const callbacks = useRef();
   callbacks.current = { onAdd, onSaved, onClose, onOpenDay };
   const catalog = useMemo(() => buildPlanCatalog(planContext), [planContext]);
-  latest.current = { view, photos, recordState, targetDate, edits };
+  latest.current = { view, photos, recordState, dateContext, edits };
   editRef.current = edits;
   const catchError = (e) => {
     if (alive.current) setError(trainerError(e));
@@ -375,9 +394,10 @@ export default function TrainerChat({
     const epochs = epoch;
     const generation = epochs.current;
     const attempts = turnAttempts.current;
-    const previous = document.activeElement,
+    const previous = returnFocusRef?.current || document.activeElement,
       oldOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    panel.current?.querySelector('[aria-label="Закрити чат"]')?.focus();
     const createSession = () =>
       createTrainerSession({
         api,
@@ -394,7 +414,6 @@ export default function TrainerChat({
       .refresh()
       .then(() => {
         if (closed || !current(generation)) return;
-        textarea.current?.focus();
         if (initialNote) void s.note(initialNote).catch(catchError);
       })
       .catch(() => {});
@@ -451,7 +470,7 @@ export default function TrainerChat({
       window.removeEventListener("pagehide", pagehide);
       window.removeEventListener("pageshow", pageshow);
       document.body.style.overflow = oldOverflow;
-      previous?.focus?.();
+      window.setTimeout(() => { if (previous?.isConnected) previous.focus?.(); }, 0);
       if (attempt.current)
         void metric(
           { status: "abandoned", finishedAt: Date.now() },
@@ -463,6 +482,36 @@ export default function TrainerChat({
     // Auth/open lifetime only; current callbacks are kept in a ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerKey, api]);
+  const previewKey = (view.server?.drafts || []).map(d =>
+    [d.draftId, d.revision, d.state, edits[d.draftId]?.targetDate || d.targetDate, !!d.stale].join(":")
+  ).join("|");
+  useEffect(() => {
+    const controller = new AbortController();
+    const dates = [...new Set((view.server?.drafts || []).map(d => edits[d.draftId]?.targetDate || d.targetDate))];
+    for (const target of dates) {
+      setPreviewDays(previous => ({ ...previous, [target]: { ...previous[target], status: "loading" } }));
+      Promise.resolve().then(() => api.day(target, controller.signal)).then(day => {
+        if (!controller.signal.aborted) setPreviewDays(previous => ({ ...previous, [target]: { status: "ready", day } }));
+      }).catch(() => {
+        if (!controller.signal.aborted) setPreviewDays(previous => ({ ...previous, [target]: { status: "error" } }));
+      });
+    }
+    return () => controller.abort();
+    // Only a changed draft/day identity or an explicit refresh starts this read.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, previewKey, dayRefresh]);
+  const staleDay = (draft, day) => {
+    if (draft.state === "saved") return false;
+    if (draft.stale || !draft.freshness) return true;
+    return !day?.freshness || ["targetDate", "dayRevision", "planFingerprint", "notesRevision"].some(key => draft.freshness[key] !== day.freshness[key]);
+  };
+  async function refreshPreview(draft) {
+    try {
+      await flushEdits();
+      await session.current.refreshDraft(session.current.get().server.drafts.find(d => d.draftId === draft.draftId));
+      if (alive.current) { setError(""); setDayRefresh(n => n + 1); }
+    } catch (e) { catchError(e); }
+  }
   const scrollKey=[view.server?.messages?.length,view.server?.drafts?.map(d=>d.draftId+':'+d.state).join('|'),view.server?.contextProposals?.length].join('/');
   useEffect(()=>{
     const area=panel.current?.querySelector('.trainer-scroll');
@@ -592,7 +641,7 @@ export default function TrainerChat({
         turnId,
         text: content,
         images: latest.current.photos,
-        targetDate: latest.current.targetDate,
+        dateContext: latest.current.dateContext,
       });
       if (!current(generation)) return;
       if (id) turnAttempts.current.set(turnId, id);
@@ -751,7 +800,15 @@ export default function TrainerChat({
       const fresh = own
         .get()
         .server.drafts.find((d) => d.draftId === draft.draftId);
+      let previewDay;
+      if (!["saving", "unknown", "saved"].includes(fresh.state)) {
+        previewDay = await api.day(fresh.targetDate);
+        if (!current(generation)) return;
+        setPreviewDays(previous => ({ ...previous, [fresh.targetDate]: { status: "ready", day: previewDay } }));
+        if (staleDay(fresh, previewDay)) throw Error("stale_preview");
+      }
       await own.save(fresh);
+      setDayRefresh(n => n + 1);
       if (!current(generation)) return;
       await draftMetrics(fresh, {
         status: "saved",
@@ -764,8 +821,8 @@ export default function TrainerChat({
         ...allocationCounts(
           assignPlanItems(
             fresh.items.filter((i) => i.nutritionStatus === "complete"),
-            catalog,
-            dayMeals,
+            previewDay?.catalog || catalog,
+            previewDay?.meals || previewDays[fresh.targetDate]?.day?.meals || dayMeals,
           ),
         ),
       });
@@ -826,9 +883,12 @@ export default function TrainerChat({
         </header>
         <div className="trainer-scroll">
           <p className="trainer-intro">
-            Напишіть або розкажіть, що з’їли. Я підготую прев’ю, а ви натиснете
-            «Додати».
+            Запитайте пораду або розкажіть, що з’їли. Тренер врахує підтверджені записи дня. Їжа зберігається після вашої кнопки «Додати».
           </p>
+          {!view.server?.messages?.length && <div className="trainer-shortcuts" aria-label="Почати розмову">
+            {["Що краще поїсти?", "Що залишилося на сьогодні?"].map(text => <button key={text} disabled={!view.server || busy || activeTurn(turn) || !!view.admission || !!view.composerConflict} onClick={() => void send(text)}>{text}</button>)}
+            <button disabled={busy || !!view.admission} onClick={() => textarea.current?.focus()}>Записати їжу</button>
+          </div>}
           <div aria-live="polite" className="trainer-messages">
             {(view.server?.messages || []).map((m) => (
               <div
@@ -902,8 +962,11 @@ export default function TrainerChat({
             <DraftCard
               key={d.draftId}
               draft={applyEdits(d, edits[d.draftId])}
-              catalog={catalog}
-              meals={d.targetDate === date ? dayMeals : empty}
+              catalog={previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.day?.catalog || catalog}
+              meals={previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.day?.meals || empty}
+              dayStatus={previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.status || "loading"}
+              stale={staleDay(d, previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.day)}
+              onRefresh={() => void refreshPreview(d)}
               dirty={!!edits[d.draftId]}
               disabled={busy}
               onEdit={(p) => edit(d.draftId, p)}
@@ -1076,15 +1139,14 @@ export default function TrainerChat({
               </button>
             </div>
           )}
-          <label className="trainer-date">
-            Дата повідомлення
-            <input
-              type="date"
-              value={targetDate}
-              disabled={busy || !!view.admission}
-              onChange={(e) => setTargetDate(e.target.value)}
-            />
-          </label>
+          {dateContext.mode === "pinned" ? <div className="trainer-date-chip">
+            <span>Для записів: {dateLabel(dateContext.targetDate)}</span>
+            <button disabled={busy || !!view.admission} onClick={() => setDateContext({ mode: "default" })}>Сьогодні</button>
+          </div> : <p className="trainer-date-hint">Можна сказати «вчора» або назвати дату.</p>}
+          <details className="trainer-pin-date" onToggle={e => setShowDatePicker(e.currentTarget.open)}>
+            <summary>Інша дата</summary>
+            {showDatePicker && <label>Закріпити дату для повідомлень<input type="date" aria-label="Закріпити дату" defaultValue={dateContext.targetDate || kyivDateKey()} disabled={busy || !!view.admission} onChange={e => { if (e.target.value) setDateContext({ mode: "pinned", targetDate: e.target.value }); }} /></label>}
+          </details>
           <label className="trainer-text-label" htmlFor="trainer-message">
             Повідомлення тренеру
           </label>
@@ -1207,7 +1269,7 @@ export default function TrainerChat({
                     .then(() =>
                       session.current.note({
                         text: view.text,
-                        targetDate,
+                        targetDate: dateContext.mode === "pinned" ? dateContext.targetDate : kyivDateKey(),
                         meal,
                       }),
                     )

@@ -1,0 +1,32 @@
+.trainer-launcher {
+  position: fixed;
+  right: max(16px, calc((100vw - 512px) / 2 + 16px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  height: 56px;
+  min-width: 136px;
+  border: 0;
+  border-radius: 28px;
+  padding: 0 20px;
+  background: #007aff;
+  color: white;
+  box-shadow: 0 4px 18px #005fc83b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.trainer-launcher[hidden] { display: none; }
+.trainer-launcher:disabled { opacity: .5; cursor: default; }
+.trainer-launcher:focus-visible { outline: 3px solid #004997; outline-offset: 3px; }
+.coach-page { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+.diary-date-control { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.diary-date-control button, .diary-date-control summary { min-height: 44px; padding: 10px 12px; border-radius: 12px; color: #1766b7; cursor: pointer; }
+.diary-date-control details { margin-left: auto; }
+.diary-date-control summary { list-style: none; display: flex; align-items: center; gap: 8px; background: #fff; }
+.diary-date-control summary::-webkit-details-marker { display: none; }
+.diary-date-control input { display: block; max-width: 100%; margin-top: 8px; padding: 10px; border: 1px solid #c6cbd5; border-radius: 10px; background: #fff; }
+.diary-date-control .is-selected { color: #fff; background: #007aff; }

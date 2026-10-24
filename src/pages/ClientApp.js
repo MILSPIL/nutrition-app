@@ -37,6 +37,9 @@ import {
 } from '../services/nutrition';
 import VoiceInputModal from '../components/VoiceInputModal';
 import TrainerChat from '../components/TrainerChat';
+import TrainerLauncher from '../components/TrainerLauncher';
+import { CalendarDays } from 'lucide-react';
+import { dateLabel, kyivDateKey } from '../services/trainerDates';
 import PilotPanel from '../components/PilotPanel';
 import { createPilotLedger } from '../services/pilotLedger';
 import { catalogItem, quantityText, itemMacros, sourceText } from '../services/mealItems';
@@ -59,6 +62,9 @@ export default function ClientApp() {
 
   const [showVoiceInput,setShowVoiceInput]=useState(false);
   const [trainerNote,setTrainerNote]=useState(null);
+  const trainerTriggerRef=useRef(null);
+  const [trainerDateContext,setTrainerDateContext]=useState({mode:"default"});
+  const [diaryDatePinned,setDiaryDatePinned]=useState(false);
   const [pilotVersion,setPilotVersion]=useState(0);
   const pilotLedger=useMemo(()=>createPilotLedger(),[]);
   useEffect(()=>()=>{void pilotLedger.close().catch(()=>{});},[pilotLedger]);
@@ -79,7 +85,7 @@ export default function ClientApp() {
   const [programDay, setProgramDay] = useState(1);
   const [currentWeight, setCurrentWeight] = useState(null);
   const [selectedMeal, setSelectedMeal] = useState(1);
-  const [mealsDateKey, setMealsDateKey] = useState(getTodayDateKey());
+  const [mealsDateKey, setMealsDateKey] = useState(kyivDateKey());
   const mealDay = useMealDay(firebaseUser?.uid, currentUser, mealsDateKey);
   const meals = mealDay.day.meals;
   useEffect(()=>{
@@ -521,10 +527,27 @@ export default function ClientApp() {
   if (!currentUser) return null;
 
   const macros = calculateTotalMacros();
+  const todayDate = kyivDateKey();
+  const previousDate = new Date(todayDate + 'T12:00:00Z');
+  previousDate.setUTCDate(previousDate.getUTCDate() - 1);
+  const yesterdayDate = previousDate.toISOString().slice(0, 10);
+  const dateBusy = mealDay.busy || mealDay.hasPending || !!metadataDirty.current;
+  const chooseDate = (value, pinned = true) => {
+    if (!value || dateBusy) return;
+    setMealsDateKey(value);
+    setDiaryDatePinned(pinned);
+  };
+  const openTrainer = (event) => {
+    trainerTriggerRef.current=event?.currentTarget || document.activeElement;
+    setTrainerNote(null);
+    setTrainerDateContext(diaryDatePinned ? {mode:'pinned',targetDate:mealsDateKey} : {mode:'default'});
+    setShowVoiceInput(true);
+  };
+  const anyModal = showVoiceInput || showAccountSwitch || showPortionSettings || showDaySelector || showSettings || showProductModal || showReport || showAddCustomProduct || showAddTrainer || showMeasurements || showMeasurementReminder;
 
   return (
     <ToastProvider>
-    <div className="min-h-screen pb-8 bg-[#F2F2F7]">
+    <div className={`min-h-screen bg-[#F2F2F7] ${trainerChatEnabled?"coach-page":"pb-8"}`}>
       <Header
         user={users[currentUser]}
         programDay={programDay}
@@ -537,17 +560,20 @@ export default function ClientApp() {
         onShowDaySelector={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowDaySelector(true);}}
         onShowMeasurements={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowMeasurements(true);}}
         onShowSettings={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowSettings(true);}}
-        onShowVoiceInput={()=>{setTrainerNote(null);setShowVoiceInput(true);}}
+        onShowVoiceInput={openTrainer}
         voiceLabel={trainerChatEnabled?'Тренер · текст і голос':undefined}
         voiceDisabled={!mealDay.ready || mealDay.busy || mealDay.requiresReload || !!mealDay.day.legacy}
 
       />
 
       <div className="max-w-lg mx-auto px-4 mb-4">
-        <label className="flex items-center justify-between gap-3">Дата записів
-          <input aria-label="Дата записів" type="date" value={mealsDateKey} disabled={mealDay.busy || mealDay.hasPending || !!metadataDirty.current}
-            onChange={e=>e.target.value && setMealsDateKey(e.target.value)} className="p-2 rounded-lg bg-white" />
-        </label>
+        <div className="diary-date-control" aria-label="День щоденника">
+          <button className={mealsDateKey===todayDate?'is-selected':''} aria-pressed={mealsDateKey===todayDate} disabled={dateBusy} onClick={()=>chooseDate(todayDate,false)}>Сьогодні</button>
+          <button className={mealsDateKey===yesterdayDate?'is-selected':''} aria-pressed={mealsDateKey===yesterdayDate} disabled={dateBusy} onClick={()=>chooseDate(yesterdayDate)}>Вчора</button>
+          <details><summary aria-label="Обрати дату записів"><CalendarDays size={18} aria-hidden="true"/>{dateLabel(mealsDateKey)}</summary>
+            <input aria-label="Дата записів" type="date" value={mealsDateKey} disabled={dateBusy} onChange={e=>chooseDate(e.target.value)}/>
+          </details>
+        </div>
         {!mealDay.ready && <p role="status">Завантажую день…</p>}
         {mealDay.busy && <p role="status">Зберігаю…</p>}
         {(mealDay.error || mealDay.hasPending) && <div role="alert"><p>{mealDay.error || "Результат збереження ще не підтверджено. Перевірте той самий запис."}</p>
@@ -565,7 +591,7 @@ export default function ClientApp() {
           <ul>{Object.values(mealDay.day.legacy).flatMap(m=>Object.values(m).flat()).map((item,i)=><li key={i}>{item.name}: {quantityText(item)}</li>)}</ul>
         </div>}
       </div>
-      <div className="max-w-lg mx-auto px-4"><FoodNotesPanel onResolve={trainerChatEnabled?note=>{setTrainerNote({text:note.originalText||note.name,targetDate:mealsDateKey,meal:selectedMeal,noteId:note.noteId,itemId:note.itemId});setShowVoiceInput(true);}:undefined} notes={mealDay.day.notes}/></div>
+      <div className="max-w-lg mx-auto px-4"><FoodNotesPanel onResolve={trainerChatEnabled?note=>{trainerTriggerRef.current=document.activeElement;setTrainerDateContext({mode:"pinned",targetDate:mealsDateKey});setTrainerNote({text:note.originalText||note.name,targetDate:mealsDateKey,meal:selectedMeal,noteId:note.noteId,itemId:note.itemId});setShowVoiceInput(true);}:undefined} notes={mealDay.day.notes}/></div>
       <fieldset disabled={!mealDay.ready || mealDay.busy || mealDay.hasPending || !!mealDay.day.legacy}>
       <MealSection
         selectedMeal={selectedMeal}
@@ -599,10 +625,11 @@ export default function ClientApp() {
       </div>
 
       <PilotPanel ledger={pilotLedger} uid={firebaseUser.uid} version={pilotVersion}/>
+      {trainerChatEnabled && <TrainerLauncher hidden={anyModal} disabled={!mealDay.ready || mealDay.busy || mealDay.requiresReload || !!mealDay.day.legacy} onOpen={openTrainer} />}
       {trainerChatEnabled&&showVoiceInput?<TrainerChat key={`${firebaseUser.uid}:${currentUser}`} uid={firebaseUser.uid} ownerKey={`${firebaseUser.uid}:${currentUser}`} date={mealsDateKey} meal={selectedMeal} ledger={pilotLedger}
-        initialNote={trainerNote} onClose={()=>{setShowVoiceInput(false);setTrainerNote(null);setPilotVersion(x=>x+1);}}
+        returnFocusRef={trainerTriggerRef} initialDateContext={trainerDateContext} initialNote={trainerNote} onClose={()=>{setShowVoiceInput(false);setTrainerNote(null);setPilotVersion(x=>x+1);}}
         planContext={mealDay.day.planContext||{profile:users[currentUser],globalCustomProducts,productOverrides}} dayMeals={meals}
-        onOpenDay={setMealsDateKey} onSaved={()=>{mealDay.reload();setPilotVersion(x=>x+1);}}
+        onOpenDay={value=>chooseDate(value)} onSaved={()=>{mealDay.reload();setPilotVersion(x=>x+1);}}
         onAdd={(command,date)=>commitMealDay(firebaseUser.uid,currentUser,date,command)}/>:<VoiceInputModal isOpen={showVoiceInput} onClose={()=>{setShowVoiceInput(false);setPilotVersion(x=>x+1);}}
         date={mealsDateKey} activeDate={mealsDateKey} meal={selectedMeal} ledger={pilotLedger}
         ownerKey={`${firebaseUser.uid}:${currentUser}`} dayMeals={meals} pendingSave={mealDay.hasPending} onRetryPending={retryPending}

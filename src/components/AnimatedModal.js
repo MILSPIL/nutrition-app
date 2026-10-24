@@ -82,6 +82,7 @@ export default function AnimatedModal({
 
   return (
     <div
+      data-modal-surface="true"
       className={`
         fixed inset-0 z-50 flex
         ${getAlignmentClass()}

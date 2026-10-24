@@ -339,3 +339,16 @@
     transition: none !important;
   }
 }
+
+.trainer-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.trainer-shortcuts button { text-align: left; justify-content: flex-start; border-color: #d3e1f3; background: #edf5ff; }
+.trainer-date-chip { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px; font-size: 13px; color: #4d4d58; }
+.trainer-date-chip button { border: 0; background: transparent; }
+.trainer-date-hint { margin: 0; font-size: 12px; color: #62626c; }
+.trainer-pin-date { display: inline-block; margin-bottom: 4px; }
+.trainer-pin-date summary, .trainer-draft-date summary { display: flex; align-items: center; cursor: pointer; color: #1766b7; font-size: 13px; }
+.trainer-draft-date { margin-top: 4px; }
+.trainer-draft-date .trainer-fields { margin-top: 0; }
+@media (max-width: 599px) {
+  .trainer-chat { max-height: none; padding-top: env(safe-area-inset-top, 0px); }
+}

@@ -1,12 +1,20 @@
 import fs from 'fs';
 import path from 'path';
-import { CATEGORY_ICONS, MEAL_LETTERS } from './products';
+import { MEAL_LETTERS } from './products';
+import { CATEGORY_ICONS } from './categoryIcons';
 
-test('кожна категорія має наявний локальний PNG, а не HTML fallback', () => {
-  for (const letter of Object.values(MEAL_LETTERS).flat()) {
-    const icon = CATEGORY_ICONS[letter];
-    expect(icon).toMatch(/^\/icons\/category-[a-z]+\.png$/);
-    const bytes = fs.readFileSync(path.join(process.cwd(), 'public', icon));
-    expect(bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))).toBe(true);
+test('усі категорії використовують оптимізовані build imports з наявних WebP', () => {
+  const source=fs.readFileSync(path.join(process.cwd(),'src/data/categoryIcons.js'),'utf8');
+  const assets=path.join(process.cwd(),'src/assets/categories');
+  let total=0;
+  for(const name of ['carbs','dairy','treats','protein','vegetables','fats','fruits','nuts']) {
+    expect(source).toContain(`../assets/categories/category-${name}.webp`);
+    const bytes=fs.readFileSync(path.join(assets,`category-${name}.webp`));
+    expect(bytes.subarray(0,4).toString()).toBe('RIFF');
+    expect(bytes.subarray(8,12).toString()).toBe('WEBP');
+    total+=bytes.length;
   }
+  expect(total).toBeLessThanOrEqual(300*1024);
+  expect(['carbs','dairy','treats'].reduce((n,name)=>n+fs.statSync(path.join(assets,`category-${name}.webp`)).size,0)).toBeLessThanOrEqual(100*1024);
+  for (const letter of Object.values(MEAL_LETTERS).flat()) expect(CATEGORY_ICONS[letter]).toBeTruthy();
 });

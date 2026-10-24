@@ -4,6 +4,8 @@ import { createRoot } from "react-dom/client";
 import { Simulate } from "react-dom/test-utils";
 import { TextEncoder } from "util";
 import TrainerChat from "../components/TrainerChat";
+import { buildPlanCatalog } from "./planCatalog";
+import { assignPlanItems } from "./planAllocation";
 global.IS_REACT_ACT_ENVIRONMENT = true;
 global.TextEncoder = TextEncoder;
 Object.defineProperty(global, "crypto", {
@@ -95,7 +97,8 @@ test("H01 ready exposes textarea and explicit record button without requesting m
   expect(button("Почати запис")).toBeTruthy();
   expect(recorderFactory).not.toHaveBeenCalled();
   expect(api.send).not.toHaveBeenCalled();
-  expect(document.activeElement).toBe(host.querySelector("textarea"));
+  expect(document.activeElement).not.toBe(host.querySelector("textarea"));
+  expect(document.activeElement).toBe(button("Закрити чат"));
 });
 test("H01 text question uses trainer only and never writes food", async () => {
   await render();
@@ -198,4 +201,106 @@ test("bfcache never submits a previous STT result after restoration", async () =
 test("empty chat offers a package photo before any draft exists", async () => {
   await render();
   expect(button("Фото упаковки").disabled).toBe(false);
+});
+
+
+test("C01 food shortcut focuses input without inference or recording", async () => {
+  await render();
+  await click("Записати їжу");
+  expect(document.activeElement).toBe(host.querySelector("textarea"));
+  expect(api.send).not.toHaveBeenCalled();
+  expect(recorderFactory).not.toHaveBeenCalled();
+});
+test("C01 advice shortcut submits one question without writing food", async () => {
+  await render();
+  await click("Що краще поїсти?");
+  expect(api.send).toHaveBeenCalledTimes(1);
+  expect(api.send.mock.calls[0][0]).toEqual(expect.objectContaining({text:"Що краще поїсти?",dateContext:{mode:"default"}}));
+  expect(api.send.mock.calls[0][0]).not.toHaveProperty("targetDate");
+  expect(props.onAdd).not.toHaveBeenCalled();
+});
+test("C04 opening a historical diary does not pin the conversation day", async () => {
+  props.date="2026-01-01";
+  await render();
+  expect(host.querySelector('input[type="date"]')).toBeNull();
+  await click("Що залишилося на сьогодні?");
+  expect(api.send.mock.calls[0][0].dateContext).toEqual({mode:"default"});
+});
+test("C04 explicit pin is visible and can be returned to today", async () => {
+  props.initialDateContext={mode:"pinned",targetDate:"2026-01-02"};
+  await render();
+  expect(host.textContent).toContain("02.01.2026");
+  await click("Сьогодні");
+  await click("Що краще поїсти?");
+  expect(api.send.mock.calls[0][0].dateContext).toEqual({mode:"default"});
+});
+
+
+function previewFixture() {
+  const catalog=buildPlanCatalog({profile:{}});
+  const ref=catalog.references.find(r=>r.name==='фрукти та ягоди');
+  const item={itemId:'synthetic-fruit',name:'Синтетичний плід',quantity:{value:200,unit:'g'},nutritionBasis:{value:100,unit:'g'},nutrients:{p:1,f:2,c:3,cal:60},source:{kind:'estimate'},estimated:true,nutritionStatus:'complete',planMatch:{referenceId:ref.refId,consumedState:'as_sold',certainty:'matched'}};
+  const [existing]=assignPlanItems([{...item,itemId:'prior-fruit'}],catalog,{});
+  const freshness={targetDate:'2026-01-02',dayRevision:7,planFingerprint:catalog.fingerprint,notesRevision:'none'};
+  const day={targetDate:'2026-01-02',meals:{1:{з:[existing]}},freshness};
+  server.drafts=[{draftId:'synthetic-draft',revision:1,state:'ready',targetDate:day.targetDate,meal:1,items:[item],freshness}];
+  api.day=jest.fn(async()=>day);
+  api.refreshDraft=jest.fn(async()=>{server.drafts[0].freshness=day.freshness;server.drafts[0].revision++;return server.drafts[0];});
+  props.planContext={profile:{}};
+  props.date='2026-01-03';
+  props.dayMeals={};
+  return {day};
+}
+test("C04 historical preview reads its actual nonempty day and uses existing portions", async()=>{
+  previewFixture();
+  await render();
+  expect(api.day).toHaveBeenCalledWith('2026-01-02',expect.any(AbortSignal));
+  expect(host.textContent).toContain('За день: 50% → 100%');
+  expect(button('Додати').disabled).toBe(false);
+  expect(host.querySelector('.trainer-draft-date').open).toBe(false);
+  expect(host.querySelector('.voice-plan details').open).toBe(false);
+});
+test("C04 unavailable historical day blocks Add and allows explicit no-model refresh",async()=>{
+  previewFixture();
+  api.day.mockRejectedValueOnce(Error('day_unavailable'));
+  await render();
+  expect(button('Додати').disabled).toBe(true);
+  expect(host.textContent).toContain('Не вдалося прочитати цей день');
+  await click('Оновити прев’ю');
+  expect(api.refreshDraft).toHaveBeenCalledTimes(1);
+  expect(api.send).not.toHaveBeenCalled();
+  expect(button('Додати').disabled).toBe(false);
+});
+test("C04 changed day revision blocks Add until explicit refresh",async()=>{
+  const {day}=previewFixture();
+  day.freshness={...day.freshness,dayRevision:8};
+  await render();
+  expect(button('Додати').disabled).toBe(true);
+  await click('Оновити прев’ю');
+  expect(api.send).not.toHaveBeenCalled();
+  expect(button('Додати').disabled).toBe(false);
+});
+test("C04 race after displayed preview stops commit when day changed",async()=>{
+  const {day}=previewFixture();
+  await render();
+  day.freshness={...day.freshness,dayRevision:8};
+  await click('Додати');
+  expect(props.onAdd).not.toHaveBeenCalled();
+  expect(host.textContent).toContain('Записи дня змінилися');
+  expect(button('Додати').disabled).toBe(true);
+});
+
+test("C01 explicit opener receives focus even when mounting hides it",async()=>{
+ const opener=document.createElement('button');document.body.appendChild(opener);props.returnFocusRef={current:opener};
+ await render();await act(async()=>root.unmount());
+ await new Promise(resolve=>setTimeout(resolve,5));expect(document.activeElement).toBe(opener);
+ opener.remove();root=createRoot(host);
+});
+
+test("C04 preview uses the freshly read catalog instead of an older page plan",async()=>{
+ const {day}=previewFixture();
+ day.catalog=buildPlanCatalog({profile:{portions:{'фрукти та ягоди':500}}});
+ await render();
+ expect(host.textContent).toContain('За день: 50% → 90%');
+ expect(host.textContent).not.toContain('За день: 50% → 100%');
 });
