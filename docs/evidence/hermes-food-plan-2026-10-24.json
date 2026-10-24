@@ -50,7 +50,12 @@
       "production behavior",
       "Hermes runtime",
       "browser event sequence"
-    ]
+    ],
+    "script": "docs/evidence/hermes-food-baseline-2026-10-24.cjs",
+    "scriptSha256": "2da251a895f094dfc7b2bbcafab50b510f0f27322d6e4c339c2a43c22cb22b09",
+    "command": "node docs/evidence/hermes-food-baseline-2026-10-24.cjs \"$PWD\"",
+    "node": "24.22.1",
+    "dependencies": "npm ci from committed package-lock.json"
   },
   "hermesSource": {
     "sha": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
@@ -59,11 +64,11 @@
     "runtimeStarted": false
   },
   "forbiddenActions": {
-    "modelCalls": 0,
     "keychainReads": 0,
     "serverChanges": 0,
     "appSpend": 0,
-    "productionDataWrites": 0
+    "productionDataWrites": 0,
+    "applicationModelCalls": 0
   },
   "implementationAccepted": false,
   "ownerAccepted": false,
@@ -89,5 +94,45 @@
     "card": "card_29bef280dd54",
     "allCriteria": "pending",
     "readback": true
+  },
+  "fableReview": {
+    "model": "claude-fable-5-1",
+    "findings": 8,
+    "confirmed": 5,
+    "partial": 3,
+    "false": 0,
+    "addressed": 8,
+    "editorialAddressed": 1,
+    "tokens": 517868,
+    "seconds": 419.1,
+    "exitCode": 0,
+    "reportTracked": false,
+    "verificationTable": ".agents/journal/2026-10-24-1326-codex-gpt-6-hermes-food-plan.md",
+    "transport": "unmodified Claude CLI via subscription; application API credentials excluded"
+  },
+  "ci": {
+    "sha": "fa5bc1066e5533f52f4a313510632864557c8cb5",
+    "run": 40086091582,
+    "jobs": 3,
+    "conclusion": "success",
+    "scope": "existing product checks; not Hermes acceptance"
+  },
+  "documentReview": {
+    "reviewer": "fresh Codex spec-reviewer",
+    "criteria": {
+      "D01": "PASS",
+      "D02": "PASS",
+      "D03": "PASS",
+      "D04": "PASS",
+      "D05": "PASS",
+      "D06": "PASS"
+    },
+    "verdict": "done",
+    "scope": "documents only; implementation H01-H11 pending",
+    "files": 10,
+    "validLocalLinks": 30,
+    "productDiffEmpty": true,
+    "probeRepeated": true,
+    "notes": "final metadata records this verdict; no product code changes"
   }
 }
