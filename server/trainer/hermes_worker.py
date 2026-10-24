@@ -147,6 +147,12 @@ async def main(setup):
         emit({'type': 'isolation', 'fileDenied': True, 'networkDenied': True, 'pidNamespace': pid_namespace})
     expected = json.loads(Path(__file__).with_name('hermes-config.json').read_text())
     assert json.loads((home / 'config.yaml').read_text()) == expected, 'runtime_config_mismatch'
+    template = json.loads(Path(__file__).with_name('profile-template.json').read_text())
+    for name, text in template.items():
+        file = home / name
+        assert file.is_file() and not file.is_symlink() and file.stat().st_nlink == 1 and file.read_text() == text, 'runtime_profile_mismatch'
+    memories = home / 'memories'
+    assert not memories.is_symlink() and (not memories.exists() or memories.is_dir() and not any(memories.iterdir())), 'runtime_profile_mismatch'
     assert setup['mode'] in ('start', 'recover', 'cleanup')
     sys.path.insert(0, str(source))
     from hermes_privacy import enable_secure_deletion, finish_media_cleanup, release_exited_turn_lease

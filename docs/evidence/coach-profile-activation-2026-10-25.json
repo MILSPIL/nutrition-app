@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "recordedAt": "2026-10-24T21:15:36Z",
+  "scope": "local synthetic verification, no live provider or production",
+  "review": "Fable #1 actual profile binding and #3 read-only activation",
+  "tests": {
+    "focused": {
+      "pass": 11,
+      "fail": 0
+    },
+    "nativeCapacity": {
+      "pass": true,
+      "durationMs": 5835,
+      "modelTextBytes": [
+        31364,
+        31901,
+        31886
+      ],
+      "calls": 3,
+      "latestPairOnEveryCall": true,
+      "mediaLeaks": 0,
+      "ownerIsolation": true,
+      "platform": "darwin",
+      "isolation": "macos-seatbelt",
+      "linuxResourceProof": false
+    }
+  },
+  "trainerConfigHash": "103fdb15a289cc3de3591bb795d1d689deba1512040a7e392f34a6c627d3320d",
+  "files": {
+    "server/trainer/hermes-native.mjs": "ff39001aa42cd3306ecc5a95cfea250cceaf21790992a3793f23d04dbc792ef5",
+    "server/trainer/hermes_worker.py": "7a41dedab3e68e598e8a05c6e1c34b759b0410d681c0fb8c4b5f1d01d4185ab7",
+    "server/trainer/runtime.mjs": "85b9510d051a66c50aac5d29269e3eb8f3e7d5f24828ced632fa47db7bcf1ebd",
+    "server/trainer/runtime.test.mjs": "e767a132fe143f304d8f1d47001acb07bc2c44c16bd91637e36a91ac6a1f4611",
+    "server/trainer/native-profile.test.mjs": "958537bd3e5bb63f7725d853db4cf99847830da338b0436da0a2794170d5dcac"
+  },
+  "remaining": [
+    "fresh independent review",
+    "final exact-SHA Linux CI",
+    "package verification",
+    "actual host installation and owner acceptance"
+  ]
+}

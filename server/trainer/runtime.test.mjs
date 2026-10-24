@@ -48,6 +48,7 @@ const activation = () => ({
   contextMigrationConfirmed: true,
   singleWriterConfirmed: true,
   privacyGateClosed: true,
+  memoryWriteEnabled: false,
 });
 test("H07 trainer activation requires distinct exact release/config/ledger/owner/price gates", () => {
   assert.equal(
@@ -56,6 +57,10 @@ test("H07 trainer activation requires distinct exact release/config/ledger/owner
   );
   for (const change of [
     { active: false },
+    { memoryWriteEnabled: true },
+    { memoryWriteEnabled: undefined },
+    { unexpectedInstruction: "synthetic" },
+    { pricing: { ...activation().pricing, fallback: true } },
     { releaseId: "b".repeat(40) },
     { configHash: "old" },
     { ledgerReceiptId: "new" },
@@ -204,4 +209,8 @@ test("C05 activation binds the exact tested native config and profile template",
   const { hermesConfigSha256, profileTemplateSha256, ...oldConfiguration } = TRAINER_CONFIGURATION;
   const oldHash = createHash("sha256").update(stableJSON(oldConfiguration)).digest("hex");
   assert.throws(() => validateTrainerActivation({ ...activation(), configHash: oldHash }, manifest, legacy), /trainer_activation_invalid/);
+});
+
+test("C06 runtime factory also refuses an unapproved memory writer", async () => {
+  await assert.rejects(createTrainerRuntime({activation:{...activation(),memoryWriteEnabled:true},platformKey:Buffer.alloc(32),budget:{},project:"demo-scisense"}), /trainer_activation_invalid/);
 });

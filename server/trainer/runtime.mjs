@@ -23,6 +23,7 @@ export const TRAINER_CONFIGURATION = Object.freeze({
   profileTemplateSha256: createHash("sha256")
     .update(readFileSync(new URL("./profile-template.json", import.meta.url)))
     .digest("hex"),
+  memoryWriteEnabled: false,
   isolation: "linux-bubblewrap",
   cpu: 2,
   memoryBytes: 2147483648,
@@ -41,7 +42,12 @@ export function validateTrainerActivation(value, manifest, legacy) {
     Number.isFinite(Date.parse(s)) &&
     Date.parse(s) <= Date.now();
   if (
-    value?.version !== 1 ||
+    !value || typeof value !== "object" || Array.isArray(value) ||
+    Object.keys(value).some(key => !["version","active","configHash","releaseId","ledgerReceiptId","target","capMicros","ownerUid","profileId","approvedAt","pricing","contextMigrationConfirmed","singleWriterConfirmed","privacyGateClosed","memoryWriteEnabled"].includes(key)) ||
+    !value.pricing || typeof value.pricing !== "object" || Array.isArray(value.pricing) ||
+    Object.keys(value.pricing).some(key => !["model","input","output","approvedAt"].includes(key)) ||
+    value.memoryWriteEnabled !== false ||
+    value.version !== 1 ||
     value.active !== true ||
     !manifest.liveEnabled ||
     manifest.trainer?.enabled !== true ||
@@ -107,6 +113,7 @@ export async function createTrainerRuntime({
   paths = trainerPaths(releaseRoot),
   backendFactory = createNativeBackend,
 }) {
+  if (activation?.memoryWriteEnabled !== false) throw Error("trainer_activation_invalid");
   const keys = trainerKeys(platformKey),
     reader = createFirestoreReader({
       project,
@@ -143,7 +150,7 @@ export async function createTrainerRuntime({
     store = openTurnStore(paths.turns, { hmacKey: keys.state });
     const media = createMediaStore(paths.media, { hash: store.hash });
     index = openFoodIndex(paths.index, TRAINER_CONFIGURATION.foodIndexSha256);
-    const kit = createTrainerTools({ store, index, ...reader, memoryWriteEnabled: activation.memoryWriteEnabled === true });
+    const kit = createTrainerTools({ store, index, ...reader, memoryWriteEnabled: false });
     proxy = createModelProxy({
       store,
       budget,
@@ -181,7 +188,7 @@ export async function createTrainerRuntime({
       readContext: () => contextStore.read(),
       ...reader,
       contextStore,
-      memoryWriteEnabled: activation.memoryWriteEnabled === true,
+      memoryWriteEnabled: false,
       releaseTools: kit.release,
     });
     await gateway.recover();

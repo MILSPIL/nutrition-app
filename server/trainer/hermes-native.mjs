@@ -25,6 +25,30 @@ import { TOOLS, MODEL, fail } from "./limits.mjs";
 import { boundedOperation } from "./deadline.mjs";
 const here = dirname(fileURLToPath(import.meta.url));
 const sha = (value) => createHash("sha256").update(value).digest("hex");
+// Check the installed files, not merely the template hash in the release.
+// Rechecked for each worker so an operator's later profile copy cannot silently
+// introduce Telegram context into this read-only web profile.
+export function verifyNativeProfile(profile) {
+  const template = JSON.parse(readFileSync(join(here, "profile-template.json")));
+  try {
+    for (const [name, expected] of Object.entries(template)) {
+      const file = join(profile, name), stat = lstatSync(file);
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || readFileSync(file, "utf8") !== expected)
+        fail("hermes_profile_invalid", 503);
+    }
+    const memories = join(profile, "memories");
+    let memoryStat;
+    try { memoryStat = lstatSync(memories); } catch (error) { if (error.code !== "ENOENT") throw error; }
+    if (memoryStat && (!memoryStat.isDirectory() || memoryStat.isSymbolicLink() || readdirSync(memories).length))
+      fail("hermes_profile_invalid", 503);
+  } catch { fail("hermes_profile_invalid", 503); }
+  try {
+    const file = join(profile, "config.yaml"), stat = lstatSync(file);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 ||
+      JSON.stringify(JSON.parse(readFileSync(file))) !== JSON.stringify(JSON.parse(readFileSync(join(here, "hermes-config.json")))))
+      fail("hermes_config_invalid", 503);
+  } catch { fail("hermes_config_invalid", 503); }
+}
 export function verifyNativeSource(source, manifestFile) {
   const pin = JSON.parse(readFileSync(join(here, "hermes-pin.json"))),
     bytes = readFileSync(manifestFile);
@@ -73,16 +97,12 @@ export function createNativeBackend({
   )
     fail("trainer_config", 503);
   const pin = verifyNativeSource(source, sourceManifest);
-  const config = JSON.parse(readFileSync(join(here, "hermes-config.json")));
-  if (
-    JSON.stringify(JSON.parse(readFileSync(join(profile, "config.yaml")))) !==
-    JSON.stringify(config)
-  )
-    fail("hermes_config_invalid", 503);
+  verifyNativeProfile(profile);
   for (const name of [
     "hermes_worker.py",
     "hermes_privacy.py",
     "hermes-config.json",
+    "profile-template.json",
   ])
     copyFileSync(join(here, name), join(workDirectory, name));
   for (const name of ["tmp", "empty-home"])
@@ -103,6 +123,7 @@ export function createNativeBackend({
     faults = [],
     eventsMeta = [];
   function command() {
+    verifyNativeProfile(profile);
     const python = join(source, ".venv/bin/python"),
       script = join(workDirectory, "hermes_worker.py");
     if (process.platform === "darwin" && isolation === "macos-seatbelt") {
