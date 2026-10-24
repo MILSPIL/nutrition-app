@@ -46,7 +46,7 @@ jobs:
         run: npx playwright install chromium
 
       - name: Browser flows on isolated demo accounts
-        run: npm run test:trainer-ui && npm run test:voice-photo-ui && npm run test:phone-lab-ui && node scripts/phone-lab-ui.mjs --stt-only && npm run test:hermes-ui
+        run: npm run test:trainer-ui && npm run test:voice-photo-ui && npm run test:phone-lab-ui && node scripts/phone-lab-ui.mjs --stt-only && npm run test:hermes-ui && npm run test:coach-ui
 
       - name: Keep synthetic browser evidence
         if: always()
@@ -59,6 +59,7 @@ jobs:
             tmp/phone-lab-qa/evidence.json
             tmp/phone-lab-stt-only-qa/evidence.json
             tmp/hermes-chat-qa/evidence.json
+            tmp/coach-ui-qa/
           retention-days: 7
 
       - name: Build app

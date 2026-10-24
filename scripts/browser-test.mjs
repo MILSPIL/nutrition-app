@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { requireIsolatedBrowser } from './browser-runtime.mjs';
-const scripts={'voice-photo':'voice-photo-ui.mjs','phone-lab':'phone-lab-ui.mjs','trainer-access':'trainer-ui.mjs','hermes-chat':'trainer-chat-ui.mjs'};
+const scripts={'voice-photo':'voice-photo-ui.mjs','phone-lab':'phone-lab-ui.mjs','trainer-access':'trainer-ui.mjs','hermes-chat':'trainer-chat-ui.mjs','coach-ui':'coach-ui-qa.mjs'};
 const kind=process.argv[2];if(!Object.hasOwn(scripts,kind))throw Error('unknown_test');
 if(process.platform!=='darwin')requireIsolatedBrowser();
 const command=process.platform==='darwin'?'/Users/user/.local/bin/agent-test-browser':process.execPath;

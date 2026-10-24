@@ -35,7 +35,8 @@
     "test:hermes-ui": "node scripts/browser-test.mjs hermes-chat",
     "test:hermes-native": "node scripts/hermes-gateway-test.mjs",
     "test:hermes-store": "node scripts/hermes-store-test.mjs",
-    "build:hermes-off": "node scripts/hermes-build-off.mjs"
+    "build:hermes-off": "node scripts/hermes-build-off.mjs",
+    "test:coach-ui": "node scripts/browser-test.mjs coach-ui"
   },
   "eslintConfig": {
     "extends": [
