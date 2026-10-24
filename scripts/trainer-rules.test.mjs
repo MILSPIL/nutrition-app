@@ -255,8 +255,8 @@ test('A02 missing email and wrong query constraints cannot enumerate requests',a
 });
 test('A09 the owner-assignment assertion detects deliberately weakened isolated rules',async()=>{
  const original=await readFile('firestore.rules','utf8');
- const marker='allow update: if (owner(uid)';assert.ok(original.includes(marker));
- const mutated=original.replace(marker,'allow update: if owner(uid) || (owner(uid)');
+ const marker='allow update: if rootUpdateRoute(uid,resource.data,request.resource.data);';assert.equal(original.split(marker).length-1,1);
+ const mutated=original.replace(marker,'allow update: if owner(uid) || rootUpdateRoute(uid,resource.data,request.resource.data);');
  const mutationEnv=await initializeTestEnvironment({projectId:'demo-scisense-mutation',firestore:{host:'127.0.0.1',port:8088,rules:mutated}});
  try {
   await mutationEnv.withSecurityRulesDisabled(ctx=>setDoc(doc(ctx.firestore(),'users','client'),{users:{}}));

@@ -1,0 +1,173 @@
+{
+  "scope": "HERMES-COACH-02: локальні правила збереження джерел і сумісність історії",
+  "verifiedLocalDate": "2026-10-25",
+  "productionChanged": false,
+  "realApiCalls": 0,
+  "privateDataUsed": false,
+  "filesSha256": {
+    "firestore.rules": "3bfaa9801e552f881d225e9a182e96aaf4f971d2d8f3c668c56af292ad42cc1f",
+    "scripts/hermes-notes-rules.test.mjs": "a9f392d528f5abad6208c3cc6153a4a669280529333a7b191407206320e3282a",
+    "scripts/hermes-store-emulator.mjs": "d1c806cb4965d9edd972754ec81be2136d46dd3dfdd1eeda19961c73f7b42525",
+    "scripts/trainer-rules.test.mjs": "dc0ff7d73f05c2912ac7fe94c04789e71ef9edf518b7129ce311b590921acacc",
+    "scripts/writer-fence.test.mjs": "853f8d31c0875091c97f3666713f150a13e49162ac1e4ae39938f5986b090f4b"
+  },
+  "runtime": {
+    "node": "24.22.1",
+    "firestoreEmulator": "1.20.2",
+    "firestoreEmulatorJarSha256": "4a117fc297b1441eac1b7756e80442e86ef88865b9e3caf6f59eabf83da574f8",
+    "javaAgent": null,
+    "JAVA_TOOL_OPTIONS": "unset",
+    "JDK_JAVA_OPTIONS": "unset",
+    "project": "demo-scisense",
+    "firestoreHost": "127.0.0.1:8088",
+    "authHost": "127.0.0.1:9099"
+  },
+  "commands": [
+    {
+      "command": "node scripts/hermes-store-test.mjs",
+      "exitCode": 0,
+      "rulesTests": 27,
+      "actualWriter": {
+        "hermesStore": true,
+        "mixedAndNotesOnly": true,
+        "maxBatch": 20,
+        "conversion": true,
+        "exactV2Path": true,
+        "unknownAckRead": true,
+        "rollbackVisible": true,
+        "coachProvenanceRoundtrip": true,
+        "coachDayRevisionFence": true,
+        "legacyV3Migration25": true,
+        "completeV3WriterBatch20": true,
+        "realAPI": 0
+      },
+      "reader": {
+        "actualOwnerTokenReadOnlyREST": true,
+        "snapshotTransaction": true,
+        "crossOwnerDenied": true,
+        "notesNullable": true,
+        "noPrivateExtra": true,
+        "syntheticOnly": true
+      }
+    },
+    {
+      "command": "node scripts/trainer-access-test.mjs",
+      "exitCode": 0,
+      "tests": 38
+    }
+  ],
+  "firebaseLaunchArguments": [
+    "emulators:exec",
+    "--config",
+    "firebase.lab.json",
+    "--project",
+    "demo-scisense",
+    "--only",
+    "auth,firestore"
+  ],
+  "sourceContract": {
+    "maxChangedItems": 20,
+    "rootIndexesInclusive": [
+      0,
+      8
+    ],
+    "dayIndexesInclusive": [
+      9,
+      19
+    ],
+    "sameCanonicalDayBeforeAfter": true,
+    "fixedNamedGroupTraversal": true,
+    "newDatabaseFieldsForMirror": false,
+    "writerChangesRequired": false,
+    "directWriterValidNonceAndSubmissionGuardsRetained": true,
+    "dayOnlyUpToTenFullyValidated": true
+  },
+  "positiveCoverage": {
+    "sparseGroupCounts": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      7,
+      13,
+      14
+    ],
+    "meals": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "historicalRows": 56,
+    "matrixCases": 32,
+    "matrixOperations": [
+      "append20",
+      "update20",
+      "delete20"
+    ],
+    "newCompleteWriterBatch20": true,
+    "append20ToHistorical25": true,
+    "exactLegacyImport25": true,
+    "legacyMergeWithExistingDuplicate": true,
+    "legacyDuplicateDeleteAndQuantityEdit": true,
+    "crossMealMoveOne": true,
+    "optionalOriginsAll20AndMixed": true,
+    "sourceLessLegacyLastRow": true,
+    "profilePreferencesOnly": true
+  },
+  "negativeCoverage": [
+    "invalid source at each of20 positions",
+    "unknown source/origin keys and kinds",
+    "invalid estimateReason and reason on non-estimate",
+    "root-only/day-only large batch",
+    "mismatched nonce/date/revision/profile/meals",
+    "root writer2 with day writer3 under minimum2",
+    "reused root nonce and day nonce",
+    "invalid nonce and minimumWriter4",
+    "pre-staged projection plus nonce-only or preference-only root",
+    "legacy injection through preferences",
+    "extra identical legacy import row",
+    "cloned malformed historical row",
+    "mixed duplicate redistribution",
+    "unknown or oversized changed groups",
+    "cross-owner and unconsented trainer",
+    "terminal rejection immutability and stale success"
+  ],
+  "mutationTests": {
+    "exactOneMatchRequired": true,
+    "ownerAssignmentBypassDetected": true,
+    "rootNonceBypassDetected": true,
+    "dayFenceBypassDetected": true
+  },
+  "review": {
+    "agent": "coach_security_acceptance",
+    "staticVerdict": "PASS",
+    "actionableP1P2": 0,
+    "mutationAnchorsReadback": "PASS"
+  },
+  "limitations": [
+    "Матриця20 стосується одного вибраного прийому в межах чинного command.meal. Одночасний довільний bulk20 у всіх4прийомах не є підтвердженим сценарієм.",
+    "Правила complete food перевіряють поля/enum джерела та походження і розміщення estimateReason. Числові межі харчових значень перевіряє канонічний JS writer; foodNotes мають власні строгі rules.",
+    "Негативні запити можуть завершуватися відмовою через expression cap після fallback; усі відповідні позитивні контрольні запити пройшли.",
+    "Штатний доказ окремий від діагностичних JVM-проб, які залишилися тільки в ignored runtime."
+  ],
+  "localArtifacts": [
+    {
+      "path": ".agents/runtime/coach-stock-hermes-store.log",
+      "tracked": false,
+      "sha256": "75e6ecb0e4e3ffc4f1e6d605fc6425dd103ad0d48ab9b151a42ed3df4094d172"
+    },
+    {
+      "path": ".agents/runtime/coach-stock-access-final.log",
+      "tracked": false,
+      "sha256": "d9bcea9eb501b564f88d62661f290e2da56f9e8bf773e2b4818a57f146b62b76"
+    },
+    {
+      "path": ".agents/runtime/coach-rules-per-doc-probe.json",
+      "tracked": false,
+      "sha256": "893ad7aa44e56d2f056f709e137476a3d42ff3c7eb19efc9ebbfeff073704f25"
+    }
+  ],
+  "next": "Інтеграційний CI та підготовка релізу головним агентом. Цей доказ не означає публікацію чи приймання продукту."
+}

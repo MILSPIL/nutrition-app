@@ -85,12 +85,11 @@ service cloud.firestore {
     }
     function regularFields() { return ['users','globalCustomProducts','productOverrides','createdAt','updatedAt','writerVersion','writerNonce']; }
     function capabilityPath(uid) { return /databases/$(database)/documents/releaseCapabilities/$(uid); }
-    function minimumWriter(uid) { return exists(capabilityPath(uid)) ? get(capabilityPath(uid)).data.get('minimumWriterVersion', 2) : 2; }
+    function minimumWriter(uid) { let c=get(capabilityPath(uid)); return c == null ? 2 : c.data.get('minimumWriterVersion',2); }
     function notesEnabled(uid) { return exists(capabilityPath(uid)) && get(capabilityPath(uid)).data.get('notesEnabled', false) == true && minimumWriter(uid) == 3; }
     function writerValid(d, uid) {
-      return d.get('writerVersion', 0) is int && d.get('writerVersion', 0) in [2,3] && d.writerVersion >= minimumWriter(uid)
-        && d.get('writerNonce', '') is string
-        && d.get('writerNonce', '').matches('^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$');
+      return d.writerVersion is int && d.writerVersion in [2,3] && d.writerVersion >= minimumWriter(uid)
+        && d.writerNonce.matches('^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$');
     }
     function writerChanged(uid) {
       return writerValid(request.resource.data, uid)
@@ -129,15 +128,21 @@ service cloud.firestore {
       return n is map && n.keys().hasAll(['p','f','c','cal']) && n.keys().hasOnly(['p','f','c','cal'])
         && nullableNutrient(n.p) && nullableNutrient(n.f) && nullableNutrient(n.c) && nullableNutrient(n.cal);
     }
+    function portionOrigin(p) {
+      return p is map && p.keys().hasAll(['kind','assumption']) && p.keys().hasOnly(['kind','assumption'])
+        && p.kind in ['user','catalog_measure','estimate'] && text(p.assumption,400);
+    }
     function noteSource(s) {
-      return s is map && s.keys().hasOnly(['kind','label','recordId','dataset','version','url','assumptions'])
+      return s is map && s.keys().hasOnly(['kind','label','recordId','dataset','version','url','assumptions','portionOrigin','estimateReason'])
         && s.kind in ['label','database','personal','estimate','unknown','manual']
         && s.get('label','') is string && s.get('label','').size() <= 400
         && s.get('recordId','') is string && s.get('recordId','').size() <= 400
         && s.get('dataset','') is string && s.get('dataset','').size() <= 400
         && (s.get('version','') is string || s.get('version',0) is int)
         && s.get('url','') is string && s.get('url','').size() <= 400
-        && s.get('assumptions',[]) is list && s.get('assumptions',[]).size() <= 9;
+        && s.get('assumptions',[]) is list && s.get('assumptions',[]).size() <= 9
+        && (!('portionOrigin' in s) || portionOrigin(s.portionOrigin))
+        && (!('estimateReason' in s) || s.kind == 'estimate' && s.estimateReason in ['no_matching_source','recipe_estimate']);
     }
     function noteMarker(uid, n) {
       let day = getAfter(/databases/$(database)/documents/users/$(uid)/mealHistory/$(n.targetDate)).data;
@@ -169,28 +174,338 @@ service cloud.firestore {
         && n.originalText is string && n.originalText.size() <= 8000 && text(n.createdAt,80)
         && noteQuantity(n.quantity) && noteQuantity(n.nutritionBasis) && noteNutrients(n.knownNutrients) && noteSource(n.provenance);
     }
+    // One command has at most twenty changed items. The canonical day and its
+    // existing profile projection are written atomically by the V3 writer.
+    // The root validates the first nine and the day the remaining eleven
+    // of the SAME ordered day delta. The root mirror proof costs more.
+    function mealRows(m,groups) {
+      return m.size()>1 ? m.keys().hasAll(groups)?m.voice.concat(m['а']).concat(m['б']).concat(m['в']).concat(m['г']).concat(m['д']).concat(m['е']).concat(m['є']).concat(m['ж']).concat(m['з']).concat(m['и']).concat(m['і']).concat(m['ї']).concat(m['й'])
+        : m.get('voice',[]).concat(m.get('а',[])).concat(m.get('б',[])).concat(m.get('в',[]))
+          .concat(m.get('г',[])).concat(m.get('д',[])).concat(m.get('е',[])).concat(m.get('є',[]))
+          .concat(m.get('ж',[])).concat(m.get('з',[])).concat(m.get('и',[])).concat(m.get('і',[]))
+          .concat(m.get('ї',[])).concat(m.get('й',[]))
+        : m.size()==0?[]:m.values()[0];
+    }
+    function prefixAdvance(a,b,r) {
+      let mid=int((r[0]+r[1]) / 2);
+      return a[0:mid]==b[0:mid]?[mid,r[1]]:[r[0],mid];
+    }
+    function prefixStep(a,b,r) { return r[1]-r[0]<=1?r:prefixAdvance(a,b,r); }
+    function prefixFourAdvance(a,b,r) {
+      let r1=prefixStep(a,b,r);
+      let r2=prefixStep(a,b,r1);
+      let r3=prefixStep(a,b,r2);
+      return prefixStep(a,b,r3);
+    }
+    function prefixFour(a,b,r) { return r[1]-r[0]<=1?r:prefixFourAdvance(a,b,r); }
+    function binaryPrefix(a,b) {
+      let n=a.size()<b.size()?a.size():b.size();
+      let r1=prefixFour(a,b,[0,n+1]);
+      let r2=prefixFour(a,b,r1);
+      let r3=prefixFour(a,b,r2);
+      let r4=prefixFour(a,b,r3);
+      let r5=prefixFour(a,b,r4);
+      let r6=prefixFour(a,b,r5);
+      return r6[1]-r6[0]<=1?r6[0]:-1;
+    }
+    function commonPrefix(a,b) {
+      let n=a.size()<b.size()?a.size():b.size();
+      return n==0 || a[0]!=b[0]?0:n==1 || a[1]!=b[1]?1:
+        n==2 || a[2]!=b[2]?2:n==3?3:
+        a[0:n]==b[0:n]?n:a[0:n-1]==b[0:n-1]?n-1:binaryPrefix(a,b);
+    }
+    function contiguousEditRows(a,b) {
+      let at=commonPrefix(a,b);
+      let delta=b.size()-a.size();
+      return at<0?[null]:delta>0?
+        (at==a.size() || b[at+delta:b.size()]==a[at:a.size()]?b[at:at+delta]:[null]):delta<0?
+        (at==b.size() || b[at:b.size()]==a[at-delta:a.size()]?[]:[null]):
+        (at==a.size()-1 || b[at+1:b.size()]==a[at+1:a.size()]?[b[at]]:[null]);
+    }
+    function changedRows(a,b) {
+      let added=b.removeAll(a);
+      let removed=a.removeAll(b);
+      return b.removeAll(added)==a.removeAll(removed) ? added : contiguousEditRows(a,b);
+    }
+    function changedMealRows(a,b,groups) {
+      return a==b?[]:b.keys().hasOnly(groups)
+        ? changedRows(mealRows(a,groups),mealRows(b,groups)) : [null];
+    }
+    function changedFoodRows(a,b,groups) {
+      let before=a.get('meals',{'1':{},'2':{},'3':{},'4':{}});
+      let after=b.get('meals',{});
+      let changed=after.diff(before).affectedKeys();
+      return after.keys().hasOnly(['1','2','3','4']) ?
+        (changed.hasOnly(['1','4'])?
+          (changed.hasOnly(['1'])?changedMealRows(before.get('1',{}),after.get('1',{}),groups):
+           changed.hasOnly(['4'])?changedMealRows(before.get('4',{}),after.get('4',{}),groups):
+           changedMealRows(before.get('1',{}),after.get('1',{}),groups).concat(changedMealRows(before.get('4',{}),after.get('4',{}),groups))):
+         changed.hasOnly(['2'])?changedMealRows(before.get('2',{}),after.get('2',{}),groups):
+         changed.hasOnly(['3'])?changedMealRows(before.get('3',{}),after.get('3',{}),groups):
+         changedMealRows(before.get('1',{}),after.get('1',{}),groups)
+          .concat(changedMealRows(before.get('2',{}),after.get('2',{}),groups))
+          .concat(changedMealRows(before.get('3',{}),after.get('3',{}),groups))
+          .concat(changedMealRows(before.get('4',{}),after.get('4',{}),groups))) : [null];
+    }
+    function sourcePolicy() {
+      let keys=['kind','label','recordId','dataset','version','url','assumptions','portionOrigin','estimateReason'];
+      let basicKeys=keys.removeAll(['estimateReason']);
+      let basic={'none':basicKeys};
+      return {'groups':['voice','а','б','в','г','д','е','є','ж','з','и','і','ї','й'],
+        'sources':{'label':basic,'database':basic,'personal':basic,'catalog':basic,'manual':basic,'legacy':basic,
+          'estimate':{'none':basicKeys,'no_matching_source':keys,'recipe_estimate':keys}}};
+    }
+    function sourceAllowed(s,p) {
+      let o=s.get('portionOrigin',{'kind':'user'});
+      return s.keys().hasOnly(p.sources[s.kind][s.get('estimateReason','none')])
+        && o.keys().hasOnly(['kind','assumption']) && o.kind in ['user','catalog_measure','estimate'];
+    }
+    function changedFoodSource(item,p) {
+      return 'source' in item?sourceAllowed(item.source,p):!('quantity' in item);
+    }
+    function smallSourceBatch(r,p) {
+      let n=r.size();
+      return (n<=0 || changedFoodSource(r[0],p)) && (n<=1 || changedFoodSource(r[1],p))
+        && (n<=2 || changedFoodSource(r[2],p)) && (n<=3 || changedFoodSource(r[3],p))
+        && (n<=4 || changedFoodSource(r[4],p)) && (n<=5 || changedFoodSource(r[5],p))
+        && (n<=6 || changedFoodSource(r[6],p)) && (n<=7 || changedFoodSource(r[7],p))
+        && (n<=8 || changedFoodSource(r[8],p)) && (n<=9 || changedFoodSource(r[9],p));
+    }
+    function sourceTen(r,sources,originDefault) {
+      let s0=r[0].source;
+      let s1=r[1].source;
+      let s2=r[2].source;
+      let s3=r[3].source;
+      let s4=r[4].source;
+      let s5=r[5].source;
+      let s6=r[6].source;
+      let s7=r[7].source;
+      let s8=r[8].source;
+      let s9=r[9].source;
+      return [s0.keys().hasOnly(sources[s0.kind][s0.get('estimateReason','none')]),s1.keys().hasOnly(sources[s1.kind][s1.get('estimateReason','none')]),s2.keys().hasOnly(sources[s2.kind][s2.get('estimateReason','none')]),s3.keys().hasOnly(sources[s3.kind][s3.get('estimateReason','none')]),s4.keys().hasOnly(sources[s4.kind][s4.get('estimateReason','none')]),s5.keys().hasOnly(sources[s5.kind][s5.get('estimateReason','none')]),s6.keys().hasOnly(sources[s6.kind][s6.get('estimateReason','none')]),s7.keys().hasOnly(sources[s7.kind][s7.get('estimateReason','none')]),s8.keys().hasOnly(sources[s8.kind][s8.get('estimateReason','none')]),s9.keys().hasOnly(sources[s9.kind][s9.get('estimateReason','none')])].hasOnly([true])
+        && originsFive(s0.get('portionOrigin',originDefault),s1.get('portionOrigin',originDefault),s2.get('portionOrigin',originDefault),s3.get('portionOrigin',originDefault),s4.get('portionOrigin',originDefault))
+        && originsFive(s5.get('portionOrigin',originDefault),s6.get('portionOrigin',originDefault),s7.get('portionOrigin',originDefault),s8.get('portionOrigin',originDefault),s9.get('portionOrigin',originDefault));
+    }
+    function originsFive(o0,o1,o2,o3,o4) {
+      return o0.keys().concat(o1.keys()).concat(o2.keys()).concat(o3.keys()).concat(o4.keys()).hasOnly(['kind','assumption'])
+        && [o0.kind,o1.kind,o2.kind,o3.kind,o4.kind].hasOnly(['user','catalog_measure','estimate']);
+    }
+
+    function sourceNine(r,sources,originDefault) {
+      let s0=r[0].source;
+      let s1=r[1].source;
+      let s2=r[2].source;
+      let s3=r[3].source;
+      let s4=r[4].source;
+      let s5=r[5].source;
+      let s6=r[6].source;
+      let s7=r[7].source;
+      let s8=r[8].source;
+      return [s0.keys().hasOnly(sources[s0.kind][s0.get('estimateReason','none')]),s1.keys().hasOnly(sources[s1.kind][s1.get('estimateReason','none')]),s2.keys().hasOnly(sources[s2.kind][s2.get('estimateReason','none')]),s3.keys().hasOnly(sources[s3.kind][s3.get('estimateReason','none')]),s4.keys().hasOnly(sources[s4.kind][s4.get('estimateReason','none')]),s5.keys().hasOnly(sources[s5.kind][s5.get('estimateReason','none')]),s6.keys().hasOnly(sources[s6.kind][s6.get('estimateReason','none')]),s7.keys().hasOnly(sources[s7.kind][s7.get('estimateReason','none')]),s8.keys().hasOnly(sources[s8.kind][s8.get('estimateReason','none')])].hasOnly([true])
+        && originsFive(s0.get('portionOrigin',originDefault),s1.get('portionOrigin',originDefault),s2.get('portionOrigin',originDefault),s3.get('portionOrigin',originDefault),s4.get('portionOrigin',originDefault))
+        && originsFour(s5.get('portionOrigin',originDefault),s6.get('portionOrigin',originDefault),s7.get('portionOrigin',originDefault),s8.get('portionOrigin',originDefault));
+    }
+    function sourceEleven(r,sources,originDefault,s0) {
+      let s1=r[10].source;
+      let s2=r[11].source;
+      let s3=r[12].source;
+      let s4=r[13].source;
+      let s5=r[14].source;
+      let s6=r[15].source;
+      let s7=r[16].source;
+      let s8=r[17].source;
+      let s9=r[18].source;
+      let s10=r[19].source;
+      return [s0.keys().hasOnly(sources[s0.kind][s0.get('estimateReason','none')]),s1.keys().hasOnly(sources[s1.kind][s1.get('estimateReason','none')]),s2.keys().hasOnly(sources[s2.kind][s2.get('estimateReason','none')]),s3.keys().hasOnly(sources[s3.kind][s3.get('estimateReason','none')]),s4.keys().hasOnly(sources[s4.kind][s4.get('estimateReason','none')]),s5.keys().hasOnly(sources[s5.kind][s5.get('estimateReason','none')]),s6.keys().hasOnly(sources[s6.kind][s6.get('estimateReason','none')]),s7.keys().hasOnly(sources[s7.kind][s7.get('estimateReason','none')]),s8.keys().hasOnly(sources[s8.kind][s8.get('estimateReason','none')]),s9.keys().hasOnly(sources[s9.kind][s9.get('estimateReason','none')]),s10.keys().hasOnly(sources[s10.kind][s10.get('estimateReason','none')])].hasOnly([true])
+        && originsFive(s0.get('portionOrigin',originDefault),s1.get('portionOrigin',originDefault),s2.get('portionOrigin',originDefault),s3.get('portionOrigin',originDefault),s4.get('portionOrigin',originDefault))
+        && originsSix(s5.get('portionOrigin',originDefault),s6.get('portionOrigin',originDefault),s7.get('portionOrigin',originDefault),s8.get('portionOrigin',originDefault),s9.get('portionOrigin',originDefault),s10.get('portionOrigin',originDefault));
+    }
+    function originsFour(o0,o1,o2,o3) {
+      return o0.keys().concat(o1.keys()).concat(o2.keys()).concat(o3.keys()).hasOnly(['kind','assumption'])
+        && [o0.kind,o1.kind,o2.kind,o3.kind].hasOnly(['user','catalog_measure','estimate']);
+    }
+    function originsSix(o0,o1,o2,o3,o4,o5) {
+      return o0.keys().concat(o1.keys()).concat(o2.keys()).concat(o3.keys()).concat(o4.keys()).concat(o5.keys()).hasOnly(['kind','assumption'])
+        && [o0.kind,o1.kind,o2.kind,o3.kind,o4.kind,o5.kind].hasOnly(['user','catalog_measure','estimate']);
+    }
+    function padTen(part) {
+      let p={'source':{'kind':'legacy'}};
+      return part.concat([p,p,p,p,p,p,p,p,p]);
+    }
+    function allTen(rows,p) {
+      return rows.size()<=4?smallSourceBatch(rows,p):
+        sourceTen(rows.size()==10?rows:padTen(rows),p.sources,{'kind':'user'})
+        || (rows.size()==10 && !('source' in rows[9]) && !('quantity' in rows[9]) && sourceNine(rows,p.sources,{'kind':'user'}))
+        || smallSourceBatch(rows,p);
+    }
+    function dayPath(uid,day) { return /databases/$(database)/documents/users/$(uid)/mealHistory/$(day); }
+    function projectionEqual(a,b) {
+      return !b.diff(a).affectedKeys().hasAny(['meals','mealsDateKey','mealRevision','legacyMeals','legacyMealsDateKey']);
+    }
+    function emptyProjection(p) {
+      return p.get('mealsDateKey',null)==null && p.get('mealRevision',0)==0
+        && p.get('legacyMeals',null)==null && p.get('legacyMealsDateKey',null)==null
+        && (p.get('meals',{})=={} || p.get('meals',{})=={'1':{},'2':{},'3':{},'4':{}});
+    }
+    function changedProfile(a,b) {
+      let old=a.get('users',{});
+      let next=b.get('users',{});
+      let added=next.values().removeAll(old.values());
+      let removed=old.values().removeAll(next.values());
+      return next.diff(old).affectedKeys().size()==1 && added.size()==1
+        && (removed.size()==0 || removed.size()==1 && !projectionEqual(removed[0],added[0])) ? added[0]:null;
+    }
+    function freshMirror(a,b,rootBefore,rootAfter,profile,day) {
+      return profile is map && rootAfter.writerVersion==3 && b.writerVersion==3
+        && rootAfter.writerNonce==b.writerNonce && rootBefore.get('writerNonce','')!=b.writerNonce
+        && a.get('writerNonce','')!=b.writerNonce && b.revision is int && b.revision==a.get('revision',0)+1
+        && profile.mealsDateKey==day && profile.mealRevision==b.revision && profile.meals==b.meals;
+    }
+    function rootMirror(uid,a,b,profile) {
+      let day=profile.mealsDateKey;
+      let old=get(dayPath(uid,day));
+      let next=getAfter(dayPath(uid,day));
+      return next!=null && freshMirror(old==null?{}:old.data,next.data,a,b,profile,day)
+        ? foodHalf(uid,day,old==null?{}:old.data,next.data) : false;
+    }
+    function rootPreferences(old,next,profile) {
+      let removed=old.values().removeAll(next.values());
+      return removed.size()==1?projectionEqual(removed[0],profile):removed.size()==0 && emptyProjection(profile);
+    }
+    function rootProfileWrite(uid,a,b,old,next,profile) {
+      return profile.get('mealsDateKey',null) is string
+        ? (rootMirror(uid,a,b,profile)?true:rootPreferences(old,next,profile))
+        : rootPreferences(old,next,profile);
+    }
+    function rootV3Write(uid,a,b) {
+      let old=a.get('users',{});
+      let next=b.get('users',{});
+      let newProfiles=next.values().removeAll(old.values());
+      let changed=next.diff(old).affectedKeys();
+      return changed.size()==0 || (changed.size()==1 && newProfiles.size()==1
+        && rootProfileWrite(uid,a,b,old,next,newProfiles[0]));
+    }
+    function dayMirror(uid,day,b) {
+      let old=get(userPath(uid)).data;
+      let next=getAfter(userPath(uid)).data;
+      let profile=changedProfile(old,next);
+      // A nonempty changed projection cannot use the preference/new-empty
+      // branches on the root. Its rootMirror rule proves the fresh day revision.
+      return profile is map && next.writerVersion==3 && next.writerNonce==b.writerNonce
+        && old.get('writerNonce','')!=b.writerNonce && profile.mealsDateKey==day;
+    }
+    function legacyGroupMerge(a,l,b,k) {
+      return !(k in l) || b.get(k,[])==a.get(k,[]).concat(l[k]);
+    }
+    function legacyMealMerge(a,l,b) {
+      let keys=l.keys();
+      let k=keys.size()==1?keys[0]:'';
+      return l.size()==0?a==b:b.diff(a).affectedKeys().hasOnly(keys)
+        && (keys.size()==1?legacyGroupMerge(a,l,b,k):
+          keys.hasOnly(['voice','а','б','в','г','д','е','є','ж','з','и','і','ї','й'])
+          && legacyGroupMerge(a,l,b,'voice')
+          && legacyGroupMerge(a,l,b,'а')
+          && legacyGroupMerge(a,l,b,'б')
+          && legacyGroupMerge(a,l,b,'в')
+          && legacyGroupMerge(a,l,b,'г')
+          && legacyGroupMerge(a,l,b,'д')
+          && legacyGroupMerge(a,l,b,'е')
+          && legacyGroupMerge(a,l,b,'є')
+          && legacyGroupMerge(a,l,b,'ж')
+          && legacyGroupMerge(a,l,b,'з')
+          && legacyGroupMerge(a,l,b,'и')
+          && legacyGroupMerge(a,l,b,'і')
+          && legacyGroupMerge(a,l,b,'ї')
+          && legacyGroupMerge(a,l,b,'й')
+        );
+    }
+    function emptyMeals(m) {
+      return m.keys().hasOnly(['1','2','3','4']) && (m.values().hasOnly([{}])
+        || m.get('1',{}).values().hasOnly([[]]) && m.get('2',{}).values().hasOnly([[]])
+        && m.get('3',{}).values().hasOnly([[]]) && m.get('4',{}).values().hasOnly([[]]));
+    }
+    function legacyMealsMatch(a,l,b) {
+      return b==l && (a==l || emptyMeals(a)) || (b.keys().hasOnly(['1','2','3','4'])
+        && legacyMealMerge(a.get('1',{}),l.get('1',{}),b.get('1',{}))
+        && legacyMealMerge(a.get('2',{}),l.get('2',{}),b.get('2',{}))
+        && legacyMealMerge(a.get('3',{}),l.get('3',{}),b.get('3',{}))
+        && legacyMealMerge(a.get('4',{}),l.get('4',{}),b.get('4',{})));
+    }
+    function confirmedLegacyWrite(uid,day,old,next) {
+      let id=next.legacyImportProfileId;
+      let before=get(userPath(uid)).data.get('users',{}).get(id,{});
+      let afterRoot=getAfter(userPath(uid)).data;
+      let after=afterRoot.get('users',{}).get(id,{});
+      let legacy=before.get('legacyMeals',null)!=null?before.legacyMeals
+        :before.get('mealsDateKey',null)==null?before.get('meals',{}):{};
+      return id is string && id.size()>0 && id.size()<=128 && legacy is map
+        && after.get('legacyMeals','absent')==null && after.get('legacyMealsDateKey','')==day
+        && after.get('mealsDateKey','')==day && after.get('meals',{})==next.get('meals',{})
+        && afterRoot.writerNonce==next.writerNonce
+        && legacyMealsMatch(old.get('meals',{}),legacy,next.get('meals',{}));
+    }
+    function regularFoodHalf(a,b) {
+      let p=sourcePolicy();
+      let rows=changedFoodRows(a,b,p.groups);
+      return rows.size()==0 || rows.size()<=20
+        && (rows.size()>=9?(sourceNine(rows,p.sources,{'kind':'user'}) || smallSourceBatch(rows[0:9],p)):allTen(rows,p));
+    }
+    function foodHalf(uid,day,a,b) {
+      return b.get('legacyImportProfileId','')!=a.get('legacyImportProfileId','')
+        ? confirmedLegacyWrite(uid,day,a,b) : regularFoodHalf(a,b);
+    }
+    function regularDayFoodWrite(uid,day,a,b) {
+      let p=sourcePolicy();
+      let rows=changedFoodRows(a,b,p.groups);
+      return rows.size()==0 || (rows.size()<=10?allTen(rows,p):
+        dayMirror(uid,day,b) ? rows.size()<=20 && (rows.size()==20?
+          ('source' in rows[19]?
+            (sourceEleven(rows,p.sources,{'kind':'user'},rows[9].source) || allTen(rows[9:19],p) && changedFoodSource(rows[19],p))
+            : allTen(rows[9:19],p) && changedFoodSource(rows[19],p))
+          :allTen(rows[9:rows.size()],p)) : false);
+    }
+    function dayFoodWrite(uid,day,a,b) {
+      return b.get('legacyImportProfileId','')!=a.get('legacyImportProfileId','')
+        ? dayMirror(uid,day,b) && confirmedLegacyWrite(uid,day,a,b)
+        : regularDayFoodWrite(uid,day,a,b);
+    }
     function submissionFences(a,b) {
       let oldReject=a.get('rejectedSubmissions',{});
       let reject=b.get('rejectedSubmissions',{});
       let oldSuccess=a.get('submissionMarkers',{});
       let success=b.get('submissionMarkers',{});
-      return reject is map && success is map
-        && reject.diff(oldReject).removedKeys().size()==0 && reject.diff(oldReject).changedKeys().size()==0
-        && success.diff(oldSuccess).removedKeys().size()==0 && success.diff(oldSuccess).changedKeys().size()==0
+      return ((reject==oldReject && success==oldSuccess) || (reject.diff(oldReject).unchangedKeys().size()==oldReject.size()
+          && success.diff(oldSuccess).unchangedKeys().size()==oldSuccess.size()))
         && !reject.keys().hasAny(success.keys());
+    }
+    function historyWrite(uid,day,a,b,creating) {
+      return writerValid(b,uid) ? (creating || b.writerNonce != a.get('writerNonce',''))
+        && submissionFences(a,b) && (b.writerVersion == 2 || dayFoodWrite(uid,day,a,b)) : false;
+    }
+    function regularRootUpdate(uid,a,b,changed) {
+      return changed.hasOnly(regularFields())
+        && writerValid(b,uid) && b.writerNonce!=a.get('writerNonce','')
+        ? (b.writerVersion==2 || rootV3Write(uid,a,b)) : false;
+    }
+    function rootUpdateRoute(uid,a,b) {
+      let changed=b.diff(a).affectedKeys();
+      return changed.hasOnly(['trainerId','trainerEmail'])
+        ? (legacyClear(uid)||linkAccept(uid)||linkDisconnect(uid))
+        : owner(uid) && regularRootUpdate(uid,a,b,changed);
     }
     match /users/{uid} {
       allow get, list: if owner(uid);
       allow create: if owner(uid) && request.resource.data.keys().hasOnly(regularFields().concat(['trainerId','trainerEmail']))
         && request.resource.data.get('trainerId', null) == null
-        && request.resource.data.get('trainerEmail', null) == null && writerValid(request.resource.data, uid);
-      allow update: if (owner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(regularFields())
-        && writerChanged(uid)) || legacyClear(uid) || linkAccept(uid) || linkDisconnect(uid);
+        && request.resource.data.get('trainerEmail', null) == null && writerValid(request.resource.data, uid)
+        && (request.resource.data.writerVersion==2 || rootV3Write(uid,{},request.resource.data));
+      allow update: if rootUpdateRoute(uid,resource.data,request.resource.data);
       allow delete: if false;
       match /mealHistory/{day} {
         allow read: if owner(uid) || assigned(uid);
-        allow create: if owner(uid) && writerValid(request.resource.data, uid) && submissionFences({},request.resource.data);
-        allow update: if owner(uid) && writerChanged(uid) && submissionFences(resource.data,request.resource.data);
+        allow create, update: if owner(uid) && (resource == null
+          ? historyWrite(uid,day,{},request.resource.data,true)
+          : historyWrite(uid,day,resource.data,request.resource.data,false));
       }
       match /foodNotes/{noteId} {
         allow read: if owner(uid) || assigned(uid);

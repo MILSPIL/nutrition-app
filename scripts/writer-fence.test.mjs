@@ -104,13 +104,15 @@ test('W08 historical rules show why deploy order and a fence-preserving rollback
 });
 test('W09 regression assertions detect weakening nonce-change or mealHistory checks',async()=>{
  const rules=await readFile('firestore.rules','utf8');
- const change="&& request.resource.data.diff(resource.data).affectedKeys().hasAny(['writerNonce'])";
- assert.ok(rules.includes(change));
+ const change="&& b.writerNonce!=a.get('writerNonce','')";
+ assert.equal(rules.split(change).length-1,1);
  await withRules('mutation-nonce',rules.replace(change,''),async database=>{
   await assert.rejects(()=>assertFails(oldWrite(database,0)),/Expected request to fail/);
  });
- const marker='allow update: if owner(uid) && writerChanged(uid) && submissionFences(resource.data,request.resource.data);';assert.equal(rules.split(marker).length-1,1);
- await withRules('mutation-day',rules.replace(marker,'allow update: if owner(uid);'),async database=>{
+ const marker=`allow create, update: if owner(uid) && (resource == null
+          ? historyWrite(uid,day,{},request.resource.data,true)
+          : historyWrite(uid,day,resource.data,request.resource.data,false));`;assert.equal(rules.split(marker).length-1,1);
+ await withRules('mutation-day',rules.replace(marker,'allow create, update: if owner(uid);'),async database=>{
   await assert.rejects(()=>assertFails(oldWrite(database,1)),/Expected request to fail/);
  });
 });
