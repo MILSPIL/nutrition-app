@@ -22,7 +22,10 @@ ProtectHome=true
 PrivateTmp=true
 PrivateDevices=true
 NoNewPrivileges=true
-ProtectKernelTunables=true
+# Masked proc children block unprivileged nested procfs. Keep /sys read-only;
+# non-root UID, empty capabilities and NoNewPrivileges guard proc tunable writes.
+ProtectKernelTunables=false
+ReadOnlyPaths=/sys
 ProtectKernelModules=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true

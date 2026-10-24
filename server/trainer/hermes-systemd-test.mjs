@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 if (
   process.env.container !== "docker" ||
@@ -33,7 +33,15 @@ try {
     TasksMax: "128",
     KillMode: "control-group",
     NoNewPrivileges: "yes",
-    ProtectKernelTunables: "yes",
+    ProtectKernelTunables: "no",
+    ReadOnlyPaths: "/sys",
+    ProtectSystem: "strict",
+    ProtectHome: "yes",
+    PrivateDevices: "yes",
+    ProtectKernelModules: "yes",
+    ProtectControlGroups: "yes",
+    RestrictSUIDSGID: "yes",
+    LockPersonality: "yes",
     CapabilityBoundingSet: "",
   }))
     assert.equal(ctl("show", unit, "-p", key, "--value"), value, key);
@@ -41,6 +49,11 @@ try {
     ctl("show", unit, "-p", "RestrictAddressFamilies", "--value"),
     /AF_NETLINK/,
   );
+  // Successful oneshot status may be inactive; use journalctl for canary evidence.
+  const log = spawnSync("journalctl", ["-u", unit, "--no-pager", "-o", "cat"], { encoding: "utf8" });
+  assert.equal(log.status, 0, log.stderr);
+  assert.match(log.stdout, /"parentCanaries":true/);
+  assert.match(log.stdout, /"networkMutationDetected":true/);
   const resource = JSON.parse(
     readFileSync("/var/lib/scisense/hermes-lab/resource-summary.json"),
   );
@@ -49,23 +62,12 @@ try {
       passed: true,
       syntheticOnly: true,
       actualUnit: "deploy/hermes/scisense-api.service",
+      parentCanaries: true,
+      nestedIsolationCanaries: true,
       resource,
     }),
   );
 } catch (error) {
-  // Diagnostic only inside this disposable synthetic systemd container. This
-  // does not accept a weaker unit: the original failure remains a failing CI.
-  const diagnosticFile = "/etc/systemd/system/scisense-api.service.d/95-proc-diagnostic.conf";
-  const originalJournal = spawnSync("journalctl", ["-u", unit, "--no-pager", "-n", "60"], { encoding: "utf8" }).stdout;
-  if (originalJournal.includes("Can't mount proc")) {
-    try {
-      writeFileSync(diagnosticFile, "[Service]\nProtectKernelTunables=false\n");
-      ctl("daemon-reload"); ctl("reset-failed", unit);
-      const alternate = spawnSync("systemctl", ["start", unit], { encoding: "utf8", timeout: 55000 });
-      console.error(JSON.stringify({ diagnosticOnly: true, changed: "ProtectKernelTunables=false", alternateExit: alternate.status }));
-    } finally { unlinkSync(diagnosticFile); ctl("daemon-reload"); }
-  }
-  console.error(originalJournal);
   console.error(
     spawnSync("journalctl", ["-u", unit, "--no-pager", "-n", "40"], {
       encoding: "utf8",

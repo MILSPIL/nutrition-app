@@ -28,7 +28,7 @@ with tempfile.TemporaryDirectory(prefix='scisense-off-package-') as tmp:
  for name in tracked:
   if not name:continue
   include=name in ['package.json','firestore.rules'] or name.startswith(('server/','src/services/','src/data/','workers/meal-parser/src/','scripts/phone-lab/','deploy/')) or name in ['workers/meal-parser/package.json','workers/meal-parser/package-lock.json','workers/meal-parser/pilot-proposal.json']
-  if not include or any(x in name for x in ['.test.','/fixtures/','/linux/','Dockerfile','_test.py','systemd-test','systemd-ci']):continue
+  if not include or any(x in name for x in ['.test.','/fixtures/','/linux/','Dockerfile','_test.py','systemd-test','systemd-ci','-test.mjs']):continue
   src=repo/name
   if src.is_symlink() or not src.is_file():raise SystemExit('source_not_regular')
   dest=stage/name;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(src,dest)
