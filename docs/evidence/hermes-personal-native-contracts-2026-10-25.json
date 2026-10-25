@@ -1,0 +1,73 @@
+{
+  "cases": [
+    {
+      "case": "named_responses_provider",
+      "passed": true,
+      "actual": {
+        "api_mode": "codex_responses",
+        "base_url": "http://127.0.0.1:19999/v1",
+        "provider": "custom"
+      }
+    },
+    {
+      "case": "native_resume_before_export",
+      "passed": true,
+      "actual": "resumed"
+    },
+    {
+      "case": "canonical_import_resume_same_session",
+      "passed": false,
+      "actual": {
+        "code": 4001,
+        "message": "not_found",
+        "data": {
+          "reason": "not_found"
+        }
+      }
+    },
+    {
+      "case": "import_rejects_different_existing_content",
+      "passed": false,
+      "actual": {
+        "ok": true,
+        "imported": 0,
+        "skipped": 1
+      }
+    },
+    {
+      "case": "owner_input_lookup_without_resubmit",
+      "passed": false,
+      "actual": {
+        "code": -32601,
+        "message": "unknown method: prompt.lookup",
+        "data": {
+          "reason": "unknown_method"
+        }
+      }
+    }
+  ],
+  "providerRequests": 0,
+  "networkAttempts": 0,
+  "realProfileOpened": false,
+  "sourceWrites": false,
+  "sourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+  "sourceHashes": {
+    "gateway/session_local.py": "5ac726c4a792eca6f60007ca68ba306b4ed1837e5240fcd87d0ebde6935a0a65",
+    "gateway/session_controls.py": "162a495cc91ec17b85b883bd6ea9b5caeefa4de4b1683a86dd841d3a3455554d",
+    "gateway/session_local_migration.py": "f9bbd0ac087c4bf6ee37ea75dd7cd13deac55b48c4a5c79a693b42fbac8e4921",
+    "hermes_state_portability.py": "3eca72538fae87b2fccac6fd3be8f44654d4a589184cd7d9664fbd63141fa001",
+    "hermes_cli/runtime_provider_custom.py": "8744c52b92cf84b1a5e57077c3e6fcaffacaa2799e46cd9149809aba7211847c",
+    "hermes_state_runtime.py": "1553a9e5091413092dd30d7613b9aaa7338919bfc5a5d3ac3f4cf8c57de4411b"
+  },
+  "synthetic": true,
+  "cleanup": "complete_after_child_exit",
+  "criterionAcceptance": false,
+  "verdict": "blocked",
+  "verificationScope": "Six critical source files compared byte-for-byte to git pin; isolated native owner/SQLite, no model or Desktop launch.",
+  "desktopCompatibility": {
+    "installedSource": "73162b00eefde3794bed0afb53d84a19c0eed230",
+    "canonicalAdapter": false,
+    "launched": false,
+    "review": "independent read-only source/package review"
+  }
+}
