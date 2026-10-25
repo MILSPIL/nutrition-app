@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "task": "HERMES-PERSONAL-01",
+  "scope": "local-profile-routing-and-outbox-primitives",
+  "syntheticOnly": true,
+  "testsPassed": 16,
+  "physicalModelCalls": 0,
+  "reviews": {
+    "reviewer": "personal_local_review",
+    "closed": [
+      "native ACK input/HMAC correlation and one-admission uniqueness",
+      "wrong-key sentinel before recovery or writes",
+      "completed requires positive native execution generation"
+    ],
+    "verdict": "passed; final read-only reread"
+  },
+  "sourceSha256": {
+    "personal-profiles.mjs": "e0881231856c5873be5c0d4f1ec0e30adefa52201b39976239e92443a863edad",
+    "personal-queue.mjs": "d4708ac8c36614a2d9c334f3a708c69cf085f4e2390fd12115dd95451e5b3eb6",
+    "personal-store.mjs": "7efcb727d75359fc1734482dc2e21e9014acb9bd7460cd38702500e2ccd8e943",
+    "personal-profiles.test.mjs": "d7128e6f9f1f2fe21a12d65da1f0f54330374aeba8a3496cd6fd0eef4681d02e",
+    "personal-queue.test.mjs": "134ed45b31b84264cb52ba4d32282e8b3c573537c795426e49519efae1f8daec",
+    "personal-store.test.mjs": "6d3813023d2501163953d25614275200dd7429a1b78e3a1c9144d5080d05756c"
+  },
+  "notVerified": [
+    "native adapter and Desktop integration",
+    "Bot Chat title lookup and compression-lineage routing",
+    "actual provider auth and wire",
+    "production activation"
+  ],
+  "productionChanged": false
+}
