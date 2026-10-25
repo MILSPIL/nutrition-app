@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "nativeCommit": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+  "testExit": 0,
+  "nativeIpc": {
+    "passed": true,
+    "checks": 13,
+    "nativeCodexProducer": true,
+    "nativeTools": 3,
+    "canonicalHistoryBothChannels": true,
+    "realAppGateway": true,
+    "cleanDisplayTextWithoutApiContext": true,
+    "isolatedSecondProfile": true,
+    "exactMessagesAfterPhysicalRestart": true,
+    "sameReceiptBirthEpochAfterRestart": true,
+    "physicalPostReservations": 6,
+    "realModelRequests": 0,
+    "physicalProcessesWithOSCanaries": 5
+  },
+  "nodeGatewayTests": 58,
+  "reactChatTests": 22,
+  "productionChanged": false,
+  "realModelRequests": 0,
+  "independentReview": {
+    "reviewer": "personal_local_review",
+    "confirmedP2": 2,
+    "resolved": 2,
+    "openP1P2": 0,
+    "verdict": "PASS"
+  }
+}

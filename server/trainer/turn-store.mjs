@@ -356,7 +356,8 @@ export function openTurnStore(
         return { text: value.text, revision: value.revision };
       });
     },
-    admit(uid, id, input, snapshot, {dayProof=snapshot.day?.freshness}={}) {
+    admit(uid, id, input, snapshot, {dayProof=snapshot.day?.freshness, queueWindowMs=LIMITS.deadlineMs}={}) {
+      if (!Number.isInteger(queueWindowMs) || queueWindowMs < LIMITS.deadlineMs || queueWindowMs > 225000) fail("invalid_request");
       requireId(input.turnId);
       return tx(() => {
         if (retention.gone(input.turnId)) fail("turn_gone", 410);
@@ -396,7 +397,7 @@ export function openTurnStore(
           c.generation,
           c.revision,
           at,
-          at + LIMITS.deadlineMs,
+          at + queueWindowMs,
         );
         if(dayProof)db.prepare("INSERT INTO turn_days VALUES(?,?,?)").run(input.turnId,dayProof.targetDate,stableJSON(dayProof));
         // Admission and removal of exactly the sent composer are one durable commit.
@@ -447,6 +448,17 @@ export function openTurnStore(
       return row ? view(row) : null;
     },
     internal,
+    prepareQueued(uid, id, snapshot, { deadline, dayProof } = {}) {
+      return tx(() => {
+        const row = own(uid, id);
+        if (row.state !== "queued" || row.run_id || row.call_count || now() >= row.deadline) fail("turn_inactive", 409);
+        if (!Number.isSafeInteger(deadline) || deadline <= now() || deadline > now() + LIMITS.deadlineMs) fail("invalid_request");
+        db.prepare("UPDATE turns SET snapshot=?,snapshot_hmac=?,deadline=? WHERE id=?").run(stableJSON(snapshot), hash(snapshot), deadline, id);
+        db.prepare("DELETE FROM turn_days WHERE turn_id=?").run(id);
+        if (dayProof) db.prepare("INSERT INTO turn_days VALUES(?,?,?)").run(id, dayProof.targetDate, stableJSON(dayProof));
+        return internal(id);
+      });
+    },
     begin(uid, id) {
       return tx(() => {
         const row = own(uid, id);

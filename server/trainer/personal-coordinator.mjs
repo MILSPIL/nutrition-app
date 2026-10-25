@@ -45,12 +45,17 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
         onModel(payload, options) {
           if (!active || active.uid !== uid || active.owner !== owner || !active.invoke) throw uncertain();
           callbackBinding(uid, record, options.nativeBinding);
-          return active.invoke(payload, { ...options, signal: AbortSignal.any([options.signal, active.signal].filter(Boolean)) });
+          return (async () => {
+            await active.verify?.();
+            const result = await active.invoke(payload, { ...options, signal: AbortSignal.any([options.signal, active.signal].filter(Boolean)) });
+            await active.verify?.();
+            return result;
+          })();
         },
         onTool(name, arguments_, { signal, nativeBinding }) {
           if (!TOOLS.includes(name) || !active || active.uid !== uid || active.owner !== owner || !active.tools) throw uncertain();
           callbackBinding(uid, record, nativeBinding);
-          return active.tools(name, arguments_, { signal: AbortSignal.any([signal, active.signal].filter(Boolean)) });
+          return active.tools(name, arguments_, { signal: AbortSignal.any([signal, active.signal].filter(Boolean)), nativeBinding });
         },
         onEvent: (channel, event) => onEvent(uid, channel, event),
       });
@@ -118,7 +123,7 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
       outbox.bind(uid, inputId, sessionId);
       outbox.dispatch(uid, inputId); dispatched = true;
       return await payer.withTurn({ uid, inputId, signal, deadline }, async invoke => {
-        active = { uid, inputId, owner: record.owner, invoke, tools: prepared.tools, signal };
+        active = { uid, inputId, owner: record.owner, invoke, tools: prepared.tools, verify: prepared.verify, signal };
         let native = await record.owner.rpc(channel, "prompt.submit", {
           session_id: sessionId, submission_id: inputId, text: payload.text, api_text: `SCISENSE-INPUT-V1 ${inputId} ${outbox.binding(uid, inputId).payloadHmac}\n` + prepared.apiText,
           ...(prepared.attachments?.length ? { attachments: prepared.attachments } : {}),
@@ -163,6 +168,7 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
       return outbox.enqueue(uid, inputId, payload, { channel });
     },
     schedule,
+    input: (uid, inputId) => outbox.read(uid, inputId),
     async submit(uid, inputId, payload, { channel = "web", signal, prepare: prepareInput = prepare, expectedSessionId } = {}) {
       const enqueued = this.enqueue(uid, inputId, payload, { channel: channel === "web" ? "web" : "desktop" });
       if (enqueued.state !== "queued") return this.status(uid, inputId);

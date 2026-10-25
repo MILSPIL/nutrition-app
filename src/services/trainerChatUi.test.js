@@ -347,3 +347,20 @@ test.each(['бобові', 'сир кисломолочний 0,2%'])(
     assertConfirmed();
   },
 );
+
+test("native canonical history has no projection delete or 30-day promise", async () => {
+  server.canonicalHistory = true;
+  await render();
+  expect(host.textContent).toContain("Розмова зберігається у Hermes");
+  expect(host.textContent).not.toContain("зберігаються 30 днів");
+  expect(button("Видалити розмову")).toBeUndefined();
+});
+
+test("native receipt avoids a duplicate optimistic user bubble", async () => {
+  const text = "Синтетичне яблуко";
+  server.canonicalHistory = true;
+  server.messages = [{ id: "native-user", role: "user", content: text }];
+  server.latestTurn = { turnId: "synthetic-latest-input", text, nativeInputClaimed: true, state: "completed" };
+  await render();
+  expect(host.querySelectorAll(".trainer-message.from-user")).toHaveLength(1);
+});

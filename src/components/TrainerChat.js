@@ -927,7 +927,10 @@ export default function TrainerChat({
           </div>
           {view.server?.latestTurn?.text &&
             !(view.server.messages || []).some(
-              (m) => m.id === view.server.latestTurn.turnId + "-u",
+              (m) => m.id === view.server.latestTurn.turnId + "-u" ||
+                (view.server.canonicalHistory && view.server.latestTurn.nativeInputClaimed &&
+                 [...(view.server.messages || [])].reverse().find(row => row.role === "user")?.id === m.id &&
+                 m.content === view.server.latestTurn.text),
             ) && (
               <div className="trainer-message from-user">
                 <span>Ви</span>
@@ -1047,10 +1050,12 @@ export default function TrainerChat({
             <details className="trainer-options">
               <summary>Історія чату</summary>
               <p>
-                Повідомлення й незавершені чернетки зберігаються 30 днів.
-                Підтверджена їжа залишається у щоденнику.
+                {view.server.canonicalHistory
+                  ? "Розмова зберігається у Hermes та доступна на сайті й у Desktop."
+                  : "Повідомлення й незавершені чернетки зберігаються 30 днів."}
+                {" "}Підтверджена їжа залишається у щоденнику.
               </p>
-              {!confirmDelete ? (
+              {!view.server.canonicalHistory && (!confirmDelete ? (
                 <button disabled={busy} onClick={() => setConfirmDelete(true)}>
                   Видалити розмову
                 </button>
@@ -1080,7 +1085,7 @@ export default function TrainerChat({
                     Залишити
                   </button>
                 </>
-              )}
+              ))}
             </details>
           )}
         </div>

@@ -29,7 +29,7 @@ def transport(_transport, request):
     last_user = max(index for index, item in enumerate(items) if item.get('role') == 'user')
     current = json.dumps(items[last_user])
     match = re.search(r'SCISENSE-INPUT-V1 ([A-Za-z0-9-]+)', current)
-    assert match and 'fresh-snapshot' in current
+    assert match and ('fresh-snapshot' in current or 'schemaVersion' in current)
     ident = hashlib.sha256(match[1].encode()).hexdigest()[:16]
     finished = any(item.get('type') == 'function_call_output' for item in items[last_user:])
     if finished:

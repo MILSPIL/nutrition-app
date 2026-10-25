@@ -10,6 +10,11 @@ import { createPersonalCoordinator } from "../server/trainer/personal-coordinato
 import { openPersonalCredentials } from "../server/trainer/personal-credentials.mjs";
 import { openPersonalStore } from "../server/trainer/personal-store.mjs";
 import { personalProfiles } from "../server/trainer/personal-profiles.mjs";
+import { openTurnStore } from "../server/trainer/turn-store.mjs";
+import { createTrainerGateway } from "../server/trainer/gateway.mjs";
+import { createPersonalBackend } from "../server/trainer/personal-backend.mjs";
+import { createTrainerTools } from "../server/trainer/tools.mjs";
+import { buildSnapshot } from "../server/trainer/snapshot.mjs";
 const setup = JSON.parse(readFileSync(process.argv[2])), root = setup.env.SCISENSE_FIXTURE_ROOT;
 const key = randomBytes(32), homes = ["owner", "wife"].map(uid => join(root, "joint-" + uid));
 for (const home of homes) mkdirSync(home, { mode: 0o700 });
@@ -21,7 +26,7 @@ const token = "synthetic." + Buffer.from(JSON.stringify({ exp: 4102444800 })).to
 credentials.initialize({ "auth.json": Buffer.from(JSON.stringify({ version: 1, providers: { "openai-codex": { tokens: { access_token: token, refresh_token: "synthetic-refresh" } } } })),
   "config.yaml": Buffer.from(JSON.stringify({ model: { provider: "openai-codex", default: "synthetic-model" }, auth: { adopt_external_logins: false },
     model_overrides: { "openai-codex": { "synthetic-model": { supports_tools: true, supports_vision: true, context_window: 128000 } } } })) });
-let payerCount = 0, toolCalls = 0, core, stage = "open", checks = 0;
+let payerCount = 0, toolCalls = 0, core, app, appStore, stage = "open", checks = 0;
 const make = () => {
   const payer = createPersonalPayer({ credentials, reservePost: (uid, inputId, proof) => outbox.reservePost(uid, inputId, proof),
     spawnWorker: () => {
@@ -62,8 +67,28 @@ try {
   stage = "second-native-turn";
   assert.equal((await core.submit("owner", randomUUID(), { text: "Другий синтетичний підсумок." }, { channel: "desktop:second" })).state, "completed");
   assert.equal(toolCalls, 2); assert.deepEqual(outbox.budget(), { turns: 2, posts: 4 }); checks++;
-  console.log(JSON.stringify({ passed: true, checks, nativeCodexProducer: true, nativeTools: toolCalls, canonicalHistoryBothChannels: true,
+  stage = "web-gateway";
+  appStore = openTurnStore(join(root, "joint-app.sqlite"), { hmacKey: key });
+  const reader = { readDay: async (_uid, targetDate) => ({ targetDate, revision: 1, meals: {}, notes: [] }), readPlan: async () => ({ planContext: {} }) };
+  const kit = createTrainerTools({ store: appStore, index: {}, ...reader });
+  const backend = createPersonalBackend({ uid: "owner", core, releaseTools: kit.release, verify: async () => {},
+    tools: { ...kit.tools, read_confirmed_day: async (...args) => { toolCalls++; return kit.tools.read_confirmed_day(...args); } } });
+  app = createTrainerGateway({ ownerUid: "owner", store: appStore, backend, ...reader,
+    readContext: async () => ({ text: "SYNTHETIC-CONTEXT", revision: 1 }), queueWindowMs: 225000,
+    snapshotFactory: value => buildSnapshot({ ...value, history: [], maxPayloadBytes: 512000 }),
+    media: { describe: () => [], stage() {}, load: () => [], remove() {}, sweep: () => ({ faults: 0 }) }, proxy: { cancel() {}, close() {} },
+  });
+  const request = { turnId: randomUUID(), baseRevision: 0, text: "Покажи день із сайта.", dateContext: { mode: "default" } };
+  assert.equal((await app.handle("owner", "/turns", "POST", request)).status, 202);
+  let projected;
+  for (let n = 0; n < 200; n++) { projected = appStore.get("owner", request.turnId); if (!["running", "queued"].includes(projected.state)) break; await new Promise(resolve => setTimeout(resolve, 50)); }
+  assert.equal(projected.state, "completed"); checks++;
+  const state = await (await app.handle("owner", "/state", "GET")).json();
+  assert.equal(state.canonicalHistory, true); assert.equal(state.messages.at(-2).content, request.text); assert.equal(state.latestTurn.nativeInputClaimed, true); checks++;
+  assert.ok(state.messages.every(message => !message.content.includes("SCISENSE-INPUT-V1") && !message.content.includes("SYNTHETIC-CONTEXT"))); checks++;
+  assert.deepEqual(outbox.budget(), { turns: 3, posts: 6 }); assert.equal(toolCalls, 3); checks++;
+  console.log(JSON.stringify({ passed: true, checks, nativeCodexProducer: true, nativeTools: toolCalls, canonicalHistoryBothChannels: true, realAppGateway: true, cleanDisplayTextWithoutApiContext: true,
     isolatedSecondProfile: true, exactMessagesAfterPhysicalRestart: true, sameReceiptBirthEpochAfterRestart: true, physicalPostReservations: outbox.budget().posts, realModelRequests: 0 }));
 } catch (error) {
   console.error(JSON.stringify({ syntheticStage: stage, error: error.message })); throw error;
-} finally { await core?.close(); outbox.close(); credentials.close(); key.fill(0); }
+} finally { await app?.close(); appStore?.close(); await core?.close(); outbox.close(); credentials.close(); key.fill(0); }

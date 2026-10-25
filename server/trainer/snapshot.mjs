@@ -19,6 +19,7 @@ export function buildSnapshot({
   dateContext,
   dateResolution,
   memoryWriteEnabled = false,
+  maxPayloadBytes = LIMITS.payloadBytes,
 }) {
   if (
     typeof context !== "string" ||
@@ -26,6 +27,7 @@ export function buildSnapshot({
     Buffer.byteLength(message) > LIMITS.userBytes
   )
     fail("message_too_large", 413);
+  if (!Number.isSafeInteger(maxPayloadBytes) || maxPayloadBytes < LIMITS.payloadBytes || maxPayloadBytes > 512000) fail("trainer_config", 503);
   const snapshot = {
     schemaVersion: 1,
     policy: TRAINER_POLICY,
@@ -44,7 +46,7 @@ export function buildSnapshot({
     message,
     history: [],
   };
-  if (jsonBytes(snapshot) > LIMITS.payloadBytes) fail("context_too_large", 413);
+  if (jsonBytes(snapshot) > maxPayloadBytes) fail("context_too_large", 413);
   const pairs = [];
   for (let n = 0; n < history.length; ) {
     const user = history[n],
@@ -64,7 +66,7 @@ export function buildSnapshot({
     if (
       next.length > LIMITS.historyMessages ||
       jsonBytes(next) > LIMITS.historyBytes ||
-      jsonBytes({ ...snapshot, history: next }) > LIMITS.payloadBytes
+      jsonBytes({ ...snapshot, history: next }) > maxPayloadBytes
     )
       break;
     snapshot.history = next;

@@ -53,6 +53,7 @@ export function createFirestoreReader({
   ownerUid,
   profileId,
   fetcher = fetch,
+  getOwnerToken,
 }) {
   if (
     !/^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(project) ||
@@ -105,11 +106,12 @@ export function createFirestoreReader({
     }
   }
   async function transaction(uid, signal, fn) {
-    const auth = scope.getStore();
-    if (uid !== ownerUid || auth?.uid !== uid) fail("pilot_forbidden", 403);
+    if (uid !== ownerUid) fail("pilot_forbidden", 403);
     const bound = signal
       ? AbortSignal.any([signal, AbortSignal.timeout(5000)])
       : AbortSignal.timeout(5000);
+    const auth = getOwnerToken ? { uid, token: await getOwnerToken(uid, bound) } : scope.getStore();
+    if (auth?.uid !== uid || typeof auth.token !== "string" || !auth.token || auth.token.length > 16000) fail("pilot_forbidden", 403);
     const begin = await request(
       "beginTransaction",
       { options: { readOnly: {} } },

@@ -44,6 +44,8 @@ export function createTrainerGateway({
   releaseTools = () => {},
   now = Date.now,
   runDeadlineMs = LIMITS.deadlineMs,
+  snapshotFactory = buildSnapshot,
+  queueWindowMs = LIMITS.deadlineMs,
 }) {
   if (typeof ownerUid !== "string" || !ownerUid || ownerUid.length > 128)
     fail("trainer_config", 503);
@@ -92,13 +94,25 @@ export function createTrainerGateway({
       });
     return cleanupTask;
   }
-  async function execute(uid, id) {
+  async function execute(uid, id, slot) {
     let turn,
       timer,
-      entered = false;
-    const controller = new AbortController();
+      entered = false,
+      physical;
+    const controller = controllers.get(id) ?? new AbortController();
     controllers.set(id, controller);
+    const signal = slot ? AbortSignal.any([controller.signal, slot.signal]) : controller.signal;
     try {
+      if (slot) {
+        const waiting = store.internal(id), input = JSON.parse(waiting.input), c = store.conversation(uid);
+        const [context, confirmed] = await boundedOperation(s => Promise.all([readContext(uid, s), fresh(uid, input.targetDate, s)]), 5000, signal);
+        const previous = JSON.parse(waiting.snapshot), { day, plan } = confirmed;
+        const snapshot = snapshotFactory({ conversationId: waiting.conversation_id, historyRevision: c.revision,
+          context: context.text, contextRevision: context.revision, draft: store.drafts(uid, c.conversationId).filter(d => d.state !== "saved"),
+          receipts: day.receipts || [], day, plan, message: input.text, history: [], mediaBindings: previous.mediaBindings,
+          sentAt: input.sentAt, targetDate: input.targetDate, dateContext: input.dateContext, dateResolution: previous.dateResolution, memoryWriteEnabled });
+        store.prepareQueued(uid, id, snapshot, { deadline: slot.deadline, dayProof: day.freshness });
+      }
       turn = store.begin(uid, id);
       const input = JSON.parse(turn.input);
       timer = setTimeout(
@@ -107,10 +121,10 @@ export function createTrainerGateway({
       );
       const images = media.load(input.media || []);
       entered = true;
-      const result = await abortable(
-        backend.start({
+      physical = backend.start({
           turn,
-          signal: controller.signal,
+          signal,
+          slot,
           snapshot: JSON.parse(turn.snapshot),
           input,
           images,
@@ -119,11 +133,10 @@ export function createTrainerGateway({
           issueLease: () => store.issueLease(id, turn.generation),
           assertDraftCompletion: (ack) => store.assertDraftCompletion(id, turn.generation, ack),
           modelCall: (lease, payload) => proxy.invoke(lease, payload),
-        }),
-        controller.signal,
-      );
+        });
+      const result = await abortable(physical, signal);
       try {
-        await verifyTurn(turn,controller.signal);
+        await verifyTurn(turn,signal);
       } catch (error) {
         // The backend already returned. A failed final read must not turn that
         // known execution into an unknown run or publish an unchecked result.
@@ -136,22 +149,32 @@ export function createTrainerGateway({
       if (!["cancelled", "completed", "failed", "unknown"].includes(state))
         store.fail(
           id,
-          !entered || error?.definitelyNotExecuted || ["stale_snapshot","day_unavailable"].includes(error?.message)
+          !entered || error?.definitelyNotExecuted || error?.knownNativeTerminal || ["stale_snapshot","day_unavailable"].includes(error?.message)
             ? error.message
             : "execution_unknown",
-          { unknown: entered && !error?.definitelyNotExecuted && !["stale_snapshot","day_unavailable"].includes(error?.message) },
+          { unknown: entered && !error?.definitelyNotExecuted && !error?.knownNativeTerminal && !["stale_snapshot","day_unavailable"].includes(error?.message) },
         );
     } finally {
       clearTimeout(timer);
-      controllers.delete(id);
-      running.delete(id);
+      // The shared scheduler slot covers real native shutdown, not merely
+      // abortable() settling. Otherwise another profile could execute while
+      // this owner's process and payer callbacks are still draining.
+      if (slot && physical) await Promise.resolve(physical).catch(() => {});
       await cleanup();
     }
   }
   const launch = (uid, id) => {
-    const task = Promise.resolve().then(() => execute(uid, id));
+    const controller = new AbortController(); controllers.set(id, controller);
+    const task = Promise.resolve().then(() => backend.schedule
+      ? backend.schedule(store.internal(id), slot => execute(uid, id, slot), { signal: controller.signal })
+      : execute(uid, id)).catch(async error => {
+        // Scheduler failure happened before execute/admission. Execution errors
+        // are already classified by execute, including unknown Native results.
+        const turn = store.internal(id);
+        if (turn.state === "queued") store.fail(id, error?.message || "trainer_unavailable");
+        await cleanup();
+      }).finally(() => { running.delete(id); controllers.delete(id); });
     running.set(id, task);
-    task.finally(() => running.delete(id)).catch(() => {});
   };
   async function maintain() {
     try {
@@ -183,6 +206,7 @@ export function createTrainerGateway({
         (maintenanceFault && route === "/turns" && method === "POST")
       )
         fail("trainer_unavailable", 503);
+      if (backend.canonicalHistory && route === "/conversation/delete") fail("canonical_history_required", 409);
       const c = store.conversation(uid),
         id = c.conversationId;
       if (route === "/state" && method === "GET")
@@ -192,8 +216,9 @@ export function createTrainerGateway({
           contextProposals: store.contextProposals(uid, id),
           maintenanceBlocked: maintenanceFault,
           currentTurn: store.current(uid, id),
-          latestTurn: store.latest(uid, id),
-          messages: store.history(uid, id),
+          latestTurn: backend.latest ? backend.latest(uid, store.latest(uid, id)) : store.latest(uid, id),
+          messages: backend.history ? await backend.history(uid) : store.history(uid, id),
+          ...(backend.canonicalHistory ? { canonicalHistory: true } : {}),
         });
       if (route === "/composer" && method === "PUT") {
         if (
@@ -218,12 +243,12 @@ export function createTrainerGateway({
         ]),5000,signal);
         if(signal?.aborted)fail("upstream_timeout",504);
         const {day,plan}=confirmed;
-        const snapshot=buildSnapshot({conversationId:id,historyRevision:c.revision,
+        const snapshot=snapshotFactory({conversationId:id,historyRevision:c.revision,
           context:context.text,contextRevision:context.revision,draft:drafts,
           mediaBindings:descriptors.map(p=>({ref:p.tempRef,itemId:p.itemId})),
           sentAt,targetDate:resolved.targetDate,dateContext:input.dateContext,dateResolution:resolved.dateResolution,memoryWriteEnabled,
           receipts:day.receipts||[],day,plan,message:input.text,history:store.history(uid,id)});
-        const admitted = store.admit(uid, id, storedInput, snapshot, {dayProof:day.freshness});
+        const admitted = store.admit(uid, id, storedInput, snapshot, {dayProof:day.freshness,queueWindowMs});
         if (!admitted.replayed) {
           try {
             media.stage(descriptors, input.images);
