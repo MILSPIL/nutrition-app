@@ -282,31 +282,8 @@ def main():
         p.error("--repo is required for pinned source verification")
     if sys.platform != 'darwin' or not Path('/usr/bin/sandbox-exec').exists():
         raise RuntimeError('requires_verified_macos_sandbox')
-    tree = subprocess.check_output(['git','-C',str(args.repo),'ls-tree','-rz',PIN])
-    expected_python = {}
-    for entry in tree.split(b'\0'):
-        if not entry: continue
-        info, path = entry.split(b'\t', 1)
-        mode, kind, oid = info.decode().split()
-        rel = os.fsdecode(path)
-        if kind == 'blob' and rel.endswith('.py'):
-            if mode == '120000': raise RuntimeError('source_python_symlink_unsupported')
-            expected_python[rel] = oid
-    actual_python = set()
-    for directory, names, files in os.walk(source):
-        names[:] = [name for name in names if name not in ('.venv','node_modules','.git','__pycache__')]
-        for name in files:
-            path = Path(directory) / name
-            if name.endswith('.py'): actual_python.add(path.relative_to(source).as_posix())
-    if actual_python != set(expected_python):
-        raise RuntimeError('source_executable_manifest_mismatch')
-    for rel, oid in expected_python.items():
-        path = source / rel
-        if path.is_symlink(): raise RuntimeError('source_python_alias')
-        data = path.read_bytes()
-        if hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest() != oid:
-            raise RuntimeError(f'source_pin_mismatch:{rel}')
-    manifest_digest = hashlib.sha256(json.dumps(expected_python,sort_keys=True).encode()).hexdigest()
+    from hermes_personal_fixture import verify_source
+    source_manifest = verify_source(source, args.repo)
     hashes = {}
     for rel in FILES:
         expected = subprocess.check_output(["git", "-C", str(args.repo), "show", f"{PIN}:{rel}"])
@@ -324,7 +301,7 @@ def main():
                "HERMES_HOME": str(root / "hermes"), "CODEX_HOME": str(root / "codex"),
                "XDG_CONFIG_HOME": str(root / "config"), "XDG_CACHE_HOME": str(root / "cache"),
                "XDG_DATA_HOME": str(root / "data"), "TMPDIR": str(root / "tmp"),
-               "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1", "LANG": "en_US.UTF-8",
+               "PYTHONNOUSERSITE": "1", "PYTHONDONTWRITEBYTECODE": "1", "PYTHONPYCACHEPREFIX": str(root / "cache/pyc"), "LANG": "en_US.UTF-8",
                "SCISENSE_SYNTHETIC_IPC_KEY": "synthetic-ipc-not-a-provider-token"}
         (root / 'guarded-canary').write_text('synthetic-private-canary')
         quote = lambda value: json.dumps(str(value))
@@ -343,7 +320,7 @@ def main():
             raise RuntimeError("synthetic_contract_harness_failed")
         data = json.loads(proc.stdout.strip().splitlines()[-1])
         data.update({"sourcePin": PIN, "sourceHashes": hashes, "synthetic": True,
-                     "sourceManifest":{"scope":"all tracked Python source, excluding installed dependencies","verifiedFiles":len(expected_python),"sha256":manifest_digest},
+                     "sourceManifest": source_manifest,
                      "cleanup": "complete_after_child_exit", "criterionAcceptance": False})
     data["verdict"] = "passed" if all(c["passed"] for c in data["cases"]) else "blocked"
     if args.receipt:

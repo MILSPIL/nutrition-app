@@ -4,7 +4,7 @@
   "scope": "native-provider-registration-and-IPC-client",
   "syntheticOnly": true,
   "sourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
-  "testsPassed": 6,
+  "testsPassed": 7,
   "nativeSeam": "providers.register_provider -> agent.agent_runtime_helpers._provider_supplied_client",
   "cases": [
     "native factory returns parent IPC client",
@@ -12,18 +12,18 @@
     "model/url/headers/invalid payload rejected before payer",
     "OpenAI chunk tool calls preserved and partial failure redacted",
     "SDK sentinels removed and explicit null retained",
-    "payload detached and stream-close failure redacted"
+    "payload detached and stream-close failure redacted",
+    "SDK connect/read/write/pool timeouts stay separate from model body and turn deadline"
   ],
   "realModelRequests": 0,
   "realAuthUsed": false,
   "sourceSha256": {
-    "server/trainer/hermes_personal_provider.py": "17ac338086abe45451cc0c47bef5b66f6dc93e6c37b5adc1529333e52566d962",
-    "server/trainer/hermes_personal_provider_test.py": "627754ff91b855c8cc275274f7e84a41699e556ae79cc14cba293e373c5edd06"
+    "server/trainer/hermes_personal_provider.py": "42ff3607f9ec80a688c9e570466c64a838578d1932a83ad508a1e8eee3f7558a",
+    "server/trainer/hermes_personal_provider_test.py": "98bc520bcd8ae79edfae5f67b2115a6117fb41148572638246f4e1010b00d68b"
   },
   "notVerified": [
     "payer service native auth/refresh/encrypted persistence",
     "physical POST cap",
-    "persistent native owner integration",
     "production"
   ]
 }

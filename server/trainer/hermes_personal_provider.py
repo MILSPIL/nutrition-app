@@ -3,8 +3,10 @@ No API credential or remote URL exists in this profile. The payer uses Hermes'
 own resolver/SDK; changing its selected model does not move anyone's history.
 """
 import json
+import math
 from types import SimpleNamespace
 
+IPC_SENTINEL = "scisense-parent-ipc-not-a-provider-credential"
 _PROVIDER = "scisense-shared"
 _ERRORS = {"trainer_unavailable", "trainer_timeout", "trainer_quota", "connection_auth_required",
            "connection_model_changed", "model_payload_invalid", "execution_unknown"}
@@ -36,15 +38,40 @@ def _payload(values, selected_model):
     return json.loads(encoded)
 
 
+def _client_options(values):
+    from openai import NOT_GIVEN, Omit
+    import httpx
+    if "timeout" not in values:
+        return {}
+    timeout = values.pop("timeout")
+    if timeout is NOT_GIVEN or isinstance(timeout, Omit):
+        return {}
+    if timeout is None:
+        return {"timeout": None}
+    if isinstance(timeout, httpx.Timeout):
+        parts = timeout.as_dict()
+    elif isinstance(timeout, (int, float)) and not isinstance(timeout, bool):
+        parts = {key: timeout for key in ("connect", "read", "write", "pool")}
+    else:
+        raise BrokerRefusal("model_payload_invalid")
+    if any(value is not None and (not isinstance(value, (int, float)) or isinstance(value, bool) or
+                                  not math.isfinite(value) or value < 0) for value in parts.values()):
+        raise BrokerRefusal("model_payload_invalid")
+    return {"timeout": parts}
+
+
 class ParentProviderClient:
     def __init__(self, bridge, model):
         self._bridge, self._model = bridge, model
         self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
 
     def _create(self, **values):
+        # SDK transport deadlines are not fields of the model request body.
+        # Preserve their separate stages for the parent, which also bounds the turn.
+        options = _client_options(values)
         payload = _payload(values, self._model)
         try:
-            result = self._bridge(payload)
+            result = self._bridge(payload, client_options=options)
         except BrokerRefusal:
             raise
         except Exception:

@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "task": "HERMES-PERSONAL-01",
+  "sourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+  "sourceManifest": {
+    "scope": "all tracked Python source plus pinned importable suffixes, excluding installed dependencies",
+    "verifiedFiles": 9975,
+    "verifiedOtherSuffixes": 2,
+    "sha256": "a1e875821d26e706a10fde8f10d52c41f4083db91082a02a0d3bff62b7df9cc4"
+  },
+  "syntheticOnly": true,
+  "testExit": 0,
+  "testsPassed": 12,
+  "stages": [
+    {
+      "stage": "provider",
+      "exit": 0,
+      "passed": true,
+      "tests": 7,
+      "osCanaries": {
+        "privateReadDenied": true,
+        "childProcessDenied": true,
+        "tcpDenied": true,
+        "udpDenied": true
+      }
+    },
+    {
+      "stage": "first",
+      "exit": 0,
+      "passed": true,
+      "tests": 4,
+      "osCanaries": {
+        "privateReadDenied": true,
+        "childProcessDenied": true,
+        "tcpDenied": true,
+        "udpDenied": true
+      }
+    },
+    {
+      "stage": "reopen",
+      "exit": 0,
+      "passed": true,
+      "tests": 1,
+      "osCanaries": {
+        "privateReadDenied": true,
+        "childProcessDenied": true,
+        "tcpDenied": true,
+        "udpDenied": true
+      }
+    }
+  ],
+  "nativeIpc": {
+    "passed": true,
+    "checks": 9,
+    "canonicalSessionSame": true,
+    "exactMessagesAfterRestart": true,
+    "sameReceiptAfterRestart": true,
+    "syntheticModelCalls": 2,
+    "nativeToolCalls": 1,
+    "nativeEvents": 2,
+    "realModelRequests": 0,
+    "physicalProcessesWithOSCanaries": 2
+  },
+  "physicalProcessRestart": true,
+  "realModelRequests": 0,
+  "sourceSha256": {
+    "server/trainer/hermes_personal_owner_test.py": "a972e51b33fc14116e22147f0be58420bc0c20625166994c9759b6a1755b9f12",
+    "server/trainer/hermes_personal_provider_test.py": "98bc520bcd8ae79edfae5f67b2115a6117fb41148572638246f4e1010b00d68b",
+    "scripts/hermes-personal-owner-check.py": "6aacc931bde38699abf30534bd606991cde312502ec3b45261fc4600a05e83e1",
+    "scripts/hermes_personal_fixture.py": "d6abc8334d28287f5cc378651c9f031e5880b70e1f1128e7b4b4cb5de32b8752",
+    "server/trainer/hermes_personal_owner.py": "7c37be3d046109deb018c8578a51b99120a54da063365ba689f21a01d0ae43c9",
+    "server/trainer/hermes_personal_provider.py": "42ff3607f9ec80a688c9e570466c64a838578d1932a83ad508a1e8eee3f7558a",
+    "server/trainer/hermes_personal_ipc.py": "d2b47963bf959003f947bb9e51f785d4b561b73e08557f5c9b63210b143e9b32",
+    "server/trainer/hermes_personal_worker.py": "a89f171e23368572f66ec690752c231573e9604b16857a9b21a7629be3468e90",
+    "server/trainer/personal-process.mjs": "e7c90216acfd15de64aab98cda48c6a8696195bf84aaf4358c1326b0caf493c7",
+    "scripts/hermes-personal-ipc-fixture.mjs": "dcad66284fe44769d1fb6da47123933541e9385a48fd6c472b77a76e29978fe9",
+    "server/trainer/personal-process.test.mjs": "2f3f06a8ca726a519ffe4b4efa5d96e8fe1bdf5153e2a6a3e40713d4e2cdf799",
+    "server/trainer/hermes_personal_ipc_test.py": "91c0e28cab2deaffe766a755b9cbf1a746f90df20d60839848174c02a1ac1360",
+    "scripts/hermes_personal_fixture_test.py": "53cc925f36fcf71a1e25c3ced8821f97141d242de5d52d3acf1313a5ed3124d6"
+  },
+  "scope": "actual-pinned-owner-and-internal-Node-IPC; synthetic-provider-and-app-tools",
+  "notVerified": [
+    "live payer auth/refresh/encrypted persistence integration",
+    "public admission coordinator",
+    "real Electron Desktop UI",
+    "private migration",
+    "production"
+  ],
+  "review": {
+    "reviewer": "personal_contract_review",
+    "verdict": "no-open-P1-P2-in-this-block",
+    "replacementFence": "await process.close(): physical child exit plus parent callback settlement"
+  },
+  "unitTests": {
+    "nodeIpcFailures": 11,
+    "pythonPeerFailures": 3,
+    "sourceGuardFailures": 4
+  }
+}

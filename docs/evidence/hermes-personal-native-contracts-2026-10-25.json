@@ -102,9 +102,10 @@
   },
   "synthetic": true,
   "sourceManifest": {
-    "scope": "all tracked Python source, excluding installed dependencies",
+    "scope": "all tracked Python source plus pinned importable suffixes, excluding installed dependencies",
     "verifiedFiles": 9975,
-    "sha256": "fd300539626c005c7571604b44811e31fd99fa2992b058a64155a86d3a0464dc"
+    "verifiedOtherSuffixes": 2,
+    "sha256": "a1e875821d26e706a10fde8f10d52c41f4083db91082a02a0d3bff62b7df9cc4"
   },
   "cleanup": "complete_after_child_exit",
   "criterionAcceptance": false,

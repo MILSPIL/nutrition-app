@@ -11,7 +11,7 @@ class PersonalProviderTests(unittest.TestCase):
     def test_real_native_client_seam_returns_ipc_client_without_standard_fallback(self):
         from agent.agent_runtime_helpers import _provider_supplied_client
         calls = []
-        profile = register_parent_provider(lambda value: calls.append(value) or self.response(), MODEL,
+        profile = register_parent_provider(lambda value, **_options: calls.append(value) or self.response(), MODEL,
             supports_vision=True, supports_tools=True)
         client = _provider_supplied_client(SimpleNamespace(provider=profile.name), {"base_url": profile.base_url})
         self.assertIsInstance(client, ParentProviderClient)
@@ -34,7 +34,7 @@ class PersonalProviderTests(unittest.TestCase):
 
     def test_another_model_url_headers_or_invalid_payload_never_reach_payer(self):
         calls = []
-        client = ParentProviderClient(lambda value: calls.append(value) or self.response(), MODEL)
+        client = ParentProviderClient(lambda value, **_options: calls.append(value) or self.response(), MODEL)
         for override in [{"model": "another-model"}, {"base_url": "https://unapproved.example"},
                          {"api_key": "never-forward"}, {"extra_headers": {"Authorization": "never-forward"}},
                          {"messages": "not-a-list"}, {"temperature": float("nan")}, {"stream": "true"}]:
@@ -51,7 +51,7 @@ class PersonalProviderTests(unittest.TestCase):
                 raise RuntimeError("Bearer never-print-this-token")
             finally:
                 closed.append(True)
-        client = ParentProviderClient(lambda _value: chunks(), MODEL)
+        client = ParentProviderClient(lambda _value, **_options: chunks(), MODEL)
         stream = client.chat.completions.create(model=MODEL, messages=[], stream=True)
         chunk = next(stream)
         self.assertEqual(chunk.choices[0].delta.tool_calls[0].function.name, "food_lookup")
@@ -62,7 +62,7 @@ class PersonalProviderTests(unittest.TestCase):
     def test_payload_is_detached_and_iterator_close_failure_is_redacted(self):
         messages = [{"role": "user", "content": "original"}]
         seen = []
-        client = ParentProviderClient(lambda value: seen.append(value) or self.response(), MODEL)
+        client = ParentProviderClient(lambda value, **_options: seen.append(value) or self.response(), MODEL)
         client.chat.completions.create(model=MODEL, messages=messages)
         messages[0]["content"] = "changed"
         self.assertEqual(seen[0]["messages"][0]["content"], "original")
@@ -71,14 +71,28 @@ class PersonalProviderTests(unittest.TestCase):
                 return iter([])
             def close(self):
                 raise RuntimeError("Bearer never-print")
-        client = ParentProviderClient(lambda _value: BrokenStream(), MODEL)
+        client = ParentProviderClient(lambda _value, **_options: BrokenStream(), MODEL)
         with self.assertRaisesRegex(BrokerRefusal, "^trainer_unavailable$"):
             list(client.chat.completions.create(model=MODEL, messages=[], stream=True))
+
+    def test_sdk_transport_timeouts_stay_separate_from_model_payload(self):
+        import httpx
+        seen = []
+        def bridge(value, **options):
+            seen.append((value, options))
+            return self.response()
+        client = ParentProviderClient(bridge, MODEL)
+        client.chat.completions.create(model=MODEL, messages=[], timeout=httpx.Timeout(8, connect=2))
+        self.assertNotIn("timeout", seen[0][0])
+        self.assertEqual(seen[0][1]["client_options"]["timeout"], {"connect": 2, "read": 8, "write": 8, "pool": 8})
+        for timeout in [float("nan"), -1, "unbounded"]:
+            with self.assertRaises(BrokerRefusal):
+                client.chat.completions.create(model=MODEL, messages=[], timeout=timeout)
 
     def test_native_sentinels_are_removed_without_changing_explicit_null(self):
         from openai import NOT_GIVEN, omit
         seen = []
-        client = ParentProviderClient(lambda value: seen.append(value) or self.response(), MODEL)
+        client = ParentProviderClient(lambda value, **_options: seen.append(value) or self.response(), MODEL)
         client.chat.completions.create(model=MODEL, messages=[], temperature=NOT_GIVEN, stop=omit, seed=None)
         self.assertNotIn("temperature", seen[0]); self.assertNotIn("stop", seen[0]); self.assertIsNone(seen[0]["seed"])
         json.dumps(seen[0], allow_nan=False)
