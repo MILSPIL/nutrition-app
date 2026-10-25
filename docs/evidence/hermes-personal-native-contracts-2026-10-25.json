@@ -15,6 +15,11 @@
       "actual": "resumed"
     },
     {
+      "case": "native_owner_import",
+      "passed": true,
+      "actual": "session.mutate_import"
+    },
+    {
       "case": "canonical_import_resume_same_session",
       "passed": false,
       "actual": {
@@ -44,12 +49,35 @@
           "reason": "unknown_method"
         }
       }
+    },
+    {
+      "case": "native_whole_store_restore_same_canonical_identity",
+      "passed": true,
+      "actual": {
+        "messagesPreserved": 2,
+        "sameLogicalSession": true,
+        "epochAdvanced": true,
+        "interruptedInput": "unknown",
+        "inputReplay": "same_admission",
+        "changedDigest": "admission_conflict",
+        "liveRestore": "refused",
+        "snapshotUnchanged": true,
+        "sourceWriterReleased": true
+      },
+      "scope": "Native runtime authority/store and same canonical path; not Desktop/host/migration acceptance."
     }
   ],
   "providerRequests": 0,
   "networkAttempts": 0,
   "realProfileOpened": false,
   "sourceWrites": false,
+  "isolation": {
+    "osSandbox": "macos-seatbelt",
+    "networkDenied": true,
+    "childExecutionDenied": true,
+    "privateReadCanaryDenied": true
+  },
+  "scope": "Native source9975Python files pinned, OS sandbox canaries passed; owner genericimport limitations and same-identity native full-store recovery. Not complete C01-C10/Desktop/host acceptance.",
   "sourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
   "sourceHashes": {
     "gateway/session_local.py": "5ac726c4a792eca6f60007ca68ba306b4ed1837e5240fcd87d0ebde6935a0a65",
@@ -60,14 +88,17 @@
     "hermes_state_runtime.py": "1553a9e5091413092dd30d7613b9aaa7338919bfc5a5d3ac3f4cf8c57de4411b"
   },
   "synthetic": true,
+  "sourceManifest": {
+    "scope": "all tracked Python source, excluding installed dependencies",
+    "verifiedFiles": 9975,
+    "sha256": "fd300539626c005c7571604b44811e31fd99fa2992b058a64155a86d3a0464dc"
+  },
   "cleanup": "complete_after_child_exit",
   "criterionAcceptance": false,
   "verdict": "blocked",
-  "verificationScope": "Six critical source files compared byte-for-byte to git pin; isolated native owner/SQLite, no model or Desktop launch.",
   "desktopCompatibility": {
     "installedSource": "73162b00eefde3794bed0afb53d84a19c0eed230",
     "canonicalAdapter": false,
-    "launched": false,
-    "review": "independent read-only source/package review"
+    "launched": false
   }
 }

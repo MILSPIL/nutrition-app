@@ -23,4 +23,26 @@
 3. Owner export/restore/rebind: окрім transcript переносити перевірені frozen policy й logical lineage. Не переносити active epoch/lease/ключі/source ownership. Новий owner атомарно видає нові epoch/прив’язку тільки для підтвердженого власника, зберігаючи logical IDs/хвіст/дати/row semantics. Наявний відмінний ID є conflict, не skip. Resume має працювати після компресії та рестарту; зовнішнє переписування state_meta заборонене.
 4. Окрема Desktop-збірка на зафіксованому3f2: fake HOME/HERMES_HOME/CODEX_HOME, disposable userData, fake gh, `HERMES_DESKTOP_IGNORE_EXISTING=1`, `HERMES_DESKTOP_SKIP_PROTOCOL_REGISTRATION=1`. Installed73162 для QA не запускати. Remote без локального fallback, reconnect до того самого owner.
 
-До приймання розширення C01/C02/C03/C10 pending, крок0 не passed. Публічний доказ містить лише синтетичні дані. A0 hosted/sharedpayer залишається окремим: офіційна документація підтверджує same-user self-hosted VM, але конкретне сімейне використання ще не підтверджене. Автоматичного API-перемикання немає.
+До приймання розширення C01/C02/C03/C10 pending, крок0 не passed. Публічний доказ містить лише синтетичні дані. A0 перевіряє лише штатне налаштоване Hermes-підключення; окрема комерційна інтеграція не створюється. Автоматичного API-перемикання немає.
+
+## Уточнення після незалежного рев’ю
+
+- Frozen policy не копіюється як виконувана конфігурація. Allowlist міграції: logical session/parent IDs, model identifier як очікування, source label як provenance, видимий title, дати, approved profile revision і nonsecret logical launch identity. Політика виконання перебудовується з дозволеної конфігурації призначення; config_json/terminal_json/MCP/environment/skills/hooks/endpoint/fallback/approval з bundle не активуються. Невідоме поле є refusal, не passthrough.
+- Durable inputId/digest/admission/outcome та профільна ідентичність зберігаються через restore. Термінальний старий input повертає старий результат; інший digest є conflict. Unknown/running старої generation не стає not_received і не запускається повторно; спочатку явне відновлення/settlement. Втрата ACK→restore→lookup має0новихinference.
+- Queued ACK може мати nativeMessageId=null; фактичний row ID додається лише після persisted event. Старі generation не отримують новий lease/tool capability.
+- Режим provider resolution не є wire E2E. Перевірка import має йти через native owner session.mutate; storage-only API не замінює її. Повний executable Python source звіряється з gitpin, а ізоляція застосовується OS sandbox із негативними canary; declarations у JSON самі не є доказом.
+
+Collision приймається лише за typed reason `import_content_conflict`; інші помилки не доводять перевірку semantic digest.
+
+## Рішення після штатної поведінкової проби
+
+Підтверджено native whole-store snapshot/restore: actual `_build_profile_authority` із profile_id=str(canonical HOME), native `_safe_copy_db`, відмова restore за активного owner, source fence, новий порожній volume за ТІЄЮ САМОЮ absolute HOME, `_safe_restore_db`, новий більший epoch, та сама сесія/повідомлення/хвіст. Started admission відновлюється unknown; повтор сталого input має ту саму admission, інший digest відхиляється.0provider/network. Таким чином попередню пропозицію нового restore/rebind контракту для canonical rollback замінює штатний механізм; sourceMac legacy import/adoption окремо не прийнятий.
+
+| Шлях відкату | За | Проти |
+|---|---|---|
+| Native full-store за сталою canonical identity | Реальна проба пройшла; зберігає policy/lineage/ledger без fork | Потрібні restricted source policy, allowlist encrypted bundle й той самий path/principal; не переносити довільний Mac DB |
+| Новий restore/rebind протокол | Міг би змінювати identity довільно | Зайвий ризиковий код; цей сценарій його не потребує |
+
+Обрано native full-store. Не запускати загальний `hermes backup`, який включає auth/.env/інші профілі, чи blind `run_import` з автоматичним запуском gateway. Використовувати адресні pinned helpers та service fence. Lookup за inputId і remote facade лишаються потрібними.
+
+Останнє уточнення Юрія скасувало зовнішній/комерційний A0: SciSense лише клієнт його Hermes, де він обирає модель/провайдера. Нічого OpenAI не надсилати, окрему OAuth-реєстрацію SciSense не створювати. Технічний A0 перевіряє саме налаштоване Hermes-підключення.
