@@ -8,6 +8,8 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-25 21:36 UTC: шифроване сховище майбутнього спільного підключення пройшло6синтетичнихтестів та незалежне рев’ю. Невизначене оновлення токена після рестарту вимагає нового входу; усі зміни звіряють revision, щоб запізніла операція не повернула стару авторизацію. [Доказ](docs/evidence/hermes-personal-credentials-2026-10-25.json). Nativeauth hooks, tmpfs launcher та фізичний облік POST ще не підключені; реальних секретів/мережі/production змін немає.
+
 2026-10-25 21:32 UTC: постійний native owner та внутрішній Node IPC HERMES-PERSONAL-01 пройшли12Pythonтестів і9actual-native перевірок двох каналів/рестарту. Native tool виконався через IPC, sameID/точні повідомлення/відомий receipt збережені без повторного inference. Окремо11Node failure-тестів,3Python Peer і4source guard; незалежне рев’ю закрило2P1 та P2 ownership/auth/source/IPC. Fence для заміни лише після await process.close() разом із parent callbacks. [Доказ](docs/evidence/hermes-personal-owner-2026-10-25.json). Payer/coordinator/DesktopUI/приватна міграція/live ще попереду; production21b0cd3 не змінений.
 
 2026-10-25 20:50 UTC: HERMES-PERSONAL-01 має локальні17профільних/outbox/queue тестів і6тестів native provider plugin. Юрій оновив робочий sourceDesktop до0.22.5/bf0203; ізольована Light-копія з вузьким canonical-remote patch пройшла25socket/codec перевірок і збірку. Native3f2 sanitized GUI import + Bot Chat title adoption відновив той самий ID/повідомлення без executable Mac policy. Докази: docs/evidence/hermes-personal-{outbox,provider,desktop-codec,native-contracts}-2026-10-25.json. Потрібні інтегровані owner/payer/Desktop, приватна міграція та livecutover; прод не змінений.
