@@ -143,3 +143,37 @@ test("canonical Bot Chat is resolved per new input; history rotation does not pi
   assert.equal(enqueue(h, "owner", inputId, { text: "before compression" }, { sessionId: "session-owner-new-tip" }).replayed, true);
   h.reopen(); assert.equal(h.store.read("owner", inputId).sessionId, "session-owner");
 });
+
+test("unbound queued intent survives restart and binds once after a newer native tip", t => {
+  const h = make(t), payload = { text: "Учора з’їв яблуко" };
+  h.store.enqueue("owner", inputId, payload); h.reopen();
+  assert.equal(h.store.read("owner", inputId).sessionId, "");
+  assert.throws(() => h.store.dispatch("owner", inputId), /turn_conflict/);
+  h.store.bind("owner", inputId, "compressed-tip");
+  assert.deepEqual(h.store.payload("owner", inputId), payload);
+  assert.throws(() => h.store.bind("owner", inputId, "different-tip"), /turn_conflict/);
+  assert.equal(h.store.bind("owner", inputId, "compressed-tip").sessionId, "compressed-tip");
+});
+
+test("physical POST reservations across logical calls, retries and crashes never reset", t => {
+  const h = make(t), proof = { kind: "inference", model: "synthetic", originHash: "a".repeat(64) };
+  h.store.enqueue("owner", inputId, { text: "synthetic" }); h.store.startBudget("owner", inputId);
+  h.store.reservePost("owner", inputId, proof); h.reopen();
+  h.store.startBudget("owner", inputId); h.store.reservePost("owner", inputId, { ...proof, kind: "oauth_refresh" });
+  assert.equal(h.store.reservePost("owner", inputId, proof).attempt, 3);
+  assert.throws(() => h.store.reservePost("owner", inputId, proof), /trainer_quota/);
+  assert.deepEqual(h.store.budget(), { turns: 1, posts: 3 });
+  h.store.enqueue("wife", secondId, { text: "synthetic other profile" });
+  assert.throws(() => h.store.startBudget("wife", secondId, { maxTurns: 9 }), /invalid_request/);
+  h.store.startBudget("wife", secondId);
+  assert.throws(() => h.store.reservePost("wife", secondId, proof, { maxPosts: 25 }), /invalid_request/);
+  assert.throws(() => h.store.startBudget("wife", secondId, { scope: "new-budget" }), /invalid_request/);
+  for (let n = 0; n < 7; n++) {
+    const id = `synthetic-budget-${n}`; h.store.enqueue("wife", id, { text: id });
+    if (n === 6) { assert.throws(() => h.store.startBudget("wife", id), /trainer_quota/); break; }
+    h.store.startBudget("wife", id);
+    for (let i = 0; i < 3; i++) h.store.reservePost("wife", id, proof);
+  }
+  for (let i = 0; i < 3; i++) h.store.reservePost("wife", secondId, proof);
+  h.reopen(); assert.deepEqual(h.store.budget(), { turns: 8, posts: 24 });
+});

@@ -61,6 +61,8 @@ export function openPersonalStore(file, { profiles, key, now = Date.now } = {}) 
   try {
     db.exec(`PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA secure_delete=ON;
       CREATE TABLE IF NOT EXISTS personal_meta(id INTEGER PRIMARY KEY CHECK(id=1),version INTEGER NOT NULL,key_check TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS personal_attempts(uid TEXT NOT NULL,input_id TEXT NOT NULL,attempt INTEGER NOT NULL,kind TEXT NOT NULL,scope TEXT NOT NULL,PRIMARY KEY(uid,input_id,attempt));
+      CREATE TABLE IF NOT EXISTS personal_turn_budgets(uid TEXT NOT NULL,input_id TEXT NOT NULL,scope TEXT NOT NULL,PRIMARY KEY(uid,input_id));
       CREATE TABLE IF NOT EXISTS personal_owner(id INTEGER PRIMARY KEY CHECK(id=1),pid INTEGER NOT NULL,nonce TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS personal_inputs(uid TEXT NOT NULL,input_id TEXT NOT NULL,profile_id TEXT NOT NULL,
         session_id TEXT NOT NULL,payload_hmac TEXT NOT NULL,payload TEXT NOT NULL,channel TEXT NOT NULL,
@@ -94,7 +96,7 @@ export function openPersonalStore(file, { profiles, key, now = Date.now } = {}) 
       // is the input's birth target, never a persisted pin for future inputs.
       enqueue(uid, inputId, payload, { channel = "web", sessionId } = {}) {
         const profile = profiles.resolve(uid); requireId(inputId);
-        if (!nativeId(sessionId) || !["web", "desktop"].includes(channel) || !payload || typeof payload !== "object" ||
+        if (sessionId !== undefined && !nativeId(sessionId) || !["web", "desktop"].includes(channel) || !payload || typeof payload !== "object" ||
             Array.isArray(payload) || Buffer.byteLength(stableJSON(payload)) > 32000) fail("invalid_request");
         const hash = digest(payload);
         return tx(() => {
@@ -104,7 +106,7 @@ export function openPersonalStore(file, { profiles, key, now = Date.now } = {}) 
               fail("turn_conflict", 409);
             return { ...view(old), replayed: true };
           }
-          const row = { uid, input_id: inputId, profile_id: profile.profileId, session_id: sessionId, payload_hmac: hash };
+          const row = { uid, input_id: inputId, profile_id: profile.profileId, session_id: sessionId ?? "", payload_hmac: hash };
           db.prepare("INSERT INTO personal_inputs(uid,input_id,profile_id,session_id,payload_hmac,payload,channel,sent_at,state) VALUES(?,?,?,?,?,?,?,?,'queued')")
             .run(uid, inputId, row.profile_id, row.session_id, hash, seal(row, payload), channel, new Date(now()).toISOString());
           return { ...view(owned(uid, inputId)), replayed: false };
@@ -118,10 +120,54 @@ export function openPersonalStore(file, { profiles, key, now = Date.now } = {}) 
         return { inputId: row.input_id, sessionId: row.session_id, payloadHmac: row.payload_hmac };
       },
       payload(uid, inputId) { return unseal(owned(uid, inputId)); },
+      // A queued intent is durable before waiting. Its immutable birth target
+      // is resolved exactly once AFTER taking the global slot (compression may
+      // have advanced Bot Chat while the user waited).
+      bind(uid, inputId, sessionId) {
+        if (!nativeId(sessionId)) fail("invalid_request");
+        return tx(() => {
+          const row = owned(uid, inputId);
+          if (row.state !== "queued" || row.session_id && row.session_id !== sessionId) fail("turn_conflict", 409);
+          if (!row.session_id) {
+            const payload = unseal(row), bound = { ...row, session_id: sessionId };
+            db.prepare("UPDATE personal_inputs SET session_id=?,payload=? WHERE uid=? AND input_id=?").run(sessionId, seal(bound, payload), uid, inputId);
+          }
+          return view(owned(uid, inputId));
+        });
+      },
+      startBudget(uid, inputId, options = {}) {
+        if (Object.keys(options).length) fail("invalid_request");
+        const scope = "hermes-personal-b3", maxTurns = 8;
+        return tx(() => {
+          owned(uid, inputId);
+          const old = db.prepare("SELECT * FROM personal_turn_budgets WHERE uid=? AND input_id=?").get(uid, inputId);
+          if (old) { if (old.scope !== scope) fail("turn_conflict", 409); return; }
+          if (db.prepare("SELECT COUNT(*) AS n FROM personal_turn_budgets WHERE scope=?").get(scope).n >= maxTurns) fail("trainer_quota", 429);
+          db.prepare("INSERT INTO personal_turn_budgets VALUES(?,?,?)").run(uid, inputId, scope);
+        });
+      },
+      reservePost(uid, inputId, { kind, model, originHash }, options = {}) {
+        if (Object.keys(options).length) fail("invalid_request");
+        const scope = "hermes-personal-b3", maxPosts = 24;
+        if (!["inference", "oauth_refresh"].includes(kind) || typeof model !== "string" || !model || !/^[a-f0-9]{64}$/.test(originHash)) fail("invalid_request");
+        return tx(() => {
+          owned(uid, inputId);
+          if (db.prepare("SELECT scope FROM personal_turn_budgets WHERE uid=? AND input_id=?").get(uid, inputId)?.scope !== scope) fail("turn_conflict", 409);
+          const count = db.prepare("SELECT COUNT(*) AS n FROM personal_attempts WHERE uid=? AND input_id=?").get(uid, inputId).n;
+          if (count >= 3 || db.prepare("SELECT COUNT(*) AS n FROM personal_attempts WHERE scope=?").get(scope).n >= maxPosts) fail("trainer_quota", 429);
+          db.prepare("INSERT INTO personal_attempts VALUES(?,?,?,?,?)").run(uid, inputId, count + 1, kind, scope);
+          return { accepted: true, attempt: count + 1 };
+        });
+      },
+      budget() {
+        const scope = "hermes-personal-b3";
+        check(); return { turns: db.prepare("SELECT COUNT(*) AS n FROM personal_turn_budgets WHERE scope=?").get(scope).n,
+          posts: db.prepare("SELECT COUNT(*) AS n FROM personal_attempts WHERE scope=?").get(scope).n };
+      },
       dispatch(uid, inputId) {
         return tx(() => {
           const row = owned(uid, inputId);
-          if (row.state !== "queued") fail("turn_conflict", 409);
+          if (row.state !== "queued" || !row.session_id) fail("turn_conflict", 409);
           db.prepare("UPDATE personal_inputs SET state='dispatching' WHERE uid=? AND input_id=?").run(uid, inputId);
           return view(owned(uid, inputId));
         });

@@ -8,6 +8,8 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-25 22:38 UTC: durable queued intent HERMES-PERSONAL-01 прив’язується до поточного native Bot Chat лише після взяття спільної черги. Облік фізичних POST переживає рестарт і діє для двох профілів: максимум3наturn,8turn/24POST для B3 без зміни scope/cap викликом. 13тестів та незалежне рев’ю пройдено. [Доказ](docs/evidence/hermes-personal-budget-2026-10-26.json). Інтегрований payer/coordinator/live ще не завершені, production не змінений.
+
 2026-10-25 22:14 UTC: native auth hooks і HTTPX egress primitives пройшли33offline тести та9actual-native IPC перевірок; незалежні рев’ю закриті. Durable pending до refresh, exact rotated-token checkpoint до model use; observer бачить кожний SDK retry/redirect, справжній wire model і terminal model, gzip, скасування та окремі deadline. [Доказ](docs/evidence/hermes-personal-connection-2026-10-26.json). Це окремі компоненти: спільний producer/Node counter/фактичний45s sync watchdog і live login ще не підключені. Через xCloud лише прочитано MS-WEB: connected,4CPU,7935MiB RAM/5162available; без змін сервера, Keychain values, моделей чи $5.
 
 2026-10-25 21:36 UTC: шифроване сховище майбутнього спільного підключення пройшло6синтетичнихтестів та незалежне рев’ю. Невизначене оновлення токена після рестарту вимагає нового входу; усі зміни звіряють revision, щоб запізніла операція не повернула стару авторизацію. [Доказ](docs/evidence/hermes-personal-credentials-2026-10-25.json). Nativeauth hooks, tmpfs launcher та фізичний облік POST ще не підключені; реальних секретів/мережі/production змін немає.

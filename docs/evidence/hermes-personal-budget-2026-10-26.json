@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "task": "HERMES-PERSONAL-01",
+  "syntheticOnly": true,
+  "testsPassed": 13,
+  "testExit": 0,
+  "realModelRequests": 0,
+  "checks": [
+    "durable-unbound-queued-intent",
+    "immutable-birth-session-after-slot",
+    "cross-logical-call-and-restart-post-counter",
+    "three-posts-per-turn",
+    "aggregate-eight-turns-twenty-four-posts",
+    "no-caller-scope-or-cap-override"
+  ],
+  "review": {
+    "agent": "personal_local_review",
+    "verdict": "passed",
+    "fixed": [
+      "caller-overridable-budget-cap-and-scope"
+    ]
+  },
+  "sourceSha256": {
+    "server/trainer/personal-store.mjs": "390a302d023885091fccafb73227f45fe27bcc081a12e48ef5c6f08c33d77b27",
+    "server/trainer/personal-store.test.mjs": "252244577130a7bf8796173ddf8bc179f9126684938a86d1193135883f2b645e"
+  }
+}
