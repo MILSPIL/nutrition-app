@@ -48,6 +48,7 @@ export function buildHermesRelease({ enabled = false } = {}) {
       NPM_CONFIG_USERCONFIG: "/dev/null",
       NPM_CONFIG_GLOBALCONFIG: join(owned, "absent-global-npmrc"),
       REACT_APP_TRAINER_CHAT: enabled ? "1" : "0",
+      REACT_APP_MEAL_API_URL: "/meal-api",
       REACT_APP_LOCAL_LAB: "0",
       REACT_APP_PHONE_LAB: "0",
       REACT_APP_PILOT_MODE: "0",
@@ -72,7 +73,7 @@ export function buildHermesRelease({ enabled = false } = {}) {
     if (existsSync(output) && (!lstatSync(output).isDirectory() || lstatSync(output).isSymbolicLink())) throw Error("build_path_not_directory");
     rmSync(output, { recursive: true, force: true });
     cpSync(built, output, { recursive: true, errorOnExist: true });
-    return { ...receipt, cleanGitExport: true, pinnedNode: pin, output };
+    return { ...receipt, cleanGitExport: true, mealApiEndpoint: "/meal-api", pinnedNode: pin, output };
   } finally {
     rmSync(owned, { recursive: true, force: true });
   }

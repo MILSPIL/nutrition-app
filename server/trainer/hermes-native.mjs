@@ -23,6 +23,7 @@ import { StringDecoder } from "node:string_decoder";
 import { networkInterfaces } from "node:os";
 import { TOOLS, MODEL, fail } from "./limits.mjs";
 import { boundedOperation } from "./deadline.mjs";
+import { safeToolFailure } from "./tool-errors.mjs";
 const here = dirname(fileURLToPath(import.meta.url));
 const sha = (value) => createHash("sha256").update(value).digest("hex");
 // Check the installed files, not merely the template hash in the release.
@@ -388,8 +389,10 @@ export function createNativeBackend({
             fail("tool_result_too_large");
           send({ type: "reply", id: message.id, result: value });
         }
-      } catch {
-        send({ type: "reply", id: message.id, error: "gateway_refused" });
+      } catch (error) {
+        if (message.type === "tool")
+          send({ type: "reply", id: message.id, result: safeToolFailure(error) });
+        else send({ type: "reply", id: message.id, error: "gateway_refused" });
       }
     }
     let events = Promise.resolve();
