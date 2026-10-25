@@ -152,6 +152,7 @@ const proxy = createModelProxy({
                 name: "Картопля",
                 quantity: { value: 200, unit: "g" },
                 preparation: "cooked",
+                planMatch: { referenceId: "carbs:potato", consumedState: "cooked", certainty: "matched" },
                 source: { kind: "database", recordId: "fdc:170438", ...(repairProbe && call === 2 ? { measureIndex: 99 } : {}) },
               },
             ],
@@ -316,6 +317,7 @@ try {
   assert.ok(!readFileSync(file).includes(Buffer.from(image.data)));
   const draft = store.drafts("pilot", owner.conversationId)[0];
   assert.equal(draft.items[0].source.recordId, "fdc:170438");
+  assert.deepEqual(draft.items[0].planMatch, { referenceId: "carbs:potato", consumedState: "cooked", certainty: "matched" });
   assert.equal(
     (draft.items[0].nutrients.cal * draft.items[0].quantity.value) / 100,
     174,
