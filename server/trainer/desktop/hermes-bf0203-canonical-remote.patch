@@ -1,0 +1,251 @@
+--- /dev/null
++++ b/apps/shared/src/canonical-remote.ts
+@@ -0,0 +1,42 @@
++// Only a negotiated transport marker. Credentials still use the existing
++// remote gateway auth; local private tickets never become remote URL tokens.
++export const CANONICAL_REMOTE_QUERY = 'hermes_canonical'
++export const SCISENSE_BRIDGE_PROTOCOL = 'hermes-gateway-v1'
++
++export function canonicalRemoteWsUrl(rawUrl: string, status: unknown): string {
++  const url = new URL(rawUrl)
++  url.searchParams.delete(CANONICAL_REMOTE_QUERY)
++  const bridge = (status as { scisense?: { bridge_version?: unknown; protocol?: unknown; engine_commit?: unknown } } | null)?.scisense
++
++  if (bridge === undefined) { return url.toString() }
++  if (bridge.bridge_version !== 1 || bridge.protocol !== SCISENSE_BRIDGE_PROTOCOL ||
++      typeof bridge.engine_commit !== 'string' || !/^[a-f0-9]{40}$/.test(bridge.engine_commit)) {
++    throw new Error('Несумісне підключення Hermes. Оновіть клієнт або сервер.')
++  }
++  if (!['ws:', 'wss:'].includes(url.protocol) ||
++      !(url.searchParams.has('token') || url.searchParams.has('ticket'))) {
++    throw new Error('Для Hermes потрібне авторизоване підключення.')
++  }
++  url.searchParams.set(CANONICAL_REMOTE_QUERY, '1')
++
++  return url.toString()
++}
++
++export function canonicalGatewayWsUrl(rawUrl: string): boolean {
++  const url = new URL(rawUrl)
++
++  return url.searchParams.has('native_dial') || url.searchParams.get(CANONICAL_REMOTE_QUERY) === '1'
++}
++
++export function freshRemoteCanonicalWsUrl(rawUrl: string, previousUrl: string): string {
++  const url = new URL(rawUrl)
++  const previous = new URL(previousUrl)
++
++  if (previous.searchParams.get(CANONICAL_REMOTE_QUERY) !== '1') { return rawUrl }
++  if (url.origin !== previous.origin || url.pathname !== previous.pathname) {
++    throw new Error('Підключення Hermes змінилося. Підключіться повторно.')
++  }
++  url.searchParams.set(CANONICAL_REMOTE_QUERY, '1')
++
++  return url.toString()
++}
+--- a/apps/shared/src/index.ts
++++ b/apps/shared/src/index.ts
+@@ -1,3 +1,4 @@
++export { canonicalGatewayWsUrl, canonicalRemoteWsUrl, freshRemoteCanonicalWsUrl } from './canonical-remote'
+ export { hasAnsi, sanitizeAnsiForRender, stripAnsi } from './ansi'
+ export { backendScopeKey, backendScopePrefix, LOCAL_CONNECTION_ID, registryBackendScopeKey } from './backend-scope'
+ export {
+--- a/apps/shared/package.json
++++ b/apps/shared/package.json
+@@ -6,6 +6,7 @@
+   "exports": {
+     ".": "./src/index.ts",
+     "./ansi": "./src/ansi.ts",
++    "./canonical-remote": "./src/canonical-remote.ts",
+     "./billing": "./src/billing-types.ts",
+     "./billing-policy": "./src/billing-policy.ts",
+     "./charge-settlement": "./src/charge-settlement.ts",
+--- a/apps/desktop/src/api/client.ts
++++ b/apps/desktop/src/api/client.ts
+@@ -1,4 +1,5 @@
+ import {
++  canonicalGatewayWsUrl,
+   type GatewayEvent,
+   type GatewayEventName,
+   JsonRpcGatewayClient,
+@@ -333,7 +334,7 @@
+
+   override async connect(wsUrl: string): Promise<void> {
+     this.connectionGeneration++
+-    this.canonical = new URL(wsUrl).searchParams.has('native_dial')
++    this.canonical = canonicalGatewayWsUrl(wsUrl)
+     this.attached.clear()
+     this.deliveredPrompts.clear()
+     this.sessionProfiles.clear()
+--- a/apps/desktop/electron/main.ts
++++ b/apps/desktop/electron/main.ts
+@@ -1,3 +1,4 @@
++import { canonicalRemoteWsUrl, freshRemoteCanonicalWsUrl } from '@hermes/shared/canonical-remote'
+ import { type ChildProcess, execFileSync, spawn } from 'node:child_process'
+
+ import type { GatewayEndpoint } from './local-gateway'
+@@ -7683,7 +7684,7 @@
+
+   if (connection.authMode === 'oauth') {
+     const ticket = await mintGatewayWsTicket(connection.baseUrl, connection.headers)
+-    const wsUrl = buildGatewayWsUrlWithTicket(connection.baseUrl, ticket)
++    const wsUrl = freshRemoteCanonicalWsUrl(buildGatewayWsUrlWithTicket(connection.baseUrl, ticket), connection.wsUrl)
+
+     rememberRemoteWsHeaders(wsUrl, connection.headers)
+
+@@ -9196,7 +9197,8 @@
+       mintGatewayWsTicket
+     })
+
+-    const wsUrl = buildGatewayWsUrlWithTicket(baseUrl, ticket)
++    const wsUrl = canonicalRemoteWsUrl(buildGatewayWsUrlWithTicket(baseUrl, ticket),
++      await fetchConnectionStatus(baseUrl, authMode, token, remoteHeaders))
+
+     rememberRemoteWsHeaders(wsUrl, remoteHeaders)
+
+@@ -9222,7 +9224,8 @@
+     )
+   }
+
+-  const wsUrl = buildGatewayWsUrl(baseUrl, token)
++  const wsUrl = canonicalRemoteWsUrl(buildGatewayWsUrl(baseUrl, token),
++    await fetchConnectionStatus(baseUrl, authMode, token, remoteHeaders))
+
+   rememberRemoteWsHeaders(wsUrl, remoteHeaders)
+
+@@ -10393,6 +10396,7 @@
+   // connect to Hermes gateway". Mirror the renderer's connect here so the test
+   // reflects the full path the app actually uses.
+   const wsUrl = await resolveTestWsUrl(baseUrl, authMode, token, {
++    status,
+     mintTicket: url => mintGatewayWsTicket(url, testHeaders)
+   })
+
+@@ -14837,6 +14841,7 @@
+   // Same HTTP+WS two-leg check as testDesktopConnectionConfig: HTTP alone is
+   // a false positive when the WebSocket leg is blocked.
+   const wsUrl = await resolveTestWsUrl(baseUrl, authMode, token, {
++    status,
+     mintTicket: url => mintGatewayWsTicket(url, testHeaders)
+   })
+
+--- a/apps/desktop/electron/connection-config.ts
++++ b/apps/desktop/electron/connection-config.ts
+@@ -1,3 +1,4 @@
++import { canonicalRemoteWsUrl } from '@hermes/shared/canonical-remote'
+ /**
+  * connection-config.ts
+  *
+@@ -286,14 +287,14 @@
+       )
+     }
+
+-    return buildGatewayWsUrlWithTicket(baseUrl, ticket)
++    return canonicalRemoteWsUrl(buildGatewayWsUrlWithTicket(baseUrl, ticket), deps.status)
+   }
+
+   if (!token) {
+     return null
+   }
+
+-  return buildGatewayWsUrl(baseUrl, token)
++  return canonicalRemoteWsUrl(buildGatewayWsUrl(baseUrl, token), deps.status)
+ }
+
+ // Normalize a profile name to a connection scope key, or null for the global
+--- a/apps/desktop/src/api/canonical-create-options.test.ts
++++ b/apps/desktop/src/api/canonical-create-options.test.ts
+@@ -30,7 +30,7 @@
+   ['manual model + provider', { ...BASE, model: 'gpt-5', provider: 'openrouter', fast: false }, { profile: 'default', model: 'gpt-5', provider: 'openrouter', service_tier: 'normal' }]
+ ]
+
+-test.each(CASES)('%s: the Desktop create frame is admitted by the owner contract or refused by name', async (_label, params, expected) => {
++test.each(CASES.flatMap(row => ['native', 'remote'].map(kind => [kind, ...row] as const)))('%s %s: the Desktop create frame is admitted by the owner contract or refused by name', async (kind, _label, params, expected) => {
+   const wsPackage = 'ws'
+   const { WebSocketServer } = await import(wsPackage)
+   const server = new WebSocketServer({ host: '127.0.0.1', port: 0 })
+@@ -52,7 +52,9 @@
+
+   try {
+     const address = server.address() as { port: number }
+-    await client.connect(`ws://127.0.0.1:${address.port}/api/ws?native_dial=fixture&ticket=one-use`)
++    await client.connect(kind === 'native'
++      ? `ws://127.0.0.1:${address.port}/api/ws?native_dial=fixture&ticket=one-use`
++      : `ws://127.0.0.1:${address.port}/api/ws?hermes_canonical=1&token=fixture`)
+     const call = client.request('session.create', { ...params, request_id: 'intent' })
+
+     if (expected instanceof RegExp) {
+--- /dev/null
++++ b/apps/desktop/src/api/canonical-remote.test.ts
+@@ -0,0 +1,55 @@
++// @vitest-environment node
++import { expect, test } from 'vitest'
++import { canonicalGatewayWsUrl, canonicalRemoteWsUrl, freshRemoteCanonicalWsUrl } from '@hermes/shared'
++import { resolveTestWsUrl } from '../../electron/connection-config'
++import { createRegistryGatewayWsUrlHandler, createRemoteWsHeaderStore } from '../../electron/remote-ws-headers'
++const status = { scisense: { bridge_version: 1, protocol: 'hermes-gateway-v1', engine_commit: '3f2afed3eb813cb00bd381d29b084d0e01de048f' } }
++test('only authenticated negotiated remote chooses the canonical adapter', () => {
++  const legacy = 'ws://localhost:9001/api/ws?token=fixture'
++  expect(canonicalGatewayWsUrl(canonicalRemoteWsUrl(legacy, {}))).toBe(false)
++  expect(canonicalGatewayWsUrl(canonicalRemoteWsUrl(legacy, status))).toBe(true)
++  expect(canonicalGatewayWsUrl('ws://localhost/api/ws?native_dial=n')).toBe(true)
++  expect(canonicalGatewayWsUrl(canonicalRemoteWsUrl(legacy + '&hermes_canonical=1', {}))).toBe(false)
++  expect(() => canonicalRemoteWsUrl('ws://localhost/api/ws', status)).toThrow()
++  expect(() => canonicalRemoteWsUrl(legacy, { scisense: { ...status.scisense, bridge_version: 2 } })).toThrow()
++})
++test('ticket refresh keeps the negotiated protocol and fresh credential without copying the old ticket', () => {
++  const previous = canonicalRemoteWsUrl('wss://trainer.example/api/ws?ticket=old', status)
++  const next = new URL(freshRemoteCanonicalWsUrl('wss://trainer.example/api/ws?ticket=new', previous))
++  expect(next.searchParams.get('ticket')).toBe('new')
++  expect(next.searchParams.get('hermes_canonical')).toBe('1')
++  expect(next.toString()).not.toContain('old')
++  expect(() => freshRemoteCanonicalWsUrl('wss://another.example/api/ws?ticket=new', previous)).toThrow()
++})
++test('connection test negotiates the same canonical URL for static and OAuth auth', async () => {
++  const token = await resolveTestWsUrl('https://trainer.example', 'token', 'fixture', { status })
++  const oauth = await resolveTestWsUrl('https://trainer.example', 'oauth', null, { status, mintTicket: async () => 'fresh' })
++  expect(canonicalGatewayWsUrl(token!)).toBe(true)
++  expect(canonicalGatewayWsUrl(oauth!)).toBe(true)
++  expect(new URL(oauth!).searchParams.get('ticket')).toBe('fresh')
++})
++
++
++test('registry OAuth actual dial preserves canonical protocol and fresh exact profile-scoped headers', async () => {
++  const headers = { 'X-Synthetic-Access': 'fixture' }
++  const saved = canonicalRemoteWsUrl('wss://trainer.example/api/ws?ticket=old', status)
++  const store = createRemoteWsHeaderStore()
++  const handler = createRegistryGatewayWsUrlHandler({
++    ensureBackend: async (connectionId: unknown, profile: unknown) => {
++      expect(connectionId).toBe('personal'); expect(profile).toBe('scisense-trainer')
++      return { authMode: 'oauth', baseUrl: 'https://trainer.example', wsUrl: saved,
++        profile: 'scisense-trainer', sharedRemote: true, headers }
++    },
++    mintTicket: async () => 'fresh',
++    buildTicketUrl: baseUrl => `${baseUrl.replace(/^https:/, 'wss:')}/api/ws?ticket=fresh`,
++    rememberHeaders: store.remember
++  })
++  const url = await handler({ connectionId: 'personal', profile: 'scisense-trainer' })
++  const parsed = new URL(url)
++  expect(canonicalGatewayWsUrl(url)).toBe(true)
++  expect(parsed.searchParams.get('ticket')).toBe('fresh')
++  expect(parsed.searchParams.get('profile')).toBe('scisense-trainer')
++  expect(store.headersFor(url)).toEqual(headers)
++  parsed.searchParams.set('profile', 'another')
++  expect(store.headersFor(parsed.toString())).toEqual({})
++})
+--- a/apps/desktop/electron/remote-ws-headers.ts
++++ b/apps/desktop/electron/remote-ws-headers.ts
+@@ -1,3 +1,4 @@
++import { freshRemoteCanonicalWsUrl } from '@hermes/shared/canonical-remote'
+ import { remoteRequestMatchesBaseUrl } from './connection-config'
+ import { registryGatewayWsUrl } from './plugin-profile-routes'
+
+@@ -231,7 +232,7 @@
+
+     if (connection.authMode === 'oauth') {
+       const ticket = await dependencies.mintTicket(connection.baseUrl, connection.headers)
+-      wsUrl = dependencies.buildTicketUrl(connection.baseUrl, ticket)
++      wsUrl = freshRemoteCanonicalWsUrl(dependencies.buildTicketUrl(connection.baseUrl, ticket), connection.wsUrl)
+     }
+
+     const finalWsUrl = registryGatewayWsUrl(connection, wsUrl)

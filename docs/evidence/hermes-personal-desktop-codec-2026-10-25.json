@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "task": "HERMES-PERSONAL-01",
+  "scope": "isolated-canonical-remote-desktop-codec-and-build",
+  "sourceCommit": "bf0203a794a07aac3ff764972ab9087baa4e4f4e",
+  "userUpdatedVersion": "0.22.5",
+  "candidatePatched": true,
+  "unitAndSocketTests": 25,
+  "built": true,
+  "requestedPayload": "light",
+  "stamp": {
+    "schemaVersion": 1,
+    "commit": "bf0203a794a07aac3ff764972ab9087baa4e4f4e",
+    "branch": null,
+    "builtAt": "2026-10-25T20:46:33.758Z",
+    "dirty": true,
+    "source": "commit-build",
+    "commitDate": null,
+    "baseVersion": null,
+    "displayVersion": null,
+    "distance": null,
+    "payload": "light",
+    "distribution": "desktop-app",
+    "updateMechanism": "external",
+    "tag": null
+  },
+  "artifactSha256": {
+    "dist/electron-main.mjs": "ff73cbdff69c320bee5cd413afcd8f7b8598a41c98487b38c265a8c7825eb3ad",
+    "dist/index.html": "c66c356d94ee8a8ee59b391d0c6bff6fa4f89d6a3833e1db635eb08948989c70",
+    "dist/hermes-build.json": "264b119ac438b04d2fd7c764cf7d75336081530235d185c0cd6ece292f3b6e36"
+  },
+  "review": {
+    "reviewer": "personal_contract_review",
+    "closed": "registry OAuth redial dropped negotiated marker; actual handler now preserves marker before profile/header binding",
+    "verdict": "passed; final read-only reread"
+  },
+  "notVerified": [
+    "actual Electron UI",
+    "native owner to Desktop E2E",
+    "production target bridge and source pin",
+    "private migration",
+    "Mac-off"
+  ],
+  "realModelCalls": 0,
+  "keychainReads": 0,
+  "serverChanges": false,
+  "workingUserSourceModified": false
+}

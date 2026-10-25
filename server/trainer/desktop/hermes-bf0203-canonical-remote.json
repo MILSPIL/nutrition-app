@@ -1,0 +1,43 @@
+{
+  "sourceCommit": "bf0203a794a07aac3ff764972ab9087baa4e4f4e",
+  "files": {
+    "apps/shared/src/canonical-remote.ts": {
+      "before": null,
+      "after": "3a8c49b8a5c29db764a207315fe8d82296f8916919740f74511b3586981f4108"
+    },
+    "apps/shared/src/index.ts": {
+      "before": "cbfeb921966ce1558edccaab042a44075ee38e22174b66f1778dec99fad6744b",
+      "after": "625a0c81c27b5a21452461febaa640364ae80b15eb95351dc1d07d027b43afba"
+    },
+    "apps/shared/package.json": {
+      "before": "b9ae25a2a7f088a1f2d4083f19bd10c4432c1e451022d885c59b0f1996cee85e",
+      "after": "c7bab7f0b69db1d477de498b3214f5aaa1f0a295d2ef8deb5b740427eada7d4b"
+    },
+    "apps/desktop/src/api/client.ts": {
+      "before": "b56abc62e90460a2b69c71fef6798cadff3050c9745a54f2468de3b73534ecc3",
+      "after": "a485ee561b82bf7598a66db9a55535de1f6b7d400836958f0337f54c4545857c"
+    },
+    "apps/desktop/electron/main.ts": {
+      "before": "06cdfc2dd85eaa9ffa158490aa7545e9506ba70ca738c183641204eaa2d8de79",
+      "after": "2127c2ba3af0a8ab2cbe5268a8945660bc2d96c0a6e0073881971854e121bd49"
+    },
+    "apps/desktop/electron/connection-config.ts": {
+      "before": "df60bd8f115822b316832e63638e23030595f6c374a33fd497c43af07b0fc225",
+      "after": "14cbc33457ed00693ace6942ee079dc3e2354219069df829600197b603e6e81b"
+    },
+    "apps/desktop/src/api/canonical-create-options.test.ts": {
+      "before": "6299cd1bc787d81713b26c14ff165b18abfdf968e60ca098133f96ad799d5e1f",
+      "after": "643ab7f9a0ef20c9ac38a4808ca197ac1f7afe75caaaf7fa857a2696c8b97026"
+    },
+    "apps/desktop/src/api/canonical-remote.test.ts": {
+      "before": null,
+      "after": "e6f719cf5b6ded2fdc16c641beb47cc19637d2f5689a62161490ff0f85898622"
+    },
+    "apps/desktop/electron/remote-ws-headers.ts": {
+      "before": "ea3497274dbc75b88d317fe88030ad4d0f155f510f829291773cf2b0247c656e",
+      "after": "8284a6b20e0a54ec47f65586ecd91d59ef0e495efaaecdc548f521872cb471e4"
+    }
+  },
+  "patchSha256": "2f6db56ff9a561e2d70197ad9799909d0a5c5906fff78fc84cddc8af302bc776",
+  "contextBlankWhitespaceNormalized": true
+}
