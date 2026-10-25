@@ -8,6 +8,8 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-25 22:14 UTC: native auth hooks і HTTPX egress primitives пройшли33offline тести та9actual-native IPC перевірок; незалежні рев’ю закриті. Durable pending до refresh, exact rotated-token checkpoint до model use; observer бачить кожний SDK retry/redirect, справжній wire model і terminal model, gzip, скасування та окремі deadline. [Доказ](docs/evidence/hermes-personal-connection-2026-10-26.json). Це окремі компоненти: спільний producer/Node counter/фактичний45s sync watchdog і live login ще не підключені. Через xCloud лише прочитано MS-WEB: connected,4CPU,7935MiB RAM/5162available; без змін сервера, Keychain values, моделей чи $5.
+
 2026-10-25 21:36 UTC: шифроване сховище майбутнього спільного підключення пройшло6синтетичнихтестів та незалежне рев’ю. Невизначене оновлення токена після рестарту вимагає нового входу; усі зміни звіряють revision, щоб запізніла операція не повернула стару авторизацію. [Доказ](docs/evidence/hermes-personal-credentials-2026-10-25.json). Nativeauth hooks, tmpfs launcher та фізичний облік POST ще не підключені; реальних секретів/мережі/production змін немає.
 
 2026-10-25 21:32 UTC: постійний native owner та внутрішній Node IPC HERMES-PERSONAL-01 пройшли12Pythonтестів і9actual-native перевірок двох каналів/рестарту. Native tool виконався через IPC, sameID/точні повідомлення/відомий receipt збережені без повторного inference. Окремо11Node failure-тестів,3Python Peer і4source guard; незалежне рев’ю закрило2P1 та P2 ownership/auth/source/IPC. Fence для заміни лише після await process.close() разом із parent callbacks. [Доказ](docs/evidence/hermes-personal-owner-2026-10-25.json). Payer/coordinator/DesktopUI/приватна міграція/live ще попереду; production21b0cd3 не змінений.

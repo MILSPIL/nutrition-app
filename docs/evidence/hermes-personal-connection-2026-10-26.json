@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "task": "HERMES-PERSONAL-01",
+  "sourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+  "sourceManifest": {
+    "scope": "all tracked Python source plus pinned importable suffixes, excluding installed dependencies",
+    "verifiedFiles": 9975,
+    "verifiedOtherSuffixes": 2,
+    "sha256": "a1e875821d26e706a10fde8f10d52c41f4083db91082a02a0d3bff62b7df9cc4"
+  },
+  "syntheticOnly": true,
+  "testExit": 0,
+  "testsPassed": 33,
+  "stages": [
+    {
+      "stage": "provider",
+      "exit": 0,
+      "passed": true,
+      "tests": 7,
+      "osCanaries": {
+        "privateReadDenied": true,
+        "childProcessDenied": true,
+        "tcpDenied": true,
+        "udpDenied": true
+      }
+    },
+    {
+      "stage": "first",
+      "exit": 0,
+      "passed": true,
+      "tests": 4,
+      "osCanaries": {
+        "privateReadDenied": true,
+        "childProcessDenied": true,
+        "tcpDenied": true,
+        "udpDenied": true
+      }
+    },
+    {
+      "stage": "reopen",
+      "exit": 0,
+      "passed": true,
+      "tests": 1,
+      "osCanaries": {
+        "privateReadDenied": true,
+        "childProcessDenied": true,
+        "tcpDenied": true,
+        "udpDenied": true
+      }
+    },
+    {
+      "stage": "connection",
+      "exit": 0,
+      "passed": true,
+      "tests": 6,
+      "osCanaries": {
+        "privateReadDenied": true,
+        "childProcessDenied": true,
+        "tcpDenied": true,
+        "udpDenied": true
+      }
+    },
+    {
+      "stage": "egress",
+      "exit": 0,
+      "passed": true,
+      "tests": 15,
+      "osCanaries": {
+        "privateReadDenied": true,
+        "childProcessDenied": true,
+        "tcpDenied": true,
+        "udpDenied": true
+      }
+    }
+  ],
+  "nativeIpc": {
+    "passed": true,
+    "checks": 9,
+    "canonicalSessionSame": true,
+    "exactMessagesAfterRestart": true,
+    "sameReceiptAfterRestart": true,
+    "syntheticModelCalls": 2,
+    "nativeToolCalls": 1,
+    "nativeEvents": 2,
+    "realModelRequests": 0,
+    "physicalProcessesWithOSCanaries": 2
+  },
+  "physicalProcessRestart": true,
+  "realModelRequests": 0,
+  "sourceSha256": {
+    "server/trainer/hermes_personal_owner_test.py": "a972e51b33fc14116e22147f0be58420bc0c20625166994c9759b6a1755b9f12",
+    "server/trainer/hermes_personal_provider_test.py": "98bc520bcd8ae79edfae5f67b2115a6117fb41148572638246f4e1010b00d68b",
+    "scripts/hermes-personal-owner-check.py": "fc9eac275dd3d287f3db48e9a87ad1fae29e406b26068929137d13267b9620f4",
+    "scripts/hermes_personal_fixture.py": "d6abc8334d28287f5cc378651c9f031e5880b70e1f1128e7b4b4cb5de32b8752",
+    "server/trainer/hermes_personal_owner.py": "7c37be3d046109deb018c8578a51b99120a54da063365ba689f21a01d0ae43c9",
+    "server/trainer/hermes_personal_provider.py": "42ff3607f9ec80a688c9e570466c64a838578d1932a83ad508a1e8eee3f7558a",
+    "server/trainer/hermes_personal_ipc.py": "d2b47963bf959003f947bb9e51f785d4b561b73e08557f5c9b63210b143e9b32",
+    "server/trainer/hermes_personal_worker.py": "a89f171e23368572f66ec690752c231573e9604b16857a9b21a7629be3468e90",
+    "server/trainer/personal-process.mjs": "e7c90216acfd15de64aab98cda48c6a8696195bf84aaf4358c1326b0caf493c7",
+    "scripts/hermes-personal-ipc-fixture.mjs": "dcad66284fe44769d1fb6da47123933541e9385a48fd6c472b77a76e29978fe9",
+    "server/trainer/hermes_personal_connection.py": "a221c00c78024ad2247441c6e5944ee7d032cf85a91792433d43a4505e6ac876",
+    "server/trainer/hermes_personal_connection_test.py": "2be17e05c6f9b55986b562b5b6f15f9dc1baa7ef7f116a1557caa153ee691252",
+    "server/trainer/hermes_personal_egress.py": "6d5436ab68dc8f8c5ffed98ff8118fe8ae6880167de442721cddcb40225f9098",
+    "server/trainer/hermes_personal_egress_test.py": "1137ec4acd23b63e9ce766fb9bb1e564532cbf58fe60e3476db6c6bca1ffa396"
+  },
+  "scope": "native auth hooks and HTTPX egress primitives, with synthetic endpoint/store callbacks; not an integrated payer or production",
+  "review": {
+    "nativeCredentialBridge": "personal_local_review: no open P1/P2",
+    "physicalEgress": "personal_contract_review: no open P1/P2"
+  },
+  "notVerified": [
+    "actual Linux tmpfs host mount",
+    "Node encrypted-store IPC integration",
+    "central aggregate POST counter across logical calls",
+    "sync hard wall-clock45 watchdog in payer producer",
+    "actual configured-model connection",
+    "production"
+  ]
+}
