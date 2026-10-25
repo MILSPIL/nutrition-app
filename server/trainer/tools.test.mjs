@@ -9,6 +9,8 @@ import { createTrainerTools, trainerToolSchemas } from "./tools.mjs";
 import { createTrainerGateway } from "./gateway.mjs";
 import { TOOLS } from "./limits.mjs";
 import { buildPlanCatalog } from "../../src/services/planCatalog.js";
+import { modelPlan } from "./snapshot.mjs";
+import { commandFromDraft } from "./drafts.mjs";
 test("H02 H04 H05 tools use actual lookup values and publish complete draft only on completed turn", async (t) => {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "hermes-tools-")));
   chmodSync(dir, 0o700);
@@ -169,4 +171,110 @@ test("H06 gateway derives save from canonical draft and trusts only reread day m
     await g.handle("owner", "/drafts/" + d.draftId + "/receipt", "POST", {})
   ).json();
   assert.equal(saved.state, "saved");
+});
+
+async function planMatchFixture(t, catalog = buildPlanCatalog(), food = {}) {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "hermes-plan-match-")));
+  chmodSync(dir, 0o700);
+  const store = openTurnStore(join(dir, "turns.sqlite"), { hmacKey: randomBytes(32) });
+  const cid = store.conversation("owner").conversationId;
+  const name = food.name || "яблуко", preparation = food.preparation || "raw", itemId = "synthetic-food-item";
+  const input = { turnId: randomUUID(), baseRevision: 0, text: `З’їв 150 г ${name}`, targetDate: "2026-10-25",
+    media: food.label ? [{ tempRef: "synthetic-label-photo", itemId }] : [] };
+  const snapshot = { plan: modelPlan({ catalog }), contextRevision: 0, draft: [],
+    sentAt: "2026-10-25T10:00:00Z", targetDate: input.targetDate, dateContext: { mode: "default" } };
+  store.admit("owner", cid, input, snapshot);
+  const turn = store.begin("owner", input.turnId);
+  const candidate = { id: "synthetic-food-001", name: "Synthetic catalog food", preparation,
+    nutritionBasis: { value: 100, unit: "g" }, nutrients: { p: 0.3, f: 0.2, c: 14, cal: 52 },
+    source: { kind: "database", recordId: "synthetic-food-001", version: 1 } };
+  const kit = createTrainerTools({ store, index: { lookup: () => [candidate] },
+    readSnapshot: async () => ({ day: { targetDate: input.targetDate, revision: 0, meals: {}, notes: [] }, plan: { catalog } }) });
+  t.after(() => { kit.release(turn.id); store.close(); rmSync(dir, { recursive: true }); });
+  const ctx = { turn, input, snapshot, signal: new AbortController().signal };
+  await kit.tools.food_lookup({ query: "synthetic food", preparation }, ctx);
+  const raw = { itemId, name, preparation, quantity: { value: 150, unit: "g" },
+    source: food.label ? { kind: "label", photoRef: "synthetic-label-photo", nutritionBasis: candidate.nutritionBasis, nutrients: candidate.nutrients }
+      : { kind: "database", recordId: candidate.id },
+    planMatch: { referenceId: food.referenceId || "fruits:fruit", consumedState: preparation, certainty: "matched" } };
+  return { store, cid, raw, snapshot,
+    propose: (item) => kit.tools.propose_food_draft({ baseRevision: 0, dayRef: "today", meal: 1, items: [item] }, ctx),
+    complete() { store.complete(turn.id, turn.generation, { text: "Чернетка для перевірки" }); store.cleaned(turn.id); return store.drafts("owner", cid)[0]; },
+  };
+}
+
+test("H05 catalog family match reaches the save command when the food name differs; manual choices still win", async (t) => {
+  const f = await planMatchFixture(t);
+  assert.notEqual(f.raw.name, buildPlanCatalog().references.find(r => r.refId === "fruits:fruit").name);
+  await f.propose(f.raw);
+  let draft = f.complete();
+  assert.deepEqual(draft.items[0].planMatch, f.raw.planMatch);
+  const prepared = await commandFromDraft(draft);
+  const [item] = prepared.command.items;
+  assert.equal(item.name, "яблуко");
+  assert.equal(item.planAllocation.letter, "з");
+  assert.equal(item.planAllocation.status, "allocated");
+  assert.equal(item.planAllocation.assignment, "auto");
+  assert.equal(item.portion, 37.5);
+  assert.equal(item.source.recordId, "synthetic-food-001");
+  assert.equal(Object.hasOwn(item, "planMatch"), false);
+  for (const letter of ["", "в"]) {
+    draft = f.store.editDraft("owner", f.cid, draft.draftId, { baseRevision: draft.revision, targetDate: draft.targetDate, meal: draft.meal,
+      items: [{ itemId: f.raw.itemId, planChoice: { assignment: "manual", letter } }] });
+    const [manual] = (await commandFromDraft(draft)).command.items;
+    assert.equal(manual.planAllocation.assignment, "manual");
+    assert.equal(manual.planAllocation.letter || "", letter);
+    assert.equal(manual.planAllocation.status, letter ? "allocated" : "unallocated");
+  }
+});
+
+for (const food of [
+  { name: "картопля відварена", preparation: "cooked", referenceId: "carbs:potato", letter: "а", portion: 83.33333333333334 },
+  { name: "кефір", preparation: "as_sold", referenceId: "dairy:kefir", label: true, letter: "б", portion: 55.55555555555556 },
+]) test(`H05 ${food.name} retains its catalog family through the ${food.label ? "label" : "database"} tool path`, async (t) => {
+  const f = await planMatchFixture(t, undefined, food);
+  await f.propose(f.raw);
+  const draft = f.complete();
+  assert.deepEqual(draft.items[0].planMatch, f.raw.planMatch);
+  const [item] = (await commandFromDraft(draft)).command.items;
+  assert.equal(item.planAllocation.letter, food.letter);
+  assert.equal(item.planAllocation.status, "allocated");
+  assert.equal(item.planAllocation.assignment, "auto");
+  assert.ok(Math.abs(item.portion - food.portion) < 1e-9);
+  assert.equal(item.source.kind, food.label ? "label" : "database");
+  assert.equal(Object.hasOwn(item.source, "photoRef"), false);
+});
+
+test("H05 omitted or uncertain family remains unallocated instead of guessing from a food alias", async (t) => {
+  for (const certainty of ["omitted", "uncertain"]) await t.test(certainty, async (t) => {
+    const f = await planMatchFixture(t);
+    if (certainty === "omitted") delete f.raw.planMatch;
+    else f.raw.planMatch.certainty = certainty;
+    await f.propose(f.raw);
+    const [item] = (await commandFromDraft(f.complete())).command.items;
+    assert.deepEqual(item.planAllocation, { version: 1, status: "unallocated", assignment: "auto" });
+    assert.equal(item.nutritionStatus, "complete");
+  });
+});
+
+test("H05 ambiguous family is rejected while a proposal without that match remains valid", async (t) => {
+  const catalog = buildPlanCatalog({ globalCustomProducts: { з: [{ name: "фрукти та ягоди", raw: 400 }] } });
+  const f = await planMatchFixture(t, catalog);
+  assert.ok(f.snapshot.plan.catalog.ambiguousRefIds.includes("fruits:fruit"));
+  await assert.rejects(f.propose(f.raw), /invalid_plan_match/);
+  delete f.raw.planMatch;
+  await f.propose(f.raw);
+  const [item] = (await commandFromDraft(f.complete(), { planContext: { globalCustomProducts: { з: [{ name: "фрукти та ягоди", raw: 400 }] } } })).command.items;
+  assert.equal(item.planAllocation.status, "unallocated");
+});
+
+test("H05 unknown nutrition requires note confirmation without a guessed family", async (t) => {
+  const f = await planMatchFixture(t);
+  delete f.raw.planMatch;
+  f.raw.source = { kind: "unknown" };
+  assert.equal((await f.propose(f.raw)).incomplete, true);
+  const draft = f.complete();
+  assert.equal(draft.items[0].nutritionStatus, "unknown");
+  assert.equal(Object.hasOwn(draft.items[0], "planMatch"), false);
+  await assert.rejects(commandFromDraft(draft), /note_confirmation_required/);
 });
