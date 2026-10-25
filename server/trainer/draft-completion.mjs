@@ -1,0 +1,19 @@
+// Local UI acknowledgement after a validated draft, never a provider request.
+import { MODEL } from "./limits.mjs";
+export const DRAFT_COMPLETION_TEXT = "Підготував чернетку. Перевір її та натисни «Додати», щоб зберегти.";
+export function draftCompletionResponse(stream) {
+  const message = { id: "scisense_local_draft_completion", type: "message", role: "assistant", model: MODEL,
+    content: [{ type: "text", text: DRAFT_COMPLETION_TEXT }], stop_reason: "end_turn", stop_sequence: null,
+    usage: { input_tokens: 0, output_tokens: 0 } };
+  if (!stream) return new Response(JSON.stringify(message), { headers: { "content-type": "application/json" } });
+  const events = [
+    ["message_start", { type: "message_start", message: { ...message, content: [], stop_reason: null } }],
+    ["content_block_start", { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } }],
+    ["content_block_delta", { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: DRAFT_COMPLETION_TEXT } }],
+    ["content_block_stop", { type: "content_block_stop", index: 0 }],
+    ["message_delta", { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 0 } }],
+    ["message_stop", { type: "message_stop" }],
+  ];
+  return new Response(events.map(([event, data]) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`).join(""),
+    { headers: { "content-type": "text/event-stream" } });
+}

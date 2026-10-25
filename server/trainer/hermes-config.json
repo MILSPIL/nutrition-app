@@ -18,7 +18,7 @@
     ]
   },
   "agent": {
-    "max_turns": 3,
+    "max_turns": 4,
     "image_input_mode": "native",
     "disabled_toolsets": [
       "memory",

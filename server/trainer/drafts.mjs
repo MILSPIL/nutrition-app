@@ -369,6 +369,22 @@ export function attachDraftStore({
         return next;
       });
     },
+    assertDraftCompletion(id, generation, ack) {
+      const turn = internal(id);
+      active(turn);
+      if (turn.generation !== generation || turn.current_generation !== generation ||
+          turn.current_revision !== turn.base_revision || turn.call_count !== LIMITS.calls)
+        fail("turn_inactive", 409);
+      const proposals = db.prepare("SELECT * FROM proposals WHERE turn_id=?").all(id);
+      if (proposals.length !== 1) fail("draft_conflict", 409);
+      const p = proposals[0], value = JSON.parse(p.value);
+      const old = db.prepare("SELECT revision,value FROM drafts WHERE id=?").get(p.draft_id);
+      const collision = db.prepare("SELECT id FROM drafts WHERE conversation_id=? AND target_date=? AND json_extract(value,'$.state')!='saved'").get(turn.conversation_id, value.targetDate);
+      if (value.draftId !== ack?.draftId || value.revision !== ack.revision || value.turnId !== id || value.state !== "ready" || !value.items.length || value.items.some(item => item.nutritionStatus !== "complete") ||
+          (old?.revision || 0) !== p.base_revision || old && ["saving", "saved", "unknown"].includes(JSON.parse(old.value).state) ||
+          collision && collision.id !== value.draftId)
+        fail("draft_conflict", 409);
+    },
     publish(turn) {
       const output = [];
       for (const p of db

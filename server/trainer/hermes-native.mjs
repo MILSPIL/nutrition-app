@@ -21,9 +21,10 @@ import { fileURLToPath } from "node:url";
 import { createHash, randomUUID } from "node:crypto";
 import { StringDecoder } from "node:string_decoder";
 import { networkInterfaces } from "node:os";
-import { TOOLS, MODEL, fail } from "./limits.mjs";
+import { TOOLS, MODEL, LIMITS, fail } from "./limits.mjs";
 import { boundedOperation } from "./deadline.mjs";
 import { safeToolFailure } from "./tool-errors.mjs";
+import { draftCompletionResponse } from "./draft-completion.mjs";
 const here = dirname(fileURLToPath(import.meta.url));
 const sha = (value) => createHash("sha256").update(value).digest("hex");
 // Check the installed files, not merely the template hash in the release.
@@ -239,6 +240,7 @@ export function createNativeBackend({
       buffer = "",
       exited = false,
       modelRequests = 0,
+      successfulRequests = 0,
       terminal = false,
       nativeIdentity,
       pidNamespace,
@@ -311,6 +313,7 @@ export function createNativeBackend({
         .catch(() => {});
       if (args.signal.aborted) abort();
     }
+    let acknowledgedDraft = null, localCompletionSent = false;
     async function dispatch(message) {
       eventsMeta.push({ type: message.type, at: Date.now() });
       if (message.type === "isolation") {
@@ -355,11 +358,23 @@ export function createNativeBackend({
         throw Error("ipc_invalid");
       try {
         if (!isolationVerified) throw Error("isolation_failed");
-        if (mode !== "start" || terminal) fail("turn_inactive", 409);
+        if (mode !== "start" || terminal || localCompletionSent || signal.aborted || Date.now() >= turn.deadline) fail("turn_inactive", 409);
         if (message.type === "model") {
-          const lease = args.issueLease();
-          modelRequests++;
-          const response = await args.modelCall(lease.token, message.payload);
+          let response;
+          if (modelRequests === LIMITS.calls && successfulRequests === LIMITS.calls && acknowledgedDraft?.call === LIMITS.calls) {
+            args.assertDraftCompletion(acknowledgedDraft);
+            // Native Hermes normally asks for a final sentence after a tool result.
+            // A repaired third-call draft already has all data needed by the UI.
+            // Finish through the ordinary native result + freshness + cleanup path.
+            localCompletionSent = true;
+            response = draftCompletionResponse(message.payload?.stream === true);
+            eventsMeta.push({ type: "local_draft_completion", at: Date.now() });
+          } else {
+            const lease = args.issueLease();
+            modelRequests++;
+            response = await args.modelCall(lease.token, message.payload);
+            if (response.status === 200) successfulRequests++;
+          }
           send({
             type: "reply",
             id: message.id,
@@ -387,11 +402,16 @@ export function createNativeBackend({
           );
           if (Buffer.byteLength(JSON.stringify(value)) > 16000)
             fail("tool_result_too_large");
+          if (message.name === "propose_food_draft")
+            acknowledgedDraft = value?.saved === false && value.state === "ready" && value.incomplete === false && value.itemCount > 0 && typeof value.draftId === "string" && Number.isSafeInteger(value.revision)
+              ? { draftId: value.draftId, revision: value.revision, call: modelRequests } : null;
           send({ type: "reply", id: message.id, result: value });
         }
       } catch (error) {
-        if (message.type === "tool")
+        if (message.type === "tool") {
+          acknowledgedDraft = false;
           send({ type: "reply", id: message.id, result: safeToolFailure(error) });
+        }
         else send({ type: "reply", id: message.id, error: "gateway_refused" });
       }
     }

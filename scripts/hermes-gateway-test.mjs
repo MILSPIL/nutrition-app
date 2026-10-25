@@ -24,7 +24,7 @@ import { openFoodIndex } from "../server/trainer/food-lookup.mjs";
 import { buildPlanCatalog } from "../src/services/planCatalog.js";
 import { localBudget } from "./phone-lab/sqlite.mjs";
 import { coachCapacityFixture } from "../server/trainer/fixtures/coach-capacity.mjs";
-const resourceProbe = process.argv.includes("--resource-probe"), capacityProbe = process.argv.includes("--capacity-probe");
+const resourceProbe = process.argv.includes("--resource-probe"), capacityProbe = process.argv.includes("--capacity-probe"), repairProbe = process.argv.includes("--repair-probe");
 const capacity = capacityProbe ? coachCapacityFixture("2026-01-03") : null;
 const processStart = Date.now();
 const lab = realpathSync(
@@ -135,7 +135,7 @@ const proxy = createModelProxy({
           input: { command: "forbidden" },
         }] : []),
       ]);
-    if (mode === "complete" && call === 2)
+    if (mode === "complete" && (call === 2 || repairProbe && call === 3))
       return sse([
         {
           type: "tool_use",
@@ -152,7 +152,7 @@ const proxy = createModelProxy({
                 name: "Картопля",
                 quantity: { value: 200, unit: "g" },
                 preparation: "cooked",
-                source: { kind: "database", recordId: "fdc:170438" },
+                source: { kind: "database", recordId: "fdc:170438", ...(repairProbe && call === 2 ? { measureIndex: 99 } : {}) },
               },
             ],
           },
@@ -275,9 +275,14 @@ try {
   );
   last = input.turnId;
   const result = await waitTurn(input.turnId);
-  assert.equal(result.state, "completed", JSON.stringify(result));
+  assert.equal(result.state, "completed", JSON.stringify({result,call,toolCalls,diagnostics:backend.diagnostics(),lastMessage:bodies.at(-1)?.messages?.at(-1)}));
   assert.equal(call, 3);
-  assert.deepEqual(toolCalls, ["food_lookup", "propose_food_draft"]);
+  assert.deepEqual(toolCalls, repairProbe ? ["food_lookup", "propose_food_draft", "propose_food_draft"] : ["food_lookup", "propose_food_draft"]);
+  if (repairProbe) {
+    assert.equal(store.internal(input.turnId).call_count, 3);
+    assert.equal(backend.diagnostics().events.filter(e=>e.type==="local_draft_completion").length,1);
+    assert.match(result.result.text,/Підготував чернетку/);
+  }
   assert.ok(
     bodies.some((b) => JSON.stringify(b).includes("CURATED_GATE_CANARY")),
   );
@@ -321,7 +326,7 @@ try {
     200,
   );
   assert.equal(call, 3);
-  if (!resourceProbe && !capacityProbe) {
+  if (!resourceProbe && !capacityProbe && !repairProbe) {
     // Lost native admission ACK plus lost Node result commit: recover by status only.
     mode = "recover";
     call = 0;
@@ -492,6 +497,7 @@ try {
     suiteSeconds: (Date.now() - processStart) / 1000,
     resourceProbe,
     capacityProbe,
+    repairProbe,
     profileTemplateSha256:createHash("sha256").update(readFileSync("server/trainer/profile-template.json")).digest("hex"),
     modelTextBytes: bodies.map(payload=>Buffer.byteLength(JSON.stringify(payload,(_key,value)=>value?.type==="base64"?{...value,data:""}:value))),
     isolation:
@@ -500,11 +506,11 @@ try {
     realTools: true,
     draftKcal: 174,
     providerCalls: bodies.length,
-    recoveryNoNewCalls: !resourceProbe && !capacityProbe,
-    cancelNoResult: !resourceProbe && !capacityProbe,
-    upstream429Calls: resourceProbe || capacityProbe ? null : 1,
-    deadlineStopsNative: !resourceProbe && !capacityProbe,
-    killedUnknownCancelled: !resourceProbe && !capacityProbe,
+    recoveryNoNewCalls: !resourceProbe && !capacityProbe && !repairProbe,
+    cancelNoResult: !resourceProbe && !capacityProbe && !repairProbe,
+    upstream429Calls: resourceProbe || capacityProbe || repairProbe ? null : 1,
+    deadlineStopsNative: !resourceProbe && !capacityProbe && !repairProbe,
+    killedUnknownCancelled: !resourceProbe && !capacityProbe && !repairProbe,
     tools: toolCalls,
     profileFilesScanned: files,
     mediaFragments: needles.length,
@@ -546,7 +552,7 @@ try {
     }
   }
   writeFileSync(
-    join(lab, capacityProbe ? "capacity-summary.json" : resourceProbe ? "resource-summary.json" : "gateway-summary.json"),
+    join(lab, repairProbe ? "repair-summary.json" : capacityProbe ? "capacity-summary.json" : resourceProbe ? "resource-summary.json" : "gateway-summary.json"),
     JSON.stringify(summary, null, 2),
   );
   console.log(JSON.stringify(summary));

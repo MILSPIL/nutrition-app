@@ -652,3 +652,22 @@ for (const route of ["read", "startup", "idle-maintenance"]) {
     assert.equal(existsSync(backup), false);
   });
 }
+
+test("local completion requires an exact ready proposal, current generation and three paid-call leases", t => {
+ const f=fixture(t), {turn,d}=propose(f), ack={draftId:d.draftId,revision:d.revision};
+ assert.throws(()=>f.store.assertDraftCompletion(turn.id,turn.generation,ack));
+ for(let i=0;i<3;i++){const l=f.store.issueLease(turn.id,turn.generation);f.store.consumeLease(l.token);}
+ assert.doesNotThrow(()=>f.store.assertDraftCompletion(turn.id,turn.generation,ack));
+ assert.throws(()=>f.store.assertDraftCompletion(turn.id,turn.generation,{...ack,revision:99}));
+ f.store.cancel("owner",turn.id);
+ assert.throws(()=>f.store.assertDraftCompletion(turn.id,turn.generation,ack));
+});
+
+test("local completion refuses an unknown-nutrition proposal and an expired turn", t => {
+ const f=fixture(t), turn=f.turn();
+ const d=f.store.propose(turn.id,turn.generation,patch({items:[{...raw,source:{kind:"unknown"}}]}),resolve());
+ for(let i=0;i<3;i++){const l=f.store.issueLease(turn.id,turn.generation);f.store.consumeLease(l.token);}
+ assert.throws(()=>f.store.assertDraftCompletion(turn.id,turn.generation,{draftId:d.draftId,revision:d.revision}),/draft_conflict/);
+ f.tick(LIMITS.deadlineMs+1);
+ assert.throws(()=>f.store.assertDraftCompletion(turn.id,turn.generation,{draftId:d.draftId,revision:d.revision}));
+});

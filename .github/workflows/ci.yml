@@ -122,6 +122,8 @@ jobs:
           test -s tmp/hermes-linux/capacity-summary.json
       - name: Native recovery and failure cases with the same resource limits
         run: docker run --rm --init --network=none --cpus=2 --memory=2g --memory-swap=2g --pids-limit=128 --cap-drop=ALL --security-opt=no-new-privileges --security-opt=seccomp=unconfined --security-opt=apparmor=unconfined --security-opt=systempaths=unconfined scisense-hermes-ci
+      - name: Complete a repaired draft within three provider calls
+        run: docker run --rm --init --network=none --cpus=2 --memory=2g --memory-swap=2g --pids-limit=128 --cap-drop=ALL --security-opt=no-new-privileges --security-opt=seccomp=unconfined --security-opt=apparmor=unconfined --security-opt=systempaths=unconfined --entrypoint timeout scisense-hermes-ci --signal=TERM --kill-after=5s 45s node scripts/hermes-gateway-test.mjs --repair-probe
       - name: Prove the candidate systemd unit with the same resource limits
         run: node scripts/hermes-systemd-ci.mjs
       - name: Export verified public Linux runtime without state or credentials

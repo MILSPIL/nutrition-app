@@ -117,6 +117,7 @@ export function createTrainerGateway({
           onWorkerExit: () => proxy.cancel(id),
           onRun: (ids) => store.bindRun(id, turn.generation, ids),
           issueLease: () => store.issueLease(id, turn.generation),
+          assertDraftCompletion: (ack) => store.assertDraftCompletion(id, turn.generation, ack),
           modelCall: (lease, payload) => proxy.invoke(lease, payload),
         }),
         controller.signal,
