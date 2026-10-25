@@ -58,6 +58,9 @@ try {
   stage = "replay";
   const recovered = await owner.rpc("web", "prompt.receipt", { session_id: web.session_id, admission_id: admission.admission_id, include_result: true });
   assert.equal(recovered.status, "terminal"); assert.equal(calls.length, 2); checks++;
+  await owner.bot("web");
+  const duplicate = await owner.rpc("web", "prompt.submit", input);
+  assert.equal(duplicate.admission_id, admission.admission_id); assert.equal(calls.length, 2); checks++;
   assert.ok(events.length > 0); checks++;
   console.log(JSON.stringify({ passed: true, checks, canonicalSessionSame: true, exactMessagesAfterRestart: true, sameReceiptAfterRestart: true, syntheticModelCalls: calls.length, nativeToolCalls: tools.length, nativeEvents: events.length, realModelRequests: 0 }));
 } catch (error) {

@@ -30,6 +30,30 @@ class EgressTests(unittest.TestCase):
         return {"id": "synthetic", "object": "chat.completion", "created": 1, "model": model,
             "choices": [{"index": 0, "message": {"role": "assistant", "content": "synthetic"}, "finish_reason": "stop"}]}
 
+    def test_wire_request_zstd_and_gzip_preserve_bytes_and_still_reject_hidden_model(self):
+        from compression.zstd import compress
+        for encoding, compressor in (("zstd", compress), ("gzip", gzip.compress)):
+            for chosen in (MODEL, "foreign-model"):
+                guard, transport, posts, grants = self.fixture(lambda _r: httpx.Response(200, json=self.result()))
+                data = compressor(json.dumps({"model": chosen, "messages": []}).encode())
+                with guard, httpx.Client(transport=transport) as client:
+                    request = httpx.Request("POST", BASE + "/responses", headers={"Content-Encoding": encoding, "Content-Type": "application/json"}, content=data)
+                    if chosen != MODEL:
+                        with self.assertRaisesRegex(BrokerRefusal, "connection_model_changed"):
+                            client.send(request)
+                        self.assertEqual(len(posts), 0); self.assertEqual(len(grants), 0)
+                    else:
+                        client.send(request); guard.proof()
+                        self.assertEqual(posts[0].read(), data); self.assertEqual(len(grants), 1)
+
+    def test_compressed_wire_request_cannot_exceed_json_observation_budget(self):
+        from compression.zstd import compress
+        guard, transport, posts, grants = self.fixture(lambda _r: httpx.Response(200, json=self.result()))
+        with guard, httpx.Client(transport=transport) as client:
+            with self.assertRaisesRegex(BrokerRefusal, "model_payload_invalid"):
+                client.post(BASE + "/responses", content=compress(b"x" * (16 * 1024 * 1024 + 1)), headers={"Content-Encoding": "zstd"})
+        self.assertEqual(len(posts), 0); self.assertEqual(len(grants), 0)
+
     def test_real_sdk_retries_each_consume_a_physical_reservation(self):
         guard, transport, posts, grants = self.fixture(lambda _r: httpx.Response(429, json={"error": {"message": "synthetic quota", "type": "rate_limit_error"}}))
         with guard, httpx.Client(transport=transport) as http, OpenAI(api_key="synthetic-token", base_url=BASE, http_client=http, max_retries=2) as client:

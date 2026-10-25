@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "task": "HERMES-PERSONAL-01",
+  "sourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+  "sourceManifest": {
+    "scope": "all tracked Python source plus pinned importable suffixes, excluding installed dependencies",
+    "verifiedFiles": 9975,
+    "verifiedOtherSuffixes": 2,
+    "sha256": "a1e875821d26e706a10fde8f10d52c41f4083db91082a02a0d3bff62b7df9cc4"
+  },
+  "syntheticOnly": true,
+  "testExit": 0,
+  "testsPassed": 31,
+  "stages": [
+    {
+      "stage": "provider",
+      "exit": 0,
+      "passed": true,
+      "tests": 7,
+      "osCanaries": {
+        "privateReadDenied": true,
+        "childProcessDenied": true,
+        "tcpDenied": true,
+        "udpDenied": true
+      }
+    },
+    {
+      "stage": "first",
+      "exit": 0,
+      "passed": true,
+      "tests": 4,
+      "osCanaries": {
+        "privateReadDenied": true,
+        "childProcessDenied": true,
+        "tcpDenied": true,
+        "udpDenied": true
+      }
+    },
+    {
+      "stage": "reopen",
+      "exit": 0,
+      "passed": true,
+      "tests": 1,
+      "osCanaries": {
+        "privateReadDenied": true,
+        "childProcessDenied": true,
+        "tcpDenied": true,
+        "udpDenied": true
+      }
+    },
+    {
+      "stage": "egress",
+      "exit": 0,
+      "passed": true,
+      "tests": 17,
+      "osCanaries": {
+        "privateReadDenied": true,
+        "childProcessDenied": true,
+        "tcpDenied": true,
+        "udpDenied": true
+      }
+    },
+    {
+      "stage": "payer",
+      "exit": 0,
+      "passed": true,
+      "tests": 2,
+      "osCanaries": {
+        "privateReadDenied": true,
+        "childProcessDenied": true,
+        "tcpDenied": true,
+        "udpDenied": true
+      }
+    }
+  ],
+  "nativeIpc": {
+    "passed": true,
+    "checks": 10,
+    "canonicalSessionSame": true,
+    "exactMessagesAfterRestart": true,
+    "sameReceiptAfterRestart": true,
+    "syntheticModelCalls": 2,
+    "nativeToolCalls": 1,
+    "nativeEvents": 4,
+    "realModelRequests": 0,
+    "physicalProcessesWithOSCanaries": 2
+  },
+  "physicalProcessRestart": true,
+  "realModelRequests": 0,
+  "sourceSha256": {
+    "server/trainer/hermes_personal_owner_test.py": "a972e51b33fc14116e22147f0be58420bc0c20625166994c9759b6a1755b9f12",
+    "server/trainer/hermes_personal_provider_test.py": "98bc520bcd8ae79edfae5f67b2115a6117fb41148572638246f4e1010b00d68b",
+    "scripts/hermes-personal-owner-check.py": "f4f5776bc007de43cda8da334cc12432a548c224b8fd334efd59eaae7dbadeab",
+    "scripts/hermes_personal_fixture.py": "d6abc8334d28287f5cc378651c9f031e5880b70e1f1128e7b4b4cb5de32b8752",
+    "server/trainer/hermes_personal_owner.py": "7c37be3d046109deb018c8578a51b99120a54da063365ba689f21a01d0ae43c9",
+    "server/trainer/hermes_personal_provider.py": "42ff3607f9ec80a688c9e570466c64a838578d1932a83ad508a1e8eee3f7558a",
+    "server/trainer/hermes_personal_ipc.py": "d2b47963bf959003f947bb9e51f785d4b561b73e08557f5c9b63210b143e9b32",
+    "server/trainer/hermes_personal_worker.py": "3e57a7b3808e643e4b082d8fa56bb78ff74ccd102c3115dc326ef5a182cd3b3c",
+    "server/trainer/personal-process.mjs": "b509d8b720f4e88c3d21e1e7c58a2c4f14ded4fc44c5eb468148244aab933eae",
+    "server/trainer/internal-process.mjs": "f3da9a47223c87bb195bff3281684f71795d0aa02bbb6c8415eb8dc04ad7c8b8",
+    "scripts/hermes-personal-ipc-fixture.mjs": "4cfccdc871d477529ee3ce7658c7c20ba0f16d925879409597fde641f572bde4",
+    "server/trainer/hermes_personal_connection.py": "a221c00c78024ad2247441c6e5944ee7d032cf85a91792433d43a4505e6ac876",
+    "server/trainer/hermes_personal_connection_test.py": "2be17e05c6f9b55986b562b5b6f15f9dc1baa7ef7f116a1557caa153ee691252",
+    "server/trainer/hermes_personal_egress.py": "02fc11535db4ae2e6c35264e18e3b4d77cb9a9017f47a1247e807e77feba3710",
+    "server/trainer/hermes_personal_egress_test.py": "4726ed9fafde6f6f09b27b00a84c2688a943940c5479c521c3a21b5cfe0e18b9",
+    "server/trainer/hermes_personal_payer.py": "9f8981f3ba744a0e9813893fbf65536642743c59407952c2365fdf3312582ca6",
+    "server/trainer/hermes_personal_payer_test.py": "3f84355658c997670f29d48f2d1a83ea471e3c22dcc65b1a3c6bb2d9fd04af8d",
+    "server/trainer/personal-payer.mjs": "385e467381d3790b87494d326d27af3d99bb3833f1e336c06a7e3933caccd544",
+    "server/trainer/personal-payer.test.mjs": "ed92e7a80d01ad3f554bb38739f9b3ea0dd96a99a2f1e2706fe3a6ac9db5d037",
+    "scripts/hermes-personal-payer-hang-fixture.mjs": "8a36d085c6d2e4f2ee6343fca592ea565fb1df5ab3445c3466f3a54582e2cbce",
+    "server/trainer/hermes_personal_payer_worker.py": "2f7a0b2a64aebb386033b06994d398377b1552fe1ba0d1424024adc3cc192355"
+  },
+  "nodeTransportTests": 11,
+  "nodePayerTests": 2,
+  "nativePayerIpcIntegrated": false,
+  "verifiedNativeConnection": "openai-codex",
+  "otherNativeAuthLanes": "not-activated",
+  "review": {
+    "agent": "personal_contract_review",
+    "verdict": "passed",
+    "fixed": [
+      "unchecked-urllib-provider-refresh",
+      "fresh-identity-after-worker-replacement",
+      "native-zstd-request-observation"
+    ]
+  }
+}

@@ -14,7 +14,7 @@ sys.stdout = sys.stderr
 _ALLOWED_ERRORS = {"trainer_unavailable", "trainer_timeout", "trainer_quota", "connection_auth_required",
     "connection_model_changed", "model_payload_invalid", "execution_unknown", "personal_owner_conflict",
     "personal_channel_limit", "personal_channel_invalid", "profile_mismatch", "not_found",
-    "owner_shutdown_incomplete", "owner_channel_close_failed", "invalid_request", "conflict"}
+    "owner_shutdown_incomplete", "owner_channel_close_failed", "invalid_request", "conflict", "permission_denied", "admission_conflict"}
 
 
 def safe_error(error):

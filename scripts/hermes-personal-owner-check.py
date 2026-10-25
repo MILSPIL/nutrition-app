@@ -22,6 +22,8 @@ def main():
     parser.add_argument("--ipc", action="store_true")
     parser.add_argument("--connection", action="store_true")
     parser.add_argument("--egress", action="store_true")
+    parser.add_argument("--payer", action="store_true")
+    parser.add_argument("--only", choices=("payer",))
     args = parser.parse_args()
     if sys.platform != "darwin" or not Path("/usr/bin/sandbox-exec").is_file():
         raise RuntimeError("requires_verified_macos_sandbox")
@@ -72,14 +74,18 @@ if os.environ["SCISENSE_OWNER_STAGE"]=="connection":
     script=str(Path(script).with_name("hermes_personal_connection_test.py"))
 if os.environ["SCISENSE_OWNER_STAGE"]=="egress":
     script=str(Path(script).with_name("hermes_personal_egress_test.py"))
+if os.environ["SCISENSE_OWNER_STAGE"]=="payer":
+    script=str(Path(script).with_name("hermes_personal_payer_test.py"))
 sys.argv=[script]+(["PersistentOwnerTests.test_z_two_channels_and_fresh_process_restart_preserve_native_messages"] if os.environ["SCISENSE_OWNER_STAGE"]=="reopen" else [])
 runpy.run_path(script,run_name="__main__")'''
         stages = []
-        expected_stages = ["provider", "first", "reopen"] + (["connection"] if args.connection else []) + (["egress"] if args.egress else [])
+        expected_stages = ["provider", "first", "reopen"] + (["connection"] if args.connection else []) + (["egress"] if args.egress else []) + (["payer"] if args.payer else [])
+        if args.only:
+            expected_stages = [args.only]
         for stage in expected_stages:
             stage_env = {**env, "SCISENSE_OWNER_STAGE": stage}
-            if stage == "connection":
-                connection_home = root / "connection-home"
+            if stage in ("connection", "payer"):
+                connection_home = root / (stage + "-home")
                 (connection_home / ".hermes").mkdir(mode=0o700, parents=True)
                 stage_env.update(HOME=str(connection_home), HERMES_HOME=str(connection_home / ".hermes"))
             result = subprocess.run(["/usr/bin/sandbox-exec", "-p", policy, str(python), "-c", bootstrap],
@@ -123,9 +129,9 @@ runpy.run_path(os.environ["SCISENSE_IPC_WORKER"],run_name="__main__")'''
                     print(log.read_text(errors="replace")[-5500:])
         receipt = {"version": 1, "task": "HERMES-PERSONAL-01", "sourcePin": PIN, "sourceManifest": source_manifest,
             "syntheticOnly": True, "testExit": 0 if passed else 1, "testsPassed": sum(stage["tests"] for stage in stages if stage["passed"]),
-            "stages": stages, "nativeIpc": ipc, "physicalProcessRestart": all(stage["passed"] for stage in stages), "realModelRequests": 0, "sourceSha256": {
+            "stages": stages, "nativeIpc": ipc, "physicalProcessRestart": "reopen" in expected_stages and all(stage["passed"] for stage in stages), "realModelRequests": 0, "sourceSha256": {
                 str(path.relative_to(project)): hashlib.sha256(path.read_bytes()).hexdigest()
-                for path in [script, script.with_name("hermes_personal_provider_test.py"), Path(__file__).resolve(), project / "scripts/hermes_personal_fixture.py", project / "server/trainer/hermes_personal_owner.py", project / "server/trainer/hermes_personal_provider.py", project / "server/trainer/hermes_personal_ipc.py", project / "server/trainer/hermes_personal_worker.py", project / "server/trainer/personal-process.mjs", project / "scripts/hermes-personal-ipc-fixture.mjs"] + ([project / "server/trainer/hermes_personal_connection.py", project / "server/trainer/hermes_personal_connection_test.py"] if args.connection else []) + ([project / "server/trainer/hermes_personal_egress.py", project / "server/trainer/hermes_personal_egress_test.py"] if args.egress else [])}}
+                for path in [script, script.with_name("hermes_personal_provider_test.py"), Path(__file__).resolve(), project / "scripts/hermes_personal_fixture.py", project / "server/trainer/hermes_personal_owner.py", project / "server/trainer/hermes_personal_provider.py", project / "server/trainer/hermes_personal_ipc.py", project / "server/trainer/hermes_personal_worker.py", project / "server/trainer/personal-process.mjs", project / "server/trainer/internal-process.mjs", project / "scripts/hermes-personal-ipc-fixture.mjs"] + ([project / "server/trainer/hermes_personal_connection.py", project / "server/trainer/hermes_personal_connection_test.py"] if args.connection or args.payer else []) + ([project / "server/trainer/hermes_personal_egress.py", project / "server/trainer/hermes_personal_egress_test.py"] if args.egress or args.payer else []) + ([project / "server/trainer/hermes_personal_payer.py", project / "server/trainer/hermes_personal_payer_test.py"] if args.payer else [])}}
         print(json.dumps(receipt))
         if args.receipt:
             args.receipt.parent.mkdir(parents=True, exist_ok=True)

@@ -7,6 +7,7 @@ stage timeouts and chunk checks alone are not a total wall-clock guarantee.
 import asyncio
 import hashlib
 import json
+import zlib
 import threading
 import time
 from urllib.parse import parse_qs, urlsplit
@@ -21,6 +22,33 @@ def _origin(url):
     if value.scheme != "https" or not value.hostname or value.username or value.password or value.fragment:
         raise BrokerRefusal("model_payload_invalid")
     return value.scheme + "://" + value.netloc.lower()
+
+
+def request_json(request):
+    raw = request.read()
+    limit = 16 * 1024 * 1024
+    if len(raw) > limit:
+        raise BrokerRefusal("model_payload_invalid")
+    encoding = request.headers.get("content-encoding", "identity").lower()
+    if encoding == "zstd":
+        # Hermes' native Codex HTTP client compresses JSON on the wire. Decode
+        # a bounded single frame for observation; transport receives the SAME
+        # original bytes. This source/launcher pins Python3.14.
+        from compression.zstd import ZstdDecompressor
+        decoder = ZstdDecompressor()
+        raw = decoder.decompress(raw, max_length=limit + 1)
+        if not decoder.eof or decoder.unused_data:
+            raise BrokerRefusal("model_payload_invalid")
+    elif encoding == "gzip":
+        decoder = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        raw = decoder.decompress(raw, limit + 1)
+        if not decoder.eof or decoder.unused_data or decoder.unconsumed_tail:
+            raise BrokerRefusal("model_payload_invalid")
+    elif encoding != "identity":
+        raise BrokerRefusal("model_payload_invalid")
+    if len(raw) > limit:
+        raise BrokerRefusal("model_payload_invalid")
+    return json.loads(raw)
 
 
 class ModelProof:
@@ -195,8 +223,8 @@ class HTTPXEgressGuard:
                 raise BrokerRefusal("trainer_quota" if self.posts >= 3 else "model_payload_invalid")
             if inference:
                 try:
-                    payload = json.loads(request.read())
-                except (ValueError, UnicodeError, httpx.RequestNotRead):
+                    payload = request_json(request)
+                except (ValueError, UnicodeError, httpx.RequestNotRead, zlib.error):
                     raise BrokerRefusal("model_payload_invalid") from None
                 if not isinstance(payload, dict) or payload.get("model") != self.model:
                     raise BrokerRefusal("connection_model_changed")
