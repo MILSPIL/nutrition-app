@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "task": "HERMES-PERSONAL-01",
+  "sourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+  "sourceManifest": {
+    "scope": "all tracked Python source plus pinned importable suffixes, excluding installed dependencies",
+    "verifiedFiles": 9975,
+    "verifiedOtherSuffixes": 2,
+    "sha256": "a1e875821d26e706a10fde8f10d52c41f4083db91082a02a0d3bff62b7df9cc4"
+  },
+  "syntheticOnly": true,
+  "testExit": 0,
+  "testsPassed": 0,
+  "stages": [],
+  "nativeIpc": {
+    "passed": true,
+    "checks": 9,
+    "nativeCodexProducer": true,
+    "nativeTools": 2,
+    "canonicalHistoryBothChannels": true,
+    "isolatedSecondProfile": true,
+    "exactMessagesAfterPhysicalRestart": true,
+    "sameReceiptBirthEpochAfterRestart": true,
+    "physicalPostReservations": 4,
+    "realModelRequests": 0,
+    "physicalProcessesWithOSCanaries": 5
+  },
+  "physicalProcessRestart": false,
+  "realModelRequests": 0,
+  "sourceSha256": {
+    "server/trainer/hermes_personal_owner_test.py": "a972e51b33fc14116e22147f0be58420bc0c20625166994c9759b6a1755b9f12",
+    "server/trainer/hermes_personal_provider_test.py": "98bc520bcd8ae79edfae5f67b2115a6117fb41148572638246f4e1010b00d68b",
+    "scripts/hermes-personal-owner-check.py": "f8d723e7a54797f88bf4f6cbbd101a5fb03f7ed81b7e32f886834a1324fca9a5",
+    "scripts/hermes_personal_fixture.py": "d6abc8334d28287f5cc378651c9f031e5880b70e1f1128e7b4b4cb5de32b8752",
+    "server/trainer/hermes_personal_owner.py": "305d8c7dfcbaae221b55b56e4fb9630a920388fe063f7c01224658c90f5980a3",
+    "server/trainer/hermes_personal_provider.py": "42ff3607f9ec80a688c9e570466c64a838578d1932a83ad508a1e8eee3f7558a",
+    "server/trainer/hermes_personal_ipc.py": "d2b47963bf959003f947bb9e51f785d4b561b73e08557f5c9b63210b143e9b32",
+    "server/trainer/hermes_personal_worker.py": "a964027277e5678cbf67721355060017f3ef832e5927a9ef6e380db7fbb69233",
+    "server/trainer/personal-process.mjs": "3ddd51a16a3e47d2a0d0eb29235c7da3f5955658c2155ceffdf1087abe426c2b",
+    "server/trainer/internal-process.mjs": "f3da9a47223c87bb195bff3281684f71795d0aa02bbb6c8415eb8dc04ad7c8b8",
+    "scripts/hermes-personal-ipc-fixture.mjs": "ab4b17cb26eec3cadc7d696adb53a0aa5cd46ba630f05778703cb443919ec12f",
+    "server/trainer/personal-coordinator.mjs": "103e55f6167543dabd450f65fa91a20fb03aa2cc87d243400d0cb02d8184a241",
+    "server/trainer/personal-payer.mjs": "d540cf333d67e76f128fd043bbbe21cabed5a8d08e7eebdc65efe9500b38071f",
+    "server/trainer/hermes_personal_payer.py": "9f8981f3ba744a0e9813893fbf65536642743c59407952c2365fdf3312582ca6",
+    "server/trainer/hermes_personal_payer_worker.py": "2f7a0b2a64aebb386033b06994d398377b1552fe1ba0d1424024adc3cc192355",
+    "server/trainer/hermes_personal_connection.py": "a221c00c78024ad2247441c6e5944ee7d032cf85a91792433d43a4505e6ac876",
+    "server/trainer/hermes_personal_egress.py": "02fc11535db4ae2e6c35264e18e3b4d77cb9a9017f47a1247e807e77feba3710",
+    "scripts/hermes-personal-joint-fixture.mjs": "229d761ed26570f7124c8dddf1e2af5109b92dd57a1081a500e8c3091aae1653",
+    "scripts/hermes-personal-payer-fixture.py": "770cd4085be0d206eeb2a79e9beec98ac0d83d40de8359bea77884ffd1ba5a7b",
+    "server/trainer/personal-coordinator.test.mjs": "2416050c715a3d53c9887a330a30bb981e8ad45b07361448f625b2a8af422806",
+    "server/trainer/personal-payer.test.mjs": "5e26554a956a85b55fbc06f0be749610d4a19ffe5e7e6b456fcefee4eda24cc7",
+    "scripts/hermes-personal-payer-hang-fixture.mjs": "d3ad4e10236a0ec9f64ca4a85ee5a3a853890aca61492522b04b990c45d7aba5"
+  },
+  "nodeCoordinatorTests": 17,
+  "nodePayerTests": 4,
+  "nodeTransportTests": 11,
+  "review": {
+    "nativeInputBinding": "personal_contract_review passed",
+    "lifecycle": "personal_local_review passed"
+  },
+  "nativeInputLookup": {
+    "checks": 2,
+    "scope": "live admission rows; no tombstone promise; miss never resubmits",
+    "nativeIpcChecks": 12
+  }
+}

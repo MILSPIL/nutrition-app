@@ -215,6 +215,50 @@ class PersonalOwner:
             self.connections[channel] = (AuthorityConnection(self.authority, transport, identity), transport)
         return self.connections[channel][0]
 
+    def execution_binding(self):
+        # Native ContextVar identifies the actual admitted turn, including aux
+        # SDK/tool threads. Never label an old recovery callback with whichever
+        # app input happens to be active in the parent at that moment.
+        from gateway.session_cli_turn import _cli_turn
+        from hermes_state_runtime import get_session_admission
+        current = _cli_turn.get()
+        if self.closed or self.authority is None or not current:
+            raise RuntimeError("execution_unknown")
+        row = get_session_admission(self.authority.db, admission_id=current[0])
+        subjects = {connection.actor.subject for connection, _transport in list(self.connections.values())}
+        if not row or row['principal_id'] not in subjects or row['status'] != 'started' or row['owner_epoch'] != self.authority.epoch or type(row['generation']) is not int or row['generation'] < 1:
+            raise RuntimeError("execution_unknown")
+        api_text = row['payload'].get('cli_turn_v1', {}).get('api_text', '')
+        match = re.match(r'SCISENSE-INPUT-V1 ([A-Za-z0-9-]{16,80}) ([a-f0-9]{64})\n', api_text)
+        if not match or match[1] != row['request_id']:
+            raise RuntimeError("execution_unknown")
+        return {"profileId": str(self.home), "sessionId": row['target_session_id'], "inputId": row['request_id'],
+                "admissionId": row['admission_id'], "authorityEpoch": row['owner_epoch'], "generation": row['generation'],
+                "sequence": row['seq'], "inputProof": match[2]}
+
+    async def lookup(self, channel, session_id, input_id, input_proof):
+        # Read native UNIQUE(principal, target, request) directly through its
+        # official store helper. It does not submit, wake or retry anything.
+        if not isinstance(input_proof, str) or not re.fullmatch(r'[a-f0-9]{64}', input_proof):
+            raise RuntimeError("invalid_request")
+        from hermes_state_runtime import find_session_admission
+        from dataclasses import asdict
+        from gateway.session_results import admission_result
+        connection = self.channel(channel)
+        row = await asyncio.to_thread(find_session_admission, self.authority.db,
+            principal_id=connection.actor.subject, session_id=session_id, request_id=input_id)
+        if row is None:
+            return None
+        expected = 'SCISENSE-INPUT-V1 ' + input_id + ' ' + input_proof + '\n'
+        if not row['payload'].get('cli_turn_v1', {}).get('api_text', '').startswith(expected):
+            return None
+        result = asdict(self.authority._receipt(row))
+        if result['status'] == 'terminal':
+            saved = await asyncio.to_thread(admission_result, self.authority.db, row['admission_id'])
+            if saved is not None:
+                result.update(result=saved['result'], usage=saved.get('usage') or {})
+        return result
+
     async def rpc(self, channel, method, params):
         # Internal coordinator API, never exposed as an unchecked browser proxy.
         response = await self.channel(channel).dispatch({"jsonrpc": "2.0", "id": uuid.uuid4().hex,

@@ -28,14 +28,14 @@ async def serve(peer):
         raise RuntimeError("invalid_request")
     from hermes_personal_owner import PersonalOwner
     def model(payload, *, client_options):
-        value = peer.ask("model", {"payload": payload, "clientOptions": client_options})
+        value = peer.ask("model", {"payload": payload, "clientOptions": client_options, "nativeBinding": owner.execution_binding()})
         if payload.get("stream"):
             if not isinstance(value, dict) or not isinstance(value.get("chunks"), list):
                 raise RuntimeError("model_payload_invalid")
             return iter(value["chunks"])
         return value["completion"]
     owner = PersonalOwner(home=Path(os.environ["HERMES_HOME"]), connection=setup.get("connection", {}),
-        model_bridge=model, tool_handler=lambda name, arguments: peer.ask("tool", {"name": name, "arguments": arguments}),
+        model_bridge=model, tool_handler=lambda name, arguments: peer.ask("tool", {"name": name, "arguments": arguments, "nativeBinding": owner.execution_binding()}),
         tool_schemas=setup.get("toolSchemas", {}), on_event=lambda channel, event: peer.send({"type": "event", "channel": channel, "event": event}))
     tasks = set()
     async def command(value):
@@ -50,6 +50,8 @@ async def serve(peer):
                 if not isinstance(value.get("method"), str) or not isinstance(value.get("params"), dict):
                     raise RuntimeError("invalid_request")
                 result = await owner.rpc(value.get("channel"), value["method"], value["params"])
+            elif kind == "lookup" and set(value) <= {"id", "type", "channel", "sessionId", "inputId", "inputProof"}:
+                result = await owner.lookup(value.get("channel"), value.get("sessionId"), value.get("inputId"), value.get("inputProof"))
             elif kind == "detach" and set(value) <= {"id", "type", "channel"}:
                 await owner.close_channel(value.get("channel")); result = {"detached": True}
             else:

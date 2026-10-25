@@ -6,7 +6,10 @@ import { randomUUID } from "node:crypto";
 import { createPersonalProcess } from "../server/trainer/personal-process.mjs";
 const setup = JSON.parse(readFileSync(process.argv[2]));
 const model = "synthetic-model", calls = [], tools = [], events = [];
-function completion(payload) {
+let activeInput;
+function completion(payload, { nativeBinding }) {
+  assert.equal(nativeBinding.inputId, activeInput); assert.equal(nativeBinding.inputProof, "a".repeat(64));
+  assert.ok(nativeBinding.generation > 0);
   calls.push(payload);
   assert.equal(payload.model, model);
   assert.ok(calls.length <= 2, "restart/replay must not issue another model call");
@@ -32,6 +35,8 @@ try {
   const web = await owner.bot("web"), desktop = await owner.bot("desktop:first");
   assert.equal(web.session_id, desktop.session_id); checks++;
   const input = { session_id: web.session_id, submission_id: randomUUID(), text: "Покажи синтетичний підсумок через IPC.", api_text: "Покажи синтетичний підсумок через IPC. Use read_confirmed_day." };
+  activeInput = input.submission_id;
+  input.api_text = `SCISENSE-INPUT-V1 ${activeInput} ${"a".repeat(64)}\n` + input.api_text;
   stage = "submit";
   const admission = await owner.rpc("web", "prompt.submit", input);
   stage = "receipt";
@@ -61,6 +66,9 @@ try {
   await owner.bot("web");
   const duplicate = await owner.rpc("web", "prompt.submit", input);
   assert.equal(duplicate.admission_id, admission.admission_id); assert.equal(calls.length, 2); checks++;
+  const lookedUp = await owner.lookup("web", { sessionId: web.session_id, inputId: activeInput, payloadHmac: "a".repeat(64) });
+  assert.equal(lookedUp.admission_id, admission.admission_id); assert.equal(lookedUp.status, "terminal"); assert.equal(calls.length, 2); checks++;
+  assert.equal(await owner.lookup("web", { sessionId: web.session_id, inputId: activeInput, payloadHmac: "b".repeat(64) }), null); checks++;
   assert.ok(events.length > 0); checks++;
   console.log(JSON.stringify({ passed: true, checks, canonicalSessionSame: true, exactMessagesAfterRestart: true, sameReceiptAfterRestart: true, syntheticModelCalls: calls.length, nativeToolCalls: tools.length, nativeEvents: events.length, realModelRequests: 0 }));
 } catch (error) {

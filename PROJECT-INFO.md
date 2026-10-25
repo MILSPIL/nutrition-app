@@ -8,6 +8,8 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-25 23:09 UTC: actual-native зв’язка owner/Codex producer/шифрований parent/coordinator пройшла9інтегрованих перевірок.2native tools і4synthetic POST; спільна історія web/Desktop, ізольований другий профіль, фізичний restart зі сталими messages і birth-epochreceipt.5nativeпроцесів пройшли OS4canaries. Окремо17Core+4Payer+11transportNode та12NativeIPC checks; незалежні binding/lifecycle рев’ю PASS. [Доказ](docs/evidence/hermes-personal-joint-2026-10-26.json). HTTP gateway/Desktop facade, приватна міграція, реальний вхід іlive ще не підключені.0реальнихAPI, прод не змінений.
+
 2026-10-25 22:42 UTC: native Codex payer HERMES-PERSONAL-01 пройшов31offlinePythonтест і10actual-nativeIPC перевірок, плюс11Node transport і2Node payer regression. Native SDK отримав текст/потік через synthetic Responses; wiremodel перевіряється після zstd/gzip. Окремий watchdog фізично зупиняє child навіть між modelcalls; наступний turn бере нову identity доPOST. Незалежне рев’ю PASS. [Доказ](docs/evidence/hermes-personal-payer-2026-10-26.json). Активований технічний lane лише OpenAI Codex; інші auth/transport відхиляються до resolver. PayerIPC/coordinator/DesktopUI/private migration/livecutover ще попереду,0realAPI, productionне змінений.
 
 2026-10-25 22:38 UTC: durable queued intent HERMES-PERSONAL-01 прив’язується до поточного native Bot Chat лише після взяття спільної черги. Облік фізичних POST переживає рестарт і діє для двох профілів: максимум3наturn,8turn/24POST для B3 без зміни scope/cap викликом. 13тестів та незалежне рев’ю пройдено. [Доказ](docs/evidence/hermes-personal-budget-2026-10-26.json). Інтегрований payer/coordinator/live ще не завершені, production не змінений.

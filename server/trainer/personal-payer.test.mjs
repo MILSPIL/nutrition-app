@@ -40,3 +40,36 @@ test("aggregate watchdog kills an idle producer between logical model calls", as
     assert.equal(child.signalCode, "SIGKILL");
   } finally { await payer.close(); }
 });
+
+
+test("coordinator abort after a healthy turn clears closed producer before the next input", async () => {
+  const children = [];
+  const payer = createPersonalPayer({
+    spawnWorker: () => { const child = spawn(process.execPath, [new URL("../../scripts/hermes-personal-payer-hang-fixture.mjs", import.meta.url).pathname], { stdio: ["pipe", "pipe", "ignore"] }); children.push(child); return child; },
+    credentials: { restore: () => ({ revision: 1, files: {} }) }, reservePost: () => ({ accepted: true }),
+  });
+  const execute = id => payer.withTurn({ uid: "synthetic", inputId: id, signal: new AbortController().signal, deadline: Date.now() + 2000 }, invoke => invoke({ model: "synthetic", success: true }));
+  try {
+    await payer.start(); await execute("first"); await payer.abortTurn();
+    assert.equal(children[0].signalCode, "SIGKILL");
+    assert.equal((await execute("second")).proof.selectedModel, "synthetic");
+    assert.equal(children.length, 2);
+  } finally { await payer.close(); }
+});
+
+
+test("concurrent startup after idle exit creates one replacement and close is final", async () => {
+  const children = [];
+  const payer = createPersonalPayer({
+    spawnWorker: () => { const child = spawn(process.execPath, [new URL("../../scripts/hermes-personal-payer-hang-fixture.mjs", import.meta.url).pathname], { stdio: ["pipe", "pipe", "ignore"] }); children.push(child); return child; },
+    credentials: { restore: () => ({ revision: 1, files: {} }) }, reservePost: () => ({ accepted: true }),
+  });
+  try {
+    await payer.start();
+    await new Promise(resolve => { children[0].once("exit", resolve); children[0].kill("SIGKILL"); });
+    const [one, two] = await Promise.all([payer.start(), payer.start()]);
+    assert.equal(one, two); assert.equal(children.length, 2);
+    await payer.close(); await assert.rejects(payer.start(), /trainer_unavailable/);
+    assert.equal(children.length, 2);
+  } finally { await payer.close(); }
+});

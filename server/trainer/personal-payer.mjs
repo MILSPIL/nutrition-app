@@ -3,8 +3,9 @@ import { createInternalProcess } from "./internal-process.mjs";
 // One shared native producer, used only while the global queue owns a turn.
 // The profile never receives this process handle or the connection material.
 export function createPersonalPayer({ spawnWorker, credentials, reservePost, deadlineMs = 45000, now = Date.now }) {
-  let process, active, identity;
+  let process, active, identity, starting, closed = false, generation = 0;
   const boot = () => {
+    if (closed || active?.cancelled) throw Error("trainer_unavailable");
     if (!process) {
       const restored = credentials.restore();
       process = createInternalProcess({ spawnWorker, deadlineMs,
@@ -22,7 +23,7 @@ export function createPersonalPayer({ spawnWorker, credentials, reservePost, dea
             return credentials.checkpoint(files, message.options);
           },
           budget(message) {
-            if (!active || now() >= active.deadline || active.signal?.aborted) throw Error("trainer_timeout");
+            if (!active || active.cancelled || now() >= active.deadline || active.signal?.aborted) throw Error("trainer_timeout");
             return reservePost(active.uid, active.inputId, message.proof);
           },
         },
@@ -31,10 +32,37 @@ export function createPersonalPayer({ spawnWorker, credentials, reservePost, dea
     }
     return process;
   };
+  function start() {
+    if (closed || active?.cancelled || active && process?.unavailable) return Promise.reject(Error("trainer_unavailable"));
+    if (starting) return starting;
+    const version = generation;
+    const task = (async () => {
+      let current = process;
+      try {
+        if (!active && current?.unavailable) {
+          await current.close();
+          if (closed || version !== generation) throw Error("trainer_unavailable");
+          if (process === current) { process = undefined; identity = undefined; }
+        }
+        if (closed || version !== generation) throw Error("trainer_unavailable");
+        current = boot();
+        const selected = await current.start();
+        if (closed || version !== generation) throw Error("trainer_unavailable");
+        return identity ??= Object.freeze(selected);
+      } catch (error) {
+        current?.abort(); await current?.close();
+        if (process === current) { process = undefined; identity = undefined; }
+        throw error;
+      }
+    })();
+    starting = task;
+    task.finally(() => { if (starting === task) starting = undefined; }).catch(() => {});
+    return task;
+  }
   return Object.freeze({
-    async start() { return identity ??= Object.freeze(await boot().start()); },
+    start,
     async withTurn({ uid, inputId, signal, deadline }, execute) {
-      if (active || !Number.isFinite(deadline) || deadline <= now() || deadline - now() > deadlineMs) throw Error("trainer_unavailable");
+      if (closed || active || !Number.isFinite(deadline) || deadline <= now() || deadline - now() > deadlineMs) throw Error("trainer_unavailable");
       active = { uid, inputId, signal, deadline };
       let timedOut = false;
       const abort = () => process?.abort();
@@ -42,8 +70,9 @@ export function createPersonalPayer({ spawnWorker, credentials, reservePost, dea
       signal?.addEventListener("abort", abort, { once: true });
       if (signal?.aborted) abort();
       try {
-        identity ??= Object.freeze(await boot().start());
+        await start();
         const value = await execute(async (payload, { clientOptions = {}, signal: callbackSignal } = {}) => {
+          if (active?.cancelled || signal?.aborted) throw Error("trainer_timeout");
           const remaining = Math.floor(deadline - now());
           if (remaining <= 0) throw Error("trainer_timeout");
           const guardSignal = AbortSignal.any([signal, callbackSignal].filter(Boolean));
@@ -61,6 +90,12 @@ export function createPersonalPayer({ spawnWorker, credentials, reservePost, dea
         active = undefined;
       }
     },
-    async close() { await process?.close(); process = undefined; identity = undefined; },
+    async abortTurn() {
+      generation++;
+      if (active) active.cancelled = true;
+      const previous = process; previous?.abort(); await previous?.close();
+      if (process === previous) { process = undefined; identity = undefined; }
+    },
+    async close() { closed = true; generation++; if (active) active.cancelled = true; const previous = process; await previous?.close(); if (process === previous) { process = undefined; identity = undefined; } },
   });
 }
