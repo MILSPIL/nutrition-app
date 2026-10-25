@@ -9,14 +9,14 @@ status: open
 importance: high
 signal: verification
 complexity: high
-tags: [HERMES-COACH-02, implemented-local, packaged, owner-authorized, live-pending]
+tags: [HERMES-COACH-02, HERMES-HOST-01, implemented-local, packaged, owner-authorized, host-policy-pending]
 links: [{to: card_128eb6c248fb, kind: related}]
 review_required: true
 acceptance: "[{\"manual_approval\":\"Юрій явно погодив локальні кроки0–5 HERMES-COACH-02 та припущення А1–А4; окремо назвав I01, якщо включає його.\"}]"
-evidence: "2026-10-25: кандидат cd7b02d345385909ab8c59b42a0d48f78833f7f6, CI40137268017 attempt2 усі4 jobs PASS. Локально283 client,213 server,65 rules/access,47 core storage; actual Hermes writer/reader PASS. Незалежні рев’ю без відкритих P1/P2. Пакет224files/runtime31726,5HTTP/0external; основний UI36files перевірений. Linux C05:9.728с/max31964B/2CPU2GiB/OOM0. Попередній одиничний lab502 зафіксовано, assertion не послаблено. Доказ docs/evidence/hermes-coach-local-acceptance-2026-10-25.json. Mac/Keychain locked підтверджено22:10UTC; публікація/приватна активація/живі модельні проби не виконані. G02–G11 pending."
+evidence: "2026-10-25: кандидат cd7b02d345385909ab8c59b42a0d48f78833f7f6, CI40137268017 attempt2 усі4 jobs PASS. Локально283 client,213 server,65 rules/access,47 core storage; actual Hermes writer/reader PASS. Незалежні рев’ю без відкритих P1/P2. Пакет224files/runtime31726,5HTTP/0external; основний UI36files перевірений. Linux C05:9.728с/max31964B/2CPU2GiB/OOM0. Попередній одиничний lab502 зафіксовано, assertion не послаблено. Доказ docs/evidence/hermes-coach-local-acceptance-2026-10-25.json. 2026-10-25: Mac/Keychain/SSH доступні. Host userns проба відмовила на uid_map за AppArmorrestriction1, bwrap/profile відсутні. HERMES-HOST-01 з exact profile підготовлено; parser4.0.1 skip-kernel-load/skip-cache PASS, kernelpolicy незмінна; незалежний Codex review PASS. Конкретний новий дозвіл userns очікується, старий deploy-дозвіл збережено. Доказ docs/evidence/hermes-host-preflight-2026-10-25.json. Новий реліз/приватна активація/живі проби не виконані. G02–G11 pending."
 valid_from: "2026-10-24T19:53:39.617297+00:00"
 created_at: "2026-10-24T19:53:39.617297+00:00"
-updated_at: "2026-10-24T22:24:55.214131+00:00"
+updated_at: "2026-10-25T09:35:41.287435+00:00"
 author: Codex
 content_hash: "sha256:c4c9cdb91c4ba6eeee10d5a8ed8b569b0fb4b8f5c68e37a573369df7c7071461"
 ---

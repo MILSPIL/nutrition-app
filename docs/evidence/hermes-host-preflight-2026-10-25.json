@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-25T09:33:28.516506+00:00",
+  "scope": "host_readonly_inventory_and_profile_parse_only",
+  "releaseCandidate": "cd7b02d345385909ab8c59b42a0d48f78833f7f6",
+  "liveRelease": "9f2759ba3fa55ae74436865a1635893f8c6717d5",
+  "liveServiceActive": true,
+  "platform": {
+    "architecture": "x86_64",
+    "glibc": "2.39",
+    "systemd": "255.4-1ubuntu8.18",
+    "apparmorEnabled": true,
+    "apparmorParser": "4.0.1",
+    "unprivilegedUsernsRestriction": 1,
+    "bwrapInstalled": false
+  },
+  "namespaceProbe": {
+    "user": "scisense",
+    "exit": 1,
+    "errorCode": "UID_MAP_WRITE_EPERM",
+    "purpose": "nonprivileged_child_user_mount_net_namespaces"
+  },
+  "budget": {
+    "capMicros": 5000000,
+    "reservedMicros": 531788,
+    "remainingMicros": 4468212,
+    "calls": 13,
+    "unfinishedCalls": 0,
+    "newCalls": 0
+  },
+  "candidatePolicy": {
+    "file": "docs/deployment/scisense-bwrap.apparmor",
+    "exit": 0,
+    "out": "",
+    "err": "",
+    "sha256": "4cf4112db08b7a5b1bfd9101bfe11bb3353c3f408b99222c5b1b455c16fd9134",
+    "kernelProfilesUnchanged": true,
+    "cacheDisabled": true,
+    "kernelLoadDisabled": true,
+    "loaded": false,
+    "binaryPath": "/usr/bin/bwrap",
+    "binaryOwner": "root",
+    "binaryGroup": "scisense",
+    "binaryMode": "0750",
+    "binarySha256": "e04f6bb9ac71ed7b39e4ec7ef9ede00a562711f5d35414cbe84caa8865b47824"
+  },
+  "limitations": [
+    "Політику AppArmor у ядрі не змінено.",
+    "Використано unshare, а не фактичний bwrap чи Hermes на сервері.",
+    "Успішний синтаксис не доводить сумісність runtime на сервері.",
+    "Якщо рішення очікується, тимчасовий адміністратор відкликається до зупинки роботи."
+  ],
+  "sources": [
+    "https://documentation.ubuntu.com/release-notes/24.04/#unprivileged-user-namespace-restrictions"
+  ],
+  "review": {
+    "agent": "Codex host_profile_review",
+    "result": "PASS",
+    "openP1P2": 0,
+    "scope": "proposal_only",
+    "clarificationsApplied": [
+      "Право стосується всіх процесів scisense, які запускають цей binary.",
+      "Проба має окремі StateDirectory/RuntimeDirectory і не успадковує production credentials."
+    ]
+  }
+}

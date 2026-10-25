@@ -14,7 +14,7 @@
     "order_hint": 0,
     "author": "Codex",
     "created_at": "2026-10-20T08:46:52.926644+00:00",
-    "updated_at": "2026-10-24T22:24:59.353483+00:00",
+    "updated_at": "2026-10-25T09:35:43.565197+00:00",
     "valid_from": null,
     "expires_at": null,
     "importance": null,
@@ -25,8 +25,8 @@
     "last_exported_at": null,
     "last_exported_hash": null,
     "health": "at_risk",
-    "health_note": "HERMES-COACH-02/I01 локально завершені; cd7b02d, exact CI40137268017 attempt2 усі4 jobs PASS, пакети on/off і5HTTP перевірені. Mac/Keychain locked підтверджено22:10UTC, тому actual host rehearsal, приватна активація, deployment/live smoke та перевірка власником ще не виконані. Повторного дозволу на погоджене розгортання не потрібно.",
-    "health_updated_at": "2026-10-24T22:24:59.353483+00:00"
+    "health_note": "2026-10-25 Mac/Keychain/SSH відновлені. Кандидат cd7b02d і4CI/пакети PASS. Фактична userns проба від scisense відмовляє на uid_map за AppArmorrestriction1; bwrap/profile відсутні. HERMES-HOST-01, exact113Bprofile parse-onlyPASS/no kernelchange, незалежний reviewerPASS. Очікується конкретне рішення щодо нового userns-дозволу; загальний deploy вже погоджений. На сайті лишається9f2759b; нових modelcalls0.",
+    "health_updated_at": "2026-10-25T09:35:43.565197+00:00"
   },
   "phase_revisions": [
     {
@@ -502,6 +502,20 @@
       "actor_client": null,
       "actor_model": null,
       "at": "2026-10-24T22:24:59.353483+00:00",
+      "project": "nutrition-app",
+      "product": "scisense"
+    },
+    {
+      "id": "rev_b4389a46177859a0",
+      "phase_id": "phase_870a15952663",
+      "field": "health_note",
+      "old_value": "HERMES-COACH-02/I01 локально завершені; cd7b02d, exact CI40137268017 attempt2 усі4 jobs PASS, пакети on/off і5HTTP перевірені. Mac/Keychain locked підтверджено22:10UTC, тому actual host rehearsal, приватна активація, deployment/live smoke та перевірка власником ще не виконані. Повторного дозволу на погоджене розгортання не потрібно.",
+      "new_value": "2026-10-25 Mac/Keychain/SSH відновлені. Кандидат cd7b02d і4CI/пакети PASS. Фактична userns проба від scisense відмовляє на uid_map за AppArmorrestriction1; bwrap/profile відсутні. HERMES-HOST-01, exact113Bprofile parse-onlyPASS/no kernelchange, незалежний reviewerPASS. Очікується конкретне рішення щодо нового userns-дозволу; загальний deploy вже погоджений. На сайті лишається9f2759b; нових modelcalls0.",
+      "reason": null,
+      "author": null,
+      "actor_client": null,
+      "actor_model": null,
+      "at": "2026-10-25T09:35:43.565197+00:00",
       "project": "nutrition-app",
       "product": "scisense"
     }
