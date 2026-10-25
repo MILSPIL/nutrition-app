@@ -1,0 +1,90 @@
+{
+  "scope": "CODEX-SERVER-PROBE-01",
+  "recorded_at_utc": "2026-10-25T18:33:54.220484+00:00",
+  "hermes_pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+  "source_hashes_match": true,
+  "isolation": {
+    "configured_cpu_quota": 2,
+    "observed_memory_max_bytes": 2147483648,
+    "observed_memory_swap_max": 0,
+    "noswap_tmpfs": true,
+    "core_dumps_disabled": true
+  },
+  "dry_run": {
+    "ok": true,
+    "synthetic_posts": 2,
+    "external_model_calls": 0,
+    "third_post_blocked": true
+  },
+  "live": {
+    "ok": true,
+    "provider": "openai-codex",
+    "auth_mode": "chatgpt",
+    "requested_model": "gpt-6.1-sol",
+    "physical_inference_posts": 2,
+    "phases": [
+      {
+        "phase": "before_refresh",
+        "requested_model": "gpt-6.1-sol",
+        "http_status": 200,
+        "observed_model": "gpt-6.1-sol",
+        "terminal_status": "completed",
+        "terminal_model": "gpt-6.1-sol",
+        "expected_response": true,
+        "auth_mode": "chatgpt",
+        "seconds": 3.941
+      },
+      {
+        "phase": "after_refresh",
+        "requested_model": "gpt-6.1-sol",
+        "http_status": 200,
+        "observed_model": "gpt-6.1-sol",
+        "terminal_status": "completed",
+        "terminal_model": "gpt-6.1-sol",
+        "expected_response": true,
+        "auth_mode": "chatgpt",
+        "seconds": 2.44
+      }
+    ],
+    "native_refresh_http_200": true,
+    "native_refresh_requests": 1,
+    "refreshed_credential_persisted": true,
+    "token_rotated": true
+  },
+  "cleanup": {
+    "temporary_profile_removed": true,
+    "temporary_paths_absent": true,
+    "transient_unit_absent": true,
+    "administrative_account_absent": true,
+    "ssh_authentication_rejected": true,
+    "temporary_keychain_entries_removed": 3
+  },
+  "production": {
+    "release_unchanged": "21b0cd3116fce40d1dd706244cbff4bde81ef156",
+    "health_http_status": 200,
+    "health_ok": true,
+    "application_code_changed": false,
+    "anthropic_calls": 0
+  },
+  "review": {
+    "independent_agent": "codex_probe_review",
+    "open_security_blockers": 0,
+    "accepted_guard_tests": [
+      "two_posts_maximum",
+      "refresh_order",
+      "one_live_launch",
+      "cleanup_identity"
+    ],
+    "scripts_sha256": {
+      "probe.py": "ee5ed87f11d68201e213acae543cd068b8ad401ef1e09121b37a0f9c19b50ccd",
+      "ops.py": "30c553fb5082fa25742e4dfdf3d0a2f12a6fe6b0fa0e1cf5e56f560730da6a45"
+    }
+  },
+  "not_proven": [
+    "full_personal_trainer_agent",
+    "desktop_history_continuity",
+    "long_term_refresh_stability",
+    "two_account_isolation",
+    "exact_subscription_plan_tier_by_server_probe"
+  ]
+}
