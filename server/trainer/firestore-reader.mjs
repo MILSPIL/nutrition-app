@@ -174,7 +174,7 @@ export function createFirestoreReader({
   async function readPlanInTransaction(uid,get) {
     const [root]=await get([`users/${uid}`]),profile=root?.users?.[profileId];
     if(!profile)fail("profile_missing",409);
-    const planContext={profile:{portions:profile.portions||{},customProducts:profile.customProducts||{},hiddenProducts:profile.hiddenProducts||[]},
+    const planContext={profile:{portions:profile.portions||{},customProducts:profile.customProducts||{},hiddenProducts:profile.hiddenProducts||[],...(profile.nutritionTargets!==undefined?{nutritionTargets:profile.nutritionTargets}:{})},
       globalCustomProducts:root.globalCustomProducts||{},productOverrides:root.productOverrides||{}};
     return {planContext,catalog:buildPlanCatalog(planContext)};
   }

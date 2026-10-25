@@ -1,3 +1,5 @@
+import DiaryDatePicker from '../components/DiaryDatePicker';
+import { targetsReport } from '../services/profileTargets';
 import FoodNotesPanel from '../components/FoodNotesPanel';
 import { foodNotesReport } from '../services/foodNotes';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
@@ -38,8 +40,7 @@ import {
 import VoiceInputModal from '../components/VoiceInputModal';
 import TrainerChat from '../components/TrainerChat';
 import TrainerLauncher from '../components/TrainerLauncher';
-import { CalendarDays } from 'lucide-react';
-import { dateLabel, kyivDateKey } from '../services/trainerDates';
+import { kyivDateKey } from '../services/trainerDates';
 import PilotPanel from '../components/PilotPanel';
 import { createPilotLedger } from '../services/pilotLedger';
 import { catalogItem, quantityText, itemMacros, sourceText } from '../services/mealItems';
@@ -56,6 +57,8 @@ export default function ClientApp() {
   const [authLoading, setAuthLoading] = useState(true);
 
   const [currentUser, setCurrentUser] = useState(null);
+  const profileIdentity = useRef({});
+  useEffect(() => {profileIdentity.current = {uid:firebaseUser?.uid, profileId:currentUser};}, [firebaseUser?.uid,currentUser]);
   const [users, setUsers] = useState({});
   const [globalCustomProducts, setGlobalCustomProducts] = useState({});
   const [productOverrides, setProductOverrides] = useState({});
@@ -64,7 +67,7 @@ export default function ClientApp() {
   const [trainerNote,setTrainerNote]=useState(null);
   const trainerTriggerRef=useRef(null);
   const [trainerDateContext,setTrainerDateContext]=useState({mode:"default"});
-  const [diaryDatePinned,setDiaryDatePinned]=useState(false);
+  const [trainerMode,setTrainerMode]=useState("coach");
   const [pilotVersion,setPilotVersion]=useState(0);
   const pilotLedger=useMemo(()=>createPilotLedger(),[]);
   useEffect(()=>()=>{void pilotLedger.close().catch(()=>{});},[pilotLedger]);
@@ -226,7 +229,6 @@ export default function ClientApp() {
 
     setCurrentWeight(user.currentWeight || null);
     setMealsDateKey(kyivDateKey());
-    setDiaryDatePinned(false);
     setActivity(user.activity || "");
     setOtherActivity(user.otherActivity || "");
   };
@@ -257,8 +259,7 @@ export default function ClientApp() {
       setUsers({});
       setGlobalCustomProducts({});
       setMealsDateKey(kyivDateKey());
-      setDiaryDatePinned(false);
-    } catch (error) {
+      } catch (error) {
       console.error('Error signing out:', error);
     }
   };
@@ -478,12 +479,7 @@ export default function ClientApp() {
     }
 
     report += `\n\n📊 БЖВ за день:`;
-    report += `\nБілки: ${totalMacros.p}г / 140г (${Math.round(totalMacros.p / 140 * 100)}%)`;
-    report += `\nЖири: ${totalMacros.f}г / 70г (${Math.round(totalMacros.f / 70 * 100)}%)`;
-    report += `\nВуглеводи: ${totalMacros.c}г / 235г (${Math.round(totalMacros.c / 235 * 100)}%)`;
-
-    const totalCalories = totalMacros.cal;
-    report += `\nКалорії: ${totalCalories} ккал / 2305 ккал (${Math.round(totalCalories / 2305 * 100)}%)`;
+    report += `\n${targetsReport(totalMacros, users[currentUser])}`;
 
     return report + foodNotesReport(mealDay.day.notes);
   };
@@ -497,6 +493,16 @@ export default function ClientApp() {
     };
     setUsers(updatedUsers);
     saveToFirestore({name:newName});
+  };
+
+  const handleTargetsSave = async nutritionTargets => {
+    const uid = firebaseUser?.uid, profileId = currentUser;
+    const sameOwner = () => auth.currentUser?.uid === uid && profileIdentity.current.uid === uid && profileIdentity.current.profileId === profileId;
+    if (!uid || !profileId || !sameOwner() || !mealDay.ready || mealDay.busy || mealDay.hasPending) throw Error('unauthorized');
+    await saveProfileSettings(uid, profileId, {nutritionTargets});
+    if (!sameOwner()) throw Error('unauthorized');
+    setUsers(previous => ({...previous, [profileId]:{...previous[profileId], nutritionTargets}}));
+    mealDay.reload();
   };
 
   const handleStartDateSave = (startDate) => {
@@ -534,15 +540,15 @@ export default function ClientApp() {
   previousDate.setUTCDate(previousDate.getUTCDate() - 1);
   const yesterdayDate = previousDate.toISOString().slice(0, 10);
   const dateBusy = mealDay.busy || mealDay.hasPending || !!metadataDirty.current;
-  const chooseDate = (value, pinned = true) => {
+  const chooseDate = (value) => {
     if (!value || dateBusy) return;
     setMealsDateKey(value);
-    setDiaryDatePinned(pinned);
   };
-  const openTrainer = (event) => {
+  const openTrainer = (event, mode = "coach") => {
     trainerTriggerRef.current=event?.currentTarget || document.activeElement;
     setTrainerNote(null);
-    setTrainerDateContext(diaryDatePinned ? {mode:'pinned',targetDate:mealsDateKey} : {mode:'default'});
+    setTrainerMode(mode);
+    setTrainerDateContext({mode:"default"});
     setShowVoiceInput(true);
   };
   const anyModal = showVoiceInput || showAccountSwitch || showPortionSettings || showDaySelector || showSettings || showProductModal || showReport || showAddCustomProduct || showAddTrainer || showMeasurements || showMeasurementReminder;
@@ -562,20 +568,14 @@ export default function ClientApp() {
         onShowDaySelector={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowDaySelector(true);}}
         onShowMeasurements={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowMeasurements(true);}}
         onShowSettings={() => {if(!mealDay.busy&&!mealDay.hasPending)setShowSettings(true);}}
-        onShowVoiceInput={openTrainer}
-        voiceLabel={trainerChatEnabled?'Тренер · текст і голос':undefined}
+        onShowVoiceInput={event=>openTrainer(event,"food")}
+        voiceLabel={trainerChatEnabled?'Додати їжу':undefined}
+        dateControl={<DiaryDatePicker value={mealsDateKey} today={todayDate} yesterday={yesterdayDate} disabled={dateBusy} onSelect={chooseDate}/>}
         voiceDisabled={!mealDay.ready || mealDay.busy || mealDay.requiresReload || !!mealDay.day.legacy}
 
       />
 
       <div className="max-w-lg mx-auto px-4 mb-4">
-        <div className="diary-date-control" aria-label="День щоденника">
-          <button className={mealsDateKey===todayDate?'is-selected':''} aria-pressed={mealsDateKey===todayDate} disabled={dateBusy} onClick={()=>chooseDate(todayDate,false)}>Сьогодні</button>
-          <button className={mealsDateKey===yesterdayDate?'is-selected':''} aria-pressed={mealsDateKey===yesterdayDate} disabled={dateBusy} onClick={()=>chooseDate(yesterdayDate)}>Вчора</button>
-          <details><summary aria-label="Обрати дату записів"><CalendarDays size={18} aria-hidden="true"/>{dateLabel(mealsDateKey)}</summary>
-            <input aria-label="Дата записів" type="date" value={mealsDateKey} disabled={dateBusy} onChange={e=>chooseDate(e.target.value)}/>
-          </details>
-        </div>
         {!mealDay.ready && <p role="status">Завантажую день…</p>}
         {mealDay.busy && <p role="status">Зберігаю…</p>}
         {(mealDay.error || mealDay.hasPending) && <div role="alert"><p>{mealDay.error || "Результат збереження ще не підтверджено. Перевірте той самий запис."}</p>
@@ -593,7 +593,7 @@ export default function ClientApp() {
           <ul>{Object.values(mealDay.day.legacy).flatMap(m=>Object.values(m).flat()).map((item,i)=><li key={i}>{item.name}: {quantityText(item)}</li>)}</ul>
         </div>}
       </div>
-      <div className="max-w-lg mx-auto px-4"><FoodNotesPanel onResolve={trainerChatEnabled?note=>{trainerTriggerRef.current=document.activeElement;setTrainerDateContext({mode:"pinned",targetDate:mealsDateKey});setTrainerNote({text:note.originalText||note.name,targetDate:mealsDateKey,meal:selectedMeal,noteId:note.noteId,itemId:note.itemId});setShowVoiceInput(true);}:undefined} notes={mealDay.day.notes}/></div>
+      <div className="max-w-lg mx-auto px-4"><FoodNotesPanel onResolve={trainerChatEnabled?note=>{trainerTriggerRef.current=document.activeElement;setTrainerDateContext({mode:"pinned",targetDate:mealsDateKey});setTrainerMode("food");setTrainerNote({text:note.originalText||note.name,targetDate:mealsDateKey,meal:selectedMeal,noteId:note.noteId,itemId:note.itemId});setShowVoiceInput(true);}:undefined} notes={mealDay.day.notes}/></div>
       <fieldset disabled={!mealDay.ready || mealDay.busy || mealDay.hasPending || !!mealDay.day.legacy}>
       <MealSection
         selectedMeal={selectedMeal}
@@ -628,7 +628,7 @@ export default function ClientApp() {
 
       <PilotPanel ledger={pilotLedger} uid={firebaseUser.uid} version={pilotVersion}/>
       {trainerChatEnabled && <TrainerLauncher hidden={anyModal} disabled={!mealDay.ready || mealDay.busy || mealDay.requiresReload || !!mealDay.day.legacy} onOpen={openTrainer} />}
-      {trainerChatEnabled&&showVoiceInput?<TrainerChat key={`${firebaseUser.uid}:${currentUser}`} uid={firebaseUser.uid} ownerKey={`${firebaseUser.uid}:${currentUser}`} date={mealsDateKey} meal={selectedMeal} ledger={pilotLedger}
+      {trainerChatEnabled&&showVoiceInput?<TrainerChat mode={trainerMode} key={`${firebaseUser.uid}:${currentUser}`} uid={firebaseUser.uid} ownerKey={`${firebaseUser.uid}:${currentUser}`} date={mealsDateKey} meal={selectedMeal} ledger={pilotLedger}
         returnFocusRef={trainerTriggerRef} initialDateContext={trainerDateContext} initialNote={trainerNote} onClose={()=>{setShowVoiceInput(false);setTrainerNote(null);setPilotVersion(x=>x+1);}}
         planContext={mealDay.day.planContext||{profile:users[currentUser],globalCustomProducts,productOverrides}} dayMeals={meals}
         onOpenDay={value=>chooseDate(value)} onSaved={()=>{mealDay.reload();setPilotVersion(x=>x+1);}}
@@ -701,6 +701,9 @@ export default function ClientApp() {
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
         firebaseUser={firebaseUser}
+        profile={users[currentUser]}
+        profileKey={`${firebaseUser.uid}:${currentUser}`}
+        onTargetsSave={handleTargetsSave}
         currentStartDate={users[currentUser]?.startDate}
         onStartDateSave={handleStartDateSave}
         calculateCurrentDay={calculateCurrentDay}

@@ -1,3 +1,4 @@
+import NutritionTargetsSettings from './NutritionTargetsSettings';
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, UserMinus, UserPlus, Settings as SettingsIcon, ChevronRight, Check, LogOut } from 'lucide-react';
 import { useTrainerConnection } from '../services/useTrainerConnection';
@@ -15,7 +16,10 @@ export default function SettingsModal({
   calculateCurrentDay,
   onShowPortionSettings,
   onShowAddTrainer,
-  onSignOut
+  onSignOut,
+  profile,
+  profileKey,
+  onTargetsSave
 }) {
   const [activeSection, setActiveSection] = useState(null); // 'startDate' | 'trainer' | null
   const [tempStartDate, setTempStartDate] = useState("");
@@ -50,6 +54,8 @@ export default function SettingsModal({
   // Main menu
   const renderMainMenu = () => (
     <div className="space-y-2">
+      {onTargetsSave && <button onClick={() => setActiveSection('targets')} className="w-full flex items-center justify-between px-4 py-3 bg-[#F2F2F7] rounded-xl min-h-[48px] text-left"><span>Профіль і програма<br/><span className="text-[13px] text-[#8E8E93]">Особисті денні норми</span></span><ChevronRight size={18}/></button>}
+
       {/* Start Date */}
       <button
         onClick={() => setActiveSection('startDate')}
@@ -243,6 +249,7 @@ export default function SettingsModal({
           {activeSection === null && renderMainMenu()}
           {activeSection === 'startDate' && renderStartDateSection()}
           {activeSection === 'trainer' && renderTrainerSection()}
+          {activeSection === 'targets' && <NutritionTargetsSettings key={profileKey} profile={profile} onSave={onTargetsSave} onBack={() => setActiveSection(null)}/>}
         </div>
       </div>
     </AnimatedModal>

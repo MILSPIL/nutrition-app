@@ -24,7 +24,7 @@ const messages = {
   context_conflict: "Пам’ять тренера вже змінилася. Потрібна нова пропозиція.",
   message_too_large: "Повідомлення завелике. Скоротіть його до 8000 байтів.",
   context_too_large:
-    "Накопичилося забагато незавершених чернеток. Завершіть одну з них.",
+    "Не вдалося вмістити повідомлення й контекст у запит. Текст збережений. Спробуйте коротше повідомлення.",
   admission_unknown:
     "Немає підтвердження отримання повідомлення. Перевірте стан перед повтором.",
   conversation_gone: "Цю розмову видалено. Відкрийте чат заново.",
@@ -35,6 +35,15 @@ const messages = {
 };
 export const trainerError = (e) =>
   messages[e?.message] || voiceError(e || Error());
+// Show one actionable failure. A concrete server cause takes precedence over generic recovery text.
+export function trainerFeedback({ localMessage = '', clientCode, turn } = {}) {
+  const concrete = turn?.state === 'failed' && messages[turn.error];
+  const genericCodes = [undefined, '', 'trainer_unavailable', 'client_timeout', 'request_failed'];
+  const genericMessages = ['', ...['trainer_unavailable', 'client_timeout', 'request_failed'].map(code => trainerError(Error(code)))];
+  if (concrete && genericCodes.includes(clientCode) && genericMessages.includes(localMessage)) return concrete;
+  return localMessage || (clientCode ? trainerError(Error(clientCode)) : '') ||
+    (turn?.state === 'failed' ? trainerError(Error(turn.error || 'trainer_unavailable')) : '');
+}
 export function createTrainerApi(
   uid,
   {

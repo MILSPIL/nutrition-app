@@ -200,7 +200,10 @@ test("bfcache never submits a previous STT result after restoration", async () =
 });
 test("empty chat offers a package photo before any draft exists", async () => {
   await render();
-  expect(button("Фото упаковки").disabled).toBe(false);
+  expect(button("Прикріпити фото").disabled).toBe(false);
+  await act(async () => Simulate.click(button("Прикріпити фото")));
+  expect(button("Сфотографувати").disabled).toBe(false);
+  expect(button("З галереї").disabled).toBe(false);
 });
 
 

@@ -93,9 +93,9 @@ test('C02 stale draft is blocked, explicit refresh has zero inference and reads 
 test('C02 deterministic totals exclude draft and count all four meals, preserving unknown notes',async()=>{
  const {confirmedSnapshot}=await import('./day-snapshot.mjs');
  const item={itemId:'synthetic-item-0001',name:'Synthetic',quantity:{value:180,unit:'g'},nutritionBasis:{value:100,unit:'g'},nutrients:{cal:60,p:1,f:2,c:3},source:{kind:'database'}};
- const day=await confirmedSnapshot({revision:4,meals:{1:{voice:[item]},2:{voice:[item]},3:{voice:[item]},4:{voice:[item]}},notes:[{noteId:'note-001',state:'active',knownNutrients:{cal:null}}],activity:{steps:6000},otherActivity:'Gym 50 minutes; pool previous day'}, {},'2026-01-02');
+ const day=await confirmedSnapshot({revision:4,meals:{1:{voice:[item]},2:{voice:[item]},3:{voice:[item]},4:{voice:[item]}},notes:[{noteId:'note-001',state:'active',knownNutrients:{cal:null}}],activity:{steps:6000},otherActivity:'Gym 50 minutes; pool previous day'}, {planContext:{profile:{nutritionTargets:{version:1,cal:2305,p:140,f:70,c:235}}}},'2026-01-02');
  assert.equal(day.totals.cal,432);assert.equal(day.totals.p,7.2);assert.equal(day.remaining.cal,1873);assert.equal(day.incomplete,true);assert.equal(day.notes[0].knownNutrients.cal,null);
- assert.equal(day.progress.unallocatedCount,4);assert.deepEqual(day.activity,{steps:6000});assert.equal(day.otherActivity,'Gym 50 minutes; pool previous day');
+ assert.equal(day.planProgress.unallocatedCount,4);assert.deepEqual(day.activity,{steps:6000});assert.equal(day.otherActivity,'Gym 50 minutes; pool previous day');
 });
 test('C05 required 8000-byte context, 24 foods, four notes,26 refs fit with the newest complete history pair',async()=>{
  const {buildSnapshot}=await import('./snapshot.mjs'),{confirmedSnapshot}=await import('./day-snapshot.mjs');

@@ -1,0 +1,11 @@
+.diary-header-date { position: relative; flex: none; color: #1766b7; }
+.diary-header-date > summary { min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 6px; border-radius: 12px; cursor: pointer; list-style: none; font-size: 13px; }
+.diary-header-date > summary::-webkit-details-marker { display: none; }
+.diary-header-date > summary[aria-disabled="true"] { opacity: .5; cursor: default; }
+.diary-header-calendar { position: absolute; z-index: 55; top: calc(100% + 6px); left: 50%; transform: translateX(-50%); width: min(280px, calc(100vw - 32px)); padding: 16px; border: 1px solid #d7dce4; border-radius: 16px; background: white; color: #171719; box-shadow: 0 12px 36px #0002; }
+.diary-header-calendar p { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+.diary-header-calendar > div { display: flex; gap: 8px; }
+.diary-header-calendar button { min-height: 44px; padding: 8px 12px; border-radius: 10px; background: #edf4ff; color: #1766b7; }
+.diary-header-calendar button[aria-pressed="true"] { background: #007aff; color: white; }
+.diary-header-calendar label { display: block; margin-top: 10px; font-size: 13px; }
+.diary-header-calendar input { display: block; width: 100%; min-height: 44px; margin-top: 4px; padding: 8px; border: 1px solid #c6cbd5; border-radius: 10px; font-size: 16px; }

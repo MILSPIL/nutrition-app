@@ -1,0 +1,203 @@
+{
+  "version": 1,
+  "task": "HERMES-PERSONAL-01",
+  "recordedAt": "2026-10-25T20:21:19Z",
+  "scope": "local-personal-targets-and-messenger",
+  "syntheticOnly": true,
+  "checks": {
+    "jest": {
+      "passed": 301,
+      "suites": 33
+    },
+    "server": {
+      "passed": 229,
+      "failed": 0
+    },
+    "productionBuild": "passed",
+    "builtUi": {
+      "passed": 36,
+      "checks": [
+        "login opens Kyiv today across browser timezone",
+        "history calendar is in navigation header",
+        "new owner targets are unset",
+        "second verified account never receives owner targets",
+        "second targets survive own reload",
+        "owner targets unchanged after second account save and reload",
+        "launcher 375",
+        "no automatic input 375",
+        "chat edges 375",
+        "text audit source 375",
+        "food shortcut no call 375",
+        "launcher 390",
+        "no automatic input 390",
+        "chat edges 390",
+        "text audit source 390",
+        "composer above visual keyboard",
+        "food shortcut no call 390",
+        "launcher 1366",
+        "no automatic input 1366",
+        "chat edges 1366",
+        "text audit source 1366",
+        "food shortcut no call 1366",
+        "food primary has clear purpose",
+        "explicit camera input",
+        "separate gallery input",
+        "attachment choice has no model or STT call",
+        "one advice no draft",
+        "historical preview reads actual day",
+        "norm revision refresh has zero inference",
+        "one concrete error",
+        "versioned icons exact visual box",
+        "history browsing never pins a new message",
+        "profile reload resets to Kyiv today",
+        "profile reload clears explicit coach date",
+        "repeat icons served from browser cache",
+        "no page errors"
+      ],
+      "status": "passed",
+      "widths": [
+        {
+          "home": {
+            "width": 375,
+            "height": 56,
+            "right": 16,
+            "bottom": 16,
+            "reportGap": 16.5,
+            "overflow": 0
+          },
+          "chat": {
+            "left": 16,
+            "right": 16,
+            "edges": 0,
+            "overflow": 0,
+            "width": 375,
+            "heights": [
+              44,
+              44,
+              44,
+              44,
+              44,
+              44,
+              44,
+              44
+            ]
+          }
+        },
+        {
+          "home": {
+            "width": 390,
+            "height": 56,
+            "right": 16,
+            "bottom": 16,
+            "reportGap": 16.5,
+            "overflow": 0
+          },
+          "chat": {
+            "left": 16,
+            "right": 16,
+            "edges": 0,
+            "overflow": 0,
+            "width": 390,
+            "heights": [
+              44,
+              44,
+              44,
+              44,
+              44,
+              44,
+              44,
+              44
+            ]
+          }
+        },
+        {
+          "home": {
+            "width": 1366,
+            "height": 56,
+            "right": 16,
+            "bottom": 16,
+            "reportGap": 16.5,
+            "overflow": 0
+          },
+          "chat": {
+            "left": 16,
+            "right": 16,
+            "edges": 0,
+            "overflow": 0,
+            "width": 512,
+            "heights": [
+              44,
+              44,
+              44,
+              44,
+              44,
+              44,
+              44,
+              44
+            ]
+          }
+        }
+      ],
+      "keyboard": {
+        "height": 480,
+        "dialogTop": 0,
+        "dialogBottom": 480,
+        "composerBottom": 480,
+        "scrollHeight": 314
+      },
+      "consoleErrors": []
+    }
+  },
+  "browserCleanup": {
+    "runnerSession": "c6a7f0e5426a45a1-m6aiiv5k",
+    "cleanup_ok": true,
+    "removed": true
+  },
+  "reviews": [
+    {
+      "reviewer": "personal_local_review",
+      "scope": "personal targets and messenger",
+      "finding": "P2 unset targets implied zero target progress",
+      "resolution": "Removed unknown target progress; observed letter totals are separate planProgress; reread passed."
+    },
+    {
+      "reviewer": "personal_local_review",
+      "scope": "visualViewport lifecycle",
+      "verdict": "passed; listeners removed and focus restoration unchanged; read-only review"
+    }
+  ],
+  "textAudit": {
+    "findingsPerWidth": 3,
+    "classification": "intentional composite category controls: separate title and day-progress caption",
+    "newChatTextDefects": 0,
+    "globalZeroFindingsClaim": false
+  },
+  "sourceSha256": {
+    "server/trainer/day-snapshot.mjs": "12553d90278f7e403f8431782652bbfaee281ab83ce174e415f78b8699502e56",
+    "server/trainer/firestore-reader.mjs": "911b111445f7d5aff45daa2b4d4d35563aa6dda596377c115c35069d6616b27c",
+    "server/trainer/personal-targets.test.mjs": "e724265e616c45c1cd9077430d84211d86488a9563638cf5791bf58d9284b7f1",
+    "src/services/profileTargets.js": "e5310793218d20f7eefd4d001d646fbb2829e645622c85cc27ec7d8314650971",
+    "src/services/profileTargets.test.js": "8d8303ba64484791ab15566ed62498e95e58dfb9e05897f89694c4140fc9c669",
+    "src/components/NutritionTargetsSettings.js": "6cace253b7878ffa6205b96b795d84b6666da861030dcdf111816047c9d7bd09",
+    "src/components/NutritionTargetsSettings.test.js": "2ab3e5751d10a683985975576cbc74450aba350e5e7f06262efd0d825318ff7b",
+    "src/components/DiaryDatePicker.js": "4c921343fe20da78077bc5fc8fe86e53ed231fc2c8378ac3dabf4dca339236d1",
+    "src/components/DiaryDatePicker.css": "ae6e46349a935af3bfbef68329c4ab9ffc8e5bd7fb500fac38dc6fdd6aaedbe1",
+    "src/components/Header.js": "3edd0c15a1cd3b5af44f4f10b642ac2d4cb9ca51bb4f81a51ba8e22d226ff8ce",
+    "src/components/TrainerChat.js": "c2ae3bd49e6fe8a0989dd00abf7061f16f427d73553e0bc26fe21181d8d453ce",
+    "src/components/TrainerChat.css": "a1342814fff6b49d49c4a3954293b46f69fc7fd6bf579b2c7bab3613a8b0695e",
+    "src/pages/ClientApp.js": "bc74334e294b937e451fbfcf4b986640435417aa797f749f255b5088aad4912e",
+    "src/services/trainerApi.js": "152dade908465aa397198a2bb83a3c4a3a6367c94aa3b99d0fc1fbcd5a587d0b",
+    "scripts/coach-ui-browser.mjs": "dda34a10ab98adb7cb89f07be64f0b1a81642b9a51c39f5e022fe8dbd9c7e9f4"
+  },
+  "notVerified": [
+    "native canonical two-channel history",
+    "real personal data migration",
+    "actual remote Desktop",
+    "real phone and Mac-off",
+    "production deployment"
+  ],
+  "externalWrites": false,
+  "realModelRequests": 0,
+  "keychainReads": 0,
+  "serverChanges": false
+}

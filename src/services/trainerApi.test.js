@@ -1,5 +1,5 @@
 jest.mock("../firebase", () => ({ auth: { currentUser: null } }));
-import { createTrainerApi } from "./trainerApi";
+import { createTrainerApi, trainerError, trainerFeedback } from "./trainerApi";
 test("owner switch while obtaining token cannot send previous owner payload", async () => {
   let uid = "first";
   const fetcher = jest.fn(),
@@ -33,4 +33,14 @@ test("trainer request is no-store and targets only its route", async () => {
     method: "GET",
     cache: "no-store",
   });
+});
+
+test('context size error is accurate and concrete failure replaces generic recovery', () => {
+ const turn={state:'failed',error:'context_too_large'};
+ const text=trainerFeedback({clientCode:'trainer_unavailable',turn});
+ expect(text).toContain('контекст');expect(text).not.toContain('незавершених чернеток');
+ expect(trainerFeedback({localMessage:trainerError(Error('client_timeout')),turn})).toBe(text);
+ expect(trainerFeedback({localMessage:'Оберіть фото потрібного продукту.',turn})).toBe('Оберіть фото потрібного продукту.');
+ expect(trainerFeedback({clientCode:'history_conflict',turn})).toContain('іншій вкладці');
+ expect(trainerFeedback({turn:{state:'completed'}})).toBe('');
 });

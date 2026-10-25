@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Check, X, Settings, ChevronDown, Scale, Sunrise, Sun, Sunset, Moon, Mic } from 'lucide-react';
 import { getCalorieScaleState } from '../services/nutrition';
+import { profileTargets } from '../services/profileTargets';
 
 // iOS іконки для прийомів їжі
 const MEAL_ICONS = {
@@ -9,15 +10,6 @@ const MEAL_ICONS = {
   3: { icon: Sunset, label: 'Вечеря', color: '#FF6B00' },
   4: { icon: Moon, label: 'Перекус', color: '#5856D6' }
 };
-
-const MACRO_TARGETS = {
-  p: 140,
-  f: 70,
-  c: 235
-};
-
-// Офіційна денна норма тренера. НЕ сума з макросів (та дає 2130).
-const CALORIES_TARGET = 2305;
 
 // Кольори рівнів "шкали здоров'я" (як в іграх: зелений -> червоний)
 const SCALE_COLORS = {
@@ -38,7 +30,8 @@ function ProgressRing({ percent, color }) {
   const stroke = 7;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
-  const fill = Math.min(percent, 100) / 100; // кільце заповнюється раз, далі говорить колір і цифра
+  const known = Number.isFinite(percent);
+  const fill = known ? Math.min(percent, 100) / 100 : 0; // кільце заповнюється раз, далі говорить колір і цифра
   const dashOffset = circumference * (1 - fill);
 
   return (
@@ -51,7 +44,7 @@ function ProgressRing({ percent, color }) {
         stroke="rgba(52, 199, 89, 0.14)"
         strokeWidth={stroke}
       />
-      <circle
+      {known && <circle
         cx={size / 2}
         cy={size / 2}
         r={radius}
@@ -62,7 +55,7 @@ function ProgressRing({ percent, color }) {
         strokeDasharray={circumference}
         strokeDashoffset={dashOffset}
         style={{ transition: 'stroke-dashoffset 0.45s ease' }}
-      />
+      />}
     </svg>
   );
 }
@@ -70,9 +63,10 @@ function ProgressRing({ percent, color }) {
 function MacroProgressRow({ label, value, target, color, track }) {
   const rawPercent = target > 0 ? (value / target) * 100 : 0;
   const percent = Math.min(rawPercent, 100);
-  const over = value > target;
+  const known = Number.isFinite(target) && target > 0;
+  const over = known && value > target;
   const remaining = Math.max(target - value, 0);
-  const done = value >= target;
+  const done = known && value >= target;
   const barColor = over ? '#FF3B30' : color;
 
   return (
@@ -88,13 +82,13 @@ function MacroProgressRow({ label, value, target, color, track }) {
           className="text-[11px] whitespace-nowrap"
           style={{ color: over ? '#FF3B30' : '#A0A0A7' }}
         >
-          {over
+          {!known ? 'Норму не задано' : over
             ? `+${Math.round(value - target)}г понад`
             : (done ? 'Ціль закрито' : `${Math.ceil(remaining)}г лишилось`)}
         </span>
       </div>
 
-      <div
+      {known && <div
         className="h-[3px] rounded-full overflow-hidden"
         style={{ backgroundColor: track }}
       >
@@ -106,7 +100,7 @@ function MacroProgressRow({ label, value, target, color, track }) {
             transition: 'width 0.45s ease'
           }}
         />
-      </div>
+      </div>}
     </div>
   );
 }
@@ -125,7 +119,8 @@ export default function Header({
   onShowSettings,
   onShowVoiceInput,
   voiceLabel = "Додати їжу голосом",
-  voiceDisabled = false
+  voiceDisabled = false,
+  dateControl
 }) {
   const [isEditingWeight, setIsEditingWeight] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -133,7 +128,8 @@ export default function Header({
   const [tempWeight, setTempWeight] = useState(currentWeight);
 
   const caloriesValue = macros.cal || 0;
-  const scale = getCalorieScaleState(caloriesValue, CALORIES_TARGET);
+  const personalTargets = profileTargets(user);
+  const scale = getCalorieScaleState(caloriesValue, personalTargets.values.cal);
   const scaleColor = SCALE_COLORS[scale.level];
 
   return (
@@ -141,9 +137,9 @@ export default function Header({
       {/* iOS Navigation Bar */}
       <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-black/5">
         <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-1">
             {/* Left - Profile + Day */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 min-w-0">
               {isEditingName ? (
                 <div className="flex items-center gap-1">
                   <input
@@ -170,7 +166,7 @@ export default function Header({
                 </div>
               ) : (
                 <span
-                  className="font-semibold text-[17px] cursor-pointer active:opacity-60"
+                  className="font-semibold text-[17px] cursor-pointer active:opacity-60 max-w-[80px] truncate"
                   onClick={() => {
                     setEditingNameValue(user?.name || "");
                     setIsEditingName(true);
@@ -190,6 +186,8 @@ export default function Header({
                 <ChevronDown size={14} className="text-[#007AFF]" />
               </button>
             </div>
+
+            {!isEditingName && !isEditingWeight && dateControl}
 
             {/* Right - Weight/Measurements + Settings */}
             <div className="flex items-center gap-1">
@@ -263,7 +261,7 @@ export default function Header({
                 style={{ backgroundColor: `${scaleColor}1A` }}
               />
               <div className={`relative w-[88px] h-[88px] flex items-center justify-center ${scale.level === 'danger' ? 'animate-pulse' : ''}`}>
-                <ProgressRing percent={scale.percent} color={scaleColor} />
+                <ProgressRing percent={personalTargets.values.cal===undefined?undefined:scale.percent} color={scaleColor} />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="text-[24px] leading-none font-bold" style={{ color: scaleColor }}>
                     {caloriesValue}
@@ -284,13 +282,15 @@ export default function Header({
                   key={item.key}
                   label={item.label}
                   value={macros[item.key] || 0}
-                  target={MACRO_TARGETS[item.key]}
+                  target={personalTargets.values[item.key]}
                   color={item.color}
                   track={item.track}
                 />
               ))}
             </div>
           </div>
+
+          {personalTargets.state !== 'complete' && <button type="button" onClick={onShowSettings} className="text-[12px] text-[#007AFF] mt-2 min-h-[44px]">{personalTargets.state === 'invalid' ? 'Перевірити особисті норми' : 'Задати особисті норми'}</button>}
 
           {scale.overAmount > 0 && (
             <div

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Mic, Square, Camera, Send, X } from "lucide-react";
-import { createTrainerApi, trainerError } from "../services/trainerApi";
+import { Mic, Square, Camera, Send, X, Paperclip, Image as ImageIcon } from "lucide-react";
+import { createTrainerApi, trainerError, trainerFeedback } from "../services/trainerApi";
 import { createTrainerSession } from "../services/trainerSession";
 import { dateLabel, initialTrainerDate, kyivDateKey } from "../services/trainerDates";
 import {
@@ -304,6 +304,7 @@ function DraftCard({
   );
 }
 export default function TrainerChat({
+  mode = "coach",
   ownerKey,
   uid,
   meal = 1,
@@ -331,7 +332,7 @@ export default function TrainerChat({
     [error, setError] = useState(""),
     [recordState, setRecordState] = useState("ready"),
     [seconds, setSeconds] = useState(0),
-    [showDatePicker, setShowDatePicker] = useState(false),
+    [showAttachments, setShowAttachments] = useState(false),
     [dateContext, setDateContext] = useState(() => initialTrainerDate(initialDateContext)),
     [previewDays, setPreviewDays] = useState({}),
     [dayRefresh, setDayRefresh] = useState(0),
@@ -344,6 +345,8 @@ export default function TrainerChat({
   const panel = useRef(),
     textarea = useRef(),
     fileInput = useRef(),
+    galleryInput = useRef(),
+    attachmentTrigger = useRef(),
     photoTarget = useRef(),
     session = useRef(),
     alive = useRef(false),
@@ -383,6 +386,15 @@ export default function TrainerChat({
     }
   };
   const current = (generation) => alive.current && epoch.current === generation;
+  useEffect(() => {
+    const overlay=panel.current?.parentElement, viewport=window.visualViewport;
+    const fit=()=>{
+      overlay?.style.setProperty('--trainer-visible-height',`${Math.max(1,viewport?.height || window.innerHeight)}px`);
+      overlay?.style.setProperty('--trainer-visible-top',`${viewport?.offsetTop || 0}px`);
+    };
+    fit();viewport?.addEventListener('resize',fit);viewport?.addEventListener('scroll',fit);window.addEventListener('resize',fit);
+    return ()=>{viewport?.removeEventListener('resize',fit);viewport?.removeEventListener('scroll',fit);window.removeEventListener('resize',fit);};
+  },[]);
   useEffect(() => {
     epoch.current++;
     alive.current = true;
@@ -506,7 +518,7 @@ export default function TrainerChat({
   const staleDay = (draft, day) => {
     if (draft.state === "saved") return false;
     if (draft.stale || !draft.freshness) return true;
-    return !day?.freshness || ["targetDate", "dayRevision", "planFingerprint", "notesRevision"].some(key => draft.freshness[key] !== day.freshness[key]);
+    return !day?.freshness || ["targetDate", "dayRevision", "planFingerprint", "notesRevision", "targetsFingerprint"].some(key => draft.freshness[key] !== day.freshness[key]);
   };
   async function refreshPreview(draft) {
     try {
@@ -842,9 +854,19 @@ export default function TrainerChat({
       !view.admission &&
       !view.composerConflict &&
       (view.text.trim() || photos.length);
+  const feedback = trainerFeedback({localMessage:error,clientCode:view.error,turn:view.server?.latestTurn});
+  function choosePhoto(input) {
+    const rows=(view.server?.drafts||[]).filter(d=>d.state==='ready').flatMap(d=>d.items);
+    if(rows.length>1 && !rows.some(item=>item.itemId===photoTarget.current)) {
+      setError('Оберіть «Фото етикетки цього продукту» у потрібному рядку прев’ю.');setShowAttachments(false);return;
+    }
+    photoTarget.current=photoTarget.current || rows[0]?.itemId || photos[0]?.itemId || newId();
+    setShowAttachments(false);input.current.click();
+  }
   function keys(e) {
     if (e.key === "Escape") {
       e.preventDefault();
+      if(showAttachments){setShowAttachments(false);attachmentTrigger.current?.focus();return;}
       void close();
     }
     if (e.key === "Tab") {
@@ -877,8 +899,8 @@ export default function TrainerChat({
       >
         <header className="trainer-header">
           <div>
-            <h2 id="trainer-title">Тренер</h2>
-            <p>Їжа, запитання й уточнення</p>
+            <h2 id="trainer-title">{mode === "food" ? "Додати їжу" : "Тренер"}</h2>
+            <p>{mode === "food" ? "Текст, голос або фото" : "Поради про харчування й тренування"}</p>
           </div>
           <button aria-label="Закрити чат" onClick={() => void close()}>
             <X />
@@ -886,9 +908,9 @@ export default function TrainerChat({
         </header>
         <div className="trainer-scroll">
           <p className="trainer-intro">
-            Запитайте пораду або розкажіть, що з’їли. Тренер врахує підтверджені записи дня. Їжа зберігається після вашої кнопки «Додати».
+            {mode === "food" ? "Розкажіть, що з’їли, або додайте фото. Можна сказати «вчора». Перевірте прев’ю й натисніть «Додати»." : "Запитайте пораду. Тренер врахує підтверджені записи. Якщо розповісте про з’їдене, покаже прев’ю перед додаванням."}
           </p>
-          {!view.server?.messages?.length && <div className="trainer-shortcuts" aria-label="Почати розмову">
+          {mode === "coach" && !view.server?.messages?.length && <div className="trainer-shortcuts" aria-label="Почати розмову">
             {["Що краще поїсти?", "Що залишилося на сьогодні?"].map(text => <button key={text} disabled={!view.server || busy || activeTurn(turn) || !!view.admission || !!view.composerConflict} onClick={() => void send(text)}>{text}</button>)}
             <button disabled={busy || !!view.admission} onClick={() => textarea.current?.focus()}>Записати їжу</button>
           </div>}
@@ -947,14 +969,6 @@ export default function TrainerChat({
               </button>
             </div>
           )}
-          {view.server?.latestTurn?.state === "failed" && (
-            <p role="alert" className="trainer-error">
-              {trainerError(
-                Error(view.server.latestTurn.error || "trainer_unavailable"),
-              )}{" "}
-              Текст повідомлення збережений у чаті.
-            </p>
-          )}
           {view.server?.maintenanceBlocked && (
             <p className="trainer-warning">
               Тренер завершує відновлення. Нові повідомлення тимчасово
@@ -976,7 +990,7 @@ export default function TrainerChat({
               onSave={save}
               onPhoto={(itemId) => {
                 photoTarget.current = itemId;
-                fileInput.current.click();
+                setShowAttachments(true);
               }}
               onOpenDay={(d) => {
                 callbacks.current.onOpenDay?.(d);
@@ -1085,9 +1099,9 @@ export default function TrainerChat({
               Скасувати мої незбережені правки й перечитати прев’ю
             </button>
           )}
-          {(error || view.error) && (
+          {feedback && (
             <p className="trainer-error" role="alert">
-              {error || trainerError(Error(view.error))}
+              {feedback}
             </p>
           )}
           {metricFailed && (
@@ -1142,29 +1156,11 @@ export default function TrainerChat({
               </button>
             </div>
           )}
-          {dateContext.mode === "pinned" ? <div className="trainer-date-chip">
+          {dateContext.mode === "pinned" && <div className="trainer-date-chip">
             <span>Для записів: {dateLabel(dateContext.targetDate)}</span>
             <button disabled={busy || !!view.admission} onClick={() => setDateContext({ mode: "default" })}>Сьогодні</button>
-          </div> : <p className="trainer-date-hint">Можна сказати «вчора» або назвати дату.</p>}
-          <details className="trainer-pin-date" onToggle={e => setShowDatePicker(e.currentTarget.open)}>
-            <summary>Інша дата</summary>
-            {showDatePicker && <label>Закріпити дату для повідомлень<input type="date" aria-label="Закріпити дату" defaultValue={dateContext.targetDate || kyivDateKey()} disabled={busy || !!view.admission} onChange={e => { if (e.target.value) setDateContext({ mode: "pinned", targetDate: e.target.value }); }} /></label>}
-          </details>
-          <label className="trainer-text-label" htmlFor="trainer-message">
-            Повідомлення тренеру
-          </label>
-          <textarea
-            ref={textarea}
-            id="trainer-message"
-            rows="2"
-            placeholder="Наприклад: з’їв 200 г тушкованої картоплі"
-            value={view.text}
-            disabled={busy || !!view.admission}
-            onChange={(e) => {
-              setError("");
-              session.current.type(e.target.value);
-            }}
-          />
+          </div>}
+          <label className="trainer-text-label trainer-sr-only" htmlFor="trainer-message">{mode === "food" ? "Що ви з’їли" : "Повідомлення тренеру"}</label>
           <p className="trainer-composer-status" role="status">
             {
               {
@@ -1205,61 +1201,21 @@ export default function TrainerChat({
               e.target.value = "";
             }}
           />
-          <button
-            className="trainer-photo-start"
-            disabled={busy || !!view.admission || !view.server}
-            onClick={() => {
-              const rows = (view.server?.drafts || [])
-                .filter((d) => d.state === "ready")
-                .flatMap((d) => d.items);
-              if (rows.length > 1) {
-                setError(
-                  "Оберіть «Фото етикетки цього продукту» у потрібному рядку прев’ю.",
-                );
-                return;
-              }
-              photoTarget.current =
-                rows[0]?.itemId || photos[0]?.itemId || newId();
-              fileInput.current.click();
-            }}
-          >
-            <Camera size={18} />
-            Фото упаковки
-          </button>
-          <div className="trainer-actions">
-            {recordState === "recording" ? (
-              <button
-                className="trainer-recording"
-                onClick={() => recorder.current.stop()}
-              >
-                <Square size={19} />
-                Зупинити · {seconds} с
-              </button>
-            ) : (
-              <button
-                disabled={
-                  !view.server || busy || !!view.admission || activeTurn(turn)
-                }
-                onClick={() => void beginRecording()}
-              >
-                <Mic size={20} />
-                {recordState === "transcribing"
-                  ? "Розпізнаю голос…"
-                  : recordState === "permission"
-                    ? "Очікую мікрофон…"
-                    : "Почати запис"}
-              </button>
-            )}
-            <button
-              className="trainer-primary"
-              aria-label="Надіслати повідомлення"
-              disabled={!canSend}
-              onClick={() => void send()}
-            >
-              <Send size={20} />
-              Надіслати
-            </button>
+          <input ref={galleryInput} className="trainer-file" type="file" accept="image/*" onChange={e=>{void addPhoto(e.target.files?.[0]);e.target.value="";}}/>
+          {showAttachments && <div className="trainer-attachment-options" role="group" aria-label="Додати фото">
+            <button type="button" disabled={busy || !!view.admission} onClick={()=>choosePhoto(fileInput)}><Camera size={18}/>Сфотографувати</button>
+            <button type="button" disabled={busy || !!view.admission} onClick={()=>choosePhoto(galleryInput)}><ImageIcon size={18}/>З галереї</button>
+          </div>}
+          <div className="trainer-input-row">
+            <button ref={attachmentTrigger} className="trainer-icon-button" aria-label="Прикріпити фото" aria-expanded={showAttachments} title="Прикріпити фото" disabled={busy || !!view.admission || !view.server} onClick={()=>{photoTarget.current=null;setShowAttachments(value=>!value);}}><Paperclip size={21}/></button>
+            <textarea ref={textarea} id="trainer-message" rows="1" placeholder={mode === "food" ? "Що ви з’їли?" : "Напишіть тренеру…"} value={view.text} disabled={busy || !!view.admission} onChange={e=>{setError("");session.current.type(e.target.value);}}/>
+            {recordState === "recording" ? <button className="trainer-recording trainer-stop" aria-label="Зупинити запис" onClick={()=>recorder.current.stop()}><Square size={19}/>{seconds} с</button> : <>
+              <button className="trainer-icon-button" aria-label="Почати запис" title="Почати запис" disabled={!view.server || busy || !!view.admission || activeTurn(turn)} onClick={()=>void beginRecording()}><Mic size={21}/></button>
+              <button className="trainer-primary trainer-icon-button" aria-label="Надіслати повідомлення" title="Надіслати" disabled={!canSend} onClick={()=>void send()}><Send size={21}/></button>
+            </>}
           </div>
+          {recordState === "transcribing" && <p className="trainer-date-hint" role="status">Розпізнаю голос…</p>}
+          {recordState === "permission" && <p className="trainer-date-hint" role="status">Очікую дозволу на мікрофон…</p>}
           {view.server &&
             view.text.trim() &&
             !activeTurn(turn) &&

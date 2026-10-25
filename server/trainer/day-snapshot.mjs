@@ -3,8 +3,7 @@ import { itemMacros } from '../../src/services/mealItems.js';
 import { dailyPlanProgress } from '../../src/services/planAllocation.js';
 import { buildPlanCatalog, planFingerprint } from '../../src/services/planCatalog.js';
 import { fail, stableJSON } from './limits.mjs';
-// Same approved goals as the existing main screen; this does not change the plan.
-export const DAY_TARGETS=Object.freeze({cal:2305,p:140,f:70,c:235});
+import { profileTargets } from '../../src/services/profileTargets.js';
 const hash=value=>createHash('sha256').update(stableJSON(value)).digest('hex');
 export async function confirmedSnapshot(day,plan,targetDate) {
  if(!day||typeof day!=='object'||!plan||typeof plan!=='object')fail('day_unavailable',503);
@@ -16,13 +15,22 @@ export async function confirmedSnapshot(day,plan,targetDate) {
  }
  const catalog=plan.catalog||buildPlanCatalog(plan.planContext||{}), fingerprint=await planFingerprint(catalog);
  const notesRevision=hash([...notes].sort((a,b)=>String(a.noteId||a.itemId).localeCompare(String(b.noteId||b.itemId)))),dayRevision=Number.isSafeInteger(day.revision)&&day.revision>=0?day.revision:0;
- const freshness={targetDate,dayRevision,planFingerprint:fingerprint,notesRevision};
+ const personal=profileTargets(plan.planContext?.profile);
+ if(personal.state==='invalid')fail('day_unavailable',503);
+ const targetsFingerprint=hash(personal);
+ const freshness={targetDate,dayRevision,planFingerprint:fingerprint,notesRevision,targetsFingerprint};
+ const recorded=dailyPlanProgress(meals),usedLetters=new Set(Object.values(meals).flatMap(groups=>Object.entries(groups||{}).filter(([,items])=>Array.isArray(items)&&items.length).map(([letter])=>letter)));
+ const planProgress={...recorded,letters:Object.fromEntries(Object.entries(recorded.letters).filter(([letter])=>usedLetters.has(letter)))};
+ const targetMetrics=Object.keys(personal.values).length?{
+  remaining:Object.fromEntries(Object.entries(personal.values).map(([key,target])=>[key,target-totals[key]])),
+  progress:Object.fromEntries(Object.entries(personal.values).map(([key,target])=>[key,totals[key]/target*100])),
+ }:{};
  return {...day,targetDate,meals,notes,revision:dayRevision,notesRevision,planFingerprint:fingerprint,totals,
-  targets:DAY_TARGETS,remaining:Object.fromEntries(Object.keys(totals).map(k=>[k,DAY_TARGETS[k]-totals[k]])),
-  progress:dailyPlanProgress(meals),incomplete:day.incomplete===true||notes.length>0||invalidItems>0,
+  targets:personal.values,targetsState:personal.state,targetsFingerprint,...targetMetrics,
+  planProgress,incomplete:day.incomplete===true||notes.length>0||invalidItems>0,
   ...(invalidItems?{invalidItems}:{}),freshness};
 }
-export const sameFreshness=(a,b)=>!!a&&!!b&&['targetDate','dayRevision','planFingerprint','notesRevision'].every(key=>a[key]===b[key]);
+export const sameFreshness=(a,b)=>!!a&&!!b&&['targetDate','dayRevision','planFingerprint','notesRevision','targetsFingerprint'].every(key=>a[key]===b[key]);
 export async function loadConfirmed({readSnapshot,readDay,readPlan},uid,date,signal) {
  try {
   const {day,plan}=readSnapshot?await readSnapshot(uid,date,signal):await Promise.all([readDay(uid,date,signal),readPlan?readPlan(uid,signal):{}]).then(([day,plan])=>({day,plan}));

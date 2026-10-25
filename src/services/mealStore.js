@@ -1,3 +1,4 @@
+import { validateNutritionTargets } from './profileTargets';
 import { foodNotesSummary } from './foodNotes';
 import { PRODUCTS_DB } from '../data/products';
 import { buildPlanCatalog, planFingerprint } from './planCatalog';
@@ -38,7 +39,7 @@ export async function loadMealDay(uid, profileId, date) {
   return runTransaction(db,async tx=>{
     const owner=await tx.get(ref.owner),day=await tx.get(ref.day),cap=await tx.get(doc(db,'releaseCapabilities',uid));
     const root=owner.data()||{},profile=root.users?.[profileId]||{},summary=await readNotes(tx,uid,day.data());
-    return {...selectDay(profile,day.data(),date),notes:summary.notes,incomplete:summary.incomplete,notesEnabled:cap.data()?.notesEnabled===true&&cap.data()?.minimumWriterVersion===3,planContext:{profile:{portions:profile.portions||{},customProducts:profile.customProducts||{},hiddenProducts:profile.hiddenProducts||[]},globalCustomProducts:root.globalCustomProducts||{},productOverrides:root.productOverrides||{}}};
+    return {...selectDay(profile,day.data(),date),notes:summary.notes,incomplete:summary.incomplete,notesEnabled:cap.data()?.notesEnabled===true&&cap.data()?.minimumWriterVersion===3,planContext:{profile:{portions:profile.portions||{},customProducts:profile.customProducts||{},hiddenProducts:profile.hiddenProducts||[],...(profile.nutritionTargets!==undefined?{nutritionTargets:profile.nutritionTargets}:{})},globalCustomProducts:root.globalCustomProducts||{},productOverrides:root.productOverrides||{}}};
   });
 }
 export async function readSubmission(uid,date,submissionId,hash) {
@@ -175,6 +176,7 @@ export async function saveProfileSettings(uid, profileId, patch, globalPatch={})
   const ref=doc(db,'users',uid), stamp=writerStamp();
   const safe={};
   for (const key of ['name','startDate','portions','trainerTelegram','customProducts','hiddenProducts']) if(patch?.[key]!==undefined) safe[key]=patch[key];
+  if(patch?.nutritionTargets!==undefined)safe.nutritionTargets=validateNutritionTargets(patch.nutritionTargets);
   return runTransaction(db,async tx=>{
     const snap=await tx.get(ref),root=snap.data();
     if(!root?.users?.[profileId]) throw new Error('profile_missing');

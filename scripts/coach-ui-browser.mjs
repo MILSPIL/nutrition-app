@@ -9,8 +9,9 @@ import {assignPlanItems} from '../src/services/planAllocation.js';
 assert.equal(process.env.FIRESTORE_EMULATOR_HOST,'127.0.0.1:8088');
 assert.equal(process.env.FIREBASE_AUTH_EMULATOR_HOST,'127.0.0.1:9099');
 const {chromium}=await browserRuntime();
+const textAudit=readFileSync('/Users/user/.codex/skills/layout-text-check/scripts/check-text.js','utf8');
 const build=resolve('tmp/coach-ui-build'),out=resolve('tmp/coach-ui-qa');mkdirSync(out,{recursive:true});
-const evidence={syntheticOnly:true,realBuiltUI:true,mockedTrainerAPI:true,widths:[],checks:[],consoleErrors:[],iconRequests:[]};
+const evidence={syntheticOnly:true,realBuiltUI:true,mockedTrainerAPI:true,widths:[],checks:[],consoleErrors:[],iconRequests:[],textAudits:[]};
 const check=(name,ok)=>{assert.ok(ok,name);evidence.checks.push(name);};
 let state={conversationId:'synthetic-coach',revision:0,composer:{text:'',revision:0},messages:[],drafts:[],contextProposals:[],currentTurn:null};
 let calls=0,sttCalls=0,lastInput=null,iconBodies=0;
@@ -59,8 +60,29 @@ try {
  await page.getByRole('button',{name:'Почати!',exact:true}).click();await page.getByRole('button',{name:'Почати!',exact:true}).waitFor({state:'hidden'});
  await page.locator('.fixed.z-50').filter({has:page.getByRole('heading',{name:'Налаштування',exact:true})}).locator('button:has(svg.lucide-x)').first().click();
  await page.locator('[data-modal-surface]').waitFor({state:'hidden'});
+ await page.locator('.diary-header-date > summary').click();
  check('login opens Kyiv today across browser timezone',await page.getByLabel('Дата записів',{exact:true}).inputValue()==='2026-10-25'&&await page.getByRole('button',{name:'Сьогодні',exact:true}).getAttribute('aria-pressed')==='true');
+ check('history calendar is in navigation header',await page.locator('.sticky .diary-header-date').count()===1 && await page.locator('.diary-date-control').count()===0);
+ await page.locator('.diary-header-date > summary').click();
  const launcher=page.getByRole('button',{name:'Відкрити тренера',exact:true});await launcher.waitFor();
+ await page.getByTitle('Налаштування',{exact:true}).click();await page.getByRole('button',{name:/Профіль і програма/}).click();
+ check('new owner targets are unset',await page.getByLabel('Калорії, ккал').inputValue()==='');
+ for(const [label,value] of [['Калорії, ккал','2305'],['Білки, г','140'],['Жири, г','70'],['Вуглеводи, г','235']])await page.getByLabel(label,{exact:true}).fill(value);
+ await page.getByRole('button',{name:'Зберегти норми',exact:true}).click();await page.getByText('Особисті норми збережено.',{exact:true}).waitFor();
+ await page.locator('.fixed.z-50').filter({has:page.getByRole('heading',{name:'Налаштування',exact:true})}).locator('button:has(svg.lucide-x)').first().click();await page.locator('[data-modal-surface]').waitFor({state:'hidden'});
+ const second=await browser.newContext({viewport:{width:390,height:844},locale:'uk-UA'}),secondPage=await second.newPage();
+ secondPage.on('pageerror',e=>evidence.consoleErrors.push(e.message));
+ await second.route('**/*',r=>['127.0.0.1','localhost','fonts.googleapis.com','fonts.gstatic.com'].includes(new URL(r.request().url()).hostname)?r.continue():r.abort());
+ await secondPage.goto('http://127.0.0.1:4189/');await secondPage.getByRole('button',{name:'Увійти через Google'}).click();await secondPage.getByRole('button',{name:'Почати!',exact:true}).click();await secondPage.getByRole('button',{name:'Почати!',exact:true}).waitFor({state:'hidden'});
+ await secondPage.getByRole('button',{name:/Профіль і програма/}).click();
+ check('second verified account never receives owner targets',await secondPage.getByLabel('Калорії, ккал').inputValue()===''&&await secondPage.getByLabel('Білки, г').inputValue()==='');
+ for(const [label,value] of [['Калорії, ккал','1800'],['Білки, г','95'],['Жири, г','55'],['Вуглеводи, г','200']])await secondPage.getByLabel(label,{exact:true}).fill(value);
+ await secondPage.getByRole('button',{name:'Зберегти норми',exact:true}).click();await secondPage.getByText('Особисті норми збережено.',{exact:true}).waitFor();
+ await secondPage.reload();await secondPage.getByTitle('Налаштування',{exact:true}).click();await secondPage.getByRole('button',{name:/Профіль і програма/}).click();
+ check('second targets survive own reload',await secondPage.getByLabel('Калорії, ккал').inputValue()==='1800'&&await secondPage.getByLabel('Білки, г').inputValue()==='95');await second.close();
+ await page.reload();await page.getByTitle('Налаштування',{exact:true}).click();await page.getByRole('button',{name:/Профіль і програма/}).click();
+ check('owner targets unchanged after second account save and reload',await page.getByLabel('Калорії, ккал').inputValue()==='2305'&&await page.getByLabel('Білки, г').inputValue()==='140');
+ await page.locator('.fixed.z-50').filter({has:page.getByRole('heading',{name:'Налаштування',exact:true})}).locator('button:has(svg.lucide-x)').first().click();await page.locator('[data-modal-surface]').waitFor({state:'hidden'});
  for(const width of [375,390,1366]){
   await page.setViewportSize({width,height:width===1366?900:844});await page.evaluate(()=>scrollTo(0,document.body.scrollHeight));
   await launcher.waitFor();
@@ -69,12 +91,36 @@ try {
   await page.screenshot({path:join(out,`launcher-${width}.png`)});
   await launcher.click();await page.locator('#trainer-message:not(:disabled)').waitFor();await page.getByRole('button',{name:'Що краще поїсти?',exact:true}).waitFor();await page.waitForFunction(()=>[...document.querySelectorAll('.trainer-shortcuts button')].some(b=>b.textContent==='Що краще поїсти?'&&!b.disabled));
   check('no automatic input '+width,calls===0&&sttCalls===0&&await page.getByRole('button',{name:'Закрити чат'}).evaluate(n=>document.activeElement===n));
-  const chat=await page.evaluate(()=>{const r=s=>document.querySelector(s).getBoundingClientRect(),c=r('.trainer-chat'),h=r('#trainer-title'),i=r('.trainer-intro'),t=r('#trainer-message');return{left:h.left-c.left,right:c.right-t.right,edges:Math.abs(h.left-t.left)+Math.abs(i.left-t.left),overflow:document.documentElement.scrollWidth-innerWidth,width:c.width,heights:[...document.querySelectorAll('.trainer-chat button,.trainer-chat summary,.trainer-chat input')].filter(n=>n.getClientRects().length).map(n=>n.getBoundingClientRect().height)};});
+  const chat=await page.evaluate(()=>{const r=s=>document.querySelector(s).getBoundingClientRect(),c=r('.trainer-chat'),h=r('#trainer-title'),i=r('.trainer-intro'),t=r('.trainer-input-row');return{left:h.left-c.left,right:c.right-t.right,edges:Math.abs(h.left-t.left)+Math.abs(i.left-t.left),overflow:document.documentElement.scrollWidth-innerWidth,width:c.width,heights:[...document.querySelectorAll('.trainer-chat button,.trainer-chat summary,.trainer-chat input')].filter(n=>n.getClientRects().length).map(n=>n.getBoundingClientRect().height)};});
   check('chat edges '+width,chat.left===16&&chat.right===16&&chat.edges===0&&chat.overflow===0&&chat.width<=512&&chat.heights.every(h=>h>=44));
+  await page.evaluate(()=>document.fonts.ready);
+  const textResult=await page.evaluate('('+textAudit+')()');
+  check('text audit source '+width,textResult.hostname==='127.0.0.1'&&textResult.innerWidth===width&&textResult.summary['перевірено']['кнопок']>0);
+  evidence.textAudits.push(textResult);
   evidence.widths.push({home,chat});await page.screenshot({path:join(out,`chat-${width}.png`)});
+  if(width===390){
+   await page.locator('#trainer-message').focus();
+   await page.evaluate(()=>{Object.defineProperty(visualViewport,'height',{configurable:true,value:480});visualViewport.dispatchEvent(new Event('resize'));});
+   await page.waitForFunction(()=>document.querySelector('.trainer-overlay').style.getPropertyValue('--trainer-visible-height')==='480px');
+   const keyboard=await page.evaluate(()=>{const c=document.querySelector('.trainer-chat').getBoundingClientRect(),f=document.querySelector('.trainer-composer').getBoundingClientRect();return {height:visualViewport.height,dialogTop:c.top,dialogBottom:c.bottom,composerBottom:f.bottom,scrollHeight:document.querySelector('.trainer-scroll').clientHeight};});
+   check('composer above visual keyboard',keyboard.dialogTop===0&&keyboard.dialogBottom<=480&&keyboard.composerBottom<=480&&keyboard.scrollHeight>100);
+   evidence.keyboard=keyboard;await page.screenshot({path:join(out,'keyboard-390.png')});
+   await page.evaluate(()=>{delete visualViewport.height;visualViewport.dispatchEvent(new Event('resize'));});
+  }
+
   await page.getByRole('button',{name:'Записати їжу',exact:true}).click();check('food shortcut no call '+width,calls===0&&await page.locator('#trainer-message').evaluate(n=>document.activeElement===n));
   await page.getByRole('button',{name:'Закрити чат',exact:true}).click();await launcher.waitFor();await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Відкрити тренера');
  }
+ await page.setViewportSize({width:390,height:844});await page.evaluate(()=>scrollTo(0,0));
+ await page.getByRole('button',{name:'Додати їжу',exact:true}).click();await page.locator('#trainer-message:not(:disabled)').waitFor();
+ check('food primary has clear purpose',await page.getByRole('heading',{name:'Додати їжу',exact:true}).count()===1&&calls===0&&sttCalls===0);
+ await page.getByRole('button',{name:'Прикріпити фото',exact:true}).click();
+ let chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Сфотографувати',exact:true}).click();
+ let chosen=await chooser;check('explicit camera input',await chosen.element().getAttribute('capture')==='environment');await chosen.setFiles([]);
+ await page.getByRole('button',{name:'Прикріпити фото',exact:true}).click();chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'З галереї',exact:true}).click();
+ chosen=await chooser;check('separate gallery input',await chosen.element().getAttribute('capture')===null);await chosen.setFiles([]);
+ check('attachment choice has no model or STT call',calls===0&&sttCalls===0);
+ await page.getByRole('button',{name:'Закрити чат',exact:true}).click();
  await page.setViewportSize({width:390,height:844});await launcher.click();await page.locator('#trainer-message:not(:disabled)').waitFor();await page.getByRole('button',{name:'Що краще поїсти?',exact:true}).waitFor();await page.waitForFunction(()=>[...document.querySelectorAll('.trainer-shortcuts button')].some(b=>b.textContent==='Що краще поїсти?'&&!b.disabled));
  await page.getByRole('button',{name:'Що краще поїсти?',exact:true}).click();await page.getByText('Синтетична порада. До щоденника нічого не додав.',{exact:true}).waitFor();
  check('one advice no draft',calls===1&&state.drafts.length===0&&lastInput.dateContext.mode==='default'&&!('targetDate'in lastInput));
@@ -84,9 +130,22 @@ try {
  check('historical preview reads actual day',await page.locator('.trainer-draft').textContent().then(t=>t.includes('02.01.2026')&&t.includes('За день: 50% → 100%')&&t.includes('приблизно 200 г')));
  await page.screenshot({path:join(out,'historical-preview-390.png')});
  await page.getByRole('button',{name:'Закрити чат'}).click();
+ day.freshness={...day.freshness,targetsFingerprint:'synthetic-revised-targets'};
+ await launcher.click();await page.getByRole('button',{name:'Оновити прев’ю',exact:true}).waitFor();
+ const countBeforeRefresh=calls;await page.getByRole('button',{name:'Оновити прев’ю',exact:true}).click();
+ await page.waitForFunction(()=>[...document.querySelectorAll('.trainer-draft button')].some(b=>b.textContent==='Додати'&&!b.disabled));
+ check('norm revision refresh has zero inference',calls===countBeforeRefresh);
+
+ await page.getByRole('button',{name:'Закрити чат'}).click();
+ state.latestTurn={turnId:'synthetic-failed',state:'failed',error:'context_too_large',text:'Synthetic failed input'};
+ await launcher.click();await page.locator('#trainer-message:not(:disabled)').waitFor();
+ await page.getByText('Не вдалося вмістити повідомлення й контекст у запит. Текст збережений. Спробуйте коротше повідомлення.',{exact:true}).waitFor();
+ check('one concrete error',await page.getByRole('alert').count()===1&&(await page.getByRole('alert').textContent()).includes('контекст')&&!(await page.getByRole('alert').textContent()).includes('незавершених чернеток'));
+ await page.getByRole('button',{name:'Закрити чат',exact:true}).click();delete state.latestTurn;
  const icons=await page.locator('img[src*="category-"]').evaluateAll(nodes=>nodes.map(n=>({src:n.src,naturalWidth:n.naturalWidth,box:n.getBoundingClientRect().width})));
  check('versioned icons exact visual box',icons.length>=3&&icons.every(x=>x.src.includes('/static/media/')&&x.src.endsWith('.webp')&&x.naturalWidth===192&&x.box<=44));
  evidence.icons=icons;
+ await page.locator('.diary-header-date > summary').click();
  await page.getByRole('button',{name:'Вчора',exact:true}).click();
  await launcher.click();await page.locator('#trainer-message:not(:disabled)').waitFor();
  await page.locator('#trainer-message').fill('Порадь їжу для обраного дня');
@@ -95,7 +154,7 @@ try {
   page.getByRole('button',{name:'Надіслати повідомлення',exact:true}).click(),
  ]);
  await page.waitForFunction(()=>document.querySelector('#trainer-message')?.disabled===false);
- check('explicit diary choice pins coach date',lastInput.dateContext.mode==='pinned'&&lastInput.dateContext.targetDate==='2026-10-24');
+ check('history browsing never pins a new message',lastInput.dateContext.mode==='default'&&!('targetDate' in lastInput));
  await page.getByRole('button',{name:'Закрити чат',exact:true}).click();
  await context.unroute('**/*');
  await page.reload();await page.locator('img[src*="category-"]').first().waitFor();
