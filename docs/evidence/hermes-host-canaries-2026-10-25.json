@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-25T09:49:55Z",
+  "releaseCandidate": "cd7b02d345385909ab8c59b42a0d48f78833f7f6",
+  "actualHost": true,
+  "passed": true,
+  "syntheticOnly": true,
+  "newModelCalls": 0,
+  "profileSha256": "4cf4112db08b7a5b1bfd9101bfe11bb3353c3f408b99222c5b1b455c16fd9134",
+  "globalUsernsRestriction": 1,
+  "credentialArraysEmpty": true,
+  "parentCanaries": true,
+  "nestedIsolationCanaries": true,
+  "negativeCanaries": true,
+  "resource": {
+    "actualHermes": true,
+    "pin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+    "firstTurnSeconds": 15.182,
+    "suiteSeconds": 15.184,
+    "resourceProbe": true,
+    "capacityProbe": true,
+    "profileTemplateSha256": "e24f3db595a8edc09bca03e9e80c07365ba80dccff4ecd50ef701986a42a8cce",
+    "modelTextBytes": [
+      31930,
+      31713,
+      31698
+    ],
+    "isolation": "linux-bubblewrap",
+    "fullFoodIndex": true,
+    "realTools": true,
+    "draftKcal": 174,
+    "providerCalls": 3,
+    "recoveryNoNewCalls": false,
+    "cancelNoResult": false,
+    "upstream429Calls": null,
+    "deadlineStopsNative": false,
+    "killedUnknownCancelled": false,
+    "tools": [
+      "food_lookup",
+      "propose_food_draft"
+    ],
+    "profileFilesScanned": 22,
+    "mediaFragments": 9,
+    "mediaLeaks": 0,
+    "ownerIsolation": true,
+    "replayCalls": 0,
+    "syntheticOnly": true,
+    "retainedLatestPairEveryCall": true,
+    "foodCoachConfigApplied": true,
+    "resources": {
+      "cpu": 2,
+      "memoryMax": 2147483648,
+      "swap": 0,
+      "memoryPeak": 372285440,
+      "oomKills": 0
+    }
+  },
+  "cleanupPassed": true,
+  "oldLiveUnchanged": true,
+  "firstAttempt": {
+    "runtimePassed": true,
+    "firstTurnSeconds": 18.537,
+    "wrapperMetadataFalseNegative": true,
+    "policyRolledBack": true
+  },
+  "diagnosticAdaptations": [
+    "Expected host UID996 instead of synthetic UID10001",
+    "Read own service cgroup path from /proc/self/cgroup",
+    "Read complex systemd credential arrays through typed D-Bus"
+  ],
+  "reviewer": "Codex host01_installer_review"
+}

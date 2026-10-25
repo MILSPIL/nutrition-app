@@ -8,6 +8,8 @@
 
 ## Наступний етап тренера, 2026-10-24
 
+2026-10-25: HERMES-HOST-01 виконано, фактичні MS-WEB canaries PASS. Синтетичний Hermes turn15.182с,2CPU/2GiB/swap0, пік372285440байтів, OOM0; parent/nested/negative checks і cleanup пройдені, credential-масиви проби порожні. Чинний сайт9f2759b не перемкнуто, продовжується приватна активація. Доказ: docs/evidence/hermes-host-canaries-2026-10-25.json. Журнал1134 у main через PR31/4454562, source/main/origin blob b3ccf3c6a6b3ca6430937997014f9496e0d6efff, CI2/2PASS.
+
 2026-10-25: Юрій явно погодив HERMES-HOST-01, точковий профіль AppArmor і продовження розгортання. Новий гейт знято, план виконується зі збереженням global restriction1, ресурсів і чинного сумарного$5.
 
 2026-10-25: після розблокування Mac доступ до Keychain/SSH відновлено; проведено адресну інвентаризацію MS-WEB. Чинний release9f2759b активний, modelcalls0, залишок чинного$5 дорівнює$4.468212. Виявлено host gate: user namespace від scisense відмовляє на uid_map за AppArmorrestriction1, bwrapprofile відсутній. Підготовлено [точкове доповнення HERMES-HOST-01](docs/deployment/hermes-host-apparmor-01.md); parse-only профілю пройшов, kernelpolicy не змінено. Новий релізcd7b02d не встановлено; рішення щодо окремого AppArmor-дозволу очікується. Тимчасового адміністратора вже відкликано, API-список і відхилений SSH-вхід це підтвердили. [Доказ](docs/evidence/hermes-host-preflight-2026-10-25.json).
