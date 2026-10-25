@@ -1,0 +1,342 @@
+{
+  "schemaVersion": 2,
+  "checkedAt": "2026-10-25T16:39:27.406676+00:00",
+  "target": "https://ntzg.pp.ua",
+  "version": "1.9.0",
+  "release": "21b0cd3116fce40d1dd706244cbff4bde81ef156",
+  "deploymentActive": true,
+  "ci": {
+    "run": 40211603506,
+    "url": "https://github.com/MILSPIL/nutrition-app/actions/runs/40211603506",
+    "headSha": "21b0cd3116fce40d1dd706244cbff4bde81ef156",
+    "jobs": {
+      "systemd-credential-check": "success",
+      "test-and-build": "success",
+      "groq-free-resource-check": "success",
+      "hermes-resource-check": "success"
+    }
+  },
+  "hostEvidence": "hermes-host-canaries-2026-10-25.json",
+  "rulesSha256": "3bfaa9801e552f881d225e9a182e96aaf4f971d2d8f3c668c56af292ad42cc1f",
+  "rulesPublished": true,
+  "ownerCapability": {
+    "notesEnabled": true,
+    "minimumWriterVersion": 3
+  },
+  "privateContext": {
+    "provisioned": true,
+    "requiredCoverage": 1,
+    "sourceHashesRechecked": true,
+    "memoryWriteEnabled": false,
+    "privateDataInGit": false
+  },
+  "publicFiles": {
+    "matched": 36,
+    "total": 36
+  },
+  "package": {
+    "appFiles": 226,
+    "uiFiles": 36,
+    "offApiRequests": 5,
+    "offApiExternalFetches": 0,
+    "exactArchiveVerified": true
+  },
+  "service": {
+    "active": true,
+    "approvedResourceLimitsVerified": true,
+    "isolationVerified": true
+  },
+  "trainerConfigHash": "4e1f5d6f139f9dbdc07ff995cf778491cf53d814bfb7464a34a94be71141f024",
+  "profileConfigSha256": "18474d5fa1810fbc9cbe32c8130aeccd584026c224ebf389d7413f03eefbc329",
+  "budget": {
+    "capUnchanged": true,
+    "withinApprovedCap": true,
+    "unfinished": 0,
+    "ledgerIntegrityVerified": true,
+    "paidTrainerTurnsInApprovedBatch": 8,
+    "maxApprovedProviderCalls": 24,
+    "providerInvoiceVerified": false,
+    "privateUsageReceiptStoredLocally": true
+  },
+  "providers": {
+    "groq": {
+      "model": "whisper-large-v3",
+      "plan": "Free",
+      "syntheticSttRequests": 2,
+      "directSttMs": 550,
+      "exactUkrainianTranscript": true
+    },
+    "anthropic": {
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "httpChecks": {
+    "health": 200,
+    "healthInferenceEnabled": true,
+    "trainerWithoutToken": 401,
+    "foreignOrigin": 403,
+    "postRevocationHealth": 200,
+    "postRevocationRoot": 200
+  },
+  "liveChecks": {
+    "voice": {
+      "explicitStart": true,
+      "transcribed": true,
+      "ms": 3854
+    },
+    "explicitRecordingBeforeClick": true,
+    "yesterdayDraftDateResolved": true,
+    "oneAdd": true,
+    "duplicateReplayProtected": true,
+    "reloadPersisted": true,
+    "adviceSawConfirmedFood": true,
+    "adviceCreatedNoFoodDraft": true,
+    "adviceMs": 22625,
+    "finalCases": [
+      {
+        "case": "apple-letter",
+        "state": "completed",
+        "milliseconds": 20835
+      },
+      {
+        "case": "potato",
+        "state": "completed",
+        "milliseconds": 33674
+      },
+      {
+        "case": "photo",
+        "state": "completed",
+        "milliseconds": 22853
+      }
+    ],
+    "sharedDraftItems": 3,
+    "preview": [
+      {
+        "op": "apple-letter",
+        "ready": true,
+        "letter": "З",
+        "automatic": true,
+        "badge": "З · Фрукти · 50% норми · Автоматично",
+        "macros": "122 ккал · Б 0.3 · Ж 0.3 · В 29.6",
+        "date": "2026-10-25",
+        "addEnabled": true
+      },
+      {
+        "op": "potato",
+        "ready": true,
+        "letter": "А",
+        "automatic": true,
+        "badge": "А · Вуглеводи · 111.1% норми · Автоматично",
+        "macros": "208 ккал · Б 3.6 · Ж 5.2 · В 38.4",
+        "date": "2026-10-25",
+        "addEnabled": true
+      },
+      {
+        "op": "photo",
+        "ready": true,
+        "letter": "Б",
+        "automatic": true,
+        "badge": "Б · Молочні · 74.1% норми · Автоматично",
+        "macros": "80 ккал · Б 5.8 · Ж 2 · В 8",
+        "date": "2026-10-25",
+        "addEnabled": true
+      }
+    ],
+    "photoPortionGrams": 200,
+    "photoPackageGrams": 900,
+    "photoMacros": {
+      "cal": 80,
+      "p": 5.8,
+      "f": 2,
+      "c": 8
+    },
+    "noLabelRequiredForOrdinaryFood": true
+  },
+  "browser": {
+    "authenticated": true,
+    "pageErrors": [],
+    "widths": [
+      375,
+      390,
+      1366
+    ],
+    "geometry": [
+      {
+        "width": 375,
+        "pageOverflow": 0,
+        "chatOverflow": 0,
+        "headingToInputLeft": 0,
+        "introToInputLeft": 0,
+        "leftGutter": 16,
+        "rightGutter": 16
+      },
+      {
+        "width": 390,
+        "pageOverflow": 0,
+        "chatOverflow": 0,
+        "headingToInputLeft": 0,
+        "introToInputLeft": 0,
+        "leftGutter": 16,
+        "rightGutter": 16
+      },
+      {
+        "width": 1366,
+        "pageOverflow": 0,
+        "chatOverflow": 0,
+        "headingToInputLeft": 0,
+        "introToInputLeft": 0,
+        "leftGutter": 16,
+        "rightGutter": 16
+      }
+    ],
+    "ownedSessionsCleaned": true
+  },
+  "icons": {
+    "files": 8,
+    "totalBytes": 49322,
+    "firstThreeBytes": 18350,
+    "previousFirstThreeBytes": 2396262,
+    "headers": [
+      {
+        "path": "static/media/category-carbs.4374b9b5c895a1c17870.webp",
+        "bytes": 7252,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "image/webp",
+        "seconds": "0.107962"
+      },
+      {
+        "path": "static/media/category-dairy.e41aff5432433ffb9fd9.webp",
+        "bytes": 5542,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "image/webp",
+        "seconds": "0.100642"
+      },
+      {
+        "path": "static/media/category-fats.366560c3c205cb8694fd.webp",
+        "bytes": 5170,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "image/webp",
+        "seconds": "0.098684"
+      },
+      {
+        "path": "static/media/category-fruits.4315d2648341b7c58321.webp",
+        "bytes": 5704,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "image/webp",
+        "seconds": "0.110945"
+      },
+      {
+        "path": "static/media/category-nuts.0764884f5cfdf57bfacd.webp",
+        "bytes": 5860,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "image/webp",
+        "seconds": "0.100785"
+      },
+      {
+        "path": "static/media/category-protein.d3327617c6e42b69c4a2.webp",
+        "bytes": 6638,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "image/webp",
+        "seconds": "0.109099"
+      },
+      {
+        "path": "static/media/category-treats.56d2d973943a022e83fe.webp",
+        "bytes": 5556,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "image/webp",
+        "seconds": "0.109154"
+      },
+      {
+        "path": "static/media/category-vegetables.3348e6dd4b1722ff21a7.webp",
+        "bytes": 7600,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "image/webp",
+        "seconds": "0.105214"
+      }
+    ],
+    "repeatTransferBytes": 0
+  },
+  "cleanup": {
+    "checkedAt": "2026-10-25T16:37:42.608663+00:00",
+    "accountAbsent": true,
+    "sshAuthenticationRejected": true,
+    "temporaryCredentialsRemoved": 3,
+    "productionCredentialsUnchanged": true,
+    "local": {
+      "checkedAt": "2026-10-25T16:37:51.288742+00:00",
+      "temporaryFirebaseCredentialsAbsent": 3,
+      "credentialsRemovedNow": 3,
+      "ownedProcessesStopped": [
+        "caffeinate"
+      ],
+      "ownedBrowserTaskRemoved": true,
+      "productionSecretsPreserved": true
+    },
+    "syntheticChat": {
+      "checkedAt": "2026-10-25T16:36:24.711Z",
+      "stage": "final",
+      "ownSyntheticChatRemoved": true,
+      "canonicalFoodWritten": false,
+      "messagesRemoved": 6,
+      "draftsRemoved": 1
+    },
+    "syntheticCanonicalFood": {
+      "removed": true,
+      "originalRowsPreserved": true,
+      "originalCount": 0,
+      "afterCount": 0
+    },
+    "activeTurns": 0,
+    "cleanupJobs": 0
+  },
+  "reviews": {
+    "implementation": [
+      "Codex coach_backend",
+      "Codex live_contract_review"
+    ],
+    "installer": "Codex host01_installer_review",
+    "installerFailureScenarios": 13,
+    "blockingFindingsRemaining": 0
+  },
+  "acceptance": {
+    "deployment": "passed",
+    "I01Technical": "passed",
+    "authenticatedTechnicalSmoke": "passed",
+    "C08": "pending_owner_phone_and_mac_off",
+    "ownerPhone": "pending",
+    "pilot": "pending",
+    "goal": "G01 passed; G02-G11 pending",
+    "reason": "Живі технічні сценарії пройдені. Фізичний телефон, роботу з вимкненим Mac і семиденний пілот приймає власник."
+  },
+  "knownLimitations": [
+    {
+      "priority": "P3",
+      "card": "card_d5913121e1be",
+      "description": "Консервативне зіставлення довгої назви може показати хибне пояснення про невказану масу, хоча явні 200 г, нутрієнти, літера і Add правильні. Незалежне рев’ю визнало неблокувальним; зміна лише пояснення окремо."
+    },
+    {
+      "description": "Негативна жива проба запису пам’яті повернула400 замість очікуваного409; запису не було, але цю пробу не зараховано як PASS. Read-only підтверджений конфігурацією і локальними тестами."
+    }
+  ],
+  "unchanged": {
+    "foodImports20to24": true,
+    "telegram": true,
+    "budgetCapAndLedgerIdentityPreserved": true,
+    "globalUsernsRestriction": 1,
+    "productMainNotMerged": true,
+    "iamNotExpanded": true
+  },
+  "documentationSources": [
+    "https://firebase.google.com/docs/reference/rules/rest/v1/projects.releases/patch",
+    "https://firebase.google.com/docs/auth/admin/create-custom-tokens"
+  ],
+  "context7": "Monthly quota unavailable; official docs and installed source used",
+  "journalTransfer": {
+    "pullRequest": "https://github.com/MILSPIL/nutrition-app/pull/32",
+    "mainCommit": "dca29f3d3fc044d8e30dd9ed672f1be58e6ed610",
+    "sourceMainOriginBlob": "e6adb336ac5b46e4c1cdee5a283e97f6c6cfefe3",
+    "filesChanged": 1,
+    "ciPassed": 2,
+    "privateIdentifiersExcluded": true
+  }
+}

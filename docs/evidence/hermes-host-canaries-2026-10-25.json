@@ -64,9 +64,9 @@
     "policyRolledBack": true
   },
   "diagnosticAdaptations": [
-    "Expected host UID996 instead of synthetic UID10001",
-    "Read own service cgroup path from /proc/self/cgroup",
-    "Read complex systemd credential arrays through typed D-Bus"
+    "Перевірено фактичний UID996 замість лабораторного UID10001",
+    "Шлях власної cgroup прочитано з /proc/self/cgroup",
+    "Складені масиви credentials прочитано через типізований D-Bus"
   ],
   "reviewer": "Codex host01_installer_review"
 }

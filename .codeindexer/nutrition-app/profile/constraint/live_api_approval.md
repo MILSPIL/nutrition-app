@@ -3,8 +3,8 @@ project: nutrition-app
 domain: constraint
 slot: live_api_approval
 confidence: 1
-valid_at: "2026-10-23T09:25:32.703204+00:00"
-provenance: .agents/journal/2026-10-23-1224-codex-gpt-6-ntzg-voice-photo-live.md; docs/evidence/voice-photo-live-2026-10-23.json; exact CI39923287970
+valid_at: "2026-10-25T16:46:39.550721+00:00"
+provenance: PROJECT-INFO.md; docs/evidence/hermes-coach-live-deployment-2026-10-25.json; .agents/journal/2026-10-25-1210-codex-gpt6-hermes-coach-live.md
 ---
 
-2026-10-23: MORNING-READY-01 та конкретний тимчасовий адміністративний доступ погоджені Юрієм і виконані. На ntzg.pp.ua активний release 9f2759ba3fa55ae74436865a1635893f8c6717d5, UI1.7.0; точний CI39923287970, 3/3 успішні. Groq Free whisper-large-v3 та Inference APIs ZDR перевірені; прямий Anthropic claude-sonnet-5-5. Один ledger і cap5000000 ($5) перенесені без reset; реальна синтетична проба: 1 free + 2 paid, reserved166108, unfinished0, особистих записів0. Це резерв застосунку, не рахунок провайдера. Тимчасовий admin відкликаний, відсутність перевірена, 3 його секрети та тимчасовий app ID-token видалені. Повторний transfer/init заборонений; сервер працює без Mac. Без платного STT fallback, збільшення бюджету, Hermes, злиття main/PR8/16 чи глобальних server/IAM змін. G02–G11 pending; телефон, пілот і продукт приймає Юрій. Приватний Firebase incident залишається відкритим. Канон PROJECT-INFO.md, docs/evidence/voice-photo-live-2026-10-23.json і журнал.
+2026-10-25: Юрій погодив і виконано HERMES-COACH-02/I01, кураторський контекст, розгортання, потрібні перевірки та точковий HERMES-HOST-01. API/UI21b0cd3 активні. Той самий cap5000000, Groq Free whisper-large-v3 без платного fallback, Anthropic claude-sonnet-5-5; 2 CPU/2 GiB/swap0/45с/3provider calls. Погоджений пакет8turns виконано, нових тестових викликів не запускати автоматично. Погоджений бюджет не перевищено, незавершених запитів немає. Докладна квитанція витрат лише локально. Тимчасовий admin відкликаний і SSH-відмова перевірена, 6 тимчасових секретів видалені. Контрольний Google-вхід та живі технічні сценарії пройдені. Телефон/Mac-off/пілот приймає Юрій. Не повторювати provision/transfer/activation/імпорти. IAM не розширювався; попередній приватний Firebase incident не закритий цим релізом.

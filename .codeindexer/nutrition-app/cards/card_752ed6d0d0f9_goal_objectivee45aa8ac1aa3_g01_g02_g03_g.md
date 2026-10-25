@@ -9,14 +9,14 @@ status: open
 importance: high
 signal: verification
 complexity: high
-tags: [HERMES-COACH-02, HERMES-HOST-01, implemented-local, packaged, owner-authorized, host-policy-pending]
+tags: [HERMES-COACH-02, HERMES-HOST-01, deployed, technical-smoke-passed, owner-acceptance-pending]
 links: [{to: card_128eb6c248fb, kind: related}]
 review_required: true
 acceptance: "[{\"manual_approval\":\"Юрій явно погодив локальні кроки0–5 HERMES-COACH-02 та припущення А1–А4; окремо назвав I01, якщо включає його.\"}]"
-evidence: "2026-10-25: кандидат cd7b02d345385909ab8c59b42a0d48f78833f7f6, CI40137268017 attempt2 усі4 jobs PASS. Локально283 client,213 server,65 rules/access,47 core storage; actual Hermes writer/reader PASS. Незалежні рев’ю без відкритих P1/P2. Пакет224files/runtime31726,5HTTP/0external; основний UI36files перевірений. Linux C05:9.728с/max31964B/2CPU2GiB/OOM0. Попередній одиничний lab502 зафіксовано, assertion не послаблено. Доказ docs/evidence/hermes-coach-local-acceptance-2026-10-25.json. 2026-10-25: Mac/Keychain/SSH доступні. Host userns проба відмовила на uid_map за AppArmorrestriction1, bwrap/profile відсутні. HERMES-HOST-01 з exact profile підготовлено; parser4.0.1 skip-kernel-load/skip-cache PASS, kernelpolicy незмінна; незалежний Codex review PASS. Конкретний новий дозвіл userns очікується, старий deploy-дозвіл збережено. Доказ docs/evidence/hermes-host-preflight-2026-10-25.json. Новий реліз/приватна активація/живі проби не виконані. G02–G11 pending."
+evidence: "2026-10-25: API/UI1.9.0 release21b0cd3116fce40d1dd706244cbff4bde81ef156 live на https://ntzg.pp.ua. Exact CI40211603506:4/4PASS; 172 цільові тести, незалежні рев’ю без блокувальнихP1/P2. Живі вхід, явний голос, дата «вчора», Add/replay/reload і порада за підтвердженим днем пройдені. Фінальні яблуко/картопля/фото за20.9/33.7/22.9с отрималиЗ/А/Б і частки норми; фото200г→80ккал. АвторизованийUI375/390/1366:overflow0,дельти0,gutters16/16. Public36/36хешів, здоровий сервіс, погоджені ресурси й бюджет збережені. Тимчасові доступи та власні тестові записи прибрані, приватні квитанції лише локально. C08/телефон/Mac-off/пілот і G02–G11 очікують власника. НеблокувальнийP3поясненнямаси:card_d5913121e1be. Журнал1210 уже в main черезPR32/dca29f3, точнийblob перевірено; продуктовий код не злитий. Канон PROJECT-INFO.md, docs/evidence/hermes-coach-live-deployment-2026-10-25.json."
 valid_from: "2026-10-24T19:53:39.617297+00:00"
 created_at: "2026-10-24T19:53:39.617297+00:00"
-updated_at: "2026-10-25T09:35:41.287435+00:00"
+updated_at: "2026-10-25T16:46:56.785548+00:00"
 author: Codex
 content_hash: "sha256:c4c9cdb91c4ba6eeee10d5a8ed8b569b0fb4b8f5c68e37a573369df7c7071461"
 ---
