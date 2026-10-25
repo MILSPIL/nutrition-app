@@ -243,6 +243,16 @@ if(capacity){
  owner=store.conversation("pilot");
 }
 let last;
+// A cold Linux worker may need more than six seconds before the model starts.
+// Keep the production turn deadline and require a real model call before faults.
+async function waitForModelCall(id) {
+  const deadline = Date.now() + 45000;
+  while (!call && Date.now() < deadline) {
+    if (["failed", "unknown", "cancelled", "completed"].includes(store.get("pilot", id).state)) break;
+    await sleep(20);
+  }
+  assert.equal(call, 1, "fault probe must reach the model before injecting the fault");
+}
 async function waitTurn(id) {
   const deadline = Date.now() + 47000;
   while (Date.now() < deadline) {
@@ -376,8 +386,7 @@ try {
       images: [],
     };
     await gateway.handle("pilot", "/turns", "POST", cancelled);
-    for (let n = 0; n < 300 && !call; n++) await sleep(20);
-    assert.equal(call, 1);
+    await waitForModelCall(cancelled.turnId);
     await gateway.handle(
       "pilot",
       "/turns/" + cancelled.turnId + "/cancel",
@@ -444,8 +453,7 @@ try {
       images: [],
     };
     await gateway.handle("pilot", "/turns", "POST", killed);
-    for (let n = 0; n < 300 && !call; n++) await sleep(20);
-    assert.equal(call, 1);
+    await waitForModelCall(killed.turnId);
     await backend.killForTest(killed.turnId);
     assert.equal((await waitTurn(killed.turnId)).state, "unknown");
     const unknown = await gateway.handle(
