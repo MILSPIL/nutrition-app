@@ -1,0 +1,168 @@
+{
+  "scope": "HERMES-PERSONAL-01_document_review",
+  "recorded_at": "2026-10-25T19:10:42.786298+00:00",
+  "spec_probe": {
+    "fresh_agent": true,
+    "round1_substantive": 13,
+    "round1_cosmetic": 1,
+    "round2_unresolved_plan_changes": 0
+  },
+  "claude": {
+    "model": "claude-fable-5-1",
+    "other_models": [],
+    "tokens_total": 821950,
+    "seconds": 384.7,
+    "exit_code": 0,
+    "findings": 18,
+    "confirmed": 14,
+    "partial": 4,
+    "false": 0
+  },
+  "verified_findings": [
+    {
+      "id": 1,
+      "verdict": "confirmed",
+      "verified": "Messages-only Relay і api_modeanthropic_messages підтверджені. Plain custom може відкинути codex_responses; named custom підтримує явний mode.",
+      "document_change": "Named scisense-subscription/codex_responses; Responses→broker без Messages-транслятора; позитивний text/image/tool canary."
+    },
+    {
+      "id": 2,
+      "verdict": "confirmed",
+      "verified": "worker перевіряє заборону hostloopback у sandbox; прямий SSHforward не є шляхом до innerloopback.",
+      "document_change": "Host фасад→профільний Unix socket, bind mount; негативна перевірка Y↔W."
+    },
+    {
+      "id": 3,
+      "verdict": "confirmed",
+      "verified": "onRun/lease/dayProof у поточному gateway прив’язані до вебturn; Desktop не має цього контракту.",
+      "document_change": "Admission bridge обох каналів ДО native prompt.submit; Desktop food→same webdraft/dayProof."
+    },
+    {
+      "id": 4,
+      "verdict": "confirmed",
+      "verified": "G06 вимагає підтвердження; memory tool pin має approval off за замовчуванням і failopen на помилці модуля.",
+      "document_change": "Proposal/explicit confirm у тому самому native store; зовнішній failclosed guard; rawfile/shell/auto-flush off."
+    },
+    {
+      "id": 5,
+      "verdict": "confirmed",
+      "verified": "Snapshot віднімає спільні DAY_TARGETS; null/undefined не мають контракту unset.",
+      "document_change": "targetsStateunset/partial; немає відсутніхremaining/progress, NaN/підставного0."
+    },
+    {
+      "id": 6,
+      "verdict": "confirmed",
+      "verified": "Header і звіт ClientApp мають константи калорій/макроцілей.",
+      "document_change": "Один персональний контракт server/Header/ClientApp/report, reload двох акаунтів."
+    },
+    {
+      "id": 7,
+      "verdict": "partial",
+      "verified": "Приватні читання SQLite підтверджені, але зараз виконуються в процесі owner і самі не доводять другого writer.",
+      "document_change": "Новий міжпроцесний міст використовує тільки owner recovery API; структурний marker додано."
+    },
+    {
+      "id": 8,
+      "verdict": "confirmed",
+      "verified": "conversation_history вставляється в новий run; session_id=run_id.",
+      "document_change": "Другий структурний C01 додано; новий шлях використовує persistent session."
+    },
+    {
+      "id": 9,
+      "verdict": "partial",
+      "verified": "Блок команд уже позначав усі тести запропонованими/неіснуючими. Нова testтека була зайва.",
+      "document_change": "Шляхи приведено до наявної структури server/trainer/*.test.mjs."
+    },
+    {
+      "id": 10,
+      "verdict": "partial",
+      "verified": "Специфікація вже зупиняла завеликий імпорт. Не було явного залишку єдиної квоти.",
+      "document_change": "Залишено одну погоджувану квоту256MiB, sourceBytes/freeBytes уpreflight, ніякогоавтоподілу чи видалення."
+    },
+    {
+      "id": 11,
+      "verdict": "confirmed",
+      "verified": "limits.mjs mediaTtlMs=300000, 15хв було зайвим розширенням.",
+      "document_change": "Новіaudioтаephemeralcache максимум5хв; політикастарихвкладень не ретроактивна."
+    },
+    {
+      "id": 12,
+      "verdict": "confirmed",
+      "verified": "Окремий webconverter не був названий артефактом.",
+      "document_change": "web-history.mjs, visiblemessages/stableIDs/fingerprint/roundtrip; старіtoolpayloadне виконуються."
+    },
+    {
+      "id": 13,
+      "verdict": "confirmed",
+      "verified": "Research мав третійreportedDesktopSHA, spec не називала його.",
+      "document_change": "SHA явно reported, actualcompatibility лишаєтьсяgate0."
+    },
+    {
+      "id": 14,
+      "verdict": "partial",
+      "verified": "Початкова spec вже зупиняла sourcewriter і лишала неробочу копію, тому дозволеного другогоwriter не було.",
+      "document_change": "Додано явні CLI/remoteonly/no-local-fallback/sourceDB-write перевірки."
+    },
+    {
+      "id": 15,
+      "verdict": "confirmed",
+      "verified": "Globalqueue не була прив’язана до єдиного спільного bridge для двох процесів.",
+      "document_change": "Nodeadmissionbridge, brokerдодатковийcap, статус лише власного очікування."
+    },
+    {
+      "id": 16,
+      "verdict": "confirmed",
+      "verified": "Структурний baseline не фіксував наявніC06 та NOTRUN новихперевірок.",
+      "document_change": "40наявнихcomponentтестівPASS наNode24.22.1; новіC03/C08/C09/C10NOTRUN."
+    },
+    {
+      "id": 17,
+      "verdict": "confirmed",
+      "verified": "ВнесокG03 не був явно названий уновомуабзаціPRODUCT-GOAL.",
+      "document_change": "Додано персональніцілі/підсумки йunset доG03."
+    },
+    {
+      "id": 18,
+      "verdict": "confirmed",
+      "verified": "Удокументах були злипліпростори.",
+      "document_change": "Виправлені кроки/ліміти/відступи/статуси беззміниповедінки."
+    }
+  ],
+  "local_invariant_tests": {
+    "criterion": "C06",
+    "status": "PASS_component_only",
+    "node": "v24.22.1",
+    "node_distribution_sha256_verified": true,
+    "command": "node --test server/trainer/gateway-core.test.mjs server/trainer/coach-review.test.mjs server/trainer/food-acceptance.test.mjs",
+    "tests": 40,
+    "passed": 40,
+    "failed": 0,
+    "external_model_calls": 0,
+    "coverage_note": "Чинні окремі контракти дат/прев’ю/квитанцій/повторів. Це не майбутній native/Desktop E2E C06."
+  },
+  "implementation_started": false,
+  "private_profile_reads": 0,
+  "external_inference_calls": 0,
+  "production_server_writes": 0,
+  "still_pending": [
+    "Ownerapproval0–7/A1–A5",
+    "A0sharedpayer/hostedclassification",
+    "B1/B2/B3",
+    "C01–C10 actualfullintegration"
+  ],
+  "final_document_acceptance": {
+    "reviewer": "fresh Codex personal_plan_acceptance",
+    "verdict": "done",
+    "criteria": {
+      "D1": "passed_document_scope",
+      "D2": "passed_document_scope",
+      "D3": "passed_document_scope",
+      "D4": "passed_document_scope",
+      "D5": "passed_document_scope"
+    },
+    "relative_links_checked": 60,
+    "json_files_validated": 3,
+    "application_code_changed": false,
+    "note": "План прийнято незалежним рев’ю, реалізацію/A0/C01–C10 цим не прийнято."
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "scope": "HERMES-PERSONAL-01",
+  "recorded_at": "2026-10-25T18:51:43.749203+00:00",
+  "kind": "read_only_structural_baseline",
+  "application_head": "02ca65b",
+  "checks": [
+    {
+      "criterion": "C01",
+      "probe": "native_history_retained",
+      "status": "FAIL_current_architecture",
+      "file": "server/trainer/hermes_worker.py",
+      "line": 274,
+      "evidence_found": true
+    },
+    {
+      "criterion": "C02",
+      "probe": "multiple_verified_accounts",
+      "status": "FAIL_current_architecture",
+      "file": "server/trainer/gateway.mjs",
+      "line": 180,
+      "evidence_found": true
+    },
+    {
+      "criterion": "C04",
+      "probe": "personal_targets",
+      "status": "FAIL_current_architecture",
+      "file": "server/trainer/day-snapshot.mjs",
+      "line": 7,
+      "evidence_found": true
+    },
+    {
+      "criterion": "C05",
+      "probe": "native_personal_memory",
+      "status": "FAIL_current_architecture",
+      "file": "server/trainer/hermes-config.json",
+      "line": 39,
+      "evidence_found": true
+    },
+    {
+      "criterion": "C07",
+      "probe": "accurate_context_error",
+      "status": "FAIL_current_architecture",
+      "file": "src/services/trainerApi.js",
+      "line": 26,
+      "evidence_found": true
+    },
+    {
+      "criterion": "C01",
+      "probe": "transcript_copied_per_turn",
+      "status": "FAIL_current_architecture",
+      "file": "server/trainer/hermes_worker.py",
+      "line": 222,
+      "evidence_found": true
+    },
+    {
+      "criterion": "C01",
+      "probe": "private_sqlite_recovery",
+      "status": "FAIL_current_architecture",
+      "file": "server/trainer/hermes_worker.py",
+      "line": 204,
+      "evidence_found": true
+    }
+  ],
+  "interpretation": "Індикатори поточної архітектури, не заміна майбутнім поведінковим E2E. Живі дані, профілі та API не читалися.",
+  "external_model_calls": 0,
+  "production_changes": 0,
+  "existing_component_invariants": {
+    "criterion": "C06",
+    "status": "PASS_component_only",
+    "node": "v24.22.1",
+    "node_distribution_sha256_verified": true,
+    "command": "node --test server/trainer/gateway-core.test.mjs server/trainer/coach-review.test.mjs server/trainer/food-acceptance.test.mjs",
+    "tests": 40,
+    "passed": 40,
+    "failed": 0,
+    "external_model_calls": 0,
+    "coverage_note": "Чинні окремі контракти дат/прев’ю/квитанцій/повторів. Це не майбутній native/Desktop E2E C06."
+  },
+  "not_run": [
+    {
+      "criterion": "C03",
+      "status": "NOT_RUN",
+      "reason": "Нова міграція/сімейна інтеграція ще не реалізована; майбутні докази не підміняються наявними тестами."
+    },
+    {
+      "criterion": "C08",
+      "status": "NOT_RUN",
+      "reason": "Нова міграція/сімейна інтеграція ще не реалізована; майбутні докази не підміняються наявними тестами."
+    },
+    {
+      "criterion": "C09",
+      "status": "NOT_RUN",
+      "reason": "Нова міграція/сімейна інтеграція ще не реалізована; майбутні докази не підміняються наявними тестами."
+    },
+    {
+      "criterion": "C10",
+      "status": "NOT_RUN",
+      "reason": "Нова міграція/сімейна інтеграція ще не реалізована; майбутні докази не підміняються наявними тестами."
+    }
+  ]
+}
