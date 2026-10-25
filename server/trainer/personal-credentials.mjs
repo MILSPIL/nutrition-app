@@ -7,8 +7,8 @@ import { privateDirectory } from "./private-files.mjs";
 const fail = code => { throw Error(code); };
 const names = new Set(["auth.json", "config.yaml", ".env"]);
 const alive = pid => { try { process.kill(pid, 0); return true; } catch (error) { return error.code === "EPERM"; } };
-function material(files) {
-  if (!files || typeof files !== "object" || Array.isArray(files) || Object.keys(files).some(name => !names.has(name))) fail("connection_material_invalid");
+function material(files, allowedNames = names) {
+  if (!files || typeof files !== "object" || Array.isArray(files) || Object.keys(files).some(name => !allowedNames.has(name))) fail("connection_material_invalid");
   const copied = {};
   let size = 0;
   for (const [name, data] of Object.entries(files)) {
@@ -18,9 +18,13 @@ function material(files) {
   return copied;
 }
 
-// This store belongs only to the trusted payer. Native plaintext is restored
-// exclusively to a verified tmpfs by its launcher, never a profile or browser.
-export function openPersonalCredentials(file, { key, fundingOwnerUid }) {
+// Separate authenticated encryption domains for native model credentials and
+// per-user Firebase sessions. The launcher restores native material only to
+// tmpfs; Firebase material remains in the trusted Node reader and never enters
+// a profile, model payload, browser response, argv or logs.
+export function openPersonalCredentials(file, { key, fundingOwnerUid, purpose = "native-model" }) {
+  if (!["native-model", "firebase-session"].includes(purpose)) fail("connection_key_invalid");
+  const allowedNames = purpose === "native-model" ? names : new Set(["session.json"]);
   privateDirectory(dirname(file));
   if (!Buffer.isBuffer(key) || key.length !== 32 || typeof fundingOwnerUid !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(fundingOwnerUid)) fail("connection_key_invalid");
   if (existsSync(file)) {
@@ -32,7 +36,7 @@ export function openPersonalCredentials(file, { key, fundingOwnerUid }) {
   try { db = new DatabaseSync(file); }
   catch { secret.fill(0); fail("connection_store_unavailable"); }
   let closed = false, claimed = false;
-  const aad = Buffer.from("scisense-personal-connection-v1:" + fundingOwnerUid);
+  const aad = Buffer.from((purpose === "native-model" ? "scisense-personal-connection-v1:" : "scisense-firebase-session-v1:") + fundingOwnerUid);
   const seal = value => {
     const iv = randomBytes(12), cipher = createCipheriv("aes-256-gcm", secret, iv); cipher.setAAD(aad);
     const data = Buffer.concat([cipher.update(JSON.stringify(value)), cipher.final()]);
@@ -73,13 +77,13 @@ export function openPersonalCredentials(file, { key, fundingOwnerUid }) {
     return Object.freeze({
       status() { if (closed) fail("connection_closed"); return summary(read()); },
       initialize(files) {
-        const data = material(files);
+        const data = material(files, allowedNames);
         return transaction(() => { const old = read(); if (old.phase !== "empty") fail("connection_conflict"); const state = { version: 1, phase: "ready", revision: old.revision + 1, files: data }; write(state); return summary(state); });
       },
       // Only the payer's explicit native login completion may call this. A
       // retry or a profile request cannot clear an ambiguous refresh marker.
       reauthorize(files, { expectedRevision } = {}) {
-        const data = material(files);
+        const data = material(files, allowedNames);
         return transaction(() => {
           const old = read();
           if (old.phase !== "reauth_required" || old.revision !== expectedRevision) fail("connection_conflict");
@@ -96,7 +100,7 @@ export function openPersonalCredentials(file, { key, fundingOwnerUid }) {
         return transaction(() => { const old = read(); if (old.revision !== expectedRevision) fail("connection_conflict"); if (old.phase !== "ready") fail("connection_auth_required"); const state = { ...old, phase: "refresh_pending", refreshId, revision: old.revision + 1 }; write(state); return summary(state); });
       },
       checkpoint(files, { expectedRevision, refreshId, rotationCommitted = false } = {}) {
-        const data = material(files);
+        const data = material(files, allowedNames);
         return transaction(() => {
           const old = read();
           if (old.revision !== expectedRevision) fail("connection_conflict");
@@ -107,6 +111,10 @@ export function openPersonalCredentials(file, { key, fundingOwnerUid }) {
         });
       },
       requireReauth({ expectedRevision } = {}) { return transaction(() => { const old = read(); if (old.revision !== expectedRevision) fail("connection_conflict"); const state = { ...old, phase: "reauth_required", revision: old.revision + 1 }; write(state); return summary(state); }); },
+      clear({ expectedRevision } = {}) {
+        if (purpose !== "firebase-session") fail("connection_material_invalid");
+        return transaction(() => { const old = read(); if (old.revision !== expectedRevision) fail("connection_conflict"); const state = { version: 1, phase: "empty", revision: old.revision + 1, files: {} }; write(state); return summary(state); });
+      },
       close() {
         if (closed) return;
         try { if (claimed) db.prepare("DELETE FROM connection_owner WHERE id=1 AND nonce=?").run(nonce); }

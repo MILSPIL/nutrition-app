@@ -48,7 +48,7 @@ export function createPersonalBackend({ uid, core, tools, releaseTools = () => {
             const attachments = await stageAttachments(uid, args.turn.id, args.images, { sessionId, signal });
             const context = { turn: args.turn, input: args.input, snapshot: args.snapshot, signal };
             return { apiText: JSON.stringify({ ...args.snapshot, history: [] }), attachments,
-              verify: async () => { try { await verify(args.turn, signal); } catch (error) { contextError = error; throw error; } },
+              verify: async () => { try { await args.verifySnapshot?.(); await verify(args.turn, signal); } catch (error) { contextError = error; throw error; } },
               tools: async (name, parameters, { signal, nativeBinding }) => {
                 bind(nativeBinding);
                 if (!TOOLS.includes(name) || typeof tools[name] !== "function") throw Error("invalid_request");

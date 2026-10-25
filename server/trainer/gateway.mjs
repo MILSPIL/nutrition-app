@@ -132,6 +132,7 @@ export function createTrainerGateway({
           onRun: (ids) => store.bindRun(id, turn.generation, ids),
           issueLease: () => store.issueLease(id, turn.generation),
           assertDraftCompletion: (ack) => store.assertDraftCompletion(id, turn.generation, ack),
+          verifySnapshot: () => verifyTurn(turn, signal),
           modelCall: (lease, payload) => proxy.invoke(lease, payload),
         });
       const result = await abortable(physical, signal);

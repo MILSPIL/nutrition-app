@@ -8,6 +8,8 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-25 23:46 UTC: захищена perUID Firebase-сесія читання пройшла16offline тестів; додатково8Gateway тестів перевірили реальний dayProof у model callback. Незалежне рев’ю PASS після двох failure-виправлень. [Доказ](docs/evidence/hermes-personal-data-session-2026-10-26.json). Компонент ще не підключений до runtime;0реальнихHTTP, production не змінений.
+
 2026-10-25 23:37 UTC: AppGateway підключено локально до canonical Hermes через perUID backend. Свіжий snapshot після черги, native receipt до tool, фізичний drain до наступного UID.58Node+22React та13actual-native joint checks PASS, незалежне рев’ю PASS,3tools/6syntheticPOST,0realAPI. [Доказ](docs/evidence/hermes-personal-web-gateway-2026-10-26.json). Runtime/Firestore delegation/фото/Desktop facade/міграція/live ще не завершені; production не змінений.
 
 2026-10-25 23:09 UTC: actual-native зв’язка owner/Codex producer/шифрований parent/coordinator пройшла9інтегрованих перевірок.2native tools і4synthetic POST; спільна історія web/Desktop, ізольований другий профіль, фізичний restart зі сталими messages і birth-epochreceipt.5nativeпроцесів пройшли OS4canaries. Окремо17Core+4Payer+11transportNode та12NativeIPC checks; незалежні binding/lifecycle рев’ю PASS. [Доказ](docs/evidence/hermes-personal-joint-2026-10-26.json). HTTP gateway/Desktop facade, приватна міграція, реальний вхід іlive ще не підключені.0реальнихAPI, прод не змінений.

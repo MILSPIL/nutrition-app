@@ -11,7 +11,7 @@ import { createPersonalBackend } from "./personal-backend.mjs";
 import { personalQueue } from "./personal-queue.mjs";
 import { buildSnapshot } from "./snapshot.mjs";
 
-function fixture(t, { context = "synthetic", nativeState = "completed", drain, stageError } = {}) {
+function fixture(t, { context = "synthetic", nativeState = "completed", drain, stageError, staleBeforeVerify = false } = {}) {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "scisense-personal-gateway-"))); chmodSync(dir, 0o700);
   let clock = Date.parse("2026-10-24T20:59:59Z"), revision = 0, starts = 0, verifies = 0;
   const store = openTurnStore(join(dir, "turns.sqlite"), { hmacKey: randomBytes(32), now: () => clock });
@@ -25,7 +25,7 @@ function fixture(t, { context = "synthetic", nativeState = "completed", drain, s
         snapshots.push(JSON.parse(prepared.apiText));
         // A real tool can overtake the submission RPC ACK.
         await prepared.tools("read_confirmed_day", { dayRef: "today" }, { signal, nativeBinding: { admissionId: native.admission_id, sessionId } });
-        await prepared.onAdmission(native); await prepared.verify();
+        await prepared.onAdmission(native); if (staleBeforeVerify) revision++; await prepared.verify();
         if (drain) { drain.entered(); await new Promise(resolve => { if (signal.aborted) resolve(); else signal.addEventListener("abort", resolve, { once: true }); }); await drain.wait; }
         return { state: nativeState, result: { final_response: "Відповідь тренера" } };
       } }), { signal }); },
@@ -105,4 +105,13 @@ for (const code of ["media_unavailable", "trainer_quota"]) test(`durable pre-dis
   const next = { ...body(), baseRevision: f.store.conversation("owner").revision };
   await f.g.handle("owner", "/turns", "POST", next);
   assert.equal((await f.settle(next.turnId)).state, "completed"); assert.equal(f.starts, 1);
+});
+
+
+test("native model callback always uses the Gateway day-proof verifier", async t => {
+  const f = fixture(t, { staleBeforeVerify: true }), input = body();
+  await f.g.handle("owner", "/turns", "POST", input);
+  const result = await f.settle(input.turnId);
+  assert.equal(result.state, "failed"); assert.equal(result.error, "stale_snapshot");
+  assert.equal(f.verifies, 0);
 });

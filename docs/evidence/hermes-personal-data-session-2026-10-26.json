@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "offline": true,
+  "realNetworkRequests": 0,
+  "firebaseAndVaultTests": 16,
+  "nativeGatewayTests": 8,
+  "encryptedPurposeAndUid": true,
+  "refreshPendingBeforePost": true,
+  "noUnknownRotationRetry": true,
+  "closeAllVaultsOnFault": true,
+  "actualSnapshotVerifierInModelCallbacks": true,
+  "review": {
+    "agent": "personal_local_review",
+    "confirmedP2": 2,
+    "resolved": 2,
+    "openP1P2": 0,
+    "verdict": "PASS"
+  },
+  "productionChanged": false
+}
