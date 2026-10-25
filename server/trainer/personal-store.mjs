@@ -52,7 +52,7 @@ export function openPersonalStore(file, { profiles, key, now = Date.now } = {}) 
   const owned = (uid, inputId) => {
     check(); requireId(inputId);
     const profile = profiles.resolve(uid), row = db.prepare("SELECT * FROM personal_inputs WHERE uid=? AND input_id=?").get(uid, inputId);
-    if (!row || row.profile_id !== profile.profileId || row.session_id !== profile.sessionId) fail("not_found", 404);
+    if (!row || row.profile_id !== profile.profileId) fail("not_found", 404);
     return row;
   };
   const view = row => ({ inputId: row.input_id, state: row.state, sentAt: row.sent_at, channel: row.channel,
@@ -85,24 +85,26 @@ export function openPersonalStore(file, { profiles, key, now = Date.now } = {}) 
       claimed = true;
       for (const row of db.prepare("SELECT uid,profile_id,session_id FROM personal_inputs WHERE state IN ('queued','dispatching','admitted','unknown')").all()) {
         const profile = profiles.resolve(row.uid);
-        if (row.profile_id !== profile.profileId || row.session_id !== profile.sessionId) fail("personal_registry_conflict", 503);
+        if (row.profile_id !== profile.profileId) fail("personal_registry_conflict", 503);
       }
       db.prepare("UPDATE personal_inputs SET state='unknown',error='execution_unknown' WHERE state='dispatching'").run();
     });
     return Object.freeze({
-      enqueue(uid, inputId, payload, { channel = "web" } = {}) {
+      // sessionId comes from an owner lookup by canonical Bot Chat TITLE. It
+      // is the input's birth target, never a persisted pin for future inputs.
+      enqueue(uid, inputId, payload, { channel = "web", sessionId } = {}) {
         const profile = profiles.resolve(uid); requireId(inputId);
-        if (!["web", "desktop"].includes(channel) || !payload || typeof payload !== "object" ||
+        if (!nativeId(sessionId) || !["web", "desktop"].includes(channel) || !payload || typeof payload !== "object" ||
             Array.isArray(payload) || Buffer.byteLength(stableJSON(payload)) > 32000) fail("invalid_request");
         const hash = digest(payload);
         return tx(() => {
           const old = db.prepare("SELECT * FROM personal_inputs WHERE uid=? AND input_id=?").get(uid, inputId);
           if (old) {
-            if (old.profile_id !== profile.profileId || old.session_id !== profile.sessionId || old.payload_hmac !== hash)
+            if (old.profile_id !== profile.profileId || old.payload_hmac !== hash)
               fail("turn_conflict", 409);
             return { ...view(old), replayed: true };
           }
-          const row = { uid, input_id: inputId, profile_id: profile.profileId, session_id: profile.sessionId, payload_hmac: hash };
+          const row = { uid, input_id: inputId, profile_id: profile.profileId, session_id: sessionId, payload_hmac: hash };
           db.prepare("INSERT INTO personal_inputs(uid,input_id,profile_id,session_id,payload_hmac,payload,channel,sent_at,state) VALUES(?,?,?,?,?,?,?,?,'queued')")
             .run(uid, inputId, row.profile_id, row.session_id, hash, seal(row, payload), channel, new Date(now()).toISOString());
           return { ...view(owned(uid, inputId)), replayed: false };

@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import { personalProfiles } from "./personal-profiles.mjs";
 
 export const fixtureProfiles = () => ({ version: 1, fundingOwner: "owner", profiles: [
-  { uid: "owner", profileId: "personal-owner", home: "/var/lib/scisense/personal/owner", socket: "/run/scisense-owner/native.sock", sessionId: "session-owner" },
-  { uid: "wife", profileId: "personal-wife", home: "/var/lib/scisense/personal/wife", socket: "/run/scisense-wife/native.sock", sessionId: "session-wife" },
+  { uid: "owner", profileId: "personal-owner", home: "/var/lib/scisense/personal/owner", socket: "/run/scisense-owner/native.sock", canonicalTitle: "Bot Chat" },
+  { uid: "wife", profileId: "personal-wife", home: "/var/lib/scisense/personal/wife", socket: "/run/scisense-wife/native.sock", canonicalTitle: "Bot Chat" },
 ] });
 
 test("verified UID selects one immutable profile; no email, unknown UID or client route fallback", () => {
   const config = fixtureProfiles(), registry = personalProfiles(config);
-  assert.equal(registry.resolve("owner").sessionId, "session-owner");
+  assert.equal(registry.resolve("owner").canonicalTitle, "Bot Chat");
   assert.equal(registry.resolve("wife").fundingOwner, "owner");
   assert.notEqual(registry.resolve("owner").home, registry.resolve("wife").home);
   config.profiles[1].home = config.profiles[0].home;

@@ -51,6 +51,19 @@
       }
     },
     {
+      "case": "sanitized_gui_import_native_title_adoption",
+      "passed": true,
+      "actual": {
+        "ownerImport": true,
+        "firstResume": true,
+        "secondChannelSameSession": true,
+        "messagesPreserved": true,
+        "sourceProvenance": "local -> desktop GUI import -> restricted native adoption",
+        "importedExecutablePolicy": false
+      },
+      "scope": "Synthetic single-session GUI adoption only; first private migration needs explicit provenance mapping and full fingerprints."
+    },
+    {
       "case": "native_whole_store_restore_same_canonical_identity",
       "passed": true,
       "actual": {
@@ -77,7 +90,7 @@
     "childExecutionDenied": true,
     "privateReadCanaryDenied": true
   },
-  "scope": "Native source9975Python files pinned, OS sandbox canaries passed; owner genericimport limitations and same-identity native full-store recovery. Not complete C01-C10/Desktop/host acceptance.",
+  "scope": "Provider mode resolution and actual native session/owner-import/resume only; no inference wire, broker, admission or Desktop E2E.",
   "sourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
   "sourceHashes": {
     "gateway/session_local.py": "5ac726c4a792eca6f60007ca68ba306b4ed1837e5240fcd87d0ebde6935a0a65",
@@ -95,10 +108,5 @@
   },
   "cleanup": "complete_after_child_exit",
   "criterionAcceptance": false,
-  "verdict": "blocked",
-  "desktopCompatibility": {
-    "installedSource": "73162b00eefde3794bed0afb53d84a19c0eed230",
-    "canonicalAdapter": false,
-    "launched": false
-  }
+  "verdict": "blocked"
 }

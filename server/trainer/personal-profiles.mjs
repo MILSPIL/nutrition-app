@@ -14,8 +14,8 @@ export function personalProfiles(config) {
       config.profiles.length < 1 || config.profiles.length > 2) fail("personal_config_invalid", 503);
   const profiles = new Map(), identities = new Set(), homes = new Set(), sockets = new Set();
   for (const profile of config.profiles) {
-    if (!exact(profile, ["uid", "profileId", "home", "socket", "sessionId"]) ||
-        !id(profile.uid) || !id(profile.profileId) || !id(profile.sessionId) ||
+    if (!exact(profile, ["uid", "profileId", "home", "socket", "canonicalTitle"]) ||
+        !id(profile.uid) || !id(profile.profileId) || profile.canonicalTitle !== "Bot Chat" ||
         ![profile.home, profile.socket].every(path => typeof path === "string" &&
           path.startsWith("/") && resolve(path) === path && !/[\0\r\n]/.test(path)) ||
         dirname(profile.socket) === "/" || profile.home === "/" ||

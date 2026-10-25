@@ -138,6 +138,7 @@ def child(source, root):
         # The real gateway turn stamps a canonical local source. No SQL or foreign DB handle.
         live = origin.sessions[ref.session_id]
         origin.runner.session_store._record_gateway_session_peer(ref.session_id, live.route, live.source)
+        origin.db.set_session_title(ref.session_id, "Bot Chat")
         origin.db.append_message(ref.session_id, "user", "Синтетичний незмінний текст")
         payload = origin.db.export_all(include_inactive=True)
         assert len(payload) == 1 and payload[0]["source"] == "local", "fixture_must_be_canonical"
@@ -163,6 +164,39 @@ def child(source, root):
             "session_id": ref.session_id, "submission_id": "stable-synthetic-input"}})
         cases.append({"case": "owner_input_lookup_without_resubmit", "passed": "result" in lookup,
                       "actual": "supported" if "result" in lookup else lookup.get("error")})
+        # First migration is a GUI transcript import, not a copy of the Mac's
+        # executable frozen policy. Preserve original source as bundle provenance;
+        # the legacy GUI source lets native adoption rebuild destination policy.
+        gui_payload = json.loads(json.dumps(payload))
+        gui_payload[0]['source'] = 'desktop'
+        gui = await authority('gui-migration')
+        gc = connection(gui)
+        gui_import = await gc.dispatch({'id':23,'method':'session.mutate','params':{
+            'session_id':ref.session_id,'request_id':'sanitized-gui-import','expected_revision':0,
+            'operation':'import','payload':{'sessions':gui_payload}}})
+        gui_resume = await gc.dispatch({'id':24,'method':'session.create','params':{
+            'request_id':'resolve-primary-by-title','source':'gui','title':'Bot Chat','hidden':True,
+            'cwd':str(root/'gui-migration'),'model':'gpt-6.1-sol','toolsets':[],
+            'follow_profile_config':True}})
+        gui_repeat = await gc.dispatch({'id':25,'method':'session.create','params':{
+            'request_id':'another-native-channel','source':'gui','title':'Bot Chat','hidden':True,
+            'cwd':str(root/'gui-migration'),'model':'gpt-6.1-sol','toolsets':[],
+            'follow_profile_config':True}})
+        original_messages=origin.db.get_messages(ref.session_id)
+        adopted_messages=gui.db.get_messages(ref.session_id)
+        semantic_fields=('role','content','timestamp','tool_call_id','tool_calls','tool_name','message_uid')
+        semantic=lambda messages:[{key:message.get(key) for key in semantic_fields} for message in messages]
+        adopted=bool('result' in gui_resume and gui_resume['result'].get('session_id')==ref.session_id
+                     and 'result' in gui_repeat and gui_repeat['result'].get('session_id')==ref.session_id
+                     and semantic(original_messages)==semantic(adopted_messages))
+        cases.append({'case':'sanitized_gui_import_native_title_adoption','passed':adopted,
+                      'actual':{'ownerImport': 'result' in gui_import,
+                                'firstResume':gui_resume.get('error') or gui_resume.get('result',{}).get('session_id')==ref.session_id,
+                                'secondChannelSameSession':gui_repeat.get('result',{}).get('session_id')==ref.session_id,
+                                'messagesPreserved':semantic(original_messages)==semantic(adopted_messages),
+                                'sourceProvenance':'local -> desktop GUI import -> restricted native adoption',
+                                'importedExecutablePolicy':False},
+                      'scope':'Synthetic single-session GUI adoption only; first private migration needs explicit provenance mapping and full fingerprints.'})
         # Canonical rollback candidate: native full-store snapshot into a NEW empty
         # volume mounted at the SAME canonical home, after releasing the only writer.
         # No generic transcript import, raw SQL, external SQLite reader or service restart.

@@ -46,3 +46,10 @@ Collision приймається лише за typed reason `import_content_conf
 Обрано native full-store. Не запускати загальний `hermes backup`, який включає auth/.env/інші профілі, чи blind `run_import` з автоматичним запуском gateway. Використовувати адресні pinned helpers та service fence. Lookup за inputId і remote facade лишаються потрібними.
 
 Останнє уточнення Юрія скасувало зовнішній/комерційний A0: SciSense лише клієнт його Hermes, де він обирає модель/провайдера. Нічого OpenAI не надсилати, окрему OAuth-реєстрацію SciSense не створювати. Технічний A0 перевіряє саме налаштоване Hermes-підключення.
+
+
+## Перша міграція GUI та оновлений Desktop
+
+Фактичний source Desktop Юрія після оновлення є0.22.5/bf0203; окремий /Applications bootstrap helper не визначає його поточну збірку. На ізольованій копіїbf0203 додано вузький negotiated remote codec, наявний CanonicalDesktopProtocol використовується без переробки session engine. Auth лишається штатним remote; marker не дає local/native_bootstrap прав. Registry OAuth redial теж зберігає marker до profile/header scope.25socket/codec tests і Lightbuild пройдені; actualElectron/nativeE2E ще pending. Target readiness окремо вимагає конкретний bridge+pin, загальна legacy-сумісність helper цього не доводить.
+
+Native проба довела sanitized GUI import: при першому перенесенні canonical source local нормалізується до legacy desktop тільки в імпортному transcript bundle, оригінальний source зберігається у приватному provenance manifest. Executable local policy не переноситься. Native session.create із title Bot Chat/source gui підхоплює той самий ID, повтор другого каналу відкриває його знову, текст/ролі/часи/tool identity збережені. Це не переслідування останньої сесії й не збережений Bot Chat ID: кожен новий input резолвить назву, outbox зберігає birth target лише свого input. Перед приватним cutover потрібні повні fingerprints, collision precheck та native repeat/adoption verification; поточна проба лише синтетична одна сесія.
