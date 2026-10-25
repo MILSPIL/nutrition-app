@@ -62,5 +62,15 @@
       "Право стосується всіх процесів scisense, які запускають цей binary.",
       "Проба має окремі StateDirectory/RuntimeDirectory і не успадковує production credentials."
     ]
+  },
+  "cleanup": {
+    "checkedAt": "2026-10-25T09:38:17.532606+00:00",
+    "temporaryAdminAbsent": true,
+    "sshAuthenticationRejected": true,
+    "ownedCaffeinatePid": 53557,
+    "ownedCaffeinateRemoved": true,
+    "newModelCalls": 0,
+    "policyLoaded": false,
+    "newReleaseInstalled": false
   }
 }
