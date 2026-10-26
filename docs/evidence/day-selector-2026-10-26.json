@@ -1,0 +1,57 @@
+{
+  "checkedAt": "2026-10-26T20:21:27.502032+00:00",
+  "codeSha": "b26fbd57961d0af9df5e972d9ad9243ebcfc990a",
+  "version": "1.9.1",
+  "reactTests": 323,
+  "reactSuites": 35,
+  "browserChecks": 79,
+  "syntheticOnly": true,
+  "daySelectorWidths": [
+    {
+      "width": 375,
+      "leftDelta": 0,
+      "rightDelta": 0,
+      "overflow": 0,
+      "minTap": 49.5
+    },
+    {
+      "width": 390,
+      "leftDelta": 0,
+      "rightDelta": 0,
+      "overflow": 0,
+      "minTap": 49.5
+    },
+    {
+      "width": 1366,
+      "leftDelta": 0,
+      "rightDelta": 0,
+      "overflow": 0,
+      "minTap": 49.5
+    }
+  ],
+  "pageErrors": 0,
+  "browserCleanupVerified": true,
+  "operatorRecoveryTests": 6,
+  "freshIndependentReview": "no remaining P1/P2; confirmed findings fixed",
+  "frontendDeploymentPending": false,
+  "privateFoodImport": {
+    "orderedSummaries": 2,
+    "newRows": 27,
+    "protectedDatesUnchanged": true,
+    "oldImportsNotRun": true,
+    "readbackVerified": true,
+    "temporaryDataTokenRemoved": true,
+    "receiptStoredOutsideGit": true
+  },
+  "ownerAcceptance": false,
+  "deployed": true,
+  "ciRun": 40393157075,
+  "ciJobsPassed": 4,
+  "backendRelease": "9c218d1ac4d295c9264f9076d23c1589072cb282",
+  "apiPidUnchanged": true,
+  "publicFilesExact": 37,
+  "siteHttp": 200,
+  "apiHealthHttp": 200,
+  "temporaryAdminAbsent": true,
+  "realPhoneOwnerAcceptance": false
+}
