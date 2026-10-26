@@ -34,6 +34,25 @@ class ProvisionedStateTests(unittest.TestCase):
                     self.assertIsNone(connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone())
 
 
+class PersonalConfigSelectionTests(unittest.TestCase):
+    def test_model_change_preserves_every_restricted_policy_field(self):
+        from hermes_personal_owner import personal_config, publish_personal_config
+        with tempfile.TemporaryDirectory(dir=os.environ["SCISENSE_FIXTURE_ROOT"]) as temporary:
+            target = Path(temporary) / "config.yaml"
+            publish_personal_config(target, CONNECTION)
+            changed = {**CONNECTION, "model": "synthetic-next", "contextWindow": 256000}
+            publish_personal_config(target, changed)
+            self.assertEqual(json.loads(target.read_text()), personal_config(changed))
+            self.assertEqual(target.stat().st_mode & 0o777, 0o600)
+            compromised = personal_config(changed)
+            compromised["platform_toolsets"]["gui"] = ["terminal"]
+            target.write_text(json.dumps(compromised))
+            before = target.read_bytes()
+            with self.assertRaisesRegex(RuntimeError, "personal_config_invalid"):
+                publish_personal_config(target, CONNECTION)
+            self.assertEqual(target.read_bytes(), before)
+
+
 class PersistentOwnerTests(unittest.IsolatedAsyncioTestCase):
     async def test_real_grants_and_foreign_pool_cannot_enter_personal_profile(self):
         from hermes_personal_owner import _private_directory

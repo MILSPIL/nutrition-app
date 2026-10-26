@@ -10,7 +10,7 @@ from types import SimpleNamespace
 IPC_SENTINEL = "scisense-parent-ipc-not-a-provider-credential"
 _PROVIDER = "scisense-shared"
 _ERRORS = {"trainer_unavailable", "trainer_timeout", "trainer_quota", "connection_auth_required",
-           "connection_model_changed", "model_payload_invalid", "execution_unknown"}
+           "connection_model_changed", "model_selection_refused", "model_payload_invalid", "execution_unknown"}
 _ALLOWED = {"model", "messages", "tools", "tool_choice", "parallel_tool_calls", "max_tokens",
             "max_completion_tokens", "temperature", "top_p", "seed", "stop", "stream", "stream_options",
             "reasoning_effort", "verbosity", "service_tier", "extra_body", "prompt_cache_key",

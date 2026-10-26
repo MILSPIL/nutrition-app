@@ -8,6 +8,8 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-26 03:02 UTC: native вибір моделі власником пройшов 36 Node, 7 payer та 29 actual runtime перевірок, 9 OS-guarded процесів; історія після select/restart незмінна. Незалежне рев’ю PASS після 4 P2. [Доказ](docs/evidence/hermes-personal-model-selection-2026-10-26.json). Desktop facade, міграція й B1–B3 ще pending, production не змінений.
+
 2026-10-26 02:42 UTC: actual Native Hermes у Linux пройшов 23 перевірки двох профілів, restart, refresh і трьох різних фото; пік 1,39 GiB за межі 2 GiB, 2 CPU, swap 0, OOM 0. [Доказ](docs/evidence/hermes-personal-native-linux-2026-10-26.json). Оновлений messenger browser test пройшов 31 перевірку, зовнішні відступи 16/16 і дельти 0. Desktop facade, міграція й B1–B3 ще pending; production не змінений.
 
 2026-10-26 02:07 UTC: OS/systemd CI19e4028 PASS у2CPU/2GiB/swap0:3UID,TSYNC,TTL,kernel timer,7drain cases,OOM0,cleanuptrue. [Доказ](docs/evidence/hermes-personal-linux-2026-10-26.json). Actual Native/resource/Desktop/міграція/B1–B3 ще pending,production не змінений.

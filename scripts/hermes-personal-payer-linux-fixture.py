@@ -40,7 +40,6 @@ def transport(_transport, request):
         from compression.zstd import decompress
         data = decompress(data)
     body = json.loads(data)
-    assert body['model'] == 'synthetic-model'
     items = body['input']
     last_user = max(index for index, item in enumerate(items) if item.get('role') == 'user')
     current = json.dumps(items[last_user])
@@ -58,6 +57,14 @@ def transport(_transport, request):
             snapshot, _ = json.JSONDecoder().raw_decode(part['text'][marker.end():])
             ready_case = 'SYNTHETIC_READY_DRAFT' in snapshot.get('message', '')
             phase = 'owner_after_restart' if 'SYNTHETIC_AFTER_RESTART' in snapshot.get('message', '') else 'other'
+    selected_after_change = False
+    for part in items[last_user].get('content', []):
+        if isinstance(part, dict) and isinstance(part.get('text'), str):
+            marker = re.search(r'SCISENSE-INPUT-V1 [A-Za-z0-9-]+ [a-f0-9]{64}\n', part['text'])
+            if marker and 'schemaVersion' in part['text'][marker.end():]:
+                snapshot, _ = json.JSONDecoder().raw_decode(part['text'][marker.end():])
+                selected_after_change = 'SYNTHETIC_MODEL_CHANGED' in snapshot.get('message', '')
+    assert body['model'] == ('gpt-6-sol' if selected_after_change else 'synthetic-model')
     food_proposed = any(item.get('type') == 'function_call' and item.get('name') == 'propose_food_draft' for item in items[last_user:])
     if ready_case and finished and not food_proposed:
         draft = {'baseRevision': 0, 'dayRef': 'today', 'meal': 1, 'items': [{'itemId': '11111111-1111-4111-8111-111111111111',
@@ -73,7 +80,7 @@ def transport(_transport, request):
         item = {'id': 'synthetic-function-' + ident, 'call_id': 'synthetic-tool-' + ident, 'type': 'function_call', 'name': 'read_confirmed_day',
                 'arguments': '{"dayRef":"today"}', 'status': 'completed'}
     events = [{'type': 'response.output_item.done', 'output_index': 0, 'item': item},
-        {'type': 'response.completed', 'response': {'id': 'synthetic-response-' + ident, 'object': 'response', 'model': 'synthetic-model',
+        {'type': 'response.completed', 'response': {'id': 'synthetic-response-' + ident, 'object': 'response', 'model': body['model'],
             'status': 'completed', 'output': [item], 'usage': {'input_tokens': 10, 'output_tokens': 5, 'total_tokens': 15}}}]
     image_count = sum(1 for entry in items if isinstance(entry, dict) for part in entry.get('content', []) if isinstance(part, dict) and part.get('type') == 'input_image' and str(part.get('image_url', '')).startswith('data:image/png;base64,'))
     image_digests = [hashlib.sha256(base64.b64decode(part['image_url'].split(',', 1)[1], validate=True)).hexdigest() for entry in items if isinstance(entry, dict) for part in entry.get('content', []) if isinstance(part, dict) and part.get('type') == 'input_image' and str(part.get('image_url', '')).startswith('data:image/png;base64,')]

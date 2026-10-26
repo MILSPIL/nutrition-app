@@ -166,6 +166,9 @@ export async function createPersonalRuntime({ registry, platformKey, root, ephem
     ready = true;
     return Object.freeze({
       accepts(uid) { try { profiles.resolve(uid); return !closing; } catch { return false; } },
+      connection(uid) { profiles.resolve(uid); if (closing) throw Error("trainer_unavailable"); return core.connection(uid); },
+      modelOptions(uid, options) { profiles.resolve(uid); if (closing) throw Error("trainer_unavailable"); return core.modelOptions(uid, options); },
+      selectModel(uid, selection, options) { profiles.resolve(uid); if (closing) throw Error("trainer_unavailable"); return core.selectModel(uid, selection, options); },
       async handle(uid, route, method, body, { signal, ownerToken } = {}) {
         profiles.resolve(uid); if (closing) throw Error("trainer_unavailable");
         if (route === "/capabilities" && method === "GET") return response({ canonicalHistory: true, dataSession: true, fundingOwner: uid === registry.fundingOwner, modelPhase: credentials.status().phase });

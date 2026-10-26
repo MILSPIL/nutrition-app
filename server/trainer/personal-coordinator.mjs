@@ -12,7 +12,7 @@ const signature = value => stableJSON([value.provider, value.model, value.contex
 // executable policy. The native store remains canonical; outbox is a receipt.
 export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactory, prepare, onEvent = () => {}, now = Date.now, queue = personalQueue(), pollMs = 25 }) {
   const owners = new Map(), running = new Map(), slots = new WeakSet(), startups = new Set(), openings = new Map(), generations = new Map();
-  let active, closed = false;
+  let active, changing = false, closed = false;
   const key = (uid, inputId) => uid + ":" + inputId;
   async function retire(uid, record) {
     if (!record) return;
@@ -22,14 +22,14 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
     if (owners.get(uid) === record) owners.delete(uid);
   }
   function ownerFor(uid) {
-    if (closed) return Promise.reject(Error("trainer_unavailable"));
+    if (closed || changing) return Promise.reject(Error(closed ? "trainer_unavailable" : "trainer_busy"));
     if (openings.has(uid)) return openings.get(uid);
     const task = openOwner(uid, generations.get(uid) ?? 0); openings.set(uid, task);
     startups.add(task); task.finally(() => { startups.delete(task); if (openings.get(uid) === task) openings.delete(uid); }).catch(() => {});
     return task;
   }
   async function openOwner(uid, version) {
-    const valid = () => !closed && version === (generations.get(uid) ?? 0);
+    const valid = () => !closed && !changing && version === (generations.get(uid) ?? 0);
     const profile = profiles.resolve(uid), connection = await payer.start();
     if (!valid()) throw Error("trainer_unavailable");
     let record = owners.get(uid);
@@ -245,6 +245,28 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
         const record = await ownerFor(uid);
         try { return await record.owner.contextCommit(proposal, { signal, timeoutMs: 5000 }); }
         catch (error) { if (record.owner.unavailable) await retire(uid, record); throw error; }
+      }, { signal });
+    },
+    connection(uid) { profiles.resolve(uid); if (closed || changing) throw Error("trainer_busy"); return payer.start(); },
+    modelOptions(uid, { signal } = {}) {
+      profiles.resolve(uid);
+      return queue.run(uid, signal => payer.modelOptions({ signal }), { signal });
+    },
+    selectModel(uid, selection, { signal } = {}) {
+      const profile = profiles.resolve(uid);
+      if (uid !== profile.fundingOwner) return Promise.reject(Error("model_owner_required"));
+      if (!selection || Object.keys(selection).length !== 2 || typeof selection.model !== "string" ||
+          !selection.model || selection.model.length > 160 || /[\0\r\n]/.test(selection.model) || selection.provider !== "openai-codex")
+        return Promise.reject(Error("model_selection_refused"));
+      return queue.run(uid, async signal => {
+        changing = true;
+        try {
+          for (const { uid } of profiles.entries()) generations.set(uid, (generations.get(uid) ?? 0) + 1);
+          await Promise.allSettled([...startups]);
+          await Promise.all([...owners.entries()].map(([uid, record]) => retire(uid, record)));
+          signal.throwIfAborted();
+          return await payer.selectModel({ provider: selection.provider, model: selection.model }, { signal });
+        } finally { changing = false; }
       }, { signal });
     },
     state: uid => queue.state(profiles.resolve(uid).uid),

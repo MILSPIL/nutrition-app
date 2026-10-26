@@ -9,7 +9,7 @@ import { createPersonalCoordinator } from "./personal-coordinator.mjs";
 import { openPersonalStore } from "./personal-store.mjs";
 import { personalProfiles } from "./personal-profiles.mjs";
 
-function fixture(t, { beforeNative = async () => {}, prepare, loseAck = false, unknownFailure = false, closeGate = Promise.resolve(), botFailure = false, startGate = Promise.resolve(), openGate = Promise.resolve(), onAbort = () => {}, loseAckBeforeModel = false, lookupMiss = false, bindingPatch = {}, staleAck = false, abortFailure = false } = {}) {
+function fixture(t, { beforeNative = async () => {}, prepare, loseAck = false, unknownFailure = false, closeGate = Promise.resolve(), botFailure = false, startGate = Promise.resolve(), openGate = Promise.resolve(), onAbort = () => {}, loseAckBeforeModel = false, lookupMiss = false, bindingPatch = {}, staleAck = false, abortFailure = false, payerExtensions = {} } = {}) {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "scisense-coordinator-"))); chmodSync(dir, 0o700);
   const profiles = personalProfiles({ version: 1, fundingOwner: "owner", profiles: ["owner", "wife"].map(uid => ({ uid, profileId: "p-" + uid, home: "/synthetic/" + uid, socket: "/synthetic/run-" + uid + "/native.sock", canonicalTitle: "Bot Chat" })) });
   const key = randomBytes(32), raw = openPersonalStore(join(dir, "outbox.sqlite"), { profiles, key });
@@ -20,6 +20,7 @@ function fixture(t, { beforeNative = async () => {}, prepare, loseAck = false, u
     async withTurn(value, execute) { assert.equal(active, undefined); active = value; try { return await execute(async payload => { modelCalls.push({ uid: active.uid, payload }); outbox.reservePost(active.uid, active.inputId, { kind: "inference", model: "synthetic", originHash: "a".repeat(64) }); return { completion: {} }; }); } finally { active = undefined; } },
     async abortTurn() { onAbort(); if (abortFailure) throw Error("synthetic-cleanup-fault"); }, async close() {},
   };
+  Object.assign(payer, payerExtensions);
   const core = createPersonalCoordinator({ profiles, outbox, payer, pollMs: 1,
     prepare: async ctx => { prepared.push({ uid: ctx.uid, revision, sentAt: ctx.sentAt }); return prepare ? prepare(ctx) : { apiText: "fresh:" + revision, tools: async () => ({}) }; },
     ownerFactory(profile, hooks) {
@@ -259,4 +260,36 @@ test("budget exhaustion alone does not invent a successful food draft", async t 
  f=fixture(t,{ beforeNative:async uid=>{for(let n=0;n<3;n++)f.outbox.reservePost(uid,inputId,{kind:"inference",model:"synthetic",originHash:"a".repeat(64)});} });
  await assert.rejects(f.core.submit("owner",inputId,{text:"incomplete or advice"}),/trainer_quota/);
  assert.equal(f.outbox.budget().posts,3);assert.equal(f.outbox.read("owner",inputId).state,"unknown");
+});
+
+
+test("only the funding owner selects models after every physical profile drain", async t => {
+  const actions = []; let f;
+  f = fixture(t, { payerExtensions: {
+    async modelOptions() { return { provider: "openai-codex", model: "synthetic", providers: [] }; },
+    async selectModel(value) { assert.ok(f.owners.every(owner => owner.closed)); actions.push(value); return { ok: true, ...value }; },
+  } });
+  const before = await f.core.history("owner"); await f.core.history("wife");
+  await assert.rejects(f.core.selectModel("wife", { provider: "openai-codex", model: "next" }), /model_owner_required/);
+  await assert.rejects(f.core.selectModel("owner", { provider: "anthropic", model: "next" }), /model_selection_refused/);
+  await assert.rejects(f.core.selectModel("owner", { provider: "openai-codex", model: "next", api_key: "forged" }), /model_selection_refused/);
+  assert.equal((await f.core.modelOptions("wife")).provider, "openai-codex");
+  await f.core.selectModel("owner", { provider: "openai-codex", model: "next" });
+  assert.equal(actions.length, 1); assert.equal(f.owners.length, 2);
+  assert.equal((await f.core.history("owner")).session_id, before.session_id);
+  assert.equal(f.owners.length, 3); assert.deepEqual(f.outbox.budget(), { turns: 0, posts: 0 });
+});
+
+test("model selection waits for an active turn and its physical cleanup", async t => {
+  let release, started, changed = false;
+  const entered = new Promise(resolve => { started = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  const f = fixture(t, { beforeNative: async () => { started(); await gate; }, payerExtensions: {
+    async selectModel() { changed = true; assert.ok(f.owners.every(owner => owner.closed)); return { ok: true }; },
+  } });
+  const turn = f.core.submit("wife", randomUUID(), { text: "current turn" }); await entered;
+  const selection = f.core.selectModel("owner", { provider: "openai-codex", model: "next" });
+  await new Promise(resolve => setImmediate(resolve)); assert.equal(changed, false);
+  release(); await turn; await selection; assert.equal(changed, true);
+  assert.deepEqual(f.outbox.budget(), { turns: 1, posts: 1 });
 });

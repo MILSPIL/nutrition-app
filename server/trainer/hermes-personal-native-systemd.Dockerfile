@@ -5,7 +5,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
 COPY server /app/server
 COPY scripts/hermes-personal-runtime-fixture.mjs scripts/hermes-personal-native-systemd-ci.py /app/scripts/
 COPY deploy/personal /etc/systemd/system/
-RUN mkdir -p /opt/scisense/personal/adapters /etc/scisense/personal /var/lib/scisense /etc/systemd/system/scisense-api.service.d && cp /app/server/trainer/hermes*.py /opt/scisense/personal/adapters/ && cp /opt/scisense/personal/adapters/hermes_personal_payer_worker.py /opt/scisense/personal/adapters/hermes_personal_payer_entry.py && ln -s /app /opt/scisense/current && ln -s /usr/local /opt/scisense/node
+RUN mkdir -p /opt/scisense/personal/adapters /etc/scisense/personal /var/lib/scisense /etc/systemd/system/scisense-api.service.d && cp /app/server/trainer/hermes*.py /opt/scisense/personal/adapters/ && cp /app/server/trainer/codex-model-metadata.json /opt/scisense/personal/adapters/ && cp /opt/scisense/personal/adapters/hermes_personal_payer_worker.py /opt/scisense/personal/adapters/hermes_personal_payer_entry.py && ln -s /app /opt/scisense/current && ln -s /usr/local /opt/scisense/node
 # Only HTTPX is mocked. The production Linux tmpfs/UID/empty-HOME guard remains.
 COPY scripts/hermes-personal-payer-linux-fixture.py /opt/scisense/personal/adapters/hermes_personal_payer_worker.py
 RUN gcc -O2 -Wall -Werror -shared -fPIC /app/server/trainer/worker-lock.c -lseccomp -lrt -o /opt/scisense/personal/adapters/worker-lock.so && cp /app/server/trainer/worker-seccomp.bpf /opt/scisense/personal/adapters/worker-seccomp.bpf && chown scisense:scisense /var/lib/scisense && chmod 700 /var/lib/scisense

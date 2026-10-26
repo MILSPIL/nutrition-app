@@ -3,6 +3,7 @@ The parent supplies only encrypted-store restoration and a physical POST
 reservation callback. All auth, provider selection and SDK conversion is native.
 """
 import base64
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -12,6 +13,30 @@ from hermes_personal_provider import BrokerRefusal, _payload
 from hermes_personal_connection import NativeCredentialBridge, assert_tmpfs_home
 from hermes_personal_egress import HTTPXEgressGuard
 from types import SimpleNamespace
+
+
+
+_MODEL_METADATA_SHA256 = "375c9c972dccdbcb25c18f1cddd2c5ec8a2c895c50e56c0a6fc40dc5a481e0a9"
+
+
+def _seed_public_model_metadata(home):
+    # Public pinned build input. Native Hermes consumes its ordinary cache;
+    # the fresh payer HOME never depends on metadata left by another process.
+    data = Path(__file__).with_name("codex-model-metadata.json").read_bytes()
+    if len(data) > 65536 or hashlib.sha256(data).hexdigest() != _MODEL_METADATA_SHA256:
+        raise RuntimeError("model_payload_invalid")
+    descriptor = os.open(home / "models_dev_cache.json", os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(descriptor, "wb") as output:
+        output.write(data); output.flush(); os.fsync(output.fileno())
+
+
+
+def _effective_context_window(model, capabilities):
+    from agent.model_metadata import _resolve_codex_oauth_context_length_with_source
+    window, _source = _resolve_codex_oauth_context_length_with_source(model, access_token="")
+    # API metadata supplies modalities, not the subscription's route limit.
+    # Unknown future aliases stay at the minimum verified adapter window.
+    return min(capabilities.context_window, window if type(window) is int and window > 0 else 64000)
 
 
 def _plain(value):
@@ -59,7 +84,8 @@ class NativePayer:
             descriptor = os.open(self.home / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
             with os.fdopen(descriptor, "wb") as target:
                 target.write(data)
-        self.callback, self.closed = callback, False
+        _seed_public_model_metadata(self.home)
+        self.callback, self.closed, self.selection_changed = callback, False, False
         from hermes_cli.inventory import load_picker_context
         from hermes_cli.config import load_config_readonly
         from agent.models_dev import get_model_capabilities
@@ -77,15 +103,75 @@ class NativePayer:
         from agent.codex_responses_adapter import _wire_model_identity
         self.wire_model = _wire_model_identity(self.model) if self.provider == "openai-codex" else self.model
         self.identity = {"wireModel": self.wire_model, "instanceId": uuid.uuid4().hex, "provider": self.provider, "model": self.model,
-            "contextWindow": capabilities.context_window, "supportsTools": True, "supportsVision": capabilities.supports_vision is True}
+            "contextWindow": _effective_context_window(self.model, capabilities), "supportsTools": True, "supportsVision": capabilities.supports_vision is True}
         self.bridge = NativeCredentialBridge(home=self.home, revision=revision,
             begin_refresh=lambda ident, options: callback("credentials", {"action": "beginRefresh", "refreshId": ident, "options": options}),
             checkpoint=lambda files, options: callback("credentials", {"action": "checkpoint", "files": {name: base64.b64encode(data).decode() for name, data in files.items()}, "options": options}),
             require_reauth=lambda options: callback("credentials", {"action": "requireReauth", "options": options})).install()
 
 
+    def model_options(self):
+        if self.closed or self.selection_changed:
+            raise BrokerRefusal("connection_model_changed")
+        from hermes_cli.config import load_config_readonly
+        from agent.models_dev import get_model_capabilities
+        from hermes_cli.codex_models import get_codex_model_ids
+        from hermes_cli.inventory import _row
+        from hermes_cli.providers import get_label
+        config = load_config_readonly()
+        models = sorted(set(get_codex_model_ids(access_token=None) + [self.model]))
+        compatible = []
+        for model in models:
+            if not isinstance(model, str) or not model or len(model) > 160 or any(c in model for c in "\0\r\n"):
+                continue
+            capabilities = get_model_capabilities(self.provider, model, allow_network=False, config=config)
+            if capabilities and capabilities.supports_tools is True and capabilities.supports_vision is True and 64000 <= _effective_context_window(model, capabilities) <= 2000000:
+                compatible.append(model)
+        # Native cached catalog only: opening the picker never refreshes auth,
+        # probes an endpoint, warms prices or launches a background request.
+        return {"provider": self.provider, "model": self.model, "providers": [
+            _row(self.provider, get_label(self.provider), True, models=compatible, total_models=len(compatible))]}
+
+    def select_model(self, provider, model):
+        if provider != self.provider or provider != "openai-codex" or model not in self.model_options()["providers"][0]["models"]:
+            raise BrokerRefusal("model_selection_refused")
+        if model == self.model:
+            return {"ok": True, "provider": provider, "model": model, "changed": False}
+        from hermes_cli.model_switch import ModelSwitchResult, apply_model_selection
+        from hermes_cli.config import _CONFIG_LOCK, atomic_config_replace, get_config_path, read_user_config_raw
+        from agent.models_dev import get_model_capabilities
+        self.bridge.ensure_ready()
+        self.selection_changed = True
+        try:
+            # Credential/provider routing stays native and unchanged. Only an
+            # explicit compatible model from that connection's catalog is saved.
+            with _CONFIG_LOCK:
+                path = get_config_path()
+                config = read_user_config_raw(path)
+                capabilities = get_model_capabilities(provider, model, allow_network=False, config=config)
+                if not capabilities or capabilities.supports_tools is not True or capabilities.supports_vision is not True:
+                    raise BrokerRefusal("model_selection_refused")
+                config["model"] = apply_model_selection(config.get("model"), ModelSwitchResult(success=True,
+                    new_model=model, target_provider=provider, base_url=self.base or "", api_mode="codex_responses"))
+                # Preserve this selection's verified capabilities in the same
+                # atomic native config commit and therefore encrypted snapshot.
+                overrides = config.setdefault("model_overrides", {}).setdefault(provider, {})
+                entry = dict(overrides.get(model) or {})
+                entry.update(supports_tools=True, supports_vision=True, context_window=_effective_context_window(model, capabilities))
+                if getattr(capabilities, "max_output_tokens", None):
+                    entry["max_output_tokens"] = capabilities.max_output_tokens
+                overrides[model] = entry
+                atomic_config_replace(path, config)
+            self.bridge.checkpoint_current()
+        except BaseException:
+            self.bridge.blocked = True
+            raise
+        # The parent physically retires this producer and every profile before
+        # a new instance resolves the committed native selection.
+        return {"ok": True, "provider": provider, "model": model, "changed": True}
+
     def invoke(self, payload, *, client_options, timeout_ms):
-        if self.closed or type(timeout_ms) is not int or not 0 < timeout_ms <= 45000:
+        if self.closed or self.selection_changed or type(timeout_ms) is not int or not 0 < timeout_ms <= 45000:
             raise BrokerRefusal("trainer_timeout")
         payload = _payload(payload, self.model)
         # The native Codex adapter uses this same explicit wire identity. It is

@@ -47,7 +47,7 @@ try{
  provisionPersonalRuntime(config);
  const nativeKey=createHmac("sha256",platformKey).update("scisense-personal-runtime-v1:native").digest();
  const credentials=openPersonalCredentials(join(stateRoot,"native.sqlite"),{key:nativeKey,fundingOwnerUid:"owner"});
- try{credentials.initialize({"auth.json":Buffer.from(JSON.stringify({version:1,providers:{"openai-codex":{tokens:{access_token:"synthetic."+Buffer.from(JSON.stringify({exp:1})).toString("base64url")+".signature",refresh_token:"synthetic-refresh"}}}})),"config.yaml":Buffer.from(JSON.stringify({model:{provider:"openai-codex",default:"synthetic-model"},auth:{adopt_external_logins:false},model_overrides:{"openai-codex":{"synthetic-model":{supports_tools:true,supports_vision:true,context_window:128000}}}}))});}finally{credentials.close();nativeKey.fill(0);}
+ try{credentials.initialize({"auth.json":Buffer.from(JSON.stringify({version:1,providers:{"openai-codex":{tokens:{access_token:"synthetic."+Buffer.from(JSON.stringify({exp:1})).toString("base64url")+".signature",refresh_token:"synthetic-refresh"}}}})),"config.yaml":Buffer.from(JSON.stringify({model:{provider:"openai-codex",default:"synthetic-model"},auth:{adopt_external_logins:false},model_overrides:{"openai-codex":{"synthetic-model":{supports_tools:true,supports_vision:true,context_window:128000},"gpt-6-sol":{supports_tools:true,supports_vision:true,context_window:128000}}}}))});}finally{credentials.close();nativeKey.fill(0);}
  stage="runtime-start";runtime=await createPersonalRuntime(config);checks++;if(setup.systemd){const initial=new DatabaseSync(join(stateRoot,"outbox.sqlite"),{readOnly:true});try{assert.equal(initial.prepare("SELECT COUNT(*) AS n FROM personal_attempts").get().n,0);}finally{initial.close();}}else assert.equal(existsSync(join(root,"synthetic-physical-posts.jsonl")),false);checks++;
  for(const uid of ["owner","wife"]){const view=await state(uid);assert.deepEqual(view.messages,[]);assert.equal(view.dataSession.phase,"reauth_required");checks++;}
  stage="firebase-connect";
@@ -61,6 +61,11 @@ try{
  assert.ok(owner.messages.some(m=>m.content.includes("тільки власника")));assert.ok(!owner.messages.some(m=>m.content.includes("тільки дружини")));checks++;
  assert.ok(wife.messages.some(m=>m.content.includes("тільки дружини")));assert.ok(!wife.messages.some(m=>m.content.includes("тільки власника")));checks++;
  assert.ok(reads.some(([uid,profile])=>uid==="owner"&&profile==="yuri"));assert.ok(reads.some(([uid,profile])=>uid==="wife"&&profile==="wife-data"));checks++;
+ stage="native-model-selection";
+ const options=await runtime.modelOptions("owner");assert.equal(options.model,"synthetic-model");assert.ok(options.providers[0].models.includes("gpt-6-sol"));checks++;
+ await assert.rejects(runtime.selectModel("wife",{provider:"openai-codex",model:"gpt-6-sol"}),/model_owner_required/);checks++;
+ const selection=await runtime.selectModel("owner",{provider:"openai-codex",model:"gpt-6-sol"});assert.equal(selection.connection.model,"gpt-6-sol");assert.equal(selection.connection.provider,"openai-codex");checks++;
+ assert.deepEqual((await state("owner")).messages,owner.messages);assert.deepEqual((await state("wife")).messages,wife.messages);checks++;
  stage="protected-native-photos";
  const photoRef=owner.messages.find(message=>message.photos?.length).photos[0].ref;
  const thumbnail=await(await runtime.handle("owner",`/photos/${photoRef}/thumbnail`,"GET")).json();assert.equal(thumbnail.type,"image/webp");checks++;
@@ -75,14 +80,14 @@ try{
  for(const [uid,before] of [["owner",owner],["wife",wife]]){const after=await state(uid);assert.deepEqual(after.messages,before.messages);assert.equal(after.latestTurn.nativeInputClaimed,true);assert.equal(after.dataSession.phase,"connected");checks++;}
  await assert.rejects(runtime.handle("stranger","/state","GET"),/pilot_forbidden/);checks++;
  stage="rotated-connection-after-restart";
- await send("owner","Покажи стан після restart без нового refresh."+(setup.systemd?" SYNTHETIC_AFTER_RESTART":""),setup.systemd?[{type:"image/png",data:thirdPng}]:[]);checks++;
+ await send("owner","Покажи стан після restart без нового refresh. SYNTHETIC_MODEL_CHANGED"+(setup.systemd?" SYNTHETIC_AFTER_RESTART":""),setup.systemd?[{type:"image/png",data:thirdPng}]:[]);checks++;
  if(setup.systemd){await runtime.handle("owner",`/photos/${photoRef}`,"POST",{action:"delete"});await assert.rejects(runtime.handle("owner",`/photos/${photoRef}/original`,"GET"),/media_missing/);checks++;}
  if(!setup.systemd){
  const posts=readFileSync(join(root,"synthetic-physical-posts.jsonl"),"utf8").trim().split("\n").map(JSON.parse);
  assert.equal(posts.length,7);assert.equal(posts.filter(post=>post.kind==="oauth_refresh").length,1);checks++;
  }
  const db=new DatabaseSync(join(stateRoot,"outbox.sqlite"),{readOnly:true});try{assert.equal(db.prepare("SELECT COUNT(*) AS n FROM personal_attempts").get().n,7);assert.equal(db.prepare("SELECT COUNT(*) AS n FROM personal_turn_budgets").get().n,3);}finally{db.close();}checks++;
- const result={passed:true,checks,realPersonalRuntime:true,realNativeCodexProducer:true,separateDataProfiles:true,canonicalHistoryAfterPhysicalRestart:true,delegatedSessionAfterRestart:true,protectedNativePhotoReadDelete:true,foreignPhotoRefRefused:true,modelLoginNeededForWife:false,startupNoProviderPosts:true,expiredNativeRefreshBeforeInference:true,rotatedConnectionUsedAfterPhysicalRestart:true,readyDraftLocalCompletionWithoutFourthPost:true,physicalPostReservations:7,realModelRequests:0};
+ const result={passed:true,checks,realPersonalRuntime:true,realNativeCodexProducer:true,separateDataProfiles:true,canonicalHistoryAfterPhysicalRestart:true,delegatedSessionAfterRestart:true,protectedNativePhotoReadDelete:true,nativeModelSelectedWithoutInference:true,nativeHistoryAfterModelSelection:true,foreignPhotoRefRefused:true,modelLoginNeededForWife:false,startupNoProviderPosts:true,expiredNativeRefreshBeforeInference:true,rotatedConnectionUsedAfterPhysicalRestart:true,readyDraftLocalCompletionWithoutFourthPost:true,physicalPostReservations:7,realModelRequests:0};
  console.log(JSON.stringify(result));
  if(setup.systemd)(await import("node:fs")).writeFileSync("/var/lib/scisense/native-result.json",JSON.stringify(result),{mode:0o600});
 }catch(error){console.error(JSON.stringify({syntheticStage:stage,error:error.message}));throw error;}

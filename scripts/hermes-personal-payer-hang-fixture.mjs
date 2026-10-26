@@ -4,7 +4,8 @@ lines.on("line", line => {
   const message = JSON.parse(line);
   if (message.type === "close") { process.exit(0); }
   if (message.type === "setup") process.stdout.write(JSON.stringify({ type: "result", id: message.id,
-    result: { instanceId: "synthetic-payer", provider: "openai-codex", model: "synthetic", supportsTools: true, contextWindow: 128000 } }) + "\n");
+    result: { instanceId: "synthetic-payer", provider: "openai-codex", model: process.env.SCISENSE_SYNTHETIC_SETUP_MODEL || "synthetic", supportsTools: true, contextWindow: 128000 } }) + "\n");
+  if (message.type === "selectModel") process.stdout.write(JSON.stringify({ type: "result", id: message.id, result: { ok: true, model: message.model, provider: message.provider } }) + "\n");
   if (message.type === "beginTurn" || message.type === "endTurn") {
     process.stdout.write(JSON.stringify({ type: "result", id: message.id, result: message.type === "beginTurn" ? { armed: true } : { disarmed: true } }) + "\n");
   } else if (message.type === "invoke" && message.payload?.success) {

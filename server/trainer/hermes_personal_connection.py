@@ -170,6 +170,18 @@ class NativeCredentialBridge:
                     _active_bridge = None
             raise
 
+    def checkpoint_current(self):
+        # An explicit owner selection changes only volatile native config.
+        # Publish its complete native snapshot before acknowledging the change.
+        with self.lock:
+            self.ensure_ready()
+            try:
+                self._revision(self.checkpoint(read_material(self.home), {"expectedRevision": self.revision}))
+            except BaseException:
+                self.blocked = True
+                raise
+            return self.revision
+
     def close(self):
         global _active_bridge
         if not self.installed:

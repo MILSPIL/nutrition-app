@@ -73,3 +73,23 @@ test("concurrent startup after idle exit creates one replacement and close is fi
     assert.equal(children.length, 2);
   } finally { await payer.close(); }
 });
+
+
+test("a replacement with a mismatching selected identity is physically retired before reuse", async () => {
+  const children = [];
+  const payer = createPersonalPayer({
+    spawnWorker: () => {
+      const child = spawn(process.execPath, [new URL("../../scripts/hermes-personal-payer-hang-fixture.mjs", import.meta.url).pathname],
+        { env: { ...process.env, SCISENSE_SYNTHETIC_SETUP_MODEL: children.length === 1 ? "unexpected" : "synthetic" }, stdio: ["pipe", "pipe", "ignore"] });
+      children.push(child); return child;
+    },
+    credentials: { restore: () => ({ revision: 1, files: {} }) }, reservePost: () => { throw Error("no POST allowed"); },
+  });
+  try {
+    await payer.start();
+    await assert.rejects(payer.selectModel({ provider: "openai-codex", model: "synthetic" }), /connection_model_changed/);
+    assert.ok(children[1].exitCode !== null || children[1].signalCode !== null);
+    assert.equal((await payer.start()).model, "synthetic");
+    assert.equal(children.length, 3);
+  } finally { await payer.close(); }
+});

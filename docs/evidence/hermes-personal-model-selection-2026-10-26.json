@@ -1,0 +1,63 @@
+{
+  "task": "HERMES-PERSONAL-01",
+  "scope": "native model selection control only",
+  "sourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+  "nativePayerTests": 7,
+  "runtime": {
+    "passed": true,
+    "checks": 29,
+    "realPersonalRuntime": true,
+    "realNativeCodexProducer": true,
+    "separateDataProfiles": true,
+    "canonicalHistoryAfterPhysicalRestart": true,
+    "delegatedSessionAfterRestart": true,
+    "protectedNativePhotoReadDelete": true,
+    "nativeModelSelectedWithoutInference": true,
+    "nativeHistoryAfterModelSelection": true,
+    "foreignPhotoRefRefused": true,
+    "modelLoginNeededForWife": false,
+    "startupNoProviderPosts": true,
+    "expiredNativeRefreshBeforeInference": true,
+    "rotatedConnectionUsedAfterPhysicalRestart": true,
+    "readyDraftLocalCompletionWithoutFourthPost": true,
+    "physicalPostReservations": 7,
+    "realModelRequests": 0,
+    "physicalProcessesWithOSCanaries": 9
+  },
+  "nodeTests": 36,
+  "baselineOwnerTests": 14,
+  "publicMetadata": {
+    "source": "https://models.dev/api.json",
+    "fetchedAt": "2026-10-26",
+    "sourceSha256": "73319ee88a10e0ec47b895bda9efcd388cc81684db5473a0fe0b7a75bdca87ea",
+    "metadataSha256": "375c9c972dccdbcb25c18f1cddd2c5ec8a2c895c50e56c0a6fc40dc5a481e0a9",
+    "purpose": "public native capability metadata only; not provider entitlement or availability",
+    "modelIds": [
+      "gpt-6-sol",
+      "gpt-6-luna",
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "gpt-5.6-luna",
+      "gpt-5.5",
+      "gpt-5.4",
+      "gpt-5.4-mini",
+      "gpt-6.1-sol"
+    ]
+  },
+  "nativeBaseCodexContext": 272000,
+  "review": {
+    "reviewer": "personal_contract_review",
+    "verdict": "PASS after 4 P2 fixes",
+    "closed": [
+      "public API catalog is not Codex availability",
+      "cold HOME capability metadata and persisted selection",
+      "mismatching replacement identity is physically retired",
+      "Codex route context cap differs from public API context"
+    ]
+  },
+  "realModelRequests": 0,
+  "keychainValuesRead": 0,
+  "serverWrites": 0,
+  "production": false,
+  "ownerAcceptance": false
+}

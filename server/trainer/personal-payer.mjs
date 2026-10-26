@@ -3,7 +3,7 @@ import { createInternalProcess } from "./internal-process.mjs";
 // One shared native producer, used only while the global queue owns a turn.
 // The profile never receives this process handle or the connection material.
 export function createPersonalPayer({ spawnWorker, credentials, reservePost, deadlineMs = 45000, now = Date.now }) {
-  let process, active, identity, starting, closed = false, generation = 0;
+  let process, active, identity, starting, controlActive = false, closed = false, generation = 0;
   const boot = () => {
     if (closed || active?.cancelled) throw Error("trainer_unavailable");
     if (!process) {
@@ -59,10 +59,35 @@ export function createPersonalPayer({ spawnWorker, credentials, reservePost, dea
     task.finally(() => { if (starting === task) starting = undefined; }).catch(() => {});
     return task;
   }
+  async function control(method, parameters, { signal } = {}) {
+    if (closed || active || controlActive) throw Error("trainer_busy");
+    controlActive = true;
+    let current;
+    try {
+      await start(); current = process;
+      const value = await current.call(method, parameters, { signal, timeoutMs: 5000 });
+      if (method === "selectModel") {
+        generation++;
+        await current.close();
+        if (process === current) { process = undefined; identity = undefined; }
+        const selected = await start();
+        current = process;
+        if (selected.provider !== parameters.provider || selected.model !== parameters.model) throw Error("connection_model_changed");
+        return { ...value, connection: selected };
+      }
+      return value;
+    } catch (error) {
+      current?.abort(); await current?.close();
+      if (process === current) { process = undefined; identity = undefined; }
+      throw error;
+    } finally { controlActive = false; }
+  }
   return Object.freeze({
     start,
+    modelOptions: options => control("modelOptions", {}, options),
+    selectModel: (selection, options) => control("selectModel", selection, options),
     async withTurn({ uid, inputId, signal, deadline }, execute) {
-      if (closed || active || !Number.isFinite(deadline) || deadline <= now() || deadline - now() > deadlineMs) throw Error("trainer_unavailable");
+      if (closed || active || controlActive || !Number.isFinite(deadline) || deadline <= now() || deadline - now() > deadlineMs) throw Error("trainer_unavailable");
       active = { uid, inputId, signal, deadline };
       let timedOut = false;
       const abort = () => process?.abort();

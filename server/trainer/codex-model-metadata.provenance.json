@@ -1,0 +1,18 @@
+{
+  "source": "https://models.dev/api.json",
+  "fetchedAt": "2026-10-26",
+  "sourceSha256": "73319ee88a10e0ec47b895bda9efcd388cc81684db5473a0fe0b7a75bdca87ea",
+  "metadataSha256": "375c9c972dccdbcb25c18f1cddd2c5ec8a2c895c50e56c0a6fc40dc5a481e0a9",
+  "purpose": "public native capability metadata only; not provider entitlement or availability",
+  "modelIds": [
+    "gpt-6-sol",
+    "gpt-6-luna",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+    "gpt-5.5",
+    "gpt-5.4",
+    "gpt-5.4-mini",
+    "gpt-6.1-sol"
+  ]
+}

@@ -47,6 +47,40 @@ def personal_config(connection):
     }
 
 
+
+def publish_personal_config(target, connection):
+    expected = personal_config(connection)
+    if target.exists():
+        info = target.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise RuntimeError("personal_config_invalid")
+        try:
+            previous = json.loads(target.read_text())
+            model = previous["model"]["default"]
+            metadata = previous["model_overrides"]["scisense-shared"][model]
+            original = personal_config({"model": model, "contextWindow": metadata["context_window"],
+                "supportsTools": metadata["supports_tools"], "supportsVision": metadata["supports_vision"]})
+        except (ValueError, KeyError, TypeError):
+            raise RuntimeError("personal_config_invalid") from None
+        if previous != original:
+            raise RuntimeError("personal_config_invalid")
+        if previous == expected:
+            return
+    temporary = target.with_name(".personal-config-" + uuid.uuid4().hex)
+    try:
+        descriptor = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(descriptor, "w") as output:
+            json.dump(expected, output); output.flush(); os.fsync(output.fileno())
+        os.replace(temporary, target)
+        directory = os.open(target.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def _private_directory(home):
     home = Path(home)
     info = home.lstat()
@@ -188,15 +222,7 @@ class PersonalOwner:
         except BaseException:
             self.closed = True
             raise
-        target = self.home / "config.yaml"
-        if target.exists():
-            info = target.lstat()
-            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_mode & 0o077 or json.loads(target.read_text()) != self.config:
-                raise RuntimeError("personal_config_invalid")
-        else:
-            descriptor = os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-            with os.fdopen(descriptor, "w") as output:
-                json.dump(self.config, output); output.flush(); os.fsync(output.fileno())
+        publish_personal_config(self.home / "config.yaml", self.connection)
         register_parent_provider(self.model_bridge, self.connection["model"],
             supports_vision=self.connection.get("supportsVision") is True, supports_tools=True)
         for name in _TOOL_NAMES:

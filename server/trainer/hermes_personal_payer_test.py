@@ -91,5 +91,78 @@ class NativePayerTests(unittest.TestCase):
         self.assertEqual(self.calls, [])
 
 
+    def test_native_model_picker_and_selection_never_call_a_provider(self):
+        payer = self.start()
+        from types import SimpleNamespace
+        compatible = SimpleNamespace(supports_tools=True, supports_vision=True, context_window=128000)
+        with patch("hermes_cli.codex_models.get_codex_model_ids", return_value=[MODEL, "synthetic-next"]), patch("agent.models_dev.get_model_capabilities", return_value=compatible):
+            options = payer.model_options()
+            self.assertEqual(options["providers"][0]["models"], [MODEL, "synthetic-next"])
+            self.assertEqual(payer.select_model("openai-codex", "synthetic-next")["changed"], True)
+        self.assertEqual(self.calls, [])
+        checkpoints = [value for kind, value in self.events if kind == "credentials"]
+        self.assertEqual(len(checkpoints), 1)
+        from ruamel.yaml import YAML
+        config = YAML(typ="safe").load(base64.b64decode(checkpoints[0]["files"]["config.yaml"]))
+        self.assertEqual(config["model"]["default"], "synthetic-next")
+        self.assertEqual(config["model"]["provider"], "openai-codex")
+        self.assertIn("auth.json", checkpoints[0]["files"])
+        with self.assertRaises(RuntimeError):
+            payer.invoke({}, client_options={}, timeout_ms=1000)
+
+    def test_unsupported_selection_cannot_change_routing_or_checkpoint(self):
+        payer = self.start()
+        before = (self.home / "config.yaml").read_bytes()
+        for provider, model in (("anthropic", MODEL), ("openai-codex", "synthetic-unlisted")):
+            with self.assertRaisesRegex(RuntimeError, "model_selection_refused"):
+                payer.select_model(provider, model)
+        self.assertEqual((self.home / "config.yaml").read_bytes(), before)
+        self.assertEqual(self.events, [])
+
+    def test_api_only_model_metadata_is_not_a_codex_subscription_catalog(self):
+        payer = self.start()
+        from types import SimpleNamespace
+        compatible = SimpleNamespace(supports_tools=True, supports_vision=True, context_window=128000)
+        with patch("agent.models_dev.list_provider_models", return_value=["synthetic-api-only-pro"]) as public_catalog, patch("hermes_cli.codex_models.get_codex_model_ids", return_value=[MODEL]) as codex_catalog, patch("agent.models_dev.get_model_capabilities", return_value=compatible):
+            self.assertEqual(payer.model_options()["providers"][0]["models"], [MODEL])
+            with self.assertRaisesRegex(RuntimeError, "model_selection_refused"):
+                payer.select_model("openai-codex", "synthetic-api-only-pro")
+            public_catalog.assert_not_called()
+            codex_catalog.assert_called_with(access_token=None)
+        self.assertEqual(self.calls, [])
+
+    def test_real_native_cold_catalog_and_selected_metadata_survive_a_fresh_home(self):
+        payer = self.start()
+        self.assertIn("gpt-6-sol", payer.model_options()["providers"][0]["models"])
+        payer.select_model("openai-codex", "gpt-6-sol")
+        from ruamel.yaml import YAML
+        selected_config = YAML(typ="safe").load((self.home / "config.yaml").read_text())
+        self.assertEqual(selected_config["model_overrides"]["openai-codex"]["gpt-6-sol"]["context_window"], 272000)
+        checkpoint = [value for kind, value in self.events if kind == "credentials"][-1]
+        revision = payer.bridge.revision
+        payer.close()
+        fresh = self.home / "fresh-home"; fresh.mkdir(mode=0o700)
+        with patch.object(module, "assert_tmpfs_home", return_value=fresh), patch.object(connection, "assert_tmpfs_home", return_value=fresh), patch.dict(os.environ, {"HERMES_HOME": str(fresh)}), patch("agent.models_dev._models_dev_cache", {}):
+            self.payer = NativePayer(home=fresh, material=checkpoint["files"], revision=revision,
+                callback=lambda *_args: self.fail("a metadata read cannot call a provider or checkpoint"))
+            self.assertEqual(self.payer.identity["model"], "gpt-6-sol")
+            self.assertTrue(self.payer.identity["supportsVision"])
+            self.assertEqual(self.payer.identity["contextWindow"], 272000)
+            self.assertIn("gpt-6-sol", self.payer.model_options()["providers"][0]["models"])
+        self.assertEqual(self.calls, [])
+
+    def test_selection_checkpoint_failure_blocks_the_current_producer(self):
+        payer = self.start()
+        from types import SimpleNamespace
+        compatible = SimpleNamespace(supports_tools=True, supports_vision=True, context_window=128000)
+        with patch("hermes_cli.codex_models.get_codex_model_ids", return_value=["synthetic-next"]), patch("agent.models_dev.get_model_capabilities", return_value=compatible), patch.object(payer.bridge, "checkpoint", side_effect=OSError("synthetic storage fault")):
+            with self.assertRaises(OSError):
+                payer.select_model("openai-codex", "synthetic-next")
+        self.assertTrue(payer.bridge.blocked)
+        with self.assertRaises(RuntimeError):
+            payer.invoke({}, client_options={}, timeout_ms=1000)
+        self.assertEqual(self.calls, [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -10,7 +10,7 @@ sys.stdout = sys.stderr
 def main():
     peer, payer = Peer(), None
     peer.start()
-    allowed = {"trainer_unavailable", "trainer_timeout", "trainer_quota", "connection_auth_required", "connection_model_changed", "model_payload_invalid"}
+    allowed = {"trainer_unavailable", "trainer_timeout", "trainer_quota", "connection_auth_required", "connection_model_changed", "model_payload_invalid", "model_selection_refused"}
     try:
         setup = peer.commands.get()
         if setup.get("type") != "setup" or set(setup) - {"type", "id", "files", "revision"}:
@@ -31,7 +31,11 @@ def main():
                 raise RuntimeError("invalid_request")
             try:
                 kind = value.get("type")
-                if kind == "beginTurn" and set(value) == {"id", "type", "turnId", "deadlineUnixMs", "timeoutMs"} and active_turn is None:
+                if kind == "modelOptions" and set(value) == {"id", "type"} and active_turn is None:
+                    result = payer.model_options()
+                elif kind == "selectModel" and set(value) == {"id", "type", "provider", "model"} and active_turn is None:
+                    result = payer.select_model(value["provider"], value["model"])
+                elif kind == "beginTurn" and set(value) == {"id", "type", "turnId", "deadlineUnixMs", "timeoutMs"} and active_turn is None:
                     arm_deadline(value["turnId"], value["deadlineUnixMs"], value["timeoutMs"])
                     active_turn = value["turnId"]
                     result = {"armed": True}
