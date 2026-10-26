@@ -1,7 +1,7 @@
 // Local Docker or CI, disposable VM-contained test; no mounts, ports, real keys or provider network.
 import {spawn} from 'node:child_process';
-import {randomUUID} from 'node:crypto';
-import {mkdirSync,writeFileSync} from 'node:fs';
+import {randomUUID,createHash} from 'node:crypto';
+import {mkdirSync,writeFileSync,readFileSync} from 'node:fs';
 const name='scisense-personal-systemd-'+randomUUID(),tag='scisense-personal-systemd',evidence='tmp/hermes-personal-linux/systemd.json';
 let attempted=false,result,activeChild,interrupted,runningCleanup=false,endpoint;
 const dockerEnv={...process.env};for(const key of ['DOCKER_HOST','DOCKER_CONTEXT','DOCKER_TLS_VERIFY','DOCKER_CERT_PATH'])delete dockerEnv[key];
@@ -35,6 +35,12 @@ try{
  const config=JSON.parse(await run(['inspect',name]))[0];
  if(config.HostConfig.Binds?.length||config.HostConfig.PortBindings&&Object.keys(config.HostConfig.PortBindings).length||config.HostConfig.NetworkMode!=='none'||config.HostConfig.NanoCpus!==2e9||config.HostConfig.Memory!==2147483648||config.HostConfig.MemorySwap!==2147483648)throw Error('container_isolation_invalid');
  result=JSON.parse(await run(['exec',name,'/usr/bin/python3','scripts/hermes-personal-systemd-ci.py']));
+ if(result.passed!==true)throw Error('systemd_canary_not_passed');
+ // Export only the public library that this exact container just exercised.
+ const library=Buffer.from(await run(['exec',name,'/usr/bin/base64','-w0','/opt/scisense/personal/adapters/worker-lock.so']),'base64');
+ if(library.length<1024||library.length>1024*1024||library.subarray(0,4).toString()!=='\x7fELF'||library[4]!==2||library.readUInt16LE(18)!==62)throw Error('worker_lock_artifact_invalid');
+ writeFileSync('tmp/hermes-personal-linux/worker-lock.so',library);
+ result.workerLockArtifact={file:'worker-lock.so',sha256:createHash('sha256').update(library).digest('hex'),sourceSha256:createHash('sha256').update(readFileSync('server/trainer/worker-lock.c')).digest('hex'),architecture:'linux-x64'};
  result.isolation={architecture,platform,dockerTransport:'local-unix',noHostBinds:true,noPublishedPorts:true,network:'none',cpu:config.HostConfig.NanoCpus/1e9,memoryBytes:config.HostConfig.Memory};
 }catch(error){process.exitCode=1;result={passed:false,error:error.message.slice(-6000)};}
 finally{
