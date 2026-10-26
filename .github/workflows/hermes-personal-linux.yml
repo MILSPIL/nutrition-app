@@ -16,7 +16,10 @@ permissions:
   contents: read
 jobs:
   isolated-systemd:
-    runs-on: ubuntu-24.04
+    # Ubuntu24 AppArmor denies nested userns caps without the separately
+    # approved host profile. Same Ubuntu22 host/Ubuntu24 payload as existing CI.
+    # Actual target AppArmor remains a B1 host gate; no runner policy is weakened.
+    runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
