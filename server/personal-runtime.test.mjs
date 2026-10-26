@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createPersonalServerRuntime as createRuntime, validatePersonalManifest, validatePersonalActivation, personalPolicyHash, PERSONAL_POLICY } from './personal-runtime.mjs';
 import { createHandler } from '../workers/meal-parser/src/index.js';
 // These unit cases substitute only the socket listener. The real HTTP/WS
@@ -12,6 +13,10 @@ const activation={version:1,active:true,task:'HERMES-PERSONAL-01',policyHash:per
  registry:{version:1,fundingOwner:'owner',profiles:[['owner','y'],['wife','w']].map(([uid,lane])=>({uid,profileId:'native-'+uid,home:'/var/lib/scisense-personal-'+lane+'/profile',socket:'/run/scisense/desktop-'+lane+'.sock',canonicalTitle:'Bot Chat'}))},
  dataProfiles:{owner:'yuri',wife:'wife'},lanes:{owner:'y',wife:'w'},brokerGid:10005,desktopGids:{y:10006,w:10007},firebaseApiKey:'AIza'+'x'.repeat(30),gates:{linux:true,privacy:true,singleWriter:true,backup:true,migration:true}};
 const disabled={...manifest,liveEnabled:false,allowedUids:[]};
+test('disabled package template uses the current personal execution policy',()=>{
+ const template=JSON.parse(readFileSync(new URL('./deployment-personal.json',import.meta.url)));
+ assert.equal(template.liveEnabled,false);assert.deepEqual(template.allowedUids,[]);validatePersonalManifest(template);
+});
 test('V3 activation binds both identities and cannot inherit legacy money/model controls',()=>{
  validatePersonalManifest(manifest);validatePersonalActivation(activation,manifest);
  for(const patch of [{credentialNames:['groq','anthropic']},{policyHash:'0'.repeat(64)},{maxConcurrent:3},{allowedUids:['owner','owner']},{version:2},{capMicros:5000000}])assert.throws(()=>validatePersonalManifest({...manifest,...patch}));
