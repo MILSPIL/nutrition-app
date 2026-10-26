@@ -8,6 +8,12 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-26T10:46:00.363084+00:00: actual-host B1 виявив холодний startup після зміни моделі. Виправлення готує обидва native чати до ACK й фізично завершує профілі/payer при скасуванні до звільнення черги. Незалежне рев’ю PASS, 48/48 тестів і два OS-відтворення PASS. Новий CI/пакет/серверний повтор ще очікуються; production21b0cd3 не перемкнений, справжніх API/STT 0. Доказ: [.agents/journal/2026-10-26-1215-codex-gpt-6.1-sol-hermes-host-b1.md](.agents/journal/2026-10-26-1215-codex-gpt-6.1-sol-hermes-host-b1.md).
+
+2026-10-26T12:15:17.115764+02:00: адресна зашифрована резервна копія 334 записів перевірена відновленням; public db33308 встановлений поруч із чинним. На сервері пройшли 39 native перевірок історії/контексту. B1 служби чату ще виправляється; A0/B2/B3 і приватне перенесення не виконані, production21b0cd3/PID незмінні. Реальних API/STT 0. Доказ: [2026-10-26-1215-codex-gpt-6.1-sol-hermes-host-b1.md](.agents/journal/2026-10-26-1215-codex-gpt-6.1-sol-hermes-host-b1.md).
+
+2026-10-26T07:52:58.862505+00:00: Keychain доступ відновлено; тимчасовий scisense-voice створений, pinnedSSH rootread inventory пройшла. Чинний21b0cd3/APIactive, вільно5.68GBRAM/173GBdisk, bwrapSHA й scopedAppArmor відповідають очікуванню; personalroles/paths відсутні. Native/Python вже встановлені, тому доstage потрібна адресна звірка, безoverwritecurrentruntime. ModelAPI/$5/privateprofile не чіпали; B1щеpending. Доказ: приватна host-inventory квитанція та новий journal.
+
 2026-10-26T06:33:54.954592+00:00: кандидат db33308 повністю пройшов CI40278840084; реальний V3 package287app/31727runtime,4archiveSHA+allappSHA, disabledV3/noUID, independent review PASS. Linux39backup/context tests і33canonicalruntimechecks, peak1394073600bytes/OOM0. Keychain unlock та actual-host inventory ще очікуються; B1/A0/B2/B3 не пройдені, production21b0cd3 без змін. [Доказ](docs/evidence/hermes-personal-package-db33308-2026-10-26.json).
 
 2026-10-26T06:15:43.252617+00:00: canonical snapshot/restore пройшов39native/CLI/context tests+4OSguards та свіже рев’ю PASS; source SHA і tail/unknown підтверджені. CI2fc0cbf PASS. Host access/backup destinations відсутні, Keychain check timeout; B1/A0/B2/B3 ще не виконані, production без змін. [Доказ](docs/evidence/hermes-personal-snapshot-2026-10-26.json).

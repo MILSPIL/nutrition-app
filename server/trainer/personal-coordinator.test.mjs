@@ -8,8 +8,9 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { createPersonalCoordinator } from "./personal-coordinator.mjs";
 import { openPersonalStore } from "./personal-store.mjs";
 import { personalProfiles } from "./personal-profiles.mjs";
+import { personalQueue } from "./personal-queue.mjs";
 
-function fixture(t, { beforeNative = async () => {}, beforeOwnerStart = async () => {}, beforeBot = async () => {}, prepare, loseAck = false, unknownFailure = false, closeGate = Promise.resolve(), botFailure = false, startGate = Promise.resolve(), openGate = Promise.resolve(), onAbort = () => {}, loseAckBeforeModel = false, lookupMiss = false, bindingPatch = {}, staleAck = false, abortFailure = false, payerExtensions = {} } = {}) {
+function fixture(t, { beforeNative = async () => {}, beforeOwnerStart = async () => {}, beforeBot = async () => {}, beforeOwnerClose = async () => {}, onOwnerAbort = () => {}, queue, prepare, loseAck = false, unknownFailure = false, closeGate = Promise.resolve(), botFailure = false, startGate = Promise.resolve(), openGate = Promise.resolve(), onAbort = () => {}, loseAckBeforeModel = false, lookupMiss = false, bindingPatch = {}, staleAck = false, abortFailure = false, payerExtensions = {} } = {}) {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "scisense-coordinator-"))); chmodSync(dir, 0o700);
   const profiles = personalProfiles({ version: 1, fundingOwner: "owner", profiles: ["owner", "wife"].map(uid => ({ uid, profileId: "p-" + uid, home: "/synthetic/" + uid, socket: "/synthetic/run-" + uid + "/native.sock", canonicalTitle: "Bot Chat" })) });
   const key = randomBytes(32), raw = openPersonalStore(join(dir, "outbox.sqlite"), { profiles, key });
@@ -21,7 +22,7 @@ function fixture(t, { beforeNative = async () => {}, beforeOwnerStart = async ()
     async abortTurn() { onAbort(); if (abortFailure) throw Error("synthetic-cleanup-fault"); }, async close() {},
   };
   Object.assign(payer, payerExtensions);
-  const core = createPersonalCoordinator({ profiles, outbox, payer, pollMs: 1,
+  const core = createPersonalCoordinator({ profiles, outbox, payer, pollMs: 1, ...(queue ? { queue } : {}),
     prepare: async ctx => { prepared.push({ uid: ctx.uid, revision, sentAt: ctx.sentAt }); return prepare ? prepare(ctx) : { apiText: "fresh:" + revision, tools: async () => ({}) }; },
     ownerFactory(profile, hooks) {
       const ordinal = owners.length;
@@ -42,7 +43,8 @@ function fixture(t, { beforeNative = async () => {}, beforeOwnerStart = async ()
           throw Error("invalid_request");
         },
         async lookup(_channel, binding) { return lookupMiss ? null : receipts.get("native-" + binding.inputId) ?? null; },
-        async close() { this.closed = true; await closeGate; },
+        abort() { this.aborted = true; onOwnerAbort(profile.uid, ordinal); },
+        async close() { this.closed = true; await beforeOwnerClose(profile.uid, ordinal); await closeGate; },
       };
       owners.push(owner); return owner;
     },
@@ -338,6 +340,68 @@ test("closing during model-change preparation cannot publish a late ready owner"
   await assert.rejects(f.core.history("owner"), /trainer_unavailable/);
   assert.equal(f.owners.length, 4); assert.deepEqual(f.outbox.budget(), { turns: 0, posts: 0 });
 });
+
+for (const phase of ["startup", "bot"]) for (const cancel of ["caller", "deadline"]) {
+  test(`model-change ${cancel} stops ${phase} owners and holds the queue until physical drain`, { timeout: 2000 }, async t => {
+    let releaseWork, releaseDrain, entered, aborted, arrivals = 0, aborts = 0, settled = false;
+    const work = new Promise(resolve => { releaseWork = resolve; });
+    const drain = new Promise(resolve => { releaseDrain = resolve; });
+    const ready = new Promise(resolve => { entered = resolve; });
+    const stopped = new Promise(resolve => { aborted = resolve; });
+    const pause = async (_uid, ordinal) => { if (ordinal >= 2) { if (++arrivals === 2) entered(); await work; } };
+    const f = fixture(t, {
+      ...(phase === "startup" ? { beforeOwnerStart: pause } : { beforeBot: pause }),
+      beforeOwnerClose: async (_uid, ordinal) => { if (ordinal >= 2) await drain; },
+      onOwnerAbort: (_uid, ordinal) => { if (ordinal >= 2 && ++aborts === 2) aborted(); },
+      queue: personalQueue({ deadlineMs: cancel === "deadline" ? 25 : 45000 }),
+      payerExtensions: { async selectModel() { return { ok: true }; } },
+    });
+    await f.core.history("owner"); await f.core.history("wife");
+    const controller = new AbortController();
+    const selection = f.core.selectModel("owner", { provider: "openai-codex", model: "next" }, { signal: controller.signal }).catch(error => { settled = true; return error; });
+    try {
+      await ready; if (cancel === "caller") controller.abort(); await stopped;
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(settled, false); assert.equal(f.core.state("owner").stopping, true);
+      assert.ok(f.owners.slice(2).every(owner => owner.aborted && owner.closed));
+      await assert.rejects(f.core.history("wife"), /trainer_busy/);
+      assert.deepEqual(f.outbox.budget(), { turns: 0, posts: 0 });
+      releaseDrain();
+      assert.equal((await selection).message, cancel === "deadline" ? "trainer_timeout" : "trainer_cancelled");
+    } finally { releaseWork(); releaseDrain(); }
+    assert.equal(f.owners.length, 4); assert.equal(f.modelCalls.length, 0);
+  });
+}
+
+for (const cancel of ["caller", "deadline"]) {
+  test(`model-change ${cancel} drains a replacement payer before any warm owner can spawn`, { timeout: 2000 }, async t => {
+    let releaseStart, releaseDrain, entered, stopped, starts = 0, selected = false, settled = false;
+    const start = new Promise(resolve => { releaseStart = resolve; });
+    const drain = new Promise(resolve => { releaseDrain = resolve; });
+    const ready = new Promise(resolve => { entered = resolve; });
+    const aborted = new Promise(resolve => { stopped = resolve; });
+    const identity = { provider: "openai-codex", model: "synthetic", contextWindow: 128000, supportsTools: true, supportsVision: true };
+    const f = fixture(t, { queue: personalQueue({ deadlineMs: cancel === "deadline" ? 25 : 45000 }), payerExtensions: {
+      async start() { if (selected) { if (++starts === 2) entered(); await start; } return identity; },
+      async selectModel() { selected = true; return { ok: true }; },
+      async abortTurn() { stopped(); await drain; },
+    } });
+    await f.core.history("owner"); await f.core.history("wife");
+    const controller = new AbortController();
+    const selection = f.core.selectModel("owner", { provider: "openai-codex", model: "next" }, { signal: controller.signal }).catch(error => { settled = true; return error; });
+    try {
+      await ready; if (cancel === "caller") controller.abort(); await aborted;
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(settled, false); assert.equal(f.core.state("owner").stopping, true);
+      assert.equal(f.owners.length, 2); assert.ok(f.owners.every(owner => owner.closed));
+      await assert.rejects(f.core.history("owner"), /trainer_busy/);
+      releaseDrain();
+      assert.equal((await selection).message, cancel === "deadline" ? "trainer_timeout" : "trainer_cancelled");
+    } finally { releaseStart(); releaseDrain(); }
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(f.owners.length, 2); assert.deepEqual(f.outbox.budget(), { turns: 0, posts: 0 });
+  });
+}
 
 test("model selection waits for an active turn and its physical cleanup", async t => {
   let release, started, changed = false;

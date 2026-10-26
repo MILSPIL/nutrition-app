@@ -28,9 +28,10 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
     startups.add(task); task.finally(() => { startups.delete(task); if (openings.get(uid) === task) openings.delete(uid); }).catch(() => {});
     return task;
   }
-  async function openOwner(uid, version, preparingSelection = false) {
-    const valid = () => !closed && (!changing || preparingSelection) && version === (generations.get(uid) ?? 0);
-    const profile = profiles.resolve(uid), connection = await payer.start();
+  async function openOwner(uid, version, preparingSelection) {
+    const valid = () => !closed && !preparingSelection?.signal.aborted && (!changing || preparingSelection) && version === (generations.get(uid) ?? 0);
+    const profile = profiles.resolve(uid), connecting = payer.start();
+    const connection = await (preparingSelection ? abortable(connecting, preparingSelection.signal) : connecting);
     if (!valid()) throw Error("trainer_unavailable");
     let record = owners.get(uid);
     if (record?.retiring) { await retire(uid, record); record = undefined; }
@@ -71,7 +72,8 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
         record.identity = identity;
       }).catch(async error => { await retire(uid, record); throw error; });
     }
-    await record.ready;
+    preparingSelection?.track(uid, record);
+    await (preparingSelection ? abortable(record.ready, preparingSelection.signal) : record.ready);
     if (!valid()) { await retire(uid, record); throw Error("trainer_unavailable"); }
     return record;
   }
@@ -277,33 +279,66 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
         return Promise.reject(Error("model_selection_refused"));
       return queue.run(uid, async signal => {
         changing = true;
+        const deadline = now() + 45000;
+        const preparing = new Map(owners), draining = new Map();
+        let payerDrain;
+        const stopOwners = () => {
+          for (const [uid, record] of preparing) {
+            if (draining.has(record)) continue;
+            try { record.owner.abort?.(); } catch {} // close still proves physical exit.
+            const task = retire(uid, record); draining.set(record, task); task.catch(() => {});
+          }
+        };
+        const stop = () => {
+          if (!payerDrain) {
+            payerDrain = Promise.resolve().then(() => payer.abortTurn());
+            payerDrain.catch(() => {});
+          }
+          stopOwners();
+        };
+        const preparation = { signal, track(uid, record) { preparing.set(uid, record); if (signal.aborted) stop(); } };
+        signal.addEventListener("abort", stop, { once: true });
+        if (signal.aborted) stop();
         try {
+          signal.throwIfAborted();
           for (const { uid } of profiles.entries()) generations.set(uid, (generations.get(uid) ?? 0) + 1);
           await Promise.allSettled([...startups]);
-          await Promise.all([...owners.entries()].map(([uid, record]) => retire(uid, record)));
+          const retired = await Promise.allSettled([...owners.entries()].map(([uid, record]) => retire(uid, record)));
+          if (retired.some(result => result.status === "rejected")) throw Error("owner_shutdown_incomplete");
           signal.throwIfAborted();
           const selected = await payer.selectModel({ provider: selection.provider, model: selection.model }, { signal });
           // A model change retires every authority. Prepare their native chat
           // before reopening the five-second context-read window, just as at
           // initial runtime startup. Keep all read ingress fenced meanwhile.
           const warming = profiles.entries().map(({ uid }) => {
-            const task = (async () => {
-              const record = await openOwner(uid, generations.get(uid) ?? 0, true);
-              await record.owner.bot("web");
-              signal.throwIfAborted();
-            })();
-            startups.add(task);
-            task.finally(() => startups.delete(task)).catch(() => {});
-            return task;
+              const task = (async () => {
+                signal.throwIfAborted();
+                const record = await openOwner(uid, generations.get(uid) ?? 0, preparation);
+                signal.throwIfAborted();
+                const remaining = Math.floor(deadline - now());
+                if (remaining <= 0) throw Error("trainer_timeout");
+                await abortable(record.owner.bot("web", { signal, timeoutMs: remaining }), signal);
+                signal.throwIfAborted();
+              })();
+              startups.add(task);
+              task.finally(() => startups.delete(task)).catch(() => {});
+              return task;
           });
           const results = await Promise.allSettled(warming);
           const failed = results.find(result => result.status === "rejected");
-          if (failed) {
-            await Promise.all([...owners.entries()].map(([uid, record]) => retire(uid, record)));
-            throw failed.reason;
+          if (failed || signal.aborted) {
+            stopOwners();
+            throw signal.aborted ? signal.reason : failed.reason;
           }
           return selected;
-        } finally { changing = false; }
+        } finally {
+          if (signal.aborted) stop();
+          signal.removeEventListener("abort", stop);
+          try {
+            const drained = await Promise.allSettled([...draining.values(), ...(payerDrain ? [payerDrain] : [])]);
+            if (drained.some(result => result.status === "rejected")) { closed = true; throw Error("owner_shutdown_incomplete"); }
+          } finally { changing = false; }
+        }
       }, { signal });
     },
     state: uid => queue.state(profiles.resolve(uid).uid),
