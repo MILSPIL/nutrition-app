@@ -141,6 +141,7 @@ try:
                       'defaultRootBrokerSocket0660':True,'nativeUidSeparation':True,'oldThreadSeccomp':True,'kernelTimer':True,
                       'rawTtlIdle':True,'physicalDrainCases':proof,'oomKills':0,'realApiRequests':0}))
 except Exception:
+    print(json.dumps({'clientStage':stage()}))
     result = subprocess.run(['journalctl','--no-pager','-o','cat','-n','30','-u','scisense-y@*','-u','scisense-w@*','-u','scisense-payer@*'],text=True,capture_output=True,timeout=3)
     print(result.stdout[-5000:])
     raise

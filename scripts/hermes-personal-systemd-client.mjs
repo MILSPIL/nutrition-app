@@ -1,8 +1,8 @@
 // Runs only in the owned synthetic container, as the real non-root API unit.
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, renameSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { createInternalProcess } from '../server/trainer/internal-process.mjs';
-import { createSystemdProcess } from '../server/trainer/systemd-process.mjs';
+import { createSystemdProcess, captureServiceCgroup } from '../server/trainer/systemd-process.mjs';
 import { startSystemdWatchdog } from '../server/trainer/systemd-watchdog.mjs';
 const {scenario,brokerGid}=JSON.parse(readFileSync('/etc/scisense/personal/scenario.json'));
 const mark=value=>{writeFileSync('/var/lib/scisense/stage.tmp',JSON.stringify(value),{mode:0o600});renameSync('/var/lib/scisense/stage.tmp','/var/lib/scisense/stage.json');};
@@ -11,7 +11,7 @@ let clients=[], phase='start';
 try {
   for(const role of scenario==='happy'?['y','w','payer']:['y']){
     phase='start-'+role;
-    const client=createInternalProcess({spawnWorker:()=>createSystemdProcess({socketPath:'/run/scisense-broker/'+role+'.sock',role,brokerGid}),setup:{padding:'x'.repeat(20000)},handlers:{},deadlineMs:3000,validateIdentity:value=>Number.isInteger(value?.uid)});
+    const client=createInternalProcess({spawnWorker:()=>createSystemdProcess({socketPath:'/run/scisense-broker/'+role+'.sock',role,brokerGid,capture:value=>{const group=captureServiceCgroup(value);return {close:()=>group.close(),empty(){try{const result=group.empty();if(!result&&!existsSync('/sys/fs/cgroup'+value.cgroup))mark({stage:'drain-pending',phase,cgroupRemoved:true});return result;}catch(error){mark({stage:'drain-error',phase,error:error.code||error.message});throw error;}}};}}),setup:{padding:'x'.repeat(20000)},handlers:{},deadlineMs:3000,validateIdentity:value=>Number.isInteger(value?.uid)});
     clients.push(client);const identity=await client.start();
     assert.equal(identity.uid,{y:10002,w:10003,payer:10004}[role]);
     for(const key of ['execDeniedInOldThread','forkDeniedInOldThread','newThreadAllowed','nodeKeyDenied','privateTmpfs'])assert.equal(identity[key],true,key);
@@ -19,8 +19,10 @@ try {
     assert.equal(identity.networkDenied,role!=='payer');
   }
   if(scenario==='happy'){
+    phase='ttl';
     assert.equal((await clients[0].call('ttl')).expiredRawRemovedWhileIdle,true);
     assert.equal((await clients[2].call('timerCycle')).oldDeadlineDidNotKillNewTurn,true);
+    phase='kernelTimer';
     const pending=assert.rejects(clients[2].call('killTimer'),/execution_unknown/);
     await pending;await clients[2].close();assert.equal(clients[2].exited,true);
     mark({stage:'complete',passed:true,checks:25});
