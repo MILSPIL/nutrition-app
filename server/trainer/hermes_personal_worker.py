@@ -14,7 +14,7 @@ sys.stdout = sys.stderr
 _ALLOWED_ERRORS = {"trainer_unavailable", "trainer_timeout", "trainer_quota", "connection_auth_required",
     "connection_model_changed", "model_payload_invalid", "execution_unknown", "personal_owner_conflict",
     "personal_channel_limit", "personal_channel_invalid", "profile_mismatch", "not_found",
-    "owner_shutdown_incomplete", "owner_channel_close_failed", "invalid_request", "conflict", "permission_denied", "admission_conflict", "invalid_image", "media_unavailable", "media_unsupported", "media_conflict", "media_quota"}
+    "owner_shutdown_incomplete", "owner_channel_close_failed", "invalid_request", "conflict", "permission_denied", "admission_conflict", "invalid_image", "media_unavailable", "media_unsupported", "media_conflict", "media_quota", "context_unavailable", "context_conflict", "context_too_large", "invalid_context_proposal"}
 
 
 def safe_error(error):
@@ -52,6 +52,10 @@ async def serve(peer):
                 result = await owner.rpc(value.get("channel"), value["method"], value["params"])
             elif kind == "lookup" and set(value) <= {"id", "type", "channel", "sessionId", "inputId", "inputProof"}:
                 result = await owner.lookup(value.get("channel"), value.get("sessionId"), value.get("inputId"), value.get("inputProof"))
+            elif kind == "contextRead" and set(value) <= {"id", "type"}:
+                result = owner.read_context()
+            elif kind == "contextCommit" and set(value) <= {"id", "type", "proposal"}:
+                result = owner.commit_context(value.get("proposal"))
             elif kind == "stageImages" and set(value) <= {"id", "type", "inputId", "images"}:
                 result = owner.stage_images(value.get("inputId"), value.get("images"))
             elif kind == "clearStaged" and set(value) <= {"id", "type", "inputId"}:

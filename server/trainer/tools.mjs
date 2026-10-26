@@ -95,6 +95,7 @@ export function createTrainerTools({
   readPlan,
   readSnapshot,
   memoryWriteEnabled = false,
+  contextUpdateMode = "replace",
 }) {
   const resolvers = new Map();
   const check = (ctx) => store.assertActive(ctx.turn.id, ctx.turn.generation);
@@ -166,7 +167,7 @@ export function createTrainerTools({
   };
   return {
     tools,
-    schemas: trainerToolSchemas,
+    schemas: contextUpdateMode === "append" ? { ...trainerToolSchemas, propose_context_update: { ...trainerToolSchemas.propose_context_update, description: "Propose only a new memory addition, not a replacement of the imported context. Use current contextRevision; explicit confirmation is required." } } : trainerToolSchemas,
     release: (id) => resolvers.delete(id),
   };
 }

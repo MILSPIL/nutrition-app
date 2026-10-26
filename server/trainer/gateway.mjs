@@ -1,7 +1,8 @@
 import { commandFromDraft } from "./drafts.mjs";
 import { abortable, boundedOperation } from "./deadline.mjs";
 import { buildSnapshot } from "./snapshot.mjs";
-import { LIMITS, fail, requireId } from "./limits.mjs";
+import { createHash } from "node:crypto";
+import { LIMITS, fail, requireId, stableJSON } from "./limits.mjs";
 import { validateDateContext, turnDateContext } from "./date-context.mjs";
 import { loadConfirmed, sameFreshness } from "./day-snapshot.mjs";
 const reply = (data, status = 200) =>
@@ -66,6 +67,17 @@ export function createTrainerGateway({
       const context=await boundedOperation(s=>readContext(turn.owner,s),5000,signal);
       if(context.revision!==snapshot.contextRevision)fail("stale_snapshot",409);
     }
+  }
+  async function contextValue(uid, conversationId, signal) {
+    const value = await boundedOperation(s => readContext(uid, s), 5000, signal);
+    if (backend.canonicalHistory && value.applied && typeof value.applied === "object") {
+      for (const proposal of store.contextProposals(uid, conversationId)) {
+        if (proposal.state === "applied") continue;
+        const proof = createHash("sha256").update(stableJSON({ proposalId: proposal.proposalId, baseRevision: proposal.baseRevision, text: proposal.text })).digest("hex");
+        if (value.applied[proposal.proposalId] === proof) store.contextApplied(uid, conversationId, proposal.proposalId);
+      }
+    }
+    return { text: value.text, revision: value.revision, ...(value.mode === "append" ? { mode: "append" } : {}) };
   }
   const controllers = new Map();
   const running = new Map();
@@ -210,7 +222,8 @@ export function createTrainerGateway({
       if (backend.canonicalHistory && route === "/conversation/delete") fail("canonical_history_required", 409);
       const c = store.conversation(uid),
         id = c.conversationId;
-      if (route === "/state" && method === "GET")
+      if (route === "/state" && method === "GET") {
+        if (backend.canonicalHistory) await contextValue(uid, id, signal);
         return reply({
           ...c,
           drafts: store.drafts(uid, id),
@@ -221,6 +234,7 @@ export function createTrainerGateway({
           messages: backend.history ? await backend.history(uid) : store.history(uid, id),
           ...(backend.canonicalHistory ? { canonicalHistory: true } : {}),
         });
+      }
       if (route === "/composer" && method === "PUT") {
         if (
           !body ||
@@ -358,15 +372,13 @@ export function createTrainerGateway({
           return reply(store.saveUnknown(uid, id, draft.draftId));
       }
       if (route === "/context" && method === "GET")
-        return reply(
-          await boundedOperation((s) => readContext(uid, s), 5000, signal),
-        );
+        return reply(await contextValue(uid, id, signal));
       const cmatch = route.match(/^\/context\/([a-zA-Z0-9-]{16,80})\/confirm$/);
       if (cmatch && method === "POST") {
         if (!memoryWriteEnabled) fail("memory_read_only",409);
         if (!contextStore) fail("context_unavailable", 503);
         const p = store.contextProposal(uid, id, cmatch[1]);
-        const saved = contextStore.commit(p);
+        const saved = await contextStore.commit(p, { signal });
         store.contextApplied(uid, id, p.proposalId);
         return reply({ revision: saved.revision, proposalId: p.proposalId });
       }

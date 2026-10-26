@@ -1,8 +1,8 @@
 // Actual native owner + native Codex SDK producer + durable encrypted parent.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { readFileSync, mkdirSync } from "node:fs";
-import { randomBytes, randomUUID } from "node:crypto";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { join, dirname } from "node:path";
 import { deflateSync, crc32 } from "node:zlib";
 import { createPersonalProcess } from "../server/trainer/personal-process.mjs";
@@ -16,6 +16,7 @@ import { createTrainerGateway } from "../server/trainer/gateway.mjs";
 import { createPersonalBackend } from "../server/trainer/personal-backend.mjs";
 import { createTrainerTools } from "../server/trainer/tools.mjs";
 import { buildSnapshot } from "../server/trainer/snapshot.mjs";
+import { stableJSON } from "../server/trainer/limits.mjs";
 import { createMediaStore } from "../server/trainer/media.mjs";
 const setup = JSON.parse(readFileSync(process.argv[2])), root = setup.env.SCISENSE_FIXTURE_ROOT;
 const key = randomBytes(32), homes = ["owner", "wife"].map(uid => join(root, "joint-" + uid));
@@ -53,6 +54,17 @@ try {
   const first = await core.submit("owner", inputId, payload);
   assert.equal(first.state, "completed"); assert.equal(first.result.final_response, "Спільний native діалог збережений."); checks++;
   assert.equal(toolCalls, 1); assert.deepEqual(outbox.budget(), { turns: 1, posts: 2 }); checks++;
+  stage = "canonical-context";
+  assert.equal((await core.context("owner")).text, ""); checks++;
+  const source = "SYNTHETIC-PERSONAL-CONTEXT ".repeat(4000), contextRoot = join(homes[0], "personal-context");
+  writeFileSync(join(contextRoot, "sources/context.md"), source, { mode: 0o600 });
+  writeFileSync(join(contextRoot, "sources.json"), JSON.stringify({ version: 1, profileHome: homes[0], files: [{ name: "context.md", sha256: createHash("sha256").update(source).digest("hex") }] }), { mode: 0o600 });
+  const ownContext = await core.context("owner"); assert.ok(ownContext.text === source); checks++;
+  assert.equal((await core.context("wife")).text, ""); checks++;
+  const memoryProposal = { proposalId: randomUUID(), baseRevision: ownContext.revision, text: "Підтверджений синтетичний запис." };
+  const memory = await core.commitContext("owner", memoryProposal);
+  assert.equal(memory.applied[memoryProposal.proposalId], createHash("sha256").update(stableJSON(memoryProposal)).digest("hex")); checks++;
+  assert.equal((await core.commitContext("owner", memoryProposal)).replayed, true); assert.deepEqual(outbox.budget(), { turns: 1, posts: 2 }); checks++;
   stage = "native-history";
   const web = await core.history("owner"), desktop = await core.history("owner", "desktop:first");
   assert.equal(web.session_id, desktop.session_id); assert.deepEqual(web.messages, desktop.messages); checks++;
@@ -63,6 +75,8 @@ try {
   core = make(); stage = "physical-reopen";
   const reopened = await core.history("owner", "desktop:second");
   assert.equal(reopened.session_id, web.session_id); assert.deepEqual(reopened.messages, web.messages); checks++;
+  const reopenedContext = await core.context("owner");
+  assert.ok(reopenedContext.text === memory.text); assert.equal(reopenedContext.revision, memory.revision); checks++;
   const recovered = await core.status("owner", inputId);
   assert.equal(recovered.state, "completed"); assert.equal(recovered.nativeReceipt.admission_id, first.nativeReceipt.admission_id); checks++;
   assert.equal(recovered.resultRevision, first.resultRevision); assert.deepEqual(outbox.budget(), { turns: 1, posts: 2 }); checks++;
@@ -78,7 +92,7 @@ try {
   const mediaRoot = join(root, "app-media"); mkdirSync(mediaRoot, { mode: 0o700 });
   const media = createMediaStore(mediaRoot, { hash: appStore.hash });
   app = createTrainerGateway({ ownerUid: "owner", store: appStore, backend, ...reader,
-    readContext: async () => ({ text: "SYNTHETIC-CONTEXT", revision: 1 }), queueWindowMs: 225000,
+    readContext: (uid, signal) => core.context(uid, { signal }), queueWindowMs: 225000,
     snapshotFactory: value => buildSnapshot({ ...value, history: [], maxPayloadBytes: 512000 }),
     media, proxy: { cancel() {}, close() {} },
   });
@@ -119,7 +133,7 @@ try {
   const replayPosts = readFileSync(join(root, "synthetic-physical-posts.jsonl"), "utf8").trim().split("\n").map(line => JSON.parse(line));
   assert.ok(replayPosts.some(row => row.imageCount >= 3 && row.bodyBytes > 16 * 1024 * 1024)); checks++;
   assert.deepEqual(outbox.budget(), { turns: 4, posts: 8 }); checks++;
-  console.log(JSON.stringify({ passed: true, checks, nativeCodexProducer: true, nativeTools: toolCalls, canonicalHistoryBothChannels: true, realAppGateway: true, cleanDisplayTextWithoutApiContext: true, photoReachedNativeCodex: true, ephemeralPhotoCleared: true, exactPhotoTranscriptAfterRestart: true, nearLimitThreePhotoReplay: true,
+  console.log(JSON.stringify({ passed: true, checks, nativeCodexProducer: true, nativeTools: toolCalls, canonicalHistoryBothChannels: true, realAppGateway: true, canonicalContextBothChannels: true, confirmedMemoryAfterPhysicalRestart: true, cleanDisplayTextWithoutApiContext: true, photoReachedNativeCodex: true, ephemeralPhotoCleared: true, exactPhotoTranscriptAfterRestart: true, nearLimitThreePhotoReplay: true,
     isolatedSecondProfile: true, exactMessagesAfterPhysicalRestart: true, sameReceiptBirthEpochAfterRestart: true, physicalPostReservations: outbox.budget().posts, realModelRequests: 0 }));
 } catch (error) {
   console.error(JSON.stringify({ syntheticStage: stage, error: error.message })); throw error;

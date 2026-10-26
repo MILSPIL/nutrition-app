@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import { personalQueue } from "./personal-queue.mjs";
+import { abortable } from "./deadline.mjs";
 import { TOOLS, requireId, stableJSON } from "./limits.mjs";
 
 const uncertain = () => Error("execution_unknown");
@@ -211,6 +212,21 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
       const record = await ownerFor(uid);
       try { return { ...await record.owner.bot(channel), profileId: record.identity.profileId }; }
       catch (error) { await retire(uid, record); throw error; }
+    },
+    async context(uid, { signal } = {}) {
+      const record = await ownerFor(uid);
+      // Abandoning a read must not kill an authority executing a model turn.
+      const reading = record.owner.contextRead({ timeoutMs: 5000 });
+      try { return await (signal ? abortable(reading, signal) : reading); }
+      catch (error) { if (record.owner.unavailable) await retire(uid, record); throw error; }
+    },
+    commitContext(uid, proposal, { signal } = {}) {
+      profiles.resolve(uid);
+      return queue.run(uid, async signal => {
+        const record = await ownerFor(uid);
+        try { return await record.owner.contextCommit(proposal, { signal, timeoutMs: 5000 }); }
+        catch (error) { if (record.owner.unavailable) await retire(uid, record); throw error; }
+      }, { signal });
     },
     state: uid => queue.state(profiles.resolve(uid).uid),
     async close() {

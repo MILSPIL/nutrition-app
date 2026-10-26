@@ -364,3 +364,16 @@ test("native receipt avoids a duplicate optimistic user bubble", async () => {
   await render();
   expect(host.querySelectorAll(".trainer-message.from-user")).toHaveLength(1);
 });
+
+test("native memory preview shows an addition and waits for explicit confirmation", async () => {
+  const proposal = { proposalId: "synthetic-memory-proposal", baseRevision: 1, text: "Новий особистий факт", state: "proposed" };
+  server.canonicalHistory = true; server.contextProposals = [proposal];
+  api.context = jest.fn(async () => ({ text: "Поточні особисті факти", revision: 1, mode: "append" }));
+  api.remember = jest.fn(async () => { server.contextProposals = [{ ...proposal, state: "applied" }]; return { revision: 2 }; });
+  await render(); await click("Переглянути зміни");
+  expect(host.textContent).toContain("Додати до пам’яті"); expect(host.textContent).toContain(proposal.text);
+  const current = [...host.querySelectorAll("details")].find(value => value.querySelector("summary")?.textContent === "Поточна пам’ять");
+  expect(current).toBeTruthy(); expect(current.open).toBe(false);
+  expect(api.remember).not.toHaveBeenCalled(); await click("Запам’ятати");
+  expect(api.remember).toHaveBeenCalledTimes(1); expect(api.remember.mock.calls[0][0]).toBe(proposal.proposalId);
+});

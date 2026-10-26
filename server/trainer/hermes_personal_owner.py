@@ -146,6 +146,7 @@ class PersonalOwner:
         self.tool_schemas, self.on_event = tool_schemas, on_event
         self.runner, self.authority, self.connections = None, None, {}
         self.photos = None
+        self.context = None
         self.closed = False
         self._close_task = None
         self._claimed = False
@@ -189,6 +190,8 @@ class PersonalOwner:
             registry.register(name=name, toolset="scisense", schema=self.tool_schemas[name], handler=handler, check_fn=lambda: True)
         create_custom_toolset("scisense", "SciSense", list(_TOOL_NAMES))
         try:
+            from hermes_personal_context import ProfileContext
+            self.context = ProfileContext(self.home)
             from hermes_personal_media import retain_profile_photos, clean_photo_transcripts
             retain_profile_photos(self.home)
             clean_photo_transcripts(self)
@@ -225,6 +228,16 @@ class PersonalOwner:
                 "instance_id": self.authority.instance_id, "capabilities": ["session:create", "session:read", "session:submit", "session:control", "session:respond"]}
             self.connections[channel] = (AuthorityConnection(self.authority, transport, identity), transport)
         return self.connections[channel][0]
+
+    def read_context(self):
+        if self.closed or self.context is None:
+            raise RuntimeError("context_unavailable")
+        return self.context.read()
+
+    def commit_context(self, proposal):
+        if self.closed or self.context is None:
+            raise RuntimeError("context_unavailable")
+        return self.context.commit(proposal)
 
     def stage_images(self, input_id, images):
         if self.closed or self.photos is None:

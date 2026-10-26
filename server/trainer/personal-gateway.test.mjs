@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { mkdtempSync, realpathSync, chmodSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,9 +9,10 @@ import { openTurnStore } from "./turn-store.mjs";
 import { createTrainerGateway } from "./gateway.mjs";
 import { createPersonalBackend, nativeMessageProjection } from "./personal-backend.mjs";
 import { personalQueue } from "./personal-queue.mjs";
+import { stableJSON } from "./limits.mjs";
 import { buildSnapshot } from "./snapshot.mjs";
 
-function fixture(t, { context = "synthetic", nativeState = "completed", drain, stageError, staleBeforeVerify = false } = {}) {
+function fixture(t, { context = "synthetic", nativeState = "completed", drain, stageError, staleBeforeVerify = false, memory } = {}) {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "scisense-personal-gateway-"))); chmodSync(dir, 0o700);
   let clock = Date.parse("2026-10-24T20:59:59Z"), revision = 0, starts = 0, verifies = 0;
   const store = openTurnStore(join(dir, "turns.sqlite"), { hmacKey: randomBytes(32), now: () => clock });
@@ -33,11 +34,15 @@ function fixture(t, { context = "synthetic", nativeState = "completed", drain, s
     input() { return { state: starts ? "admitted" : "queued", generation: starts ? 1 : null }; },
   };
   let firstStage = true;
-  const backend = createPersonalBackend({ uid: "owner", core, stageAttachments: async () => { if (stageError && firstStage) { firstStage = false; throw Error(stageError); } return []; }, tools: { read_confirmed_day: async () => ({}) }, verify: async () => { verifies++; } });
+  const backend = createPersonalBackend({ uid: "owner", core, stageAttachments: async () => { if (stageError && firstStage) { firstStage = false; throw Error(stageError); } return []; }, tools: { read_confirmed_day: async (_args, ctx) => {
+    if (memory) memory.proposal = store.proposeContext(ctx.turn.id, ctx.turn.generation, { baseRevision: ctx.snapshot.contextRevision, text: "Новий синтетичний факт" });
+    return {};
+  } }, verify: async () => { verifies++; } });
   const g = createTrainerGateway({ ownerUid: "owner", store, backend, now: () => clock, queueWindowMs: 225000,
     snapshotFactory: value => buildSnapshot({ ...value, history: [], maxPayloadBytes: 512000 }),
     media: { describe: () => [], stage() {}, load: () => [], remove() {}, sweep: () => ({ faults: 0 }) }, proxy: { cancel() {}, close() {} },
-    readContext: async () => ({ text: context, revision: 1 }), readDay: async (_uid, targetDate) => ({ targetDate, revision, meals: {}, notes: [] }), readPlan: async () => ({ planContext: {} }),
+    memoryWriteEnabled: !!memory, contextStore: memory ? { commit: (...args) => memory.commit(...args) } : undefined,
+    readContext: async () => memory ? memory.value : ({ text: context, revision: 1 }), readDay: async (_uid, targetDate) => ({ targetDate, revision, meals: {}, notes: [] }), readPlan: async () => ({ planContext: {} }),
   });
   t.after(async () => { await g.close(); await queue.close(); store.close(); rmSync(dir, { recursive: true, force: true }); });
   return { g, store, queue, snapshots, get starts() { return starts; }, get verifies() { return verifies; }, change() { revision++; clock += 10000; },
@@ -126,4 +131,43 @@ test("photo projection keeps literal markers and removes only a paired native su
   assert.equal(own.content, "Буквально [screenshot]\n[screenshot]"); assert.equal(own.photos.length, 1);
   const foreign = "caption\n[Image attached at: /other/home/image.png]\n[screenshot]";
   assert.equal(project(foreign).content, foreign); assert.equal(project(foreign).photos, undefined);
+});
+
+
+function memoryFixture(t, commit) {
+  const memory = { value: { text: "Початкові факти", revision: 1, mode: "append", applied: {} }, commit };
+  const f = fixture(t, { memory });
+  return { ...f, memory, async propose() { const input = body(); await f.g.handle("owner", "/turns", "POST", input); assert.equal((await f.settle(input.turnId)).state, "completed"); return memory.proposal; } };
+}
+
+test("context confirmation awaits actual native commit before marking applied", async t => {
+  let release, entered;
+  const started = new Promise(resolve => { entered = resolve; }), gate = new Promise(resolve => { release = resolve; });
+  const f = memoryFixture(t, async () => { entered(); await gate; return { revision: 2 }; }), p = await f.propose();
+  let returned = false;
+  const committing = f.g.handle("owner", `/context/${p.proposalId}/confirm`, "POST", {}).then(value => { returned = true; return value; });
+  await started; await sleep(5); assert.equal(returned, false);
+  assert.equal(f.store.contextProposal("owner", f.store.conversation("owner").conversationId, p.proposalId).state, "proposed");
+  release(); assert.equal((await (await committing).json()).revision, 2);
+  assert.equal(f.store.contextProposal("owner", f.store.conversation("owner").conversationId, p.proposalId).state, "applied");
+});
+
+test("canonical memory receipt recovers a lost commit ACK without a duplicate write", async t => {
+  const f = memoryFixture(t, async p => {
+    const clean = { proposalId: p.proposalId, baseRevision: p.baseRevision, text: p.text };
+    f.memory.value = { text: "Початкові факти\nНовий синтетичний факт", revision: 2, mode: "append", applied: { [p.proposalId]: createHash("sha256").update(stableJSON(clean)).digest("hex") } };
+    throw Error("execution_unknown");
+  }), p = await f.propose();
+  await assert.rejects(f.g.handle("owner", `/context/${p.proposalId}/confirm`, "POST", {}), /execution_unknown/);
+  const state = await (await f.g.handle("owner", "/state", "GET")).json();
+  assert.equal(state.contextProposals.find(value => value.proposalId === p.proposalId).state, "applied");
+  const context = await (await f.g.handle("owner", "/context", "GET")).json();
+  assert.equal(context.mode, "append"); assert.equal(context.applied, undefined);
+});
+
+test("failed asynchronous memory commit cannot claim confirmation", async t => {
+  const f = memoryFixture(t, async () => { await sleep(1); throw Error("context_unavailable"); }), p = await f.propose();
+  await assert.rejects(f.g.handle("owner", `/context/${p.proposalId}/confirm`, "POST", {}), /context_unavailable/);
+  const state = await (await f.g.handle("owner", "/state", "GET")).json();
+  assert.equal(state.contextProposals.find(value => value.proposalId === p.proposalId).state, "proposed");
 });

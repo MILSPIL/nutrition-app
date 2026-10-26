@@ -1020,10 +1020,15 @@ export default function TrainerChat({
                   </button>
                 ) : (
                   <>
-                    <p>Було</p>
-                    <pre>{context.text}</pre>
-                    <p>Буде</p>
-                    <pre>{p.text}</pre>
+                    {context.mode === "append" ? (
+                      <>
+                        <p>Додати до пам’яті</p>
+                        <pre>{p.text}</pre>
+                        <details><summary>Поточна пам’ять</summary><pre>{context.text || "Ще немає особистих записів."}</pre></details>
+                      </>
+                    ) : (
+                      <><p>Було</p><pre>{context.text}</pre><p>Буде</p><pre>{p.text}</pre></>
+                    )}
                     <button
                       className="trainer-primary"
                       disabled={busy || context.revision !== p.baseRevision}

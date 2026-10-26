@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "sourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+  "syntheticOnly": true,
+  "testExit": 0,
+  "nativeIpc": {
+    "passed": true,
+    "checks": 27,
+    "nativeCodexProducer": true,
+    "nativeTools": 4,
+    "canonicalHistoryBothChannels": true,
+    "realAppGateway": true,
+    "canonicalContextBothChannels": true,
+    "confirmedMemoryAfterPhysicalRestart": true,
+    "cleanDisplayTextWithoutApiContext": true,
+    "photoReachedNativeCodex": true,
+    "ephemeralPhotoCleared": true,
+    "exactPhotoTranscriptAfterRestart": true,
+    "nearLimitThreePhotoReplay": true,
+    "isolatedSecondProfile": true,
+    "exactMessagesAfterPhysicalRestart": true,
+    "sameReceiptBirthEpochAfterRestart": true,
+    "physicalPostReservations": 8,
+    "realModelRequests": 0,
+    "physicalProcessesWithOSCanaries": 7
+  },
+  "nativePythonTests": 29,
+  "contextPythonTests": 10,
+  "nodeTests": 53,
+  "reactTests": 23,
+  "contextMaxBytes": 400000,
+  "contextMode": "confirmed-append",
+  "strictPreprovision": true,
+  "missingMemoryNeverReinitialized": true,
+  "sourceManifestHashesAndCanonicalHome": true,
+  "lostAckReconcilesNativeReceipt": true,
+  "readAbortDoesNotKillActiveAuthority": true,
+  "review": {
+    "agent": "personal_local_review",
+    "verdict": "PASS",
+    "openP1P2": 0
+  },
+  "realModelRequests": 0,
+  "productionChanged": false,
+  "pending": [
+    "production runtime and fixed context provision/import operator",
+    "photo history UI",
+    "Desktop facade/modelselection",
+    "Linux isolation/cgroup/drain/near-limit proof",
+    "private migration/native login/live/owner acceptance"
+  ]
+}

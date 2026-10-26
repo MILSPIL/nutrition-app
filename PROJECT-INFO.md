@@ -8,6 +8,8 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-26 00:32 UTC: canonical контекст і confirmed append пройшли27actual native checks,10contextPython/29nativePython/53Node/23React та незалежне рев’ю PASS. Сховище прив’язане доHOME, втрачені факти не замінюються порожніми, lostACK звіряється зnative receipt. [Доказ](docs/evidence/hermes-personal-context-2026-10-26.json). Production runtime/import operator/Desktop/Linux/live ще pending;0реальнихAPI, production не змінений.
+
 2026-10-26 00:01 UTC: native фото/replay пройшли21actual перевірку з великимиPNG і фізичним restart;4tools/8syntheticPOST,7OS-guarded processes. Окремо29nativePython+7mediaPython+53Node+26React PASS, незалежне рев’ю закрило1P1/4P2. [Доказ](docs/evidence/hermes-personal-media-2026-10-26.json). Linux tmpfs/drain/ресурсний canary, history фото UI, runtime/міграція/live ще не завершені.0реальнихAPI, production не змінений.
 
 2026-10-25 23:46 UTC: захищена perUID Firebase-сесія читання пройшла16offline тестів; додатково8Gateway тестів перевірили реальний dayProof у model callback. Незалежне рев’ю PASS після двох failure-виправлень. [Доказ](docs/evidence/hermes-personal-data-session-2026-10-26.json). Компонент ще не підключений до runtime;0реальнихHTTP, production не змінений.

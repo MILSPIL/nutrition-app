@@ -4,6 +4,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { mkdtempSync, realpathSync, chmodSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { createPersonalCoordinator } from "./personal-coordinator.mjs";
 import { openPersonalStore } from "./personal-store.mjs";
 import { personalProfiles } from "./personal-profiles.mjs";
@@ -215,4 +216,28 @@ test("abort during retirement invalidates late startup before ownerFactory", asy
   await new Promise(resolve => setImmediate(resolve)); controller.abort(); release();
   await failedRead; assert.equal((await submit).message, "trainer_unavailable");
   assert.equal(f.owners.length, 1); assert.equal(f.nativeCalls, 0);
+});
+
+
+test("abandoning a context read does not kill an owner or charge model budget", async t => {
+  const f = fixture(t); await f.core.history("owner");
+  const owner = f.owners[0]; let release, captured;
+  const gate = new Promise(resolve => { release = resolve; });
+  owner.contextRead = async options => { captured = options; await gate; return { text: "own context", revision: 1 }; };
+  const controller = new AbortController(), reading = f.core.context("owner", { signal: controller.signal });
+  await new Promise(resolve => setImmediate(resolve)); controller.abort();
+  await assert.rejects(reading, /upstream_timeout/); assert.equal(captured.signal, undefined); assert.equal(owner.closed, false);
+  assert.deepEqual(f.outbox.budget(), { turns: 0, posts: 0 }); release();
+});
+
+test("timed-out memory commit holds queue until unavailable owner is physically drained", async t => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const f = fixture(t, { closeGate: gate }); await f.core.history("owner");
+  const owner = f.owners[0]; owner.contextCommit = async () => { owner.unavailable = true; throw Error("execution_unknown"); };
+  const committing = f.core.commitContext("owner", {}).catch(error => error);
+  for (let n = 0; n < 20 && !owner.closed; n++) await sleep(1);
+  const next = f.core.submit("wife", randomUUID(), { text: "next" });
+  await sleep(5); assert.equal(f.prepared.length, 0); release();
+  assert.equal((await committing).message, "execution_unknown"); assert.equal((await next).state, "completed");
 });

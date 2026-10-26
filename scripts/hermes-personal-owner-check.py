@@ -68,6 +68,10 @@ def main():
 from pathlib import Path
 from hermes_personal_fixture import verify_sandbox
 print(json.dumps({"fixtureGuards":verify_sandbox(Path(os.environ["SCISENSE_FIXTURE_ROOT"]))}),flush=True)
+if os.environ["SCISENSE_OWNER_STAGE"] in ("first","reopen"):
+    from hermes_personal_context import ProfileContext
+    profile_home=Path(os.environ["HERMES_HOME"])
+    ProfileContext(profile_home, initialize=not (profile_home/"personal-context").exists())
 script=os.environ["SCISENSE_FIXTURE_SCRIPT"]
 if os.environ["SCISENSE_OWNER_STAGE"]=="provider":
     script=str(Path(script).with_name("hermes_personal_provider_test.py"))
@@ -112,6 +116,10 @@ from pathlib import Path
 from hermes_personal_fixture import verify_sandbox
 root=Path(os.environ["SCISENSE_FIXTURE_ROOT"])
 (root/("ipc-guard-"+str(os.getpid())+".json")).write_text(json.dumps(verify_sandbox(root)))
+if Path(os.environ["SCISENSE_IPC_WORKER"]).name == "hermes_personal_worker.py":
+    from hermes_personal_context import ProfileContext
+    profile_home=Path(os.environ["HERMES_HOME"])
+    ProfileContext(profile_home, initialize=not (profile_home/"personal-context").exists())
 runpy.run_path(os.environ["SCISENSE_IPC_WORKER"],run_name="__main__")'''
             config_file = root / "ipc-config.json"
             config_file.write_text(json.dumps({"command": "/usr/bin/sandbox-exec", "args": ["-p", policy, str(python), "-c", ipc_bootstrap],
@@ -132,7 +140,7 @@ runpy.run_path(os.environ["SCISENSE_IPC_WORKER"],run_name="__main__")'''
             "syntheticOnly": True, "testExit": 0 if passed else 1, "testsPassed": sum(stage["tests"] for stage in stages if stage["passed"]),
             "stages": stages, "nativeIpc": ipc, "physicalProcessRestart": "reopen" in expected_stages and all(stage["passed"] for stage in stages), "realModelRequests": 0, "sourceSha256": {
                 str(path.relative_to(project)): hashlib.sha256(path.read_bytes()).hexdigest()
-                for path in [script, script.with_name("hermes_personal_provider_test.py"), Path(__file__).resolve(), project / "scripts/hermes_personal_fixture.py", project / "server/trainer/hermes_personal_owner.py", project / "server/trainer/hermes_personal_media.py", project / "server/trainer/hermes_personal_provider.py", project / "server/trainer/hermes_personal_ipc.py", project / "server/trainer/hermes_personal_worker.py", project / "server/trainer/personal-process.mjs", project / "server/trainer/internal-process.mjs", project / "scripts/hermes-personal-ipc-fixture.mjs"] + ([project / "server/trainer/hermes_personal_connection.py", project / "server/trainer/hermes_personal_connection_test.py"] if args.connection or args.payer else []) + ([project / "server/trainer/hermes_personal_egress.py", project / "server/trainer/hermes_personal_egress_test.py"] if args.egress or args.payer else []) + ([project / "server/trainer/hermes_personal_payer.py", project / "server/trainer/hermes_personal_payer_test.py"] if args.payer else []) + ([project / "server/trainer/personal-coordinator.mjs", project / "server/trainer/personal-payer.mjs", project / "server/trainer/personal-backend.mjs", project / "server/trainer/gateway.mjs", project / "server/trainer/turn-store.mjs", project / "server/trainer/snapshot.mjs", project / "server/trainer/hermes_personal_payer.py", project / "server/trainer/hermes_personal_payer_worker.py", project / "server/trainer/hermes_personal_connection.py", project / "server/trainer/hermes_personal_egress.py", project / "scripts/hermes-personal-joint-fixture.mjs", project / "scripts/hermes-personal-payer-fixture.py"] if args.joint else [])}}
+                for path in [script, script.with_name("hermes_personal_provider_test.py"), Path(__file__).resolve(), project / "scripts/hermes_personal_fixture.py", project / "server/trainer/hermes_personal_owner.py", project / "server/trainer/hermes_personal_media.py", project / "server/trainer/hermes_personal_context.py", project / "server/trainer/hermes_personal_provider.py", project / "server/trainer/hermes_personal_ipc.py", project / "server/trainer/hermes_personal_worker.py", project / "server/trainer/personal-process.mjs", project / "server/trainer/internal-process.mjs", project / "scripts/hermes-personal-ipc-fixture.mjs"] + ([project / "server/trainer/hermes_personal_connection.py", project / "server/trainer/hermes_personal_connection_test.py"] if args.connection or args.payer else []) + ([project / "server/trainer/hermes_personal_egress.py", project / "server/trainer/hermes_personal_egress_test.py"] if args.egress or args.payer else []) + ([project / "server/trainer/hermes_personal_payer.py", project / "server/trainer/hermes_personal_payer_test.py"] if args.payer else []) + ([project / "server/trainer/personal-coordinator.mjs", project / "server/trainer/personal-payer.mjs", project / "server/trainer/personal-backend.mjs", project / "server/trainer/gateway.mjs", project / "server/trainer/turn-store.mjs", project / "server/trainer/snapshot.mjs", project / "server/trainer/hermes_personal_payer.py", project / "server/trainer/hermes_personal_payer_worker.py", project / "server/trainer/hermes_personal_connection.py", project / "server/trainer/hermes_personal_egress.py", project / "scripts/hermes-personal-joint-fixture.mjs", project / "scripts/hermes-personal-payer-fixture.py"] if args.joint else [])}}
         print(json.dumps(receipt))
         if args.receipt:
             args.receipt.parent.mkdir(parents=True, exist_ok=True)
