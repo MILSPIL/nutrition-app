@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { connect } from 'node:net';
-import { constants, lstatSync, realpathSync, openSync, closeSync, fstatSync, readSync } from 'node:fs';
+import { constants, lstatSync, realpathSync, openSync, closeSync, fstatSync, readSync, statfsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 const roles = new Set(['y', 'w', 'payer']);
@@ -15,6 +15,8 @@ export function captureServiceCgroup({ role, cgroup, invocation, type, version }
       typeof cgroup !== 'string' || !new RegExp('^/' + slice.replace('.', '\\.') + '/scisense-' + role + '@[A-Za-z0-9_.:!\\\\-]+\\.service$').test(cgroup)) invalid();
   const path = join(root, cgroup), parent = dirname(path);
   trusted(root, true); trusted(parent, true); trusted(path, true);
+  if (statfsSync(root).type !== 0x63677270) invalid();
+  const rootIdentity=lstatSync(root),parentIdentity=lstatSync(parent);
   let dir, events;
   try {
     dir = openSync(path, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
@@ -27,15 +29,28 @@ export function captureServiceCgroup({ role, cgroup, invocation, type, version }
     return Object.freeze({
       empty() {
         if (closed) invalid();
-        const current = fstatSync(dir);
-        if (current.ino !== identity.ino || current.dev !== identity.dev || current.uid !== 0) invalid();
-        // A captured, removed cgroup cannot contain processes. Never infer this
-        // from a bare missing pathname or a replacement unit with the same name.
-        if (current.nlink === 0) return true;
-        const buffer = Buffer.alloc(4096), length = readSync(events, buffer, 0, buffer.length, 0);
-        const text = buffer.subarray(0, length).toString('ascii');
-        if (!/^populated [01]$/m.test(text)) invalid();
-        return /^populated 0$/m.test(text);
+        try {
+          const current = fstatSync(dir);
+          if (current.ino !== identity.ino || current.dev !== identity.dev || current.uid !== 0) invalid();
+          const buffer = Buffer.alloc(4096), length = readSync(events, buffer, 0, buffer.length, 0);
+          const text = buffer.subarray(0, length).toString('ascii');
+          if (!/^populated [01]$/m.test(text)) invalid();
+          return /^populated 0$/m.test(text);
+        } catch (error) {
+          if (error.code !== 'ENODEV') throw error;
+          // kernfs returns ENODEV on the still-held descriptor after removal.
+          // cgroup_destroy_locked refuses populated/online descendants before
+          // deactivating these nodes. Require the same healthy root/parent AND
+          // removal of this captured inode, never a bare pathname ENOENT.
+          trusted(root,true);trusted(parent,true);
+          const r=lstatSync(root),p=lstatSync(parent);
+          if(r.dev!==rootIdentity.dev||r.ino!==rootIdentity.ino||p.dev!==parentIdentity.dev||p.ino!==parentIdentity.ino||statfsSync(root).type!==0x63677270)invalid();
+          try {
+            const replacement=lstatSync(path);
+            if(replacement.ino===identity.ino&&replacement.dev===identity.dev)return false;
+            trusted(path,true);return true;
+          }catch(missing){if(missing.code==='ENOENT')return true;throw missing;}
+        }
       },
       close() { if (!closed) { closed = true; closeSync(events); closeSync(dir); } },
     });
