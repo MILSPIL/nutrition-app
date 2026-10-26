@@ -1,3 +1,4 @@
+import { dismissIndependentMeasurementReminder } from './tracker-browser-fixture.mjs';
 import assert from "node:assert/strict";
 import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -214,6 +215,7 @@ try {
     permissions: ["microphone"],
     ignoreHTTPSErrors: true,
   });
+  await dismissIndependentMeasurementReminder(context);
   page = await context.newPage();
   page.setDefaultTimeout(15000);
   page.on("pageerror", (e) => evidence.errors.push(e.message));

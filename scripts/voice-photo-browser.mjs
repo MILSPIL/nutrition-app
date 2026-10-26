@@ -1,3 +1,4 @@
+import { dismissIndependentMeasurementReminder } from './tracker-browser-fixture.mjs';
 // Синтетичний браузерний QA. Провайдерні відповіді підставні; Firestore і MediaRecorder справжні локальні.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
@@ -123,6 +124,7 @@ try {
     permissions: ["microphone"],
     locale: "uk-UA",
   });
+  await dismissIndependentMeasurementReminder(context);
   page = await context.newPage();
   page.setDefaultTimeout(15000);
   page.on("pageerror", (e) => evidence.consoleErrors.push(e.message));
@@ -401,7 +403,7 @@ try {
   const next = new Date(`${targetDate}T12:00:00`);
   next.setDate(next.getDate() + 1);
   const tomorrow = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
-  await page.getByLabel("Обрати дату записів", { exact: true }).click();
+  await page.getByLabel(/^Історія харчування:/).click();
   await page.getByLabel("Дата записів", { exact: true }).fill(tomorrow);
   await page
     .getByRole("button", { name: "Додати їжу голосом", exact: true })
@@ -409,6 +411,7 @@ try {
   await page.waitForFunction(
     () => !document.body.textContent.includes("Тестовий кефір"),
   );
+  await page.getByLabel(/^Історія харчування:/).click();
   await page.getByLabel("Дата записів", { exact: true }).fill(targetDate);
   await page.getByText("Тестовий кефір", { exact: true }).waitFor();
   check("Порожній день не копіює вчорашній прийом", true);

@@ -1,3 +1,4 @@
+import { dismissIndependentMeasurementReminder } from './tracker-browser-fixture.mjs';
 // Actual UI + coordinator/tools/SQLite + demo Firestore. Only model and STT are fixtures.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
@@ -306,11 +307,11 @@ await new Promise((r) => server.listen(4184, "127.0.0.1", r));
 let browser, context, page;
 const open = async () => {
   await page
-    .getByRole("button", { name: "Тренер · текст і голос", exact: true })
+    .getByRole("button", { name: "Відкрити тренера", exact: true })
     .click();
   await page.locator("#trainer-message:not(:disabled)").waitFor();
   await page.getByRole('button',{name:'Почати запис',exact:true}).waitFor();
-  await page.waitForFunction(()=>[...document.querySelectorAll('.trainer-chat button')].some(b=>b.textContent==='Почати запис'&&!b.disabled));
+  await page.waitForFunction(()=>[...document.querySelectorAll('.trainer-chat button')].some(b=>b.getAttribute('aria-label')==='Почати запис'&&!b.disabled));
 };
 const send = async (text) => {
   await page.locator("#trainer-message").fill(text);
@@ -344,6 +345,7 @@ try {
     permissions: ["microphone"],
     locale: "uk-UA",
   });
+  await dismissIndependentMeasurementReminder(context);
   page = await context.newPage();
   page.setDefaultTimeout(20000);
   page.on("pageerror", (e) => evidence.consoleErrors.push(e.message));
@@ -440,11 +442,11 @@ try {
     await page
       .getByRole("button", { name: "Закрити чат", exact: true })
       .click();
-    await page.waitForFunction(()=>document.activeElement?.getAttribute("aria-label")==="Тренер · текст і голос");
+    await page.waitForFunction(()=>document.activeElement?.getAttribute("aria-label")==="Відкрити тренера");
     check(
       "Фокус повернуто " + width,
       await page
-        .getByRole("button", { name: "Тренер · текст і голос", exact: true })
+        .getByRole("button", { name: "Відкрити тренера", exact: true })
         .evaluate((n) => document.activeElement === n),
     );
   }
@@ -470,9 +472,9 @@ try {
     .waitFor({ state: "hidden" });
   mode = "quantity";
   await page.getByRole("button", { name: "Почати запис", exact: true }).click();
-  await page.getByRole("button", { name: /Зупинити ·/ }).waitFor();
+  await page.getByRole("button", { name: "Зупинити запис", exact: true }).waitFor();
   await page.waitForTimeout(600);
-  await page.getByRole("button", { name: /Зупинити ·/ }).click();
+  await page.getByRole("button", { name: "Зупинити запис", exact: true }).click();
   await page.getByLabel("Кількість 1", { exact: true }).waitFor();
   await page.waitForFunction(
     () => document.querySelector('[aria-label="Кількість 1"]').value === "150",

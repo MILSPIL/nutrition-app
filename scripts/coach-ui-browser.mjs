@@ -1,3 +1,4 @@
+import { dismissIndependentMeasurementReminder } from './tracker-browser-fixture.mjs';
 // Actual built UI; isolated Firebase emulators and synthetic trainer transport only.
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
@@ -58,7 +59,7 @@ await new Promise(ok=>server.listen(4189,'127.0.0.1',ok));
 let browser,context,page;
 try {
  browser=await chromium.launch({executablePath:process.env.AGENT_TEST_CHROME_EXECUTABLE,headless:true});
- context=await browser.newContext({viewport:{width:390,height:844},locale:'uk-UA',timezoneId:'America/New_York'});page=await context.newPage();page.setDefaultTimeout(20000);
+ context=await browser.newContext({viewport:{width:390,height:844},locale:'uk-UA',timezoneId:'America/New_York'});await dismissIndependentMeasurementReminder(context);page=await context.newPage();page.setDefaultTimeout(20000);
  page.on('pageerror',e=>evidence.consoleErrors.push(e.message));
  await context.route('**/*',r=>['127.0.0.1','localhost','fonts.googleapis.com','fonts.gstatic.com'].includes(new URL(r.request().url()).hostname)?r.continue():r.abort());
  await page.clock.setFixedTime('2026-10-24T21:10:00Z');
@@ -76,7 +77,7 @@ try {
  for(const [label,value] of [['Калорії, ккал','2305'],['Білки, г','140'],['Жири, г','70'],['Вуглеводи, г','235']])await page.getByLabel(label,{exact:true}).fill(value);
  await page.getByRole('button',{name:'Зберегти норми',exact:true}).click();await page.getByText('Особисті норми збережено.',{exact:true}).waitFor();
  await page.locator('.fixed.z-50').filter({has:page.getByRole('heading',{name:'Налаштування',exact:true})}).locator('button:has(svg.lucide-x)').first().click();await page.locator('[data-modal-surface]').waitFor({state:'hidden'});
- const second=await browser.newContext({viewport:{width:390,height:844},locale:'uk-UA'}),secondPage=await second.newPage();
+ const second=await browser.newContext({viewport:{width:390,height:844},locale:'uk-UA'});await dismissIndependentMeasurementReminder(second);const secondPage=await second.newPage();
  secondPage.on('pageerror',e=>evidence.consoleErrors.push(e.message));
  await second.route('**/*',r=>['127.0.0.1','localhost','fonts.googleapis.com','fonts.gstatic.com'].includes(new URL(r.request().url()).hostname)?r.continue():r.abort());
  await secondPage.goto('http://127.0.0.1:4189/');await secondPage.getByRole('button',{name:'Увійти через Google'}).click();await secondPage.getByRole('button',{name:'Почати!',exact:true}).click();await secondPage.getByRole('button',{name:'Почати!',exact:true}).waitFor({state:'hidden'});

@@ -1,3 +1,4 @@
+import { dismissIndependentMeasurementReminder } from './tracker-browser-fixture.mjs';
 // Three isolated synthetic users, real demo Auth/Firestore, production bundles with a demo build flag.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -48,9 +49,7 @@ try{
  const pages={};
  for(const role of Object.keys(accounts)){
   const context=await browser.newContext({viewport:{width:390,height:844},locale:'uk-UA'});contexts.push(context);
-  // This suite exercises trainer consent. Keep the independent Monday reminder
-  // from covering its form; the reminder is not part of this acceptance path.
-  await context.addInitScript(()=>{const d=new Date();localStorage.setItem('measurementReminderDismissed',`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);});
+  await dismissIndependentMeasurementReminder(context);
   await context.route('**/*',route=>{const url=new URL(route.request().url());if(['127.0.0.1','localhost','cdn.tailwindcss.com','fonts.googleapis.com','fonts.gstatic.com'].includes(url.hostname))return route.continue();evidence.unexpectedNetwork.push(url.origin);return route.abort();});
   const page=await context.newPage();page.setDefaultTimeout(20000);page.on('pageerror',e=>evidence.pageErrors.push(e.message));pages[role]=page;
   await page.goto(origin+'/fixture');await page.waitForFunction(()=>window.fixture);await page.evaluate(email=>window.fixture.login(email),accounts[role].email);
