@@ -8,7 +8,7 @@
 
 Модельний канал використовує тільки native Hermes lane openai-codex. Модель/підключення належать funding owner, browser не отримує credentials. Два verified Firebase UID мають окремі dataProfiles, HOME і native authority. Для дружини немає вимоги ChatGPT-логіну. Її справжній Firebase UID ще треба верифікувати та включити до operator registry; його не вигадуємо.
 
-Джерела secrets: systemd credentials `groq` і 32-byte `personal-state`; ключ стирається в caller після eager derivation perUID Firebase keys. V3 не читає `anthropic`, old trainer activation, валютний ledger чи старий $5. Groq whisper-large-v3 працює через `INFERENCE_MODE=stt_only` і незалежний zero-cost ledger. `/analyze` відхиляється до provider. Розбір їжі/фото проходить через той самий canonical chat і підтвердження «Додати».
+Джерела secrets: systemd credentials `groq`, 32-byte `personal-state` та окремі `desktop-y` / `desktop-w` (43–128 ASCII base64url символів); ключ стирається в caller після eager derivation perUID Firebase keys. V3 не читає `anthropic`, old trainer activation, валютний ledger чи старий $5. Groq whisper-large-v3 працює через `INFERENCE_MODE=stt_only` і незалежний zero-cost ledger. `/analyze` відхиляється до provider. Розбір їжі/фото проходить через той самий canonical chat і підтвердження «Додати».
 
 B3 scope лишається8turn/24physicalPOST, ≤3POST/turn,45s після черги. Цей документ не збільшує cap і не є дозволом на fallback. HTTP має2слоти для незалежного status/thumbnail, model queue лишається1active/4waiting. Агентський реальний STT прогін обмежений1синтетичним записом≤10с.
 
@@ -23,3 +23,11 @@ Idle sweeper прибирає також orphan bin і пошкоджений me
 16Node tests V3/component/ephemeral PASS; окремо13actual pinned Python tests PASS, включно з missing worker_receipts/runtime_epoch refusal без зміни bytes/відтворення таблиць. Actual Mac runtime regression25checks/6processes/7fakePOST PASS після begin/end turn. Усі дані синтетичні,0realAPI.
 
 Незалежне personal_local_review:2P2 startup watchdog/ignored cleanup fault виправлені, фінальний PASS без новихP1/P2. Native schema guard використовує штатний readonly `schema_drift_reason`, не ручний native SQL repair. Linux deployment, retained migration, Desktop facade/model picker, server credentials/login і B1/B2/B3 ще pending.
+
+## Приватний Desktop transport
+
+2026-10-26: V3 готує по endpoint на перевірений UID, socket `/run/scisense/desktop-y.sock` або `desktop-w.sock`. `desktopGids` в root activation закріплює окремі групи. Node API має лише ці supplementary groups, broker group лишається окремою. Parent `/run/scisense` допускає traverse0711, кожний socket0660 належить тільки своїй Desktop групі; uploads/state/credentials лишаються приватними. Fresh media parent приймає лише точні0700/0711, діти завжди0700. Немає мережевого порту Desktop, runtime sudo або довільного native RPC.
+
+Секрет Desktop читається з systemd credential, хешується й стирається у caller. HTTP приймає штатний token header або Bearer, WS використовує secret subprotocol. Фактичний URL не містить token/ticket. Конкретний SSH principal/ключ, forwarding-only правила й перевірка груп належать B1 runbook; наразі не створені на хості.
+
+Контракт і статус: [Desktop transport](hermes-personal-desktop-01.md). Вимкнений manifest не відкриває listeners чи секрети. Невдале bind/close одного endpoint закриває решту ingress, trainer і ledger без скидання даних.

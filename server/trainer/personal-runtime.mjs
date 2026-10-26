@@ -64,7 +64,13 @@ function verifyProvision(paths, profiles) {
 }
 export function preparePersonalEphemeral(paths, profiles) {
   if (!paths.ephemeralRoot) return;
-  if (!existsSync(paths.ephemeralRoot)) { owned(dirname(paths.ephemeralRoot), true); mkdirSync(paths.ephemeralRoot, { mode: 0o700 }); }
+  if (!existsSync(paths.ephemeralRoot)) {
+    const parent = dirname(paths.ephemeralRoot), info = lstatSync(parent);
+    // The API runtime parent also publishes group-protected Desktop sockets.
+    // Only this exact traversal mode is allowed; all media children stay 0700.
+    if (realpathSync(parent) !== parent || info.uid !== process.getuid() || !info.isDirectory() || ![0o700, 0o711].includes(info.mode & 0o7777)) fail();
+    mkdirSync(paths.ephemeralRoot, { mode: 0o700 });
+  }
   owned(paths.ephemeralRoot, true);
   if (statfsSync(paths.ephemeralRoot).type !== 0x01021994) fail();
   for (const { uid } of profiles.entries()) {
@@ -175,10 +181,9 @@ export async function createPersonalRuntime({ registry, platformKey, root, ephem
       openDesktop(uid, channel, notify) {
         profiles.resolve(uid);
         const id = uid + ":" + channel;
-        if (closing || typeof notify !== "function" || !["desktop:primary", "desktop:secondary"].includes(channel) ||
-            desktop.has(id) || [...desktop.keys()].filter(key => key.startsWith(uid + ":")).length >= 2) throw Error("desktop_unavailable");
+        if (closing || typeof notify !== "function" || !["desktop:primary", "desktop:secondary", "desktop:read"].includes(channel) || desktop.has(id)) throw Error("desktop_unavailable");
         const account = accounts.get(uid); account.desktopAdmissions ??= new Map();
-        const adapter = createPersonalDesktopAdapter({ uid, channel, account, core, admissions: account.desktopAdmissions,
+        const adapter = createPersonalDesktopAdapter({ uid, channel, profileId: profiles.resolve(uid).home, account, core, admissions: account.desktopAdmissions,
           detach: async () => { desktop.delete(id); } });
         desktop.set(id, { notify, close: adapter.close }); return adapter;
       },

@@ -1,7 +1,9 @@
 # Reuses the exact pinned public runtime built by the existing CI job.
 FROM scisense-hermes-ci
 USER root
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends systemd systemd-sysv dbus && rm -rf /var/lib/apt/lists/* && groupadd --gid 10001 scisense && groupadd --gid 10005 scisense-broker && useradd --uid 10001 --gid scisense --groups scisense-broker --no-create-home --shell /usr/sbin/nologin scisense && useradd --uid 10002 --user-group --groups scisense --no-create-home --shell /usr/sbin/nologin scisense-y && useradd --uid 10003 --user-group --groups scisense --no-create-home --shell /usr/sbin/nologin scisense-w && useradd --uid 10004 --user-group --groups scisense --no-create-home --shell /usr/sbin/nologin scisense-payer
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends systemd systemd-sysv dbus && rm -rf /var/lib/apt/lists/* && groupadd --gid 10001 scisense && groupadd --gid 10005 scisense-broker && groupadd --gid 10006 scisense-desktop-y && groupadd --gid 10007 scisense-desktop-w && useradd --uid 10001 --gid scisense --groups scisense-broker,scisense-desktop-y,scisense-desktop-w --no-create-home --shell /usr/sbin/nologin scisense && useradd --uid 10002 --user-group --groups scisense --no-create-home --shell /usr/sbin/nologin scisense-y && useradd --uid 10003 --user-group --groups scisense --no-create-home --shell /usr/sbin/nologin scisense-w && useradd --uid 10004 --user-group --groups scisense --no-create-home --shell /usr/sbin/nologin scisense-payer
+COPY package.json package-lock.json /app/
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 COPY server /app/server
 COPY scripts/hermes-personal-runtime-fixture.mjs scripts/hermes-personal-native-systemd-ci.py /app/scripts/
 COPY deploy/personal /etc/systemd/system/

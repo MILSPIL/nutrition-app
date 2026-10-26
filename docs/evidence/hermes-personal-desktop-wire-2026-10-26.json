@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "task": "HERMES-PERSONAL-01",
+  "sourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+  "sourceManifest": {
+    "scope": "all tracked Python source plus pinned importable suffixes, excluding installed dependencies",
+    "verifiedFiles": 9975,
+    "verifiedOtherSuffixes": 2,
+    "sha256": "a1e875821d26e706a10fde8f10d52c41f4083db91082a02a0d3bff62b7df9cc4"
+  },
+  "syntheticOnly": true,
+  "testExit": null,
+  "nativeIpc": null,
+  "physicalProcessRestart": null,
+  "realModelRequests": 0,
+  "sourceSha256": {},
+  "scope": "actual Electron text/terminal event proof; combined final runtime/photo/replay proof pending",
+  "endpointV3NodeTests": 29,
+  "independentReview": {
+    "reviewer": "desktop_wire_review",
+    "verdict": "PASS",
+    "closed": [
+      "fresh runtime parent mode",
+      "replacement socket cleanup",
+      "monotonic raw photo TTL"
+    ]
+  },
+  "productionChanged": false,
+  "browserCleanup": {
+    "session": "6f77ae4aa81d4769-mgwnst_j",
+    "cleanup_ok": true,
+    "removed": true
+  },
+  "uiTextEvidence": {
+    "passed": true,
+    "actualElectron": true,
+    "actualUiComposer": true,
+    "sameCanonicalSession": true,
+    "existingHistoryVisible": true,
+    "answerVisible": true,
+    "photoRpcSeen": false,
+    "fileDialogUsed": false,
+    "singleUiSubmission": true,
+    "secretsAbsentFromWireUrls": true,
+    "inputId": "8dad76de-f51a-45d9-b050-7b7fd4d49b65",
+    "receipt": {
+      "admission_id": "97a63a11367a4f5a852ec80c5e09cca1",
+      "ref": {
+        "profile_id": "/private/tmp/agent-test-browser-501/6f77ae4aa81d4769-mgwnst_j/tmp/scisense-owner-test-cat7qfoz/runtime-owner",
+        "session_id": "local-6b9e6719ef043b6b9c62b35d54c9a026a8056b2a62364bc20f5bda926fff00c9"
+      },
+      "sequence": 2,
+      "status": "queued",
+      "outcome": null,
+      "authority_epoch": 3,
+      "execution_generation": null
+    },
+    "attachments": [],
+    "desktopLiveEvent": true,
+    "sessionId": "local-6b9e6719ef043b6b9c62b35d54c9a026a8056b2a62364bc20f5bda926fff00c9",
+    "sourceCommit": "bf0203a794a07aac3ff764972ab9087baa4e4f4e",
+    "mainBundleSha256": "ff73cbdff69c320bee5cd413afcd8f7b8598a41c98487b38c265a8c7825eb3ad",
+    "requestCounts": {
+      "/api/status": 6,
+      "/api/health": 3,
+      "/api/profiles": 12,
+      "/api/profiles/active": 3,
+      "/api/audio/voice-live/status": 6,
+      "/api/config": 12,
+      "/api/hermes/update/check": 1,
+      "/api/model/info": 5,
+      "/api/config/defaults": 6,
+      "/api/ws": 2,
+      "/api/profiles/sessions/sidebar": 2,
+      "/api/fs/default-cwd": 1,
+      "/api/sessions/owner-backfill": 1,
+      "/api/cron/jobs": 2,
+      "/api/profiles/sessions": 1,
+      "/api/tools/terminal/backends": 1,
+      "/api/sessions/local-6b9e6719ef043b6b9c62b35d54c9a026a8056b2a62364bc20f5bda926fff00c9/messages": 1,
+      "/api/fs/read-data-url": 1,
+      "/api/sessions/local-6b9e6719ef043b6b9c62b35d54c9a026a8056b2a62364bc20f5bda926fff00c9/timeline": 1
+    },
+    "pageErrors": [],
+    "realModelRequests": 0
+  },
+  "note": "Full 36-check text run was observed successful in tool run 6f77ae4aa81d4769-mgwnst_j; its latest-runtime file was overwritten by the later photo-selector experiment. UI success receipt is preserved here; no claim that the current photo experiment passed."
+}

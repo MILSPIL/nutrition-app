@@ -367,9 +367,14 @@ class PersonalOwner:
     async def bot(self, channel):
         # Native create is atomic resolve/adopt-before-mint for a titled Bot Chat.
         # Always resolve its name; a cached ID would break after compression.
-        return await self.rpc(channel, "session.create", {"request_id": uuid.uuid4().hex, "source": "gui",
+        snapshot = await self.rpc(channel, "session.create", {"request_id": uuid.uuid4().hex, "source": "gui",
             "title": "Bot Chat", "hidden": True, "cwd": str(self.home), "toolsets": ["scisense", "no_mcp"],
             "follow_profile_config": True})
+        row = self.authority.db.get_session(snapshot["session_id"])
+        if row is None:
+            raise RuntimeError("not_found")
+        snapshot["metadata"] = {name: row.get(name) for name in ("started_at", "last_activity_at", "ended_at", "title", "source")}
+        return snapshot
 
     async def close_channel(self, channel):
         current = self.connections.pop(channel, None)

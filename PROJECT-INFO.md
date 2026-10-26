@@ -8,6 +8,8 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-26 04:18 UTC: приватний per-UID Desktop transport і V3 binding підготовлені;29 targeted Node tests та свіже незалежне рев’ю PASS після1P1/2P2. [Контракт](docs/deployment/hermes-personal-desktop-01.md). Actual Electron уже надсилає повідомлення до справжнього synthetic Native й отримує відповідь/terminal event, без unhandled errors; UI photo chooser та replay після закриття Desktop ще pending. Host, ключі, бюджет і production не змінені.
+
 2026-10-26 03:31 UTC: внутрішній Desktop adapter пройшов 51 Node і 35 actual Native перевірок, 9 OS-guarded процесів. Повтор після втрати з’єднання не виконується вдруге; події, фото й історія спільні. Незалежне рев’ю PASS. [Доказ](docs/evidence/hermes-personal-desktop-adapter-2026-10-26.json). CI `dd417ad` повністю PASS, але зовнішній Desktop transport, міграція й B1–B3 ще pending; production не змінений.
 
 2026-10-26 03:02 UTC: native вибір моделі власником пройшов 36 Node, 7 payer та 29 actual runtime перевірок, 9 OS-guarded процесів; історія після select/restart незмінна. Незалежне рев’ю PASS після 4 P2. [Доказ](docs/evidence/hermes-personal-model-selection-2026-10-26.json). Desktop facade, міграція й B1–B3 ще pending, production не змінений.

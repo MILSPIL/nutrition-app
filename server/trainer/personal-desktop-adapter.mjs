@@ -4,7 +4,7 @@ import { abortable } from "./deadline.mjs";
 
 // The caller is an operator-bound transport, never an HTTP body/profile selector.
 // All mutations still enter the account's ordinary AppGateway and global core.
-export function createPersonalDesktopAdapter({ uid, channel, account, core, admissions, detach }) {
+export function createPersonalDesktopAdapter({ uid, channel, profileId, account, core, admissions, detach }) {
   let closed = false;
   const check = () => { if (closed) throw Error("trainer_unavailable"); };
   const hashImage = image => {
@@ -28,10 +28,11 @@ export function createPersonalDesktopAdapter({ uid, channel, account, core, admi
     return row;
   };
   return Object.freeze({
-    uid, channel,
+    uid, channel, profileId,
     hashImage,
     history() { check(); return core.history(uid, channel); },
     read(method, params, options) { check(); return core.readNative(uid, channel, method, params, options); },
+    photo(reference, variant = "original", options) { check(); return core.photo(uid, reference, variant, options); },
     connection() { check(); return core.connection(uid); },
     modelOptions(options) { check(); return core.modelOptions(uid, options); },
     selectModel(selection, options) { check(); return core.selectModel(uid, selection, options); },

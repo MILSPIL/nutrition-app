@@ -214,7 +214,7 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
     // is never used as an independent editable assistant conversation.
     async history(uid, channel = "web") {
       const record = await ownerFor(uid);
-      try { return { ...await record.owner.bot(channel), profileId: record.identity.profileId }; }
+      try { return { ...await record.owner.bot(channel), profileId: record.identity.profileId, instanceId: record.identity.instanceId }; }
       catch (error) { await retire(uid, record); throw error; }
     },
     async readNative(uid, channel, method, params = {}, { signal } = {}) {

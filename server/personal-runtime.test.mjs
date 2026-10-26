@@ -1,12 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createPersonalServerRuntime, validatePersonalManifest, validatePersonalActivation, personalPolicyHash } from './personal-runtime.mjs';
+import { createPersonalServerRuntime as createRuntime, validatePersonalManifest, validatePersonalActivation, personalPolicyHash } from './personal-runtime.mjs';
 import { createHandler } from '../workers/meal-parser/src/index.js';
-const manifest={version:3,releaseId:'a'.repeat(40),liveEnabled:true,firebaseProject:'nutrition-tracker-ua',origin:'https://ntzg.pp.ua',allowedUids:['owner','wife'],port:8787,maxConcurrent:2,activationFile:'/etc/scisense/personal-activation.json',policyHash:personalPolicyHash,credentialNames:['groq','personal-state']};
+// These unit cases substitute only the socket listener. The real HTTP/WS
+// endpoint and Native wire have separate actual Unix-socket acceptance tests.
+const createPersonalServerRuntime=(manifest,options={})=>createRuntime(manifest,{createDesktopEndpoint:()=>({async listen(){},async close(){}}),...options});
+const desktopSecret=()=>Buffer.from('s'.repeat(43));
+const manifest={version:3,releaseId:'a'.repeat(40),liveEnabled:true,firebaseProject:'nutrition-tracker-ua',origin:'https://ntzg.pp.ua',allowedUids:['owner','wife'],port:8787,maxConcurrent:2,activationFile:'/etc/scisense/personal-activation.json',policyHash:personalPolicyHash,credentialNames:['groq','personal-state','desktop-y','desktop-w']};
 const stamp=new Date(Date.now()-1000).toISOString();
 const activation={version:1,active:true,task:'HERMES-PERSONAL-01',policyHash:personalPolicyHash,releaseId:manifest.releaseId,target:manifest.origin,approvedAt:stamp,sttApprovedAt:stamp,
  registry:{version:1,fundingOwner:'owner',profiles:[['owner','y'],['wife','w']].map(([uid,lane])=>({uid,profileId:'native-'+uid,home:'/var/lib/scisense-personal-'+lane+'/profile',socket:'/run/scisense/desktop-'+lane+'.sock',canonicalTitle:'Bot Chat'}))},
- dataProfiles:{owner:'yuri',wife:'wife'},lanes:{owner:'y',wife:'w'},brokerGid:10005,firebaseApiKey:'AIza'+'x'.repeat(30),gates:{linux:true,privacy:true,singleWriter:true,backup:true,migration:true}};
+ dataProfiles:{owner:'yuri',wife:'wife'},lanes:{owner:'y',wife:'w'},brokerGid:10005,desktopGids:{y:10006,w:10007},firebaseApiKey:'AIza'+'x'.repeat(30),gates:{linux:true,privacy:true,singleWriter:true,backup:true,migration:true}};
 const disabled={...manifest,liveEnabled:false,allowedUids:[]};
 test('V3 activation binds both identities and cannot inherit legacy money/model controls',()=>{
  validatePersonalManifest(manifest);validatePersonalActivation(activation,manifest);
@@ -21,7 +25,7 @@ test('disabled V3 does not open any ledger, credential, trainer or model request
 });
 test('V3 real STT handler uses only a zero-cost ledger and never requires Anthropic',async()=>{
  let apiOptions,trainerOptions,requests=0,closed=0;const reservations=[],buffers=[];
- const runtime=await createPersonalServerRuntime(manifest,{readActivation:()=>activation,readCredential:name=>{const value=name==='groq'?Buffer.from('gsk_'+'x'.repeat(30)):Buffer.alloc(32,7);buffers.push(value);return value;},
+ const runtime=await createPersonalServerRuntime(manifest,{readActivation:()=>activation,readCredential:name=>{const value=name==='groq'?Buffer.from('gsk_'+'x'.repeat(30)):name.startsWith('desktop-')?desktopSecret():Buffer.alloc(32,7);buffers.push(value);return value;},
  openLedger:file=>{assert.equal(file,'/var/lib/scisense/free-stt-v1.sqlite');return {binding:{idFromName:v=>v,get:()=>({fetch:async req=>{const value=await req.json();if(value.action==='reserve'){assert.equal(value.cost,0);reservations.push(value);}return Response.json({ok:true});}})},close(){closed++;}};},
  createTrainer:async value=>(trainerOptions=value,{accepts:uid=>['owner','wife'].includes(uid),close:async()=>{}}),
  createApi:value=>(apiOptions=value,{close:async()=>{}}),fetcher:async(url,options)=>{assert.equal(url,'https://api.groq.com/openai/v1/audio/transcriptions');assert.match(options.headers.Authorization||options.headers.authorization,/^Bearer gsk_/);requests++;return Response.json({text:'Синтетичне повідомлення.'});}});
@@ -42,12 +46,42 @@ test('failed credential read erases already-read bytes and closes the free ledge
 });
 test('failed HTTP shutdown still closes trainer and free ledger',async()=>{
  const closed=[];
- const runtime=await createPersonalServerRuntime(manifest,{readActivation:()=>activation,readCredential:name=>name==='groq'?Buffer.from('gsk_'+'x'.repeat(30)):Buffer.alloc(32),openLedger:()=>({binding:{},close(){closed.push('ledger');}}),createTrainer:async()=>({close:async()=>{closed.push('trainer');}}),createApi:()=>({close:async()=>{closed.push('api');throw Error('synthetic failure');}})});
+ const runtime=await createPersonalServerRuntime(manifest,{readActivation:()=>activation,readCredential:name=>name==='groq'?Buffer.from('gsk_'+'x'.repeat(30)):name.startsWith('desktop-')?desktopSecret():Buffer.alloc(32),openLedger:()=>({binding:{},close(){closed.push('ledger');}}),createTrainer:async()=>({close:async()=>{closed.push('trainer');}}),createApi:()=>({close:async()=>{closed.push('api');throw Error('synthetic failure');}})});
  await assert.rejects(runtime.close(),/synthetic failure/);assert.deepEqual(closed,['api','trainer','ledger']);
 });
 
 test('trainer fatal callback disables inference and closes every runtime resource',async()=>{
  let trainerOptions,apiOptions;const closed=[];
- const runtime=await createPersonalServerRuntime(manifest,{readActivation:()=>activation,readCredential:name=>name==='groq'?Buffer.from('gsk_'+'x'.repeat(30)):Buffer.alloc(32),onFatal(){closed.push('watchdog');},openLedger:()=>({binding:{},close(){closed.push('ledger');}}),createTrainer:async options=>(trainerOptions=options,{close:async()=>{closed.push('trainer');}}),createApi:options=>(apiOptions=options,{close:async()=>{closed.push('api');}})});
+ const runtime=await createPersonalServerRuntime(manifest,{readActivation:()=>activation,readCredential:name=>name==='groq'?Buffer.from('gsk_'+'x'.repeat(30)):name.startsWith('desktop-')?desktopSecret():Buffer.alloc(32),onFatal(){closed.push('watchdog');},openLedger:()=>({binding:{},close(){closed.push('ledger');}}),createTrainer:async options=>(trainerOptions=options,{close:async()=>{closed.push('trainer');}}),createApi:options=>(apiOptions=options,{close:async()=>{closed.push('api');}})});
  trainerOptions.onFatal();await runtime.close();assert.equal(apiOptions.env.LIVE_ENABLED,'false');assert.equal(apiOptions.env.TRAINER_ENABLED,'false');assert.deepEqual(closed,['watchdog','api','trainer','ledger']);
+});
+
+test('V3 binds and erases distinct Desktop credentials, then opens only the approved UID sockets',async()=>{
+ const bound=[],order=[],buffers=[];let apiOptions;
+ const runtime=await createPersonalServerRuntime(manifest,{
+  readActivation:()=>activation,
+  readCredential:name=>{const buffer=name==='groq'?Buffer.from('gsk_'+'x'.repeat(30)):name.startsWith('desktop-')?desktopSecret():Buffer.alloc(32);buffers.push(buffer);return buffer;},
+  openLedger:()=>({binding:{},close(){order.push('ledger.close');}}),
+  createTrainer:async()=>({close:async()=>{order.push('trainer.close');}}),
+  createDesktopEndpoint:value=>{assert.match(value.token.toString(),/^[A-Za-z0-9_-]{43}$/);bound.push({...value,token:undefined});return {async listen(){order.push(value.uid+'.listen');},async close(){order.push(value.uid+'.close');}};},
+  createApi:options=>(apiOptions=options,{async listen(){order.push('api.listen');},async close(){order.push('api.close');}})
+ });
+ assert.deepEqual(bound.map(v=>[v.uid,v.socketPath,v.socketGid]),[['owner','/run/scisense/desktop-y.sock',10006],['wife','/run/scisense/desktop-w.sock',10007]]);
+ assert.ok(buffers.every(buffer=>buffer.every(byte=>byte===0)));assert.deepEqual(order,[]);
+ await runtime.listen();assert.deepEqual(order,['owner.listen','wife.listen','api.listen']);
+ await runtime.close();assert.equal(apiOptions.env.TRAINER_ENABLED,'false');
+ assert.ok(order.indexOf('owner.close')<order.indexOf('trainer.close'));assert.ok(order.indexOf('wife.close')<order.indexOf('trainer.close'));assert.equal(order.at(-1),'ledger.close');
+});
+
+test('a Desktop bind failure closes partial ingress and drains trainer without resetting stores',async()=>{
+ const closed=[],buffers=[];
+ const runtime=await createPersonalServerRuntime(manifest,{
+  readActivation:()=>activation,readCredential:name=>{const buffer=name==='groq'?Buffer.from('gsk_'+'x'.repeat(30)):name.startsWith('desktop-')?desktopSecret():Buffer.alloc(32);buffers.push(buffer);return buffer;},
+  openLedger:()=>({binding:{},close(){closed.push('ledger');}}),createTrainer:async()=>({close:async()=>{closed.push('trainer');}}),
+  createDesktopEndpoint:({uid})=>({async listen(){if(uid==='wife')throw Error('synthetic-bind-fault');},async close(){closed.push(uid);if(uid==='owner')throw Error('synthetic-close-fault');}}),
+  createApi:()=>({async listen(){throw Error('must-not-publish-http');},async close(){closed.push('api');}})
+ });
+ await assert.rejects(runtime.listen(),/server_start_refused/);
+ assert.ok(closed.includes('owner'));assert.ok(closed.includes('wife'));assert.ok(closed.includes('trainer'));assert.equal(closed.at(-1),'ledger');
+ assert.ok(buffers.every(buffer=>buffer.every(byte=>byte===0)));
 });

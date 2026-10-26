@@ -13,7 +13,7 @@ TimeoutStopSec=5s
 TimeoutAbortSec=1s
 User=scisense
 Group=scisense
-SupplementaryGroups=scisense-broker
+SupplementaryGroups=scisense-broker scisense-desktop-y scisense-desktop-w
 Slice=scisense.slice
 WorkingDirectory=/opt/scisense/current
 ExecStart=/opt/scisense/node/bin/node /opt/scisense/current/server/main.mjs
@@ -22,7 +22,9 @@ UMask=0077
 StateDirectory=scisense
 StateDirectoryMode=0700
 RuntimeDirectory=scisense
-RuntimeDirectoryMode=0700
+# Parent traversal only; each socket is 0660 for its dedicated Desktop group.
+# Personal uploads and state below retain private 0700 child directories.
+RuntimeDirectoryMode=0711
 ReadWritePaths=/var/lib/scisense /run/scisense
 ProtectSystem=strict
 ProtectHome=true

@@ -3,11 +3,11 @@
   "files": {
     "apps/shared/src/canonical-remote.ts": {
       "before": null,
-      "after": "3a8c49b8a5c29db764a207315fe8d82296f8916919740f74511b3586981f4108"
+      "after": "3535962d0ca8440ba71017be1364df7991deee707c87d613981c59d348b7594d"
     },
     "apps/shared/src/index.ts": {
       "before": "cbfeb921966ce1558edccaab042a44075ee38e22174b66f1778dec99fad6744b",
-      "after": "625a0c81c27b5a21452461febaa640364ae80b15eb95351dc1d07d027b43afba"
+      "after": "5c58558f6151e05b10fff7a8bfed723135df662d48b9dafeff77c8e72fc96db5"
     },
     "apps/shared/package.json": {
       "before": "b9ae25a2a7f088a1f2d4083f19bd10c4432c1e451022d885c59b0f1996cee85e",
@@ -15,7 +15,7 @@
     },
     "apps/desktop/src/api/client.ts": {
       "before": "b56abc62e90460a2b69c71fef6798cadff3050c9745a54f2468de3b73534ecc3",
-      "after": "a485ee561b82bf7598a66db9a55535de1f6b7d400836958f0337f54c4545857c"
+      "after": "ee56f10da9c3e35e9dd89fccd44e3a15aad7960db1b9a7c8f35afd7c214f3150"
     },
     "apps/desktop/electron/main.ts": {
       "before": "06cdfc2dd85eaa9ffa158490aa7545e9506ba70ca738c183641204eaa2d8de79",
@@ -31,13 +31,13 @@
     },
     "apps/desktop/src/api/canonical-remote.test.ts": {
       "before": null,
-      "after": "e6f719cf5b6ded2fdc16c641beb47cc19637d2f5689a62161490ff0f85898622"
+      "after": "1f1e872fd8ba6a3bf865a0c75475cfb4169cf178a0539ee9a8ceacf40b0ed96f"
     },
     "apps/desktop/electron/remote-ws-headers.ts": {
       "before": "ea3497274dbc75b88d317fe88030ad4d0f155f510f829291773cf2b0247c656e",
       "after": "8284a6b20e0a54ec47f65586ecd91d59ef0e495efaaecdc548f521872cb471e4"
     }
   },
-  "patchSha256": "2f6db56ff9a561e2d70197ad9799909d0a5c5906fff78fc84cddc8af302bc776",
+  "patchSha256": "fcdab958d335bef487884ed80b1bbea3828bdb69f26f8c0ab00668bdc84fc396",
   "contextBlankWhitespaceNormalized": true
 }

@@ -1,7 +1,7 @@
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import assert from "node:assert/strict";
-import { mkdtempSync, chmodSync, realpathSync, rmSync, unlinkSync, writeFileSync, statfsSync, readdirSync } from "node:fs";
+import { mkdtempSync, chmodSync, realpathSync, rmSync, unlinkSync, writeFileSync, statfsSync, readdirSync, existsSync, lstatSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -90,4 +90,18 @@ test("Desktop viewer lanes remain bounded and reusable across repeated reconnect
   await Promise.all([primary.close(),secondary.close(),wife.close()]);
  }
  assert.equal(f.native,0);
+});
+
+test("a fresh traversable runtime parent still creates only private media children",t=>{
+ const f=fixture(t),profiles=personalProfiles(f.config.registry),parent=f.root.replace(/\/state$/,'');
+ chmodSync(parent,0o711);
+ const paths=personalRuntimePaths(f.root,profiles,f.config.index,{ephemeralRoot:join(parent,'ephemeral')});
+ if(statfsSync(parent).type===0x01021994)preparePersonalEphemeral(paths,profiles);
+ else assert.throws(()=>preparePersonalEphemeral(paths,profiles),/personal_runtime_invalid/);
+ assert.equal(existsSync(paths.ephemeralRoot),true);assert.equal(lstatSync(paths.ephemeralRoot).mode&0o7777,0o700);
+ for(const mode of [0o755,0o777]){
+  chmodSync(parent,mode);const bad=personalRuntimePaths(f.root,profiles,f.config.index,{ephemeralRoot:join(parent,'bad-'+mode)});
+  assert.throws(()=>preparePersonalEphemeral(bad,profiles),/personal_runtime_invalid/);assert.equal(existsSync(bad.ephemeralRoot),false);
+ }
+ chmodSync(parent,0o700);
 });
