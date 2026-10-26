@@ -51,6 +51,8 @@ let uid,
   calls = 0,
   sttCalls = 0,
   analyses = 0,
+  sttFailOnce = false,
+  sttDelay = 0,
   lastInput,
   latency = 0;
 const evidence = {
@@ -234,6 +236,11 @@ const server = createServer(async (req, res) => {
           b.includes(Buffer.from("RIFF")) && b.includes(Buffer.from("WAVE")),
         );
         res.setHeader("Content-Type", "application/json");
+        if (sttDelay) await new Promise(resolve => setTimeout(resolve, sttDelay));
+        if (sttFailOnce) {
+          sttFailOnce = false; res.statusCode = 504;
+          return res.end(JSON.stringify({ error: "upstream_timeout" }));
+        }
         return res.end(
           JSON.stringify({ text: "З’їв150г тушкованої картоплі" }),
         );
@@ -350,6 +357,11 @@ try {
   page.setDefaultTimeout(20000);
   page.on("pageerror", (e) => evidence.consoleErrors.push(e.message));
   page.on("console", (m) => {
+    // This one transport failure is deliberately injected below to verify retry.
+    if (m.type() === 'error' && m.location().url.endsWith('/meal-api/transcribe') && m.text().includes('504')) {
+      evidence.expectedSttErrors = (evidence.expectedSttErrors || 0) + 1;
+      return;
+    }
     if (m.type() === "error") evidence.consoleErrors.push(m.text());
   });
   page.on("dialog", (d) => d.accept());
@@ -442,6 +454,14 @@ try {
       geometry.controls.every((h) => h >= 44),
     );
     await page.screenshot({ path: join(out, `ready-${width}.png`) });
+    await page.locator('#trainer-message').fill('Синтетичне повідомлення\nДругий рядок\nТретій рядок для перевірки редагування');
+    const typed = await page.locator('#trainer-message').evaluate(node => {
+      const r = node.getBoundingClientRect(), row = node.closest('.trainer-input-row').getBoundingClientRect();
+      return { height: r.height, left: r.left - row.left, right: row.right - r.right, overflow: document.documentElement.scrollWidth - innerWidth };
+    });
+    check('Багаторядкове поле ' + width, typed.height > 44 && typed.height <= 120 && typed.overflow === 0);
+    await page.screenshot({ path: join(out, `typing-${width}.png`) });
+    await page.locator('#trainer-message').fill('');
     await page
       .getByRole("button", { name: "Закрити чат", exact: true })
       .click();
@@ -476,11 +496,30 @@ try {
   mode = "quantity";
   await page.getByRole("button", { name: "Почати запис", exact: true }).click();
   await page.getByRole("button", { name: "Зупинити запис", exact: true }).waitFor();
+  await page.screenshot({ path: join(out, 'recording-390.png') });
   await page.waitForTimeout(600);
+  sttDelay = 1200;
   await page.getByRole("button", { name: "Зупинити запис", exact: true }).click();
+  await page.getByText('Розпізнаю голос…', { exact: true }).waitFor();
+  await page.screenshot({ path: join(out, 'transcribing-390.png') });
   await page.getByRole("button", { name: "Скасувати голосове", exact: true }).waitFor();
+  sttDelay = 0;
   check("Голос спершу показує текст без Hermes запиту", sttCalls === 1 && calls === 1);
   check("Голос можна відредагувати до надсилання", await page.locator('#trainer-message').isEditable());
+  await page.waitForFunction(() => { const audio = document.querySelector('.trainer-voice-preview audio'); return audio && !audio.error && audio.readyState >= 2; });
+  await page.locator('.trainer-voice-preview audio').evaluate(async audio => { await audio.play(); audio.pause(); });
+  check('Запис справді відтворюється перед Send', calls === 1 && await page.locator('.trainer-voice-preview audio').count() === 1);
+  await page.screenshot({ path: join(out, 'voice-preview-390.png') });
+  await page.evaluate(() => { Object.defineProperty(visualViewport, 'height', { configurable: true, value: 480 }); visualViewport.dispatchEvent(new Event('resize')); });
+  await page.waitForFunction(() => document.querySelector('.trainer-overlay').style.getPropertyValue('--trainer-visible-height') === '480px');
+  const voiceKeyboard = await page.evaluate(() => {
+    const row = document.querySelector('.trainer-input-row').getBoundingClientRect(), footer = document.querySelector('.trainer-composer').getBoundingClientRect();
+    return { rowBottom: row.bottom, footerBottom: footer.bottom, scrollHeight: document.querySelector('.trainer-scroll').clientHeight, overflow: document.documentElement.scrollWidth - innerWidth };
+  });
+  check('Голосове прев’ю над клавіатурою', voiceKeyboard.rowBottom <= 480 && voiceKeyboard.footerBottom <= 480 && voiceKeyboard.scrollHeight > 44 && voiceKeyboard.overflow === 0);
+  evidence.voiceKeyboard = voiceKeyboard;
+  await page.screenshot({ path: join(out, 'voice-keyboard-390.png') });
+  await page.evaluate(() => { delete visualViewport.height; visualViewport.dispatchEvent(new Event('resize')); });
   await page.getByRole("button", { name: "Надіслати повідомлення", exact: true }).click();
   await page.getByLabel("Кількість 1", { exact: true }).waitFor();
   await page.waitForFunction(
@@ -496,6 +535,20 @@ try {
       .getByLabel("Літера продукту 1", { exact: true })
       .inputValue()) === "а",
   );
+  sttFailOnce = true;
+  await page.getByRole('button', { name: 'Почати запис', exact: true }).click();
+  await page.getByRole('button', { name: 'Зупинити запис', exact: true }).waitFor();
+  await page.waitForTimeout(600);
+  await page.getByRole('button', { name: 'Зупинити запис', exact: true }).click();
+  await page.getByRole('button', { name: 'Розпізнати ще раз', exact: true }).waitFor();
+  const retainedAudio = await page.locator('.trainer-voice-preview audio').getAttribute('src');
+  check('Помилка STT зберігає запис без Hermes', sttCalls === 2 && calls === 2 && await page.getByRole('button', { name: 'Надіслати повідомлення' }).isDisabled());
+  await page.screenshot({ path: join(out, 'voice-error-390.png') });
+  await page.getByRole('button', { name: 'Розпізнати ще раз', exact: true }).click();
+  await page.getByRole('button', { name: 'Розпізнати ще раз', exact: true }).waitFor({ state: 'hidden' });
+  check('Явний повтор STT використовує той самий запис', sttCalls === 3 && calls === 2 && await page.locator('.trainer-voice-preview audio').getAttribute('src') === retainedAudio);
+  await page.getByRole('button', { name: 'Скасувати голосове', exact: true }).click();
+  check('Скасований повтор не надсилає модельний запит', calls === 2 && await page.locator('.trainer-voice-preview audio').count() === 0);
   const image = await page.evaluate(() => {
     const c = document.createElement("canvas");
     c.width = 500;

@@ -1,6 +1,13 @@
 import { auth } from "../firebase";
 import { voiceError } from "./voiceApi";
 const messages = {
+  trainer_failed: "Тренер не завершив повідомлення. Текст збережено; його можна повернути й уточнити.",
+  trainer_timeout: "Тренер не встиг завершити відповідь. Повідомлення збережено. Перевірте результат або поверніть текст.",
+  trainer_quota: "Обробку цього повідомлення зупинено. Текст збережено; спробуйте описати один прийом їжі або повторіть пізніше.",
+  trainer_queue_full: "Тренер завершує інші повідомлення. Текст збережено, спробуйте трохи пізніше.",
+  execution_unknown: "Завершення ще не підтверджене. Перевірте результат або зупиніть обробку й поверніть текст.",
+  network_unavailable: "Не вдалося зв’язатися із застосунком. Текст залишився; перевірте мережу.",
+  model_payload_invalid: "Тренер повернув відповідь, яку не вдалося перевірити. Повідомлення збережено, їжу не додано автоматично.",
   media_missing: "Фото видалено або вже недоступне.",
   data_auth_required: "Не вдалося підключити ваш щоденник. Вийдіть з акаунта SciSense й увійдіть знову; текст збережено.",
   connection_auth_required: "Підключення Hermes потребує повторного входу власника. Ручний трекер доступний.",
@@ -42,15 +49,15 @@ const messages = {
     "Дані дня або план змінилися перед записом. Попередню спробу скасовано. Оновіть прев’ю й натисніть «Додати» ще раз.",
 };
 export const trainerError = (e) =>
-  messages[e?.message] || voiceError(e || Error());
+  messages[e?.message] || voiceError(e || Error(), messages.trainer_failed);
 // Show one actionable failure. A concrete server cause takes precedence over generic recovery text.
 export function trainerFeedback({ localMessage = '', clientCode, turn } = {}) {
-  const concrete = turn?.state === 'failed' && messages[turn.error];
-  const genericCodes = [undefined, '', 'trainer_unavailable', 'client_timeout', 'request_failed'];
+  const concrete = ['failed', 'unknown'].includes(turn?.state) && messages[turn.error];
+  const genericCodes = [undefined, '', 'trainer_unavailable', 'client_timeout', 'request_failed', 'trainer_failed'];
   const genericMessages = ['', ...['trainer_unavailable', 'client_timeout', 'request_failed'].map(code => trainerError(Error(code)))];
   if (concrete && genericCodes.includes(clientCode) && genericMessages.includes(localMessage)) return concrete;
   return localMessage || (clientCode ? trainerError(Error(clientCode)) : '') ||
-    (turn?.state === 'failed' ? trainerError(Error(turn.error || 'trainer_unavailable')) : '');
+    (['failed', 'unknown'].includes(turn?.state) ? trainerError(Error(turn.error || 'trainer_failed')) : '');
 }
 export function createTrainerApi(
   uid,
@@ -106,6 +113,10 @@ export function createTrainerApi(
           status: r.status,
         });
       return data;
+    } catch (error) {
+      if (error?.name === "AbortError") throw Error("client_timeout");
+      if (error?.name === "TypeError") throw Error("network_unavailable");
+      throw error;
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener("abort", abort);

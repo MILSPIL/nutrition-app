@@ -14,6 +14,8 @@ Object.defineProperty(global, "crypto", {
 });
 let host, root, api, server, recorderFactory, callbacks, props;
 beforeEach(() => {
+  URL.createObjectURL = jest.fn(() => "blob:synthetic-recording");
+  URL.revokeObjectURL = jest.fn();
   host = document.createElement("div");
   document.body.appendChild(host);
   root = createRoot(host);
@@ -124,11 +126,13 @@ test("H01 stop previews editable text and waits for an explicit send", async () 
   expect(api.send).not.toHaveBeenCalled();
   expect(host.querySelector("textarea").value).toBe("Синтетичне яблуко");
   expect(button("Скасувати голосове")).toBeTruthy();
+  expect(host.querySelector('audio[aria-label="Прослухати голосове перед надсиланням"]').getAttribute("src")).toBe("blob:synthetic-recording");
   await act(async () => Simulate.change(host.querySelector("textarea"), { target: { value: "Виправлене яблуко" } }));
   await click("Надіслати повідомлення");
   expect(api.send).toHaveBeenCalledTimes(1);
   expect(api.send.mock.calls[0][0].text).toBe("Виправлене яблуко");
   expect(button("Скасувати голосове")).toBeFalsy();
+  expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:synthetic-recording");
   expect(props.onAdd).not.toHaveBeenCalled();
 });
 test("cancel voice preview restores existing text without sending or losing photos", async () => {
@@ -355,7 +359,8 @@ test("C04 race after displayed preview stops commit when day changed",async()=>{
 test("C01 explicit opener receives focus even when mounting hides it",async()=>{
  const opener=document.createElement('button');document.body.appendChild(opener);props.returnFocusRef={current:opener};
  await render();await act(async()=>root.unmount());
- await new Promise(resolve=>setTimeout(resolve,5));expect(document.activeElement).toBe(opener);
+ for (let n=0;n<50 && document.activeElement!==opener;n++) await new Promise(resolve=>setTimeout(resolve,10));
+ expect(document.activeElement).toBe(opener);
  opener.remove();root=createRoot(host);
 });
 
@@ -435,4 +440,99 @@ test("native memory preview shows an addition and waits for explicit confirmatio
   expect(current).toBeTruthy(); expect(current.open).toBe(false);
   expect(api.remember).not.toHaveBeenCalled(); await click("Запам’ятати");
   expect(api.remember).toHaveBeenCalledTimes(1); expect(api.remember.mock.calls[0][0]).toBe(proposal.proposalId);
+});
+
+test("failed transcription keeps the same local recording and retries only on request", async () => {
+  server.composer.text = "Попередній текст";
+  props.transcribe = jest.fn().mockRejectedValueOnce(Error("upstream_timeout")).mockResolvedValueOnce({ text: "Розпізнаний повтор" });
+  await render(); await click("Почати запис");
+  await act(async () => callbacks.onStop(new Blob(["synthetic"]), 2));
+  expect(host.querySelector("audio")).toBeTruthy();
+  expect(host.querySelector("textarea").value).toBe("Попередній текст");
+  expect(button("Надіслати повідомлення").disabled).toBe(true);
+  expect(api.send).not.toHaveBeenCalled();
+  await click("Розпізнати ще раз");
+  expect(recorderFactory).toHaveBeenCalledTimes(1);
+  expect(props.transcribe).toHaveBeenCalledTimes(2);
+  expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+  expect(host.querySelector("textarea").value).toBe("Попередній текст\nРозпізнаний повтор");
+  expect(api.send).not.toHaveBeenCalled();
+  await click("Скасувати голосове");
+  expect(host.querySelector("textarea").value).toBe("Попередній текст");
+  expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1);
+});
+
+test("failed canonical message offers restoration without a duplicate message or automatic send", async () => {
+  server.canonicalHistory = true;
+  server.messages = [{ id: "native-user", role: "user", content: "Повернути цей текст" }];
+  server.latestTurn = { turnId: "synthetic-failed-turn", state: "failed", error: "trainer_failed", text: "Повернути цей текст", targetDate: "2026-01-02", nativeInputClaimed: true };
+  await render();
+  expect(host.querySelectorAll(".from-user")).toHaveLength(1);
+  expect(host.textContent).not.toContain("Перевірте з’єднання");
+  await click("Повернути текст для уточнення");
+  expect(host.querySelector("textarea").value).toBe("Повернути цей текст");
+  expect(host.querySelector(".trainer-date-chip").textContent).toContain("02.01.2026");
+  expect(api.send).not.toHaveBeenCalled();
+});
+
+test.each(['retry', 'cancel'])("STT failure preserves later manual edits on %s", async action => {
+  server.composer.text = "Яблуко";
+  props.transcribe = jest.fn().mockRejectedValueOnce(Error('upstream_timeout')).mockResolvedValueOnce({ text: 'Молоко' });
+  await render(); await click('Почати запис');
+  await act(async () => callbacks.onStop(new Blob(['synthetic']), 2));
+  await act(async () => Simulate.change(host.querySelector('textarea'), { target: { value: 'Яблуко200г' } }));
+  if (action === 'retry') {
+    await click('Розпізнати ще раз');
+    expect(host.querySelector('textarea').value).toBe('Яблуко200г\nМолоко');
+  }
+  await click('Скасувати голосове');
+  expect(host.querySelector('textarea').value).toBe('Яблуко200г');
+  expect(api.send).not.toHaveBeenCalled();
+});
+
+test('restoration makes relative dates explicit and owner switch clears the old date', async () => {
+  const text = 'Учора з’їв яблуко';
+  server.latestTurn = { turnId: 'synthetic-yesterday', state: 'failed', error: 'trainer_failed', text, sentAt: '2026-10-26T12:00:00Z', targetDate: '2026-10-25' };
+  await render(); await click('Повернути текст для уточнення');
+  expect(host.querySelector('textarea').value).toBe('25.10.2026 з’їв яблуко');
+  server = { ...server, conversationId: 'synthetic-wife', currentTurn: null, latestTurn: null, messages: [], composer: { text: '', revision: 0 } };
+  props.uid = 'synthetic-wife'; props.ownerKey = 'synthetic-wife:profile';
+  await render();
+  expect(host.querySelector('.trainer-date-chip')).toBeNull();
+  await act(async () => Simulate.change(host.querySelector('textarea'), { target: { value: 'Мій новий текст' } }));
+  await click('Надіслати повідомлення');
+  expect(api.send.mock.calls[0][0].dateContext).toEqual({ mode: 'default' });
+});
+
+test("stopping an unknown result restores input only after cancellation and never sends it", async () => {
+  const turn = { turnId: "synthetic-unknown-turn", state: "unknown", error: "execution_unknown", text: "Незавершений текст", targetDate: "2026-01-02" };
+  server.currentTurn = turn; server.latestTurn = turn;
+  api.cancel = jest.fn(async () => { server.currentTurn = null; server.latestTurn = { ...turn, state: "cancelled" }; });
+  await render(); await click("Зупинити й повернути текст");
+  expect(api.cancel).toHaveBeenCalledWith("synthetic-unknown-turn", expect.anything());
+  expect(host.querySelector("textarea").value).toBe("Незавершений текст");
+  expect(api.send).not.toHaveBeenCalled();
+});
+
+test("an old unknown cancellation cannot copy its text into another owner", async () => {
+  const pending = deferred();
+  const turn = { turnId: "synthetic-unknown-owner", state: "unknown", text: "Текст першого профілю" };
+  server.currentTurn = turn; server.latestTurn = turn;
+  api.cancel = jest.fn(() => pending.promise);
+  await render(); await click("Зупинити й повернути текст");
+  server = { ...server, conversationId: "synthetic-wife", currentTurn: null, latestTurn: null, messages: [], composer: { text: "", revision: 0 } };
+  props.uid = "synthetic-wife"; props.ownerKey = "synthetic-wife:profile";
+  await render();
+  await act(async () => pending.resolve({ state: "cancelled" }));
+  expect(host.querySelector("textarea").value).toBe("");
+  expect(api.send).not.toHaveBeenCalled();
+});
+
+test("closing a voice preview releases its local object URL", async () => {
+  await render(); await click("Почати запис");
+  await act(async () => callbacks.onStop(new Blob(["synthetic"]), 2));
+  expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+  await act(async () => root.unmount());
+  expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1);
+  root = createRoot(host);
 });

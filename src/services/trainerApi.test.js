@@ -77,3 +77,18 @@ test("UID switch during Firebase delegation cannot send the previous refresh tok
  const api=createTrainerApi("owner",{endpoint:"/meal-api",fetcher,getUser:()=>({uid,refreshToken:"synthetic-own-refresh",getIdToken:async()=>{if(++tokenCalls===2)uid="wife";return "synthetic";}})});
  await expect(api.state()).rejects.toThrow("unauthorized");expect(fetcher).toHaveBeenCalledTimes(1);
 });
+
+test("model failures and unknown execution never become a misleading connection instruction", () => {
+  for (const code of ["trainer_failed", "trainer_timeout", "trainer_quota", "model_payload_invalid", "execution_unknown"]) {
+    expect(trainerError(Error(code))).not.toContain("Перевірте з’єднання");
+    if (code === "execution_unknown") expect(trainerError(Error(code))).not.toContain("повторіть");
+  }
+  expect(trainerFeedback({ clientCode: "client_timeout", turn: { state: "unknown", error: "execution_unknown" } })).toContain("не підтверджене");
+});
+
+test("an actual network failure has its own recovery message", async () => {
+  const api = createTrainerApi("synthetic", { endpoint: "/meal-api", fetcher: async () => { throw TypeError("Failed to fetch"); },
+    getUser: () => ({ uid: "synthetic", getIdToken: async () => "synthetic" }) });
+  await expect(api.state()).rejects.toThrow("network_unavailable");
+  expect(trainerError(Error("network_unavailable"))).toContain("мережу");
+});

@@ -15,7 +15,7 @@ const build=resolve('tmp/coach-ui-build'),out=resolve('tmp/coach-ui-qa');mkdirSy
 const evidence={syntheticOnly:true,realBuiltUI:true,mockedTrainerAPI:true,widths:[],checks:[],consoleErrors:[],iconRequests:[],textAudits:[]};
 const check=(name,ok)=>{assert.ok(ok,name);evidence.checks.push(name);};
 let state={conversationId:'synthetic-coach',revision:0,composer:{text:'',revision:0},messages:[],drafts:[],contextProposals:[],currentTurn:null};
-let calls=0,sttCalls=0,lastInput=null,iconBodies=0,photoDeleted=false,photoReads=0,photoDeletes=0;
+let calls=0,sttCalls=0,lastInput=null,iconBodies=0,photoDeleted=false,photoReads=0,photoDeletes=0,cancels=0,deferReply=false;
 const photoFixture={type:'image/webp',data:readFileSync(join(build,'static/media',readdirSync(join(build,'static/media')).find(name=>name.startsWith('category-')&&name.endsWith('.webp')))).toString('base64')};
 const catalog=buildPlanCatalog({profile:{}}),ref=catalog.references.find(r=>r.name==='фрукти та ягоди');
 const item={itemId:'synthetic-fruit',name:'Синтетичний плід',quantity:{value:200,unit:'g'},nutritionBasis:{value:100,unit:'g'},nutrients:{p:1,f:2,c:3,cal:60},source:{kind:'estimate',estimateReason:'no_matching_source',portionOrigin:{kind:'estimate',assumption:'Припускаємо середній розмір, приблизно 200 г.'}},estimated:true,nutritionStatus:'complete',planMatch:{referenceId:ref.refId,consumedState:'as_sold',certainty:'matched'}};
@@ -37,8 +37,17 @@ const server=createServer(async(req,res)=>{try{
   }
   else if(path==='/state')result=state;
   else if(path==='/composer'){state.composer={text:body.text,revision:body.baseRevision+1};result=state.composer;}
+  else if(/^\/turns\/[^/]+\/cancel$/.test(path)){
+   assert.equal(state.currentTurn?.turnId,path.split('/')[2]);cancels++;
+   state.latestTurn={...state.currentTurn,state:'cancelled',error:null};state.currentTurn=null;result=state.latestTurn;
+  }
   else if(path==='/turns'){
    calls++;lastInput=body;state.revision++;state.composer={text:'',revision:state.composer.revision+1};
+   if(deferReply){
+    state.messages.push({id:body.turnId+'-u',role:'user',content:body.text});
+    state.currentTurn=state.latestTurn={turnId:body.turnId,state:'running',text:body.text};
+    return res.end(JSON.stringify(state.currentTurn));
+   }
    state.messages.push({id:body.turnId+'-u',role:'user',content:body.text},{id:body.turnId+'-a',role:'assistant',content:body.text.includes('вчора')?'Підготував їжу за вказаний попередній день.':'Синтетична порада. До щоденника нічого не додав.'});
    if(body.text.includes('вчора'))state.drafts=[{draftId:'synthetic-draft',revision:1,state:'ready',targetDate,meal:1,items:[item],freshness}];
    result={turnId:body.turnId,state:'completed'};
@@ -144,11 +153,40 @@ try {
  check('norm revision refresh has zero inference',calls===countBeforeRefresh);
 
  await page.getByRole('button',{name:'Закрити чат'}).click();
- state.latestTurn={turnId:'synthetic-failed',state:'failed',error:'context_too_large',text:'Synthetic failed input'};
+ const baselineState=structuredClone(state),beforeRecovery=calls;
+ const failedText='Учора з’їв синтетичне яблуко';
+ state.canonicalHistory=true;state.messages.push({id:'native-failed',role:'user',content:failedText});
+ state.latestTurn={turnId:'synthetic-failed',state:'failed',error:'context_too_large',text:failedText,nativeInputClaimed:true,sentAt:'2026-10-24T12:00:00Z',targetDate:'2026-10-23'};
  await launcher.click();await page.locator('#trainer-message:not(:disabled)').waitFor();
  await page.getByText('Не вдалося вмістити повідомлення й контекст у запит. Текст збережений. Спробуйте коротше повідомлення.',{exact:true}).waitFor();
  check('one concrete error',await page.getByRole('alert').count()===1&&(await page.getByRole('alert').textContent()).includes('контекст')&&!(await page.getByRole('alert').textContent()).includes('незавершених чернеток'));
- await page.getByRole('button',{name:'Закрити чат',exact:true}).click();delete state.latestTurn;
+ check('canonical failed message appears once',await page.getByText(failedText,{exact:true}).count()===1);
+ await page.screenshot({path:join(out,'failed-canonical-390.png')});
+ await page.getByRole('button',{name:'Повернути текст для уточнення',exact:true}).click();
+ check('recovery preserves original calendar day without model call',await page.locator('#trainer-message').inputValue()==='23.10.2026 з’їв синтетичне яблуко'&&calls===beforeRecovery);
+ await page.screenshot({path:join(out,'restored-text-390.png')});
+ await page.locator('#trainer-message').fill('');await page.getByRole('button',{name:'Закрити чат',exact:true}).click();
+ state=structuredClone(baselineState);state.canonicalHistory=true;state.messages.push({id:'native-unknown',role:'user',content:failedText});
+ state.currentTurn=state.latestTurn={turnId:'synthetic-unknown',state:'unknown',error:'execution_unknown',text:failedText,nativeInputClaimed:true,sentAt:'2026-10-24T12:00:00Z',targetDate:'2026-10-23'};
+ await launcher.click();await page.getByRole('button',{name:'Зупинити й повернути текст',exact:true}).waitFor();
+ check('unknown does not falsely blame connection',!(await page.locator('.trainer-chat').textContent()).includes('Перевірте з’єднання'));
+ check('unknown recovery stays visible above composer',await page.locator('.trainer-turn').evaluate(node=>{const r=node.getBoundingClientRect();return r.top>=document.querySelector('.trainer-header').getBoundingClientRect().bottom&&r.bottom<=innerHeight;}));
+ await page.screenshot({path:join(out,'unknown-390.png')});
+ await page.getByRole('button',{name:'Зупинити й повернути текст',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('#trainer-message')?.value==='23.10.2026 з’їв синтетичне яблуко');
+ check('unknown stops once and restores editable text without resend',cancels===1&&calls===beforeRecovery&&await page.locator('#trainer-message').inputValue()==='23.10.2026 з’їв синтетичне яблуко');
+ await page.locator('#trainer-message').fill('');await page.getByRole('button',{name:'Закрити чат',exact:true}).click();
+ state=structuredClone(baselineState);deferReply=true;
+ await launcher.click();await page.locator('#trainer-message:not(:disabled)').waitFor();await page.locator('#trainer-message').fill('Синтетичне запитання тренеру');
+ await page.getByRole('button',{name:'Надіслати повідомлення',exact:true}).click();await page.getByText('Тренер розбирає повідомлення',{exact:true}).waitFor();
+ check('running input is sent once and has explicit stop',calls===beforeRecovery+1&&await page.getByRole('button',{name:'Скасувати обробку',exact:true}).count()===1);
+ check('running stop stays visible',await page.getByRole('button',{name:'Скасувати обробку',exact:true}).evaluate(node=>{const r=node.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}));
+ await page.screenshot({path:join(out,'running-390.png')});
+ state.latestTurn={...state.currentTurn,state:'completed'};state.currentTurn=null;state.messages.push({id:'synthetic-slow-answer',role:'assistant',content:'Синтетична відповідь готова.'});deferReply=false;
+ await page.getByText('Синтетична відповідь готова.',{exact:true}).waitFor();
+ check('completed answer enables composing without another request',calls===beforeRecovery+1&&await page.locator('#trainer-message').isEnabled());
+ await page.screenshot({path:join(out,'completed-390.png')});
+ await page.getByRole('button',{name:'Закрити чат',exact:true}).click();state=structuredClone(baselineState);
  const icons=await page.locator('img[src*="category-"]').evaluateAll(nodes=>nodes.map(n=>({src:n.src,naturalWidth:n.naturalWidth,box:n.getBoundingClientRect().width})));
  check('versioned icons exact visual box',icons.length>=3&&icons.every(x=>x.src.includes('/static/media/')&&x.src.endsWith('.webp')&&x.naturalWidth===192&&x.box<=44));
  evidence.icons=icons;

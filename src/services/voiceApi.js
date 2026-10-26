@@ -1,8 +1,8 @@
 import { auth } from "../firebase";
-export const voiceError = (error) =>
+export const voiceError = (error, fallback = "Обробка не вдалася. Чернетка залишилась. Перевірте з’єднання та повторіть.") =>
   messages[error.message] ||
   messages[error.name] ||
-  "Обробка не вдалася. Чернетка залишилась. Перевірте з’єднання та повторіть.";
+  fallback;
 
 const messages = {
   NotAllowedError:

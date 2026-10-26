@@ -2,13 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Mic, Square, Camera, Send, X, Paperclip, Image as ImageIcon } from "lucide-react";
 import { createTrainerApi, trainerError, trainerFeedback } from "../services/trainerApi";
 import { createTrainerSession } from "../services/trainerSession";
-import { dateLabel, initialTrainerDate, kyivDateKey } from "../services/trainerDates";
+import { dateLabel, initialTrainerDate, kyivDateKey, restoredTrainerText } from "../services/trainerDates";
 import {
   createRecorder,
   normalizeAudio,
   normalizePhoto,
 } from "../services/voiceMedia";
-import { transcribeAudio } from "../services/voiceApi";
+import { transcribeAudio, voiceError } from "../services/voiceApi";
 import {
   itemMacros,
   itemProblems,
@@ -358,6 +358,8 @@ export default function TrainerChat({
     recordingEpoch = useRef(0),
     sendLock = useRef(false),
     sttAbort = useRef(),
+    voiceClip = useRef(null),
+    scrollSnapshot = useRef({}),
     editRef = useRef({}),
     flushTask = useRef(),
     editFailure = useRef(false),
@@ -391,6 +393,16 @@ export default function TrainerChat({
     }
   };
   const current = (generation) => alive.current && epoch.current === generation;
+  function releaseVoiceClip() {
+    if (voiceClip.current?.url) URL.revokeObjectURL(voiceClip.current.url);
+    voiceClip.current = null;
+  }
+  useEffect(() => {
+    const field = textarea.current;
+    if (!field) return;
+    field.style.height = "auto";
+    field.style.height = `${Math.min(120, field.scrollHeight || 44)}px`;
+  }, [view.text]);
   useEffect(() => {
     const overlay=panel.current?.parentElement, viewport=window.visualViewport;
     const fit=()=>{
@@ -407,10 +419,12 @@ export default function TrainerChat({
     setEdits({});
     editRef.current = {};
     setPhotos([]);
+    setDateContext(initialTrainerDate(initialDateContext));
     setContext(null);
     setError("");
     setCanDiscard(false);
     setRecordState("ready");
+    releaseVoiceClip();
     setVoicePreview(null);
     setSendPending(false);
     sendLock.current = false;
@@ -461,6 +475,7 @@ export default function TrainerChat({
       editFailure.current = false;
       setView(initial);
       setPhotos([]);
+      releaseVoiceClip();
       setVoicePreview(null);
       setSendPending(false);
       sendLock.current = false;
@@ -490,13 +505,17 @@ export default function TrainerChat({
       alive.current = false;
       recorder.current?.cancel();
       sttAbort.current?.abort();
+      releaseVoiceClip();
       s.close();
       clearInterval(poll);
       window.removeEventListener("beforeunload", before);
       window.removeEventListener("pagehide", pagehide);
       window.removeEventListener("pageshow", pageshow);
       document.body.style.overflow = oldOverflow;
-      window.setTimeout(() => { if (previous?.isConnected) previous.focus?.(); }, 0);
+      window.setTimeout(() => {
+        // The floating launcher becomes visible after its modal observer runs.
+        window.requestAnimationFrame(() => { if (previous?.isConnected) previous.focus?.(); });
+      }, 0);
       if (attempt.current)
         void metric(
           { status: "abandoned", finishedAt: Date.now() },
@@ -538,15 +557,20 @@ export default function TrainerChat({
       if (alive.current) { setError(""); setDayRefresh(n => n + 1); }
     } catch (e) { catchError(e); }
   }
-  const scrollKey=[view.server?.messages?.length,view.server?.drafts?.map(d=>d.draftId+':'+d.state).join('|'),view.server?.contextProposals?.length].join('/');
+  const scrollDrafts = view.server?.drafts?.map(d=>d.draftId+':'+d.revision+':'+d.state).join('|') || '';
+  const scrollMessage = view.server?.messages?.at(-1)?.id;
+  const scrollKey=[scrollMessage,scrollDrafts,view.server?.contextProposals?.length].join('/');
   useEffect(()=>{
     const area=panel.current?.querySelector('.trainer-scroll');
     if(!area)return;
-    const targets=area.querySelectorAll('.trainer-draft,.trainer-memory');
+    const draftsChanged=scrollSnapshot.current.drafts!==scrollDrafts;
+    const messagesChanged=scrollSnapshot.current.message!==scrollMessage;
+    const targets=area.querySelectorAll(draftsChanged ? '.trainer-draft,.trainer-memory' : messagesChanged ? '.trainer-message' : '.trainer-memory');
     const target=targets[targets.length-1];
     if(target)area.scrollTop+=target.getBoundingClientRect().top-area.getBoundingClientRect().top-12;
     else area.scrollTop=area.scrollHeight;
-  },[scrollKey]);
+    scrollSnapshot.current={drafts:scrollDrafts,message:scrollMessage};
+  },[scrollKey,scrollDrafts,scrollMessage]);
   async function flushEdits() {
     const generation = epoch.current,
       own = session.current;
@@ -656,12 +680,13 @@ export default function TrainerChat({
           ? "Уточни харчові значення за фото етикетки відповідного продукту."
           : "");
       const turnId = newId();
+      const outgoingPhotos = latest.current.photos;
       await metric(
         {
           ownerKey,
           turnId,
           status: "processing",
-          hasPhoto: latest.current.photos.length > 0,
+          hasPhoto: outgoingPhotos.length > 0,
         },
         id,
       );
@@ -669,15 +694,16 @@ export default function TrainerChat({
       await own.send({
         turnId,
         text: content,
-        images: latest.current.photos,
+        images: outgoingPhotos,
         dateContext: latest.current.dateContext,
       });
       if (!current(generation)) return;
       if (id) turnAttempts.current.set(turnId, id);
+      releaseVoiceClip();
       setVoicePreview(null);
       setPhotos([]);
       await metric(
-        { status: "processing", hasPhoto: latest.current.photos.length > 0 },
+        { status: "processing", hasPhoto: outgoingPhotos.length > 0 },
         id,
       );
     } catch (e) {
@@ -691,6 +717,42 @@ export default function TrainerChat({
         setSendPending(false);
         setRecordState("ready");
       }
+    }
+  }
+  async function recognizeRecording(blob, duration, id, generation, recording) {
+    const isCurrent = () => current(generation) && recordingEpoch.current === recording;
+    if (!isCurrent()) return;
+    setRecordState("transcribing");
+    setError("");
+    if (voiceClip.current?.attemptId !== id || !voiceClip.current) {
+      releaseVoiceClip();
+      voiceClip.current = { blob, duration, attemptId: id, before: session.current.get().text,
+        url: typeof URL.createObjectURL === "function" ? URL.createObjectURL(blob) : null,
+        generation, recording };
+    }
+    const clip = voiceClip.current;
+    // A retry must append to edits made after the failed transcription.
+    clip.before = session.current.get().text;
+    clip.applied = false;
+    setVoicePreview({ before: clip.before, attemptId: id, url: clip.url, status: "transcribing" });
+    sttAbort.current = new AbortController();
+    try {
+      const audio = clip.audio || await audioNormalizer(blob);
+      if (!isCurrent()) return;
+      clip.audio = audio;
+      const result = await transcribe(audio, duration, sttAbort.current.signal, "auto");
+      if (!isCurrent()) return;
+      if (!result.text?.trim()) throw Error("empty_transcript");
+      session.current.type([clip.before.trim(), result.text.trim()].filter(Boolean).join("\n"));
+      clip.applied = true;
+      setVoicePreview({ before: clip.before, attemptId: id, url: clip.url, status: "ready" });
+      setRecordState("ready");
+    } catch (e) {
+      if (!isCurrent()) return;
+      setError(voiceError(e, "Не вдалося розпізнати запис. Він залишився тут, можна повторити."));
+      setVoicePreview({ before: clip.before, attemptId: id, url: clip.url, status: "failed" });
+      setRecordState("ready");
+      await metric({ status: "error", finishedAt: Date.now() }, id);
     }
   }
   async function beginRecording() {
@@ -731,33 +793,7 @@ export default function TrainerChat({
         if (current(generation)) setRecordState("ready");
       },
       onStop: async (blob, duration) => {
-        if (!isCurrent()) return;
-        setRecordState("transcribing");
-        sttAbort.current = new AbortController();
-        try {
-          const audio = await audioNormalizer(blob);
-          if (!isCurrent()) return;
-          const result = await transcribe(
-            audio,
-            duration,
-            sttAbort.current.signal,
-            "auto",
-          );
-          if (!isCurrent()) return;
-          const before = session.current.get().text;
-          const text = [before.trim(), result.text?.trim()]
-            .filter(Boolean)
-            .join("\n");
-          if (!result.text?.trim()) throw Error("empty_transcript");
-          session.current.type(text);
-          setVoicePreview({ before, attemptId: id });
-          setRecordState("ready");
-        } catch (e) {
-          if (!isCurrent()) return;
-          catchError(e);
-          await metric({ status: "error", finishedAt: Date.now() }, id);
-          if (isCurrent()) setRecordState("ready");
-        }
+        await recognizeRecording(blob, duration, id, generation, recording);
       },
     });
     recorder.current = r;
@@ -767,18 +803,33 @@ export default function TrainerChat({
     recordingEpoch.current++;
     recorder.current?.cancel();
     sttAbort.current?.abort();
+    releaseVoiceClip();
+    setVoicePreview(null);
     setRecordState("ready");
     setError("");
     void metric({ status: "abandoned", finishedAt: Date.now() }, attempt.current);
     attempt.current = null;
   }
   function cancelVoicePreview() {
-    if (!voicePreview || sendLock.current) return;
-    session.current.type(voicePreview.before);
-    void metric({ status: "abandoned", finishedAt: Date.now() }, voicePreview.attemptId);
-    if (attempt.current === voicePreview.attemptId) attempt.current = null;
-    setVoicePreview(null);
-    setError("");
+    const clip = voiceClip.current;
+    if (!voicePreview || !clip || !current(clip.generation) || sendLock.current) return;
+    const before = clip.applied ? clip.before : session.current.get().text;
+    cancelRecording();
+    session.current.type(before);
+  }
+  async function returnMessage(turn) {
+    const generation = epoch.current, own = session.current;
+    if (!turn?.text || !current(generation) || sendLock.current) return;
+    try {
+      if (activeTurn(turn)) await own.cancel(turn.turnId);
+      if (!current(generation) || session.current !== own) return;
+      const existing = own.get().text;
+      const restored = restoredTrainerText(turn);
+      own.type(existing.trim() && existing !== turn.text && existing !== restored ? `${existing}\n${restored}` : restored);
+      if (turn.targetDate) setDateContext({ mode: "pinned", targetDate: turn.targetDate });
+      setError("");
+      textarea.current?.focus();
+    } catch (e) { if (current(generation)) catchError(e); }
   }
   async function addPhoto(file) {
     const generation = epoch.current;
@@ -894,6 +945,7 @@ export default function TrainerChat({
       !activeTurn(turn) &&
       !view.admission &&
       !view.composerConflict &&
+      voicePreview?.status !== "failed" &&
       (view.text.trim() || photos.length);
   const feedback = trainerFeedback({localMessage:error,clientCode:view.error,turn:view.server?.latestTurn});
   function choosePhoto(input) {
@@ -977,43 +1029,8 @@ export default function TrainerChat({
               <div className="trainer-message from-user">
                 <span>Ви</span>
                 <p>{view.server.latestTurn.text}</p>
-                {["failed", "cancelled"].includes(
-                  view.server.latestTurn.state,
-                ) && (
-                  <button
-                    disabled={busy}
-                    onClick={() =>
-                      session.current.type(view.server.latestTurn.text)
-                    }
-                  >
-                    Повернути текст для уточнення
-                  </button>
-                )}
               </div>
             )}
-          {activeTurn(turn) && (
-            <div className="trainer-turn" role="status">
-              <p>{statuses[turn.state]}</p>
-              {turn.state === "unknown" && (
-                <button
-                  onClick={() =>
-                    void session.current.recover(turn.turnId).catch(catchError)
-                  }
-                  disabled={busy}
-                >
-                  Перевірити результат
-                </button>
-              )}
-              <button
-                onClick={() =>
-                  void session.current.cancel(turn.turnId).catch(catchError)
-                }
-                disabled={busy || turn.expired}
-              >
-                Скасувати обробку
-              </button>
-            </div>
-          )}
           {view.server?.maintenanceBlocked && (
             <p className="trainer-warning">
               Тренер завершує відновлення. Нові повідомлення тимчасово
@@ -1137,6 +1154,32 @@ export default function TrainerChat({
           )}
         </div>
         <footer className="trainer-composer">
+          {activeTurn(turn) && (
+            <div className="trainer-turn" role="status">
+              <p>{turn.state === "unknown" ? feedback || "Завершення ще не підтверджене." : statuses[turn.state]}</p>
+              {turn.state === "unknown" && (
+                <button
+                  onClick={() =>
+                    void session.current.recover(turn.turnId).catch(catchError)
+                  }
+                  disabled={busy}
+                >
+                  Перевірити результат
+                </button>
+              )}
+              {turn.state === "unknown" ? <button
+                onClick={() => turn.text ? void returnMessage(turn) : void session.current.cancel(turn.turnId).catch(catchError)}
+                disabled={busy || turn.expired}
+              >{turn.text ? "Зупинити й повернути текст" : "Скасувати обробку"}</button> : <button
+                onClick={() =>
+                  void session.current.cancel(turn.turnId).catch(catchError)
+                }
+                disabled={busy || turn.expired}
+              >
+                Скасувати обробку
+              </button>}
+            </div>
+          )}
           {error && Object.keys(edits).length > 0 && (
             <button
               disabled={busy}
@@ -1151,10 +1194,16 @@ export default function TrainerChat({
               Скасувати мої незбережені правки й перечитати прев’ю
             </button>
           )}
-          {feedback && (
+          {feedback && turn?.state !== "unknown" && (
             <p className="trainer-error" role="alert">
               {feedback}
             </p>
+          )}
+          {["failed", "cancelled"].includes(view.server?.latestTurn?.state) && view.server.latestTurn.text && !view.text.trim() && !voicePreview && (
+            <button className="trainer-secondary" disabled={busy || !!view.admission}
+              onClick={() => void returnMessage(view.server.latestTurn)}>
+              Повернути текст для уточнення
+            </button>
           )}
           {metricFailed && (
             <p className="trainer-warning">
@@ -1243,8 +1292,16 @@ export default function TrainerChat({
             </div>
           )}
           {voicePreview && <div className="trainer-voice-preview">
-            <p role="status">Розпізнаний текст можна змінити. Щоб надіслати його, натисніть «Надіслати».</p>
-            <button className="trainer-secondary" disabled={busy || !!view.admission} onClick={cancelVoicePreview}>Скасувати голосове</button>
+            {voicePreview.url && <audio controls preload="metadata" src={voicePreview.url} aria-label="Прослухати голосове перед надсиланням" />}
+            {voicePreview.status === "ready" && <p role="status">Розпізнаний текст можна змінити. Щоб надіслати його, натисніть «Надіслати».</p>}
+            {voicePreview.status === "failed" && <p role="status">Запис залишився. Можна розпізнати його ще раз або скасувати.</p>}
+            <div className="trainer-voice-actions">
+              {voicePreview.status === "failed" && <button className="trainer-secondary" disabled={busy || !!view.admission} onClick={() => {
+                const clip = voiceClip.current;
+                if (clip) void recognizeRecording(clip.blob, clip.duration, clip.attemptId, clip.generation, clip.recording);
+              }}>Розпізнати ще раз</button>}
+              <button className="trainer-secondary" disabled={view.busy || sendPending || !!view.admission} onClick={cancelVoicePreview}>{voicePreview.status === "transcribing" ? "Скасувати запис" : "Скасувати голосове"}</button>
+            </div>
           </div>}
           <input
             ref={fileInput}
@@ -1270,7 +1327,7 @@ export default function TrainerChat({
               <button className="trainer-primary trainer-icon-button" aria-label="Надіслати повідомлення" title="Надіслати" disabled={!canSend} onClick={()=>void send()}><Send size={21}/></button>
             </>}
           </div>
-          {["permission", "recording", "transcribing"].includes(recordState) && <button className="trainer-secondary" onClick={cancelRecording}>Скасувати запис</button>}
+          {(["permission", "recording"].includes(recordState) || (recordState === "transcribing" && !voicePreview)) && <button className="trainer-secondary" onClick={cancelRecording}>Скасувати запис</button>}
           {recordState === "transcribing" && <p className="trainer-date-hint" role="status">Розпізнаю голос…</p>}
           {recordState === "permission" && <p className="trainer-date-hint" role="status">Очікую дозволу на мікрофон…</p>}
           {view.server &&
