@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-27T01:53:53.082744+02:00",
+  "scope": "Локальний частковий пакет; повне приймання відкрите",
+  "code_commit": "37046b18e9003dd5a7755a0c8147a484c4c574f4",
+  "criteria": {
+    "C01": "PASS",
+    "C02": "PASS",
+    "C03": "PASS",
+    "C04": "PASS",
+    "C05": "FAIL",
+    "C06": "PASS",
+    "C07": "PASS",
+    "C08": "PASS"
+  },
+  "content_review": "PASS",
+  "tests": {
+    "persistent_unit": 44,
+    "synthetic_stt_recovery": 5,
+    "actual_dependency_graph_recovery": 5
+  },
+  "retrieval": {
+    "initial_passed": 10,
+    "refined_passed": 10,
+    "cases_per_version": 12,
+    "queries_unchanged": true,
+    "accepted_for_automatic_use": false
+  },
+  "data_boundary": {
+    "private_runtime_ignored": true,
+    "private_content_in_this_file": false,
+    "source_coverage": "partial",
+    "audio_status": "unverified_draft",
+    "live_integration": "not_applied"
+  },
+  "remaining": [
+    "C05: якість семантичного пошуку",
+    "Відсутні матеріали й слухове підтвердження",
+    "Окреме погодження конкретної живої зміни"
+  ]
+}
