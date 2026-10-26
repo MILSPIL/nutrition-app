@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { posix } from "node:path";
+import { nativeDraftCompletion, readyDraftAckInPayload } from "./draft-completion.mjs";
 import { stableJSON, TOOLS } from "./limits.mjs";
 
 const answer = value => {
@@ -39,7 +40,7 @@ export function nativeMessageProjection(snapshot) {
 
 // Per-account adapter. Shared coordinator owns processes/queue; this adapter
 // owns only this account's app leases, drafts and temporary media references.
-export function createPersonalBackend({ uid, core, tools, releaseTools = () => {}, stageAttachments, verify = async () => {} }) {
+export function createPersonalBackend({ uid, core, tools, store, releaseTools = () => {}, stageAttachments, verify = async () => {} }) {
   const execution = new Map(), transports = new Map();
   const backend = {
     canonicalHistory: true,
@@ -54,7 +55,7 @@ export function createPersonalBackend({ uid, core, tools, releaseTools = () => {
       if (args.turn.owner !== uid || !args.slot?.execute || execution.has(args.turn.id)) throw Error("turn_conflict");
       const transport = transports.get(args.turn.id) ?? {}, state = { settled: false };
       state.done = new Promise(resolve => { state.finish = resolve; }); execution.set(args.turn.id, state);
-      let contextError, boundRun;
+      let contextError, boundRun, readyAck;
       const bind = native => {
         const ids = { runId: native.admission_id ?? native.admissionId, sessionId: native.ref?.session_id ?? native.sessionId };
         if (boundRun && (boundRun.runId !== ids.runId || boundRun.sessionId !== ids.sessionId)) throw Error("native_receipt_invalid");
@@ -72,10 +73,20 @@ export function createPersonalBackend({ uid, core, tools, releaseTools = () => {
             const context = { turn: args.turn, input: args.input, snapshot: args.snapshot, signal };
             return { apiText: JSON.stringify({ ...args.snapshot, history: [] }), attachments,
               verify: async () => { try { await args.verifySnapshot?.(); await verify(args.turn, signal); } catch (error) { contextError = error; throw error; } },
+              completeDraft: store ? async (payload, connection) => {
+                if (!readyDraftAckInPayload(payload, readyAck)) return;
+                store.assertPersonalDraftCompletion(args.turn.id, args.turn.generation, readyAck);
+                return nativeDraftCompletion(connection.model, payload.stream === true);
+              } : undefined,
               tools: async (name, parameters, { signal, nativeBinding }) => {
                 bind(nativeBinding);
                 if (!TOOLS.includes(name) || typeof tools[name] !== "function") throw Error("invalid_request");
-                return tools[name](parameters, { ...context, signal });
+                // A later tool failure invalidates the shortcut; user/model text
+                // cannot manufacture this acknowledgement.
+                readyAck = undefined;
+                const result = await tools[name](parameters, { ...context, signal });
+                if (name === "propose_food_draft" && result?.state === "ready" && result.saved === false && result.incomplete === false) readyAck = structuredClone(result);
+                return result;
               },
               onAdmission: async native => {
                 bind(native);

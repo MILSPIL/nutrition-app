@@ -159,6 +159,13 @@ export function openPersonalStore(file, { profiles, key, now = Date.now } = {}) 
           return { accepted: true, attempt: count + 1 };
         });
       },
+      postBudget(uid, inputId) {
+        owned(uid, inputId);
+        const scope = "hermes-personal-b3";
+        const used = db.prepare("SELECT COUNT(*) AS n FROM personal_attempts WHERE uid=? AND input_id=?").get(uid, inputId).n;
+        const total = db.prepare("SELECT COUNT(*) AS n FROM personal_attempts WHERE scope=?").get(scope).n;
+        return { used, remaining: Math.max(0, Math.min(3 - used, 24 - total)) };
+      },
       budget() {
         const scope = "hermes-personal-b3";
         check(); return { turns: db.prepare("SELECT COUNT(*) AS n FROM personal_turn_budgets WHERE scope=?").get(scope).n,

@@ -1,4 +1,5 @@
 // Local UI acknowledgement after a validated draft, never a provider request.
+import { stableJSON } from "./limits.mjs";
 import { MODEL } from "./limits.mjs";
 export const DRAFT_COMPLETION_TEXT = "Підготував чернетку. Перевір її та натисни «Додати», щоб зберегти.";
 export function draftCompletionResponse(stream) {
@@ -16,4 +17,25 @@ export function draftCompletionResponse(stream) {
   ];
   return new Response(events.map(([event, data]) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`).join(""),
     { headers: { "content-type": "text/event-stream" } });
+}
+
+// Canonical Native assistant message produced locally from a trusted ready ACK.
+export function nativeDraftCompletion(model, stream) {
+  const base = { id: "scisense_local_draft_completion", object: "chat.completion", created: 0, model,
+    usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 } };
+  return stream
+    ? { chunks: [{ ...base, object: "chat.completion.chunk", choices: [{ index: 0, delta: { role: "assistant", content: DRAFT_COMPLETION_TEXT }, finish_reason: "stop" }] }] }
+    : { completion: { ...base, choices: [{ index: 0, message: { role: "assistant", content: DRAFT_COMPLETION_TEXT }, finish_reason: "stop" }] } };
+}
+
+export function readyDraftAckInPayload(payload, ack) {
+  const messages = payload?.messages;
+  if (!ack || !Array.isArray(messages) || !messages.length) return false;
+  const last = messages.at(-1);
+  if (last?.role !== "tool" || typeof last.tool_call_id !== "string" || typeof last.content !== "string") return false;
+  let value; try { value = JSON.parse(last.content); } catch { return false; }
+  if (stableJSON(value) !== stableJSON(ack)) return false;
+  const assistant = messages.findLast(message => message.role === "assistant");
+  const call = assistant?.tool_calls?.at(-1);
+  return call?.id === last.tool_call_id && call.function?.name === "propose_food_draft";
 }

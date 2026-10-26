@@ -671,3 +671,14 @@ test("local completion refuses an unknown-nutrition proposal and an expired turn
  f.tick(LIMITS.deadlineMs+1);
  assert.throws(()=>f.store.assertDraftCompletion(turn.id,turn.generation,{draftId:d.draftId,revision:d.revision}));
 });
+
+test("personal local acknowledgement needs a current complete proposal and never borrows legacy leases", t => {
+ const f=fixture(t), {turn,d}=propose(f), ack={draftId:d.draftId,revision:d.revision};
+ assert.doesNotThrow(()=>f.store.assertPersonalDraftCompletion(turn.id,turn.generation,ack));
+ assert.throws(()=>f.store.assertDraftCompletion(turn.id,turn.generation,ack));
+ assert.throws(()=>f.store.assertPersonalDraftCompletion(turn.id,turn.generation,{...ack,revision:99}));
+ const lease=f.store.issueLease(turn.id,turn.generation);f.store.consumeLease(lease.token);
+ assert.throws(()=>f.store.assertPersonalDraftCompletion(turn.id,turn.generation,ack));
+ f.store.cancel("owner",turn.id);
+ assert.throws(()=>f.store.assertPersonalDraftCompletion(turn.id,turn.generation,ack));
+});

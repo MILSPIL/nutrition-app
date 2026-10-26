@@ -48,7 +48,11 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
           callbackBinding(uid, record, options.nativeBinding);
           return (async () => {
             await active.verify?.();
-            const result = await active.invoke(payload, { ...options, signal: AbortSignal.any([options.signal, active.signal].filter(Boolean)) });
+            // Once the real physical budget is exhausted, only a validated
+            // ready-draft acknowledgement may complete without another POST.
+            const local = outbox.postBudget(uid, active.inputId).remaining === 0
+              ? await active.completeDraft?.(payload, record.connection) : undefined;
+            const result = local ?? await active.invoke(payload, { ...options, signal: AbortSignal.any([options.signal, active.signal].filter(Boolean)) });
             await active.verify?.();
             return result;
           })();
@@ -60,7 +64,7 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
         },
         onEvent: (channel, event) => onEvent(uid, channel, event),
       });
-      record = { owner, signature: signature(connection) };
+      record = { owner, connection, signature: signature(connection) };
       owners.set(uid, record);
       record.ready = owner.start().then(identity => {
         if (identity.profileId !== profile.home) throw Error("profile_mismatch");
@@ -128,7 +132,7 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
       outbox.bind(uid, inputId, sessionId);
       outbox.dispatch(uid, inputId); dispatched = true;
       return await payer.withTurn({ uid, inputId, signal, deadline }, async invoke => {
-        active = { uid, inputId, owner: record.owner, invoke, tools: prepared.tools, verify: prepared.verify, signal };
+        active = { uid, inputId, owner: record.owner, invoke, tools: prepared.tools, verify: prepared.verify, completeDraft: prepared.completeDraft, signal };
         let native = await record.owner.rpc(channel, "prompt.submit", {
           session_id: sessionId, submission_id: inputId, text: payload.text, api_text: `SCISENSE-INPUT-V1 ${inputId} ${outbox.binding(uid, inputId).payloadHmac}\n` + prepared.apiText,
           ...(prepared.attachments?.length ? { attachments: prepared.attachments } : {}),
