@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "verifiedAt": "2026-10-26T21:47:54.740194+00:00",
+  "task": "coach-failure-voice-preview",
+  "goalId": "objective_e45aa8ac1aa3",
+  "criteria": [
+    "G02",
+    "G05",
+    "G07",
+    "G08",
+    "G11"
+  ],
+  "ownerAcceptance": "pending",
+  "frontend": {
+    "version": "1.9.2",
+    "releaseId": "5dc809a40161299b14bd1df5166542ac166544d9",
+    "httpsFilesExact": 37,
+    "httpStatus": 200
+  },
+  "backend": {
+    "releaseId": "fec3ac28b8320eb77a9a854db14e07de83f4c77a",
+    "active": true,
+    "apiHttpStatus": 200,
+    "temporaryDiagnosticRemoved": true,
+    "independentReview": "passed"
+  },
+  "checks": {
+    "reactTests": 327,
+    "coachBrowserChecks": 79,
+    "voiceBrowserChecks": 33,
+    "dateAndIpcNodeTests": 46,
+    "pythonIpcTests": 4,
+    "nativeOwnerTests": 16,
+    "nativeIpcChecks": 12,
+    "modelProofRegression": "headerless streamed response retains raw terminal model identity guard",
+    "actualFoodPreview": {
+      "inputState": "completed",
+      "appTurnState": "completed",
+      "items": 2,
+      "completeItems": 2,
+      "knownNutrition": true,
+      "sourcesOrEstimates": true,
+      "planMatches": 2,
+      "draftState": "ready",
+      "saveCommands": 0
+    }
+  },
+  "pilot": {
+    "turnsUsed": 6,
+    "turnCap": 8,
+    "physicalPostsUsed": 16,
+    "postCap": 24,
+    "maxPostsPerTurn": 3,
+    "limitsChanged": false,
+    "ledgerReset": false,
+    "anthropicBudgetUsed": false
+  },
+  "backup": {
+    "encrypted": true,
+    "offsiteVerified": true,
+    "authenticatedDecrypt": true,
+    "sha256": "dc113b4119c6fd2906dbf4cb916024677c6279a291815700c5939adcbac82fe3",
+    "files": 56
+  },
+  "access": {
+    "temporaryAdminRevoked": true,
+    "absenceFreshlyVerified": true,
+    "temporaryAdminCredentialsRemoved": 6
+  },
+  "ci": [
+    {
+      "run": 40401130577,
+      "conclusion": "success"
+    },
+    {
+      "run": 40404612277,
+      "conclusion": "success"
+    },
+    {
+      "run": 40406716349,
+      "conclusion": "success"
+    }
+  ],
+  "remaining": [
+    "Owner phone acceptance",
+    "General product pilot acceptance",
+    "Pilot cap promotion requires an explicit scope decision"
+  ]
+}
