@@ -3,6 +3,8 @@ import asyncio
 import json
 import os
 import unittest
+import tempfile
+import sqlite3
 from unittest.mock import patch
 from types import SimpleNamespace
 from pathlib import Path
@@ -11,6 +13,25 @@ from hermes_personal_owner import PersonalOwner
 MODEL = "synthetic-model"
 CONNECTION = {"model": MODEL, "contextWindow": 128000, "supportsTools": True, "supportsVision": True}
 SCHEMAS = json.loads(Path(os.environ["SCISENSE_TEST_SCHEMAS"]).read_text())
+
+
+class ProvisionedStateTests(unittest.TestCase):
+    def test_lost_native_receipts_or_epoch_is_refused_without_repair(self):
+        from hermes_state import SessionDB
+        from hermes_personal_owner import verify_provisioned_native_state
+        for table in ("worker_receipts", "runtime_epoch"):
+            with tempfile.TemporaryDirectory(dir=os.environ["SCISENSE_FIXTURE_ROOT"]) as temporary:
+                home = Path(temporary).resolve()
+                db = SessionDB(home / "state.db"); db.close()
+                verify_provisioned_native_state(home)
+                with sqlite3.connect(home / "state.db") as connection:
+                    connection.execute("DROP TABLE " + table)
+                before = (home / "state.db").read_bytes()
+                with self.assertRaisesRegex(RuntimeError, "personal_state_invalid"):
+                    verify_provisioned_native_state(home)
+                self.assertEqual((home / "state.db").read_bytes(), before)
+                with sqlite3.connect((home / "state.db").as_uri() + "?mode=ro", uri=True) as connection:
+                    self.assertIsNone(connection.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone())
 
 
 class PersistentOwnerTests(unittest.IsolatedAsyncioTestCase):

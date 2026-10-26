@@ -1,11 +1,12 @@
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import assert from "node:assert/strict";
-import { mkdtempSync, chmodSync, realpathSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, chmodSync, realpathSync, rmSync, unlinkSync, writeFileSync, statfsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
-import { provisionPersonalRuntime, createPersonalRuntime, closeProvisionResources } from "./personal-runtime.mjs";
+import { personalProfiles } from "./personal-profiles.mjs";
+import { provisionPersonalRuntime, createPersonalRuntime, closeProvisionResources, preparePersonalEphemeral, personalRuntimePaths } from "./personal-runtime.mjs";
 
 function fixture(t) {
  const base=realpathSync(mkdtempSync(join(tmpdir(),"personal-runtime-")));chmodSync(base,0o700);
@@ -61,4 +62,19 @@ test("provisioning close failure still closes other stores and erases all derive
  const seen=[],keys=[Buffer.alloc(32,1),Buffer.alloc(32,2)],resources=[{close(){seen.push("first");}},{close(){seen.push("fault");throw Error("synthetic-io-fault");}},{close(){seen.push("last");}}];
  assert.throws(()=>closeProvisionResources(resources,keys),/personal_provision_cleanup_failed/);
  assert.deepEqual(seen,["last","fault","first"]);assert.ok(keys.every(key=>key.every(byte=>byte===0)));
+});
+
+test("caller may erase the bootstrap key before lazy Firebase vault access",async t=>{
+ const f=fixture(t);f.provision();const original=Buffer.from(f.config.platformKey);const runtime=await f.open();f.config.platformKey.fill(0);
+ const connected=await runtime.handle("wife","/data-session","PUT",{refreshToken:"wife-synthetic-refresh"},{ownerToken:f.idToken("wife")});assert.equal(connected.status,200);
+ await runtime.close();original.copy(f.config.platformKey);original.fill(0);
+ const reopened=await f.open();assert.deepEqual(await(await reopened.handle("wife","/data-session","GET")).json(),{phase:"connected"});
+});
+
+test("ephemeral upload provision rejects a regular disk instead of silently storing raw media there", t=>{
+ const f=fixture(t);if(statfsSync(f.root.replace(/\/state$/,"")).type===0x01021994)return;
+ const profiles=personalProfiles(f.config.registry),ephemeralRoot=join(f.root.replace(/\/state$/,""),"ephemeral");
+ const paths=personalRuntimePaths(f.root,profiles,f.config.index,{ephemeralRoot});
+ assert.throws(()=>preparePersonalEphemeral(paths,profiles),/personal_runtime_invalid/);assert.deepEqual(readdirSync(ephemeralRoot),[]);
+ assert.throws(()=>personalRuntimePaths(f.root,profiles,f.config.index,{ephemeralRoot:join(f.root,"media")}),/personal_runtime_invalid/);
 });

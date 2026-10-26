@@ -135,6 +135,19 @@ class EventTransport:
         return self.closed
 
 
+def verify_provisioned_native_state(home):
+    from hermes_state_reconcile import schema_drift_reason
+    if schema_drift_reason(home / "state.db") is not None:
+        raise RuntimeError("personal_state_invalid")
+    from hermes_state import SessionDB
+    existing = SessionDB(home / "state.db", read_only=True)
+    try:
+        existing.list_sessions_rich(limit=1)
+        existing.get_messages("scisense-readonly-validation")
+    finally:
+        existing.close()
+
+
 class PersonalOwner:
     def __init__(self, *, home, connection, model_bridge, tool_handler, tool_schemas, on_event):
         self.home = _private_directory(home)
@@ -155,18 +168,7 @@ class PersonalOwner:
         if self.closed or self.runner is not None:
             raise RuntimeError("personal_owner_started")
         if os.environ.get("SCISENSE_NATIVE_PROVISIONED") == "1":
-            # Read-only native API before any writable bootstrap can repair or
-            # initialize schema. Missing/malformed stores remain a hard failure.
-            from hermes_state_reconcile import schema_drift_reason
-            if schema_drift_reason(self.home / "state.db") is not None:
-                raise RuntimeError("personal_state_invalid")
-            from hermes_state import SessionDB
-            existing = SessionDB(self.home / "state.db", read_only=True)
-            try:
-                existing.list_sessions_rich(limit=1)
-                existing.get_messages("scisense-readonly-validation")
-            finally:
-                existing.close()
+            verify_provisioned_native_state(self.home)
         from gateway.config import GatewayConfig
         from gateway.run import GatewayRunner
         from gateway.run_runtime import initialize_gateway_runtime

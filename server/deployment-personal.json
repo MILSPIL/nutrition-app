@@ -1,0 +1,16 @@
+{
+  "version": 3,
+  "releaseId": "PENDING_VERIFIED_PACKAGE",
+  "liveEnabled": false,
+  "firebaseProject": "nutrition-tracker-ua",
+  "origin": "https://ntzg.pp.ua",
+  "allowedUids": [],
+  "port": 8787,
+  "maxConcurrent": 2,
+  "activationFile": "/etc/scisense/personal-activation.json",
+  "policyHash": "273c1512dee65d65d167b2df137ac22af9bd66d20071e00b186fd1f1b06293f5",
+  "credentialNames": [
+    "groq",
+    "personal-state"
+  ]
+}
