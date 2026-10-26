@@ -2,8 +2,9 @@
 project: nutrition-app
 domain: identity
 slot: purpose
-valid_at: "2026-10-20T08:27:56.616789+00:00"
-provenance: PROJECT-INFO.md; package.json; .agents/journal/2026-10-20-1130-codex-gpt-6-codeindexer-audit.md
+confidence: 1
+valid_at: "2026-10-26T02:39:01.213289+00:00"
+provenance: Прямі рішення Юрія 2026-10-25; docs/superpowers/specs/2026-10-25-hermes-personal-server.md; PROJECT-INFO.md, гілка codex/hermes-personal-server.
 ---
 
-SciSense: трекер харчування для клієнтів і тренерів. React SPA, Firebase Auth, Firestore, Firebase Hosting.
+SciSense: приватний сімейний трекер харчування й тренувань для Юрія та дружини. Окремі авторизовані профілі, особисті норми, історія й контекст; персональний тренер Hermes зі спільною історією сайта та Hermes Desktop. React SPA, Firebase Auth і Firestore; чинний сайт ntzg.pp.ua на власному сервері. Новий персональний Hermes ще проходить локальні перевірки й не розгорнутий.

@@ -21,6 +21,7 @@ PIN = "3f2afed3eb813cb00bd381d29b084d0e01de048f"
 MAX_CONTEXT = 400000
 MAX_MEDIA = 256 * 1024 * 1024
 MAX_BUNDLE = 400 * 1024 * 1024
+MAX_ENCRYPTED_BUNDLE = 4 * ((MAX_BUNDLE + 16 + 2) // 3) + 512
 SESSION_FIELDS = ("id", "parent_session_id", "model", "started_at", "ended_at", "end_reason", "archived", "auto_archived", "pinned", "hidden", "title")
 MESSAGE_FIELDS = ("role", "content", "timestamp", "tool_call_id", "tool_calls", "tool_name", "message_uid", "active", "compacted", "effect_disposition", "finish_reason", "reasoning", "reasoning_content", "reasoning_details", "codex_reasoning_items", "codex_message_items", "absorbed_message_uids", "tool_call_uids", "display_kind", "display_metadata", "_compressed_summary")
 SECRET = re.compile(r"(?:sk-(?:ant-)?[A-Za-z0-9_-]{24,}|gsk_[A-Za-z0-9_-]{24,}|(?:Bearer\s+)[A-Za-z0-9._-]{24,})")
@@ -196,7 +197,7 @@ def unseal(data, key, *, uid, destination_home):
     _uid(uid); _home(destination_home)
     try:
         envelope = json.loads(data)
-        if set(envelope) != {"version", "nonce", "data"} or envelope["version"] != 1 or len(data) > MAX_BUNDLE * 2:
+        if set(envelope) != {"version", "nonce", "data"} or envelope["version"] != 1 or len(data) > MAX_ENCRYPTED_BUNDLE:
             _fail()
         aad = encoded(["scisense-personal-migration-v1", uid, destination_home])
         bundle = json.loads(AESGCM(key).decrypt(base64.b64decode(envelope["nonce"], validate=True), base64.b64decode(envelope["data"], validate=True), aad))

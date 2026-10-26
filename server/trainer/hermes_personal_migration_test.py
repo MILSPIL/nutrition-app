@@ -36,6 +36,21 @@ class MigrationTests(unittest.TestCase):
         args.update(overrides)
         return prepare(**args)
 
+    def test_a_isolated_cli_inventory_bootstrap_and_no_output_leak(self):
+        import json, subprocess, sys
+        operator_path=Path(__file__).resolve().parents[2]/'scripts/hermes-personal-migration-operator.py'
+        source=Path(sys.modules['hermes_state'].__file__).parent
+        foreign=self.root/'inherited-home';foreign.mkdir(mode=0o700)
+        (foreign/'config.yaml').write_text(json.dumps({'sessions':{'max_export_messages':1}}))
+        output=self.root/'inventory.json'
+        environment={**os.environ,'HERMES_HOME':str(foreign),'HOME':str(foreign),'OPENAI_API_KEY':'synthetic-parent-must-not-be-used'}
+        result=subprocess.run([sys.executable,'-I','-B',str(operator_path),'inventory','--native-source',str(source),'--home',str(self.source),'--output',str(output)],env=environment,cwd=self.root,capture_output=True,text=True,timeout=30)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual(json.loads(result.stdout)['sessions'],1)
+        self.assertEqual(json.loads(output.read_text())['sessions'][0]['messages'],2)
+        self.assertNotIn('synthetic-parent-must-not-be-used',result.stdout+result.stderr+output.read_text())
+        self.assertEqual((self.source/'state.db').read_bytes(),self.before)
+
     def test_native_roundtrip_exact_ids_messages_context_and_no_overlay(self):
         bundle = self.bundle()
         receipt = import_empty(bundle)
@@ -135,6 +150,110 @@ class MigrationTests(unittest.TestCase):
         raw[0]['messages'][0]['content']='[Image attached at: /other'+old+']'
         with self.assertRaisesRegex(RuntimeError,'migration_media_missing'):
             self.bundle(sessions=raw,media=[{'sourcePath':old,'mime':'image/png','data':base64.b64encode(PNG).decode()}])
+
+    def test_fixed_operator_inventory_selection_and_native_source_fence(self):
+        import importlib.util
+        operator_path=Path(__file__).resolve().parents[2]/'scripts/hermes-personal-migration-operator.py'
+        spec=importlib.util.spec_from_file_location('synthetic_migration_operator',operator_path)
+        operator=importlib.util.module_from_spec(spec);spec.loader.exec_module(operator)
+        selected={'uid':'owner','sourceHome':str(self.source),'destinationHome':str(self.dest),'primaryId':'local-native-first','sessionIds':['local-native-first'],'materials':[{'name':'curated.md','path':'yura-context.md'}],'mediaPaths':[]}
+        (self.source/'yura-context.md').write_text('Синтетичний контекст, тільки власника')
+        view=operator.inventory(self.source)
+        self.assertEqual(view['primaryCandidates'],['local-native-first']);self.assertFalse(view['selectionRequired'])
+        with operator.source_fence(self.source):
+            with self.assertRaisesRegex(RuntimeError,'migration_source_still_owned'):
+                with operator.source_fence(self.source):self.fail('second source owner admitted')
+            bundle=operator.export_selection(selected)
+            self.assertEqual(bundle['materials'][0]['text'],'Синтетичний контекст, тільки власника')
+        with operator.source_fence(self.source):pass
+        selected['materials'][0]['path']='../auth.json'
+        with self.assertRaisesRegex(RuntimeError,'migration_material_not_allowed'):operator.export_selection(selected)
+        self.assertEqual((self.source/'state.db').read_bytes(),self.before)
+
+    def test_fixed_operator_cli_key_stdin_receipt_release_verify_import_and_eof(self):
+        import importlib.util, io, json, sys
+        from unittest.mock import patch
+        operator_path=Path(__file__).resolve().parents[2]/'scripts/hermes-personal-migration-operator.py'
+        spec=importlib.util.spec_from_file_location('synthetic_migration_cli',operator_path)
+        operator=importlib.util.module_from_spec(spec);spec.loader.exec_module(operator)
+        source=Path(sys.modules['hermes_state'].__file__).parent
+        foreign_config=self.root/'config.yaml';foreign_config.write_text('SYNTHETIC_FOREIGN_CONFIG_MUST_NOT_READ')
+        operator.source_code(source)
+        with self.assertRaisesRegex(PermissionError,'migration_foreign_config_read_denied'):
+            operator.read_data(foreign_config)
+        selection=self.root/'selection.json';bundle_file=self.root/'bundle.enc';key=b'z'*32
+        selection.write_text(json.dumps({'uid':'owner','sourceHome':str(self.source),'destinationHome':str(self.dest),'primaryId':'local-native-first','sessionIds':['local-native-first'],'materials':[],'mediaPaths':[]}));selection.chmod(0o600)
+        class Input:
+            def __init__(self,release=True):self.buffer=self;self.release=release
+            def read(self,count):self.assert_count=count;return key
+            def readline(self,count):return (json.dumps({'release':__import__('hashlib').sha256(bundle_file.read_bytes()).hexdigest()})+'\n').encode() if self.release else b''
+        def run(args,stdin):
+            with patch.object(operator,'source_code',lambda value:source),patch.object(sys,'argv',[str(operator_path),*args,'--native-source',str(source)]),patch.object(sys,'stdin',stdin),patch.object(sys,'stdout',io.StringIO()) as output:
+                operator.main();return [json.loads(line) for line in output.getvalue().splitlines()]
+        sent=Input();result=run(['export','--selection',str(selection),'--output',str(bundle_file)],sent)
+        self.assertEqual(sent.assert_count,32);self.assertTrue(result[0]['fenceHeld']);self.assertTrue(result[1]['fenceReleased'])
+        for command in ('verify','import'):
+            result=run([command,'--bundle',str(bundle_file),'--uid','owner','--destination-home',str(self.dest)],Input())
+            self.assertTrue(result[0]['verified'])
+        bundle_file.unlink()
+        with self.assertRaisesRegex(RuntimeError,'migration_cutover_not_confirmed'):
+            run(['export','--selection',str(selection),'--output',str(bundle_file)],Input(release=False))
+        with operator.source_fence(self.source):pass
+        self.assertEqual((self.source/'state.db').read_bytes(),self.before)
+
+    def test_operator_closed_source_rejects_extra_code_bytecode_and_alias(self):
+        import importlib.util, hashlib, json
+        operator_path=Path(__file__).resolve().parents[2]/'scripts/hermes-personal-migration-operator.py'
+        spec=importlib.util.spec_from_file_location('synthetic_source_guard',operator_path);operator=importlib.util.module_from_spec(spec);spec.loader.exec_module(operator)
+        root=self.root/'code';source=root/'source';source.mkdir(parents=True,mode=0o700)
+        (source/'legit.py').write_text('VALUE=1')
+        manifest=json.dumps({'legit.py':hashlib.sha256((source/'legit.py').read_bytes()).hexdigest()}).encode()
+        (root/'source-manifest.json').write_bytes(manifest)
+        pin={'files':1,'manifestSha256':hashlib.sha256(manifest).hexdigest()}
+        self.assertEqual(operator.verify_source_tree(source,pin),source)
+        for name in ('sqlite3.py','__pycache__/legit.cpython-314.pyc','evil.so'):
+            path=source/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b'SYNTHETIC_UNTRUSTED_CODE')
+            with self.assertRaisesRegex(RuntimeError,'migration_source_extra_module'):operator.verify_source_tree(source,pin)
+            path.unlink()
+        (source/'alias').symlink_to(self.source,target_is_directory=True)
+        with self.assertRaisesRegex(RuntimeError,'migration_source_alias'):operator.verify_source_tree(source,pin)
+
+    def test_operator_database_symlink_hardlink_and_sidecars_are_refused(self):
+        import importlib.util
+        operator_path=Path(__file__).resolve().parents[2]/'scripts/hermes-personal-migration-operator.py'
+        spec=importlib.util.spec_from_file_location('synthetic_db_guard',operator_path);operator=importlib.util.module_from_spec(spec);spec.loader.exec_module(operator)
+        other=self.root/'other';other.mkdir(mode=0o700);foreign=other/'state.db';foreign.write_bytes(self.before)
+        saved=self.source/'saved.db';database=self.source/'state.db';database.rename(saved)
+        try:
+            for kind in ('symbolic','hard'):
+                database.symlink_to(foreign) if kind=='symbolic' else os.link(foreign,database)
+                with self.assertRaisesRegex(RuntimeError,'migration_database_alias'):operator.transcripts(self.source)
+                database.unlink()
+            saved.rename(database)
+            for suffix in ('-wal','-shm'):
+                path=self.source/('state.db'+suffix);path.symlink_to(foreign)
+                with self.assertRaisesRegex(RuntimeError,'migration_database_alias'):operator.transcripts(self.source)
+                path.unlink()
+            self.assertEqual(database.read_bytes(),self.before);self.assertEqual(foreign.read_bytes(),self.before)
+        finally:
+            if saved.exists():
+                database.unlink(missing_ok=True);saved.rename(database)
+
+    def test_operator_encrypted_envelope_can_exceed_plaintext_cap(self):
+        import importlib.util, io, json, sys
+        from unittest.mock import patch
+        import hermes_personal_migration as migration
+        operator_path=Path(__file__).resolve().parents[2]/'scripts/hermes-personal-migration-operator.py'
+        spec=importlib.util.spec_from_file_location('synthetic_envelope_guard',operator_path);operator=importlib.util.module_from_spec(spec);spec.loader.exec_module(operator)
+        bundle=self.bundle(materials=[{'name':'context.md','text':'x'*4000}]);key=b'k'*32
+        plain_cap=len(migration.encoded(bundle))+1;encrypted_cap=4*((plain_cap+18)//3)+512
+        encrypted=seal(bundle,key);self.assertGreater(len(encrypted),plain_cap);self.assertLess(len(encrypted),encrypted_cap)
+        path=self.root/'sized-envelope.enc';path.write_bytes(encrypted);path.chmod(0o600)
+        old_defaults=operator.read_data.__defaults__;operator.read_data.__defaults__=(plain_cap,)
+        try:
+            with patch.object(migration,'MAX_BUNDLE',plain_cap),patch.object(migration,'MAX_ENCRYPTED_BUNDLE',encrypted_cap),patch.object(operator,'MAX_ENCRYPTED_BUNDLE',encrypted_cap),patch.object(operator,'source_code',lambda value:None),patch.object(sys,'argv',[str(operator_path),'verify','--native-source','/synthetic','--bundle',str(path),'--uid','owner','--destination-home',str(self.dest)]),patch.object(sys,'stdin',io.TextIOWrapper(io.BytesIO(key))),patch.object(sys,'stdout',io.StringIO()) as output:
+                operator.main();self.assertTrue(json.loads(output.getvalue())['verified'])
+        finally:operator.read_data.__defaults__=old_defaults
 
     def test_legacy_web_archive_has_stable_ids_and_no_turn_replay(self):
         rows=[{'id':'web-first','role':'user','content':'Вчора з’їв синтетичне яблуко','created':1700000000000,'run_id':'must-not-execute','draft':{'state':'ready'}}]

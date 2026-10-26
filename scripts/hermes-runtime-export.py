@@ -1,5 +1,31 @@
 """Export public Linux dependencies only, never the synthetic profile or state."""
-import pathlib,json,hashlib,tarfile,subprocess,os,re
+import pathlib,json,hashlib,tarfile,subprocess,os,re,sys
+sys.dont_write_bytecode=True
+if pathlib.Path.cwd()!=pathlib.Path('/app') or not pathlib.Path('/app/server/trainer/hermes-pin.json').is_file():
+ raise RuntimeError('public_image_required')
+if sys.argv[1:] not in ([],['--normalize-source-only']):raise RuntimeError('export_arguments_invalid')
+sys.path.insert(0,"/app/server/trainer")
+# Native source bytecode is an optimization, never a second executable source.
+# Strip only untracked cache artifacts in this disposable export container;
+# dependencies in the separately pinned .venv remain unchanged.
+native=pathlib.Path('/opt/scisense/hermes/source')
+tracked=json.loads((native.parent/'source-manifest.json').read_text())
+for directory,names,files in os.walk(native):
+ excluded={'.venv','node_modules','.git'} if pathlib.Path(directory)==native else set()
+ names[:]=[name for name in names if name not in excluded]
+ for name in files:
+  path=pathlib.Path(directory)/name
+  if '__pycache__' in path.relative_to(native).parts and path.suffix in ('.pyc','.pyo') and path.relative_to(native).as_posix() not in tracked:
+   if path.is_symlink():raise RuntimeError('source_cache_alias')
+   path.unlink()
+import importlib.util
+spec=importlib.util.spec_from_file_location('public_migration_source_guard','/app/scripts/hermes-personal-migration-operator.py')
+module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+module.verify_source_tree(native,json.loads(pathlib.Path('/app/server/trainer/hermes-pin.json').read_text()))
+if sys.argv[1:]==['--normalize-source-only']:
+ print(json.dumps({'publicSourceNormalized':True}));raise SystemExit(0)
+code_sha=os.environ.get('SCISENSE_PUBLIC_CODE_SHA','')
+if not re.fullmatch('[a-f0-9]{40}',code_sha):raise RuntimeError('public_code_sha_required')
 root=pathlib.Path('/tmp/hermes-public-runtime');root.mkdir(exist_ok=False)
 target=root/'runtime.tar.gz'
 # Compile the production TSYNC/turn-timer guard from this exact committed C
@@ -26,8 +52,6 @@ with tarfile.open(target,'w:gz') as tf:
    if info.isfile():
     with p.open('rb') as f:tf.addfile(info,f)
    else:tf.addfile(info)
-code_sha=os.environ.get('SCISENSE_PUBLIC_CODE_SHA','')
-if not re.fullmatch('[a-f0-9]{40}',code_sha):raise RuntimeError('public_code_sha_required')
 manifest['personalGuard']={'codeSha':code_sha,'sourceSha256':hashlib.sha256(pathlib.Path('/app/server/trainer/worker-lock.c').read_bytes()).hexdigest(),'seccompSourceSha256':hashlib.sha256(pathlib.Path('/app/server/trainer/worker-seccomp.c').read_bytes()).hexdigest(),'seccompSha256':hashlib.sha256(pathlib.Path('/app/server/trainer/worker-seccomp.bpf').read_bytes()).hexdigest(),'sha256':hashlib.sha256(lock.read_bytes()).hexdigest(),'platform':'linux-x64','format':'ELF64-ET_DYN-x86_64'}
 manifest['archiveSha256']=hashlib.sha256(target.read_bytes()).hexdigest();manifest['archiveBytes']=target.stat().st_size
 (root/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,separators=(',',':'))+'\n')

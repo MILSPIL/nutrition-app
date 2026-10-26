@@ -14,6 +14,8 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import sys
+sys.dont_write_bytecode = True
 from hermes_runtime_validation import validate_runtime, digest
 
 REPO = Path(__file__).resolve().parents[1]
@@ -121,7 +123,7 @@ def package(runtime, output, node):
         stage=temporary/'app';stage.mkdir()
         tracked=subprocess.check_output(['git','ls-tree','-r','--name-only','-z',sha],cwd=REPO).decode().split('\0')
         for name in filter(None,tracked):
-            include=name in ('package.json','package-lock.json','firestore.rules') or name.startswith(('server/','src/services/','src/data/','workers/meal-parser/src/','deploy/personal/')) or name in ('workers/meal-parser/package.json','workers/meal-parser/package-lock.json','workers/meal-parser/pilot-proposal.json','scripts/phone-lab/approval.mjs','scripts/phone-lab/sqlite.mjs')
+            include=name in ('package.json','package-lock.json','firestore.rules') or name.startswith(('server/','src/services/','src/data/','workers/meal-parser/src/','deploy/personal/')) or name in ('workers/meal-parser/package.json','workers/meal-parser/package-lock.json','workers/meal-parser/pilot-proposal.json','scripts/phone-lab/approval.mjs','scripts/phone-lab/sqlite.mjs','scripts/hermes-personal-migration-operator.py')
             if not include or any(x in name for x in ['.test.','_test.py','/fixtures/','/linux/','Dockerfile','systemd-ci','-test.mjs','-canary.py']):continue
             tree_entry=subprocess.check_output(['git','ls-tree',sha,'--',name],cwd=REPO,text=True)
             if not tree_entry.startswith(('100644 blob ','100755 blob ')):fail('package_source_type')

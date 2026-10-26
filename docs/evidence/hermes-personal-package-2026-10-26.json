@@ -1,0 +1,19 @@
+{
+  "task": "HERMES-PERSONAL-01",
+  "codeSha": "4621681bf4ab3bb9d344f4617b8cb49b020f92df",
+  "ciRun": 40271880913,
+  "ciSuccess": true,
+  "packageManifestSha256": "e600ab8e1e00c1591904ff7a7a4c7cf5ee84266d1582ed102c02cf9a2552f594",
+  "archiveHashesVerified": 4,
+  "appFilesVerified": 285,
+  "entrypointModuleSmoke": true,
+  "liveEnabled": false,
+  "privateDataIncluded": false,
+  "keysIncluded": false,
+  "runtimeFiles": 31727,
+  "cpu": 2,
+  "memoryBytes": 2147483648,
+  "swapBytes": 0,
+  "newOperatorIncluded": false,
+  "scope": "Candidate4621681 package proof only; current operator/rollback/cutover and host not covered"
+}

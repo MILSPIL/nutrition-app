@@ -21,9 +21,12 @@ COPY server server
 RUN gcc -O2 -Wall -Werror server/trainer/worker-seccomp.c -lseccomp -o /tmp/seccomp-policy && /tmp/seccomp-policy > server/trainer/worker-seccomp.bpf && rm /tmp/seccomp-policy
 COPY src/services src/services
 COPY src/data src/data
-COPY scripts/hermes-gateway-test.mjs scripts/hermes-linux-isolation-test.mjs scripts/hermes-runtime-export.py scripts/
+COPY scripts/hermes-gateway-test.mjs scripts/hermes-linux-isolation-test.mjs scripts/hermes-runtime-export.py scripts/hermes-personal-migration-operator.py scripts/
 COPY scripts/phone-lab scripts/phone-lab
 COPY workers/meal-parser/src workers/meal-parser/src
+ENV PYTHONDONTWRITEBYTECODE=1
+# Actual native probes and the exported runtime share a cold, closed source tree.
+RUN python3 -B scripts/hermes-runtime-export.py --normalize-source-only
 RUN chown -R 10001:10001 .agents/runtime/hermes-lab && chmod 700 .agents/runtime/hermes-lab
 USER 10001:10001
 ENTRYPOINT ["node","scripts/hermes-gateway-test.mjs"]
