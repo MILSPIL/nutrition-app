@@ -246,6 +246,16 @@ class PersonalOwner:
             raise RuntimeError("media_unsupported")
         return self.photos.stage(input_id, images)
 
+    def read_photo(self, reference, variant):
+        if self.closed or self.photos is None:
+            raise RuntimeError("trainer_unavailable")
+        return self.photos.read(reference, variant)
+
+    def delete_photo(self, reference):
+        if self.closed or self.photos is None:
+            raise RuntimeError("trainer_unavailable")
+        return self.photos.delete(reference)
+
     def clear_staged(self, input_id):
         if self.closed or self.photos is None:
             raise RuntimeError("trainer_unavailable")

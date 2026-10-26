@@ -1,0 +1,205 @@
+{
+  "version": 1,
+  "task": "HERMES-PERSONAL-01",
+  "sourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+  "sourceManifest": {
+    "scope": "all tracked Python source plus pinned importable suffixes, excluding installed dependencies",
+    "verifiedFiles": 9975,
+    "verifiedOtherSuffixes": 2,
+    "sha256": "a1e875821d26e706a10fde8f10d52c41f4083db91082a02a0d3bff62b7df9cc4"
+  },
+  "syntheticOnly": true,
+  "testExit": 0,
+  "nativeIpc": {
+    "passed": true,
+    "checks": 25,
+    "realPersonalRuntime": true,
+    "realNativeCodexProducer": true,
+    "separateDataProfiles": true,
+    "canonicalHistoryAfterPhysicalRestart": true,
+    "delegatedSessionAfterRestart": true,
+    "protectedNativePhotoReadDelete": true,
+    "foreignPhotoRefRefused": true,
+    "modelLoginNeededForWife": false,
+    "startupNoProviderPosts": true,
+    "expiredNativeRefreshBeforeInference": true,
+    "rotatedConnectionUsedAfterPhysicalRestart": true,
+    "readyDraftLocalCompletionWithoutFourthPost": true,
+    "physicalPostReservations": 7,
+    "realModelRequests": 0,
+    "physicalProcessesWithOSCanaries": 6
+  },
+  "physicalProcessRestart": true,
+  "realModelRequests": 0,
+  "sourceSha256": {
+    "server/trainer/hermes_personal_owner_test.py": "a972e51b33fc14116e22147f0be58420bc0c20625166994c9759b6a1755b9f12",
+    "server/trainer/hermes_personal_provider_test.py": "98bc520bcd8ae79edfae5f67b2115a6117fb41148572638246f4e1010b00d68b",
+    "scripts/hermes-personal-owner-check.py": "a45cc3a110b865d1a55f26fa5c8c9fc88d881a61fbbe98175b19e36b4579213a",
+    "scripts/hermes_personal_fixture.py": "d6abc8334d28287f5cc378651c9f031e5880b70e1f1128e7b4b4cb5de32b8752",
+    "server/trainer/hermes_personal_owner.py": "f21f0ae8b63e42f9b631b4f296fb396495ce6dcd55be461659383657bd315686",
+    "server/trainer/hermes_personal_media.py": "2060a5dc02c27501da130b586f121f0060b468fcbfdc65f6034c294c7022fc9a",
+    "server/trainer/hermes_personal_context.py": "3eb329910be0279f279c5fc3b1d839eec97c453215a90b935f251405bd1722e3",
+    "server/trainer/hermes_personal_provider.py": "91510779e3bfe56c9d5bad79f526ec5030f3419b9be530880eb3511485bd4a82",
+    "server/trainer/hermes_personal_ipc.py": "8819dc38030dbd588aee73ddb468f6d523ede214d478e2fe0e930e41f96dc313",
+    "server/trainer/hermes_personal_worker.py": "25a77f5552f6b8af229bebf7907cc7317af1352361c19641b283b5676ef8526a",
+    "server/trainer/personal-process.mjs": "53890009b8f57caae188be279010e5ecd9b2f1fe8b3104c16b66ff7fafd2b255",
+    "server/trainer/internal-process.mjs": "0bf31aa79cd83623205c04ae86bf43dcaf0b5eef1d940602fce2991869fcc754",
+    "scripts/hermes-personal-ipc-fixture.mjs": "ab4b17cb26eec3cadc7d696adb53a0aa5cd46ba630f05778703cb443919ec12f",
+    "server/trainer/personal-runtime.mjs": "63caa93abf259493c34b090eba6fb0f68cbab6a0a94a70e7e3644620809a7c23",
+    "server/trainer/personal-runtime.test.mjs": "914f4f1555ff5e28805ad82a28c3d2586c34ae0cd12304bed2f7c9efbd785707",
+    "scripts/hermes-personal-runtime-fixture.mjs": "5f6593206ffd7583acb44bc0bd1e0e3b16bc125a459396fd3458d6e1135716ba",
+    "server/trainer/firebase-sessions.mjs": "9dea0d2ac0205d34d4e53a82fbd4775ed8330ab8dae4f7d42aa6d49dc58f430d",
+    "server/trainer/personal-coordinator.mjs": "b96adcff17f0efbfe18b2670aaaba70496488092287a546bb71211d0dbc5647e",
+    "server/trainer/personal-backend.mjs": "b40ddc3ed27c1d4b42775345462441bf582ca3b7cf747c5cae0f59a73347331b",
+    "server/trainer/personal-payer.mjs": "d540cf333d67e76f128fd043bbbe21cabed5a8d08e7eebdc65efe9500b38071f",
+    "scripts/hermes-personal-payer-fixture.py": "3d9fec18f9cbbaf394426193bbb486b732836965bedc4480e1210f2356a558b9"
+  },
+  "pythonMediaTests": 10,
+  "reactTests": 34,
+  "browser": {
+    "status": "passed",
+    "widths": [
+      {
+        "home": {
+          "width": 375,
+          "height": 56,
+          "right": 16,
+          "bottom": 16,
+          "reportGap": 16.5,
+          "overflow": 0
+        },
+        "chat": {
+          "left": 16,
+          "right": 16,
+          "edges": 0,
+          "overflow": 0,
+          "width": 375,
+          "heights": [
+            44,
+            44,
+            44,
+            44,
+            44,
+            44,
+            44,
+            44
+          ]
+        }
+      },
+      {
+        "home": {
+          "width": 390,
+          "height": 56,
+          "right": 16,
+          "bottom": 16,
+          "reportGap": 16.5,
+          "overflow": 0
+        },
+        "chat": {
+          "left": 16,
+          "right": 16,
+          "edges": 0,
+          "overflow": 0,
+          "width": 390,
+          "heights": [
+            44,
+            44,
+            44,
+            44,
+            44,
+            44,
+            44,
+            44
+          ]
+        }
+      },
+      {
+        "home": {
+          "width": 1366,
+          "height": 56,
+          "right": 16,
+          "bottom": 16,
+          "reportGap": 16.5,
+          "overflow": 0
+        },
+        "chat": {
+          "left": 16,
+          "right": 16,
+          "edges": 0,
+          "overflow": 0,
+          "width": 512,
+          "heights": [
+            44,
+            44,
+            44,
+            44,
+            44,
+            44,
+            44,
+            44
+          ]
+        }
+      }
+    ],
+    "photoWidths": [
+      {
+        "width": 375,
+        "left": 16,
+        "right": 359,
+        "top": 254,
+        "bottom": 590,
+        "innerLeft": 16,
+        "innerRight": 16,
+        "overflow": 0,
+        "minTap": 44
+      },
+      {
+        "width": 390,
+        "left": 16,
+        "right": 374,
+        "top": 254,
+        "bottom": 590,
+        "innerLeft": 16,
+        "innerRight": 16,
+        "overflow": 0,
+        "minTap": 44
+      },
+      {
+        "width": 1366,
+        "left": 403,
+        "right": 963,
+        "top": 254,
+        "bottom": 590,
+        "innerLeft": 16,
+        "innerRight": 16,
+        "overflow": 0,
+        "minTap": 44
+      }
+    ],
+    "keyboardPhoto": {
+      "top": 72,
+      "bottom": 408
+    },
+    "protectedPhotoRequests": {
+      "reads": 9,
+      "deletes": 3
+    },
+    "consoleErrors": []
+  },
+  "browserChecks": 58,
+  "browserCleanup": {
+    "session": "4c287ad904c24d3d-iumg0l_0",
+    "cleanup_ok": true,
+    "removed": true
+  },
+  "reviews": {
+    "personal_local_review": "PASS; fixed focus after photo delete",
+    "personal_contract_review": "PASS; exact bearer and native client_id in mock"
+  },
+  "liveDeployment": false,
+  "linuxResourceProof": false,
+  "screenshot": {
+    "path": "docs/evidence/hermes-personal-photos-2026-10-26/photo-390.png",
+    "sha256": "32ad7b22893bcf6e8fb776ea687253f065bc0848df5f5babe91be558b3245f5f"
+  }
+}

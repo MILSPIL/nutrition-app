@@ -224,6 +224,21 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
       try { return await (signal ? abortable(reading, signal) : reading); }
       catch (error) { if (record.owner.unavailable) await retire(uid, record); throw error; }
     },
+    async photo(uid, reference, variant, { signal } = {}) {
+      const record = await ownerFor(uid);
+      const reading = record.owner.photoRead(reference, variant, { timeoutMs: 5000 });
+      try { return await (signal ? abortable(reading, signal) : reading); }
+      catch (error) { if (record.owner.unavailable) await retire(uid, record); throw error; }
+    },
+    deletePhoto(uid, reference, { signal } = {}) {
+      profiles.resolve(uid);
+      // No unlink while native replay or another model turn may read it.
+      return queue.run(uid, async signal => {
+        const record = await ownerFor(uid);
+        try { return await record.owner.photoDelete(reference, { signal, timeoutMs: 5000 }); }
+        catch (error) { if (record.owner.unavailable) await retire(uid, record); throw error; }
+      }, { signal });
+    },
     commitContext(uid, proposal, { signal } = {}) {
       profiles.resolve(uid);
       return queue.run(uid, async signal => {

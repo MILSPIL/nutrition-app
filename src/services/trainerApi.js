@@ -1,6 +1,7 @@
 import { auth } from "../firebase";
 import { voiceError } from "./voiceApi";
 const messages = {
+  media_missing: "Фото видалено або вже недоступне.",
   data_auth_required: "Не вдалося підключити ваш щоденник. Вийдіть з акаунта SciSense й увійдіть знову; текст збережено.",
   connection_auth_required: "Підключення Hermes потребує повторного входу власника. Ручний трекер доступний.",
   connection_unconfigured: "Підключення моделі в Hermes ще не налаштовано. Ручний трекер доступний.",
@@ -110,7 +111,7 @@ export function createTrainerApi(
       signal?.removeEventListener("abort", abort);
     }
   }
-  let connecting;
+  let connecting, photoQueue = Promise.resolve();
   async function connectData(signal) {
     if (!connecting) {
       const user = getUser();
@@ -135,6 +136,15 @@ export function createTrainerApi(
   }
   return {
     request,
+    photo(reference, variant = "thumbnail", signal) {
+      // One image fetch at a time leaves the other HTTP slot for chat/status.
+      const task = photoQueue.catch(() => {}).then(() => {
+        if (signal?.aborted) throw Error("client_timeout");
+        return request(`/photos/${encodeURIComponent(reference)}/${variant}`, "GET", undefined, signal);
+      });
+      photoQueue = task; return task;
+    },
+    deletePhoto: (reference, signal) => request(`/photos/${encodeURIComponent(reference)}`, "POST", { action: "delete" }, signal),
     async state(s) {
       const state = await request("/state", "GET", undefined, s);
       if (state.dataSession && state.dataSession.phase !== "connected") return { ...state, dataSession: await connectData(s) };

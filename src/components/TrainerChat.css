@@ -365,3 +365,12 @@
 .trainer-overlay { inset: var(--trainer-visible-top,0px) 0 auto; height: var(--trainer-visible-height,100dvh); }
 .trainer-chat { height: 100%; box-sizing: border-box; }
 @media (min-width: 600px) { .trainer-chat { height: calc(100% - 32px); } }
+
+.trainer-history-photo { margin-top: 8px; max-width: 100%; }
+.trainer-chat .trainer-photo-open { padding: 0; width: 180px; max-width: 100%; height: 180px; overflow: hidden; background: #f4f7fc; }
+.trainer-photo-open img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.trainer-photo-dialog { width: min(560px, calc(100vw - 32px)); max-width: calc(100vw - 32px); top: calc(var(--trainer-visible-top,0px) + var(--trainer-visible-height,100dvh) / 2); left: 50%; right: auto; bottom: auto; margin: 0; transform: translate(-50%, -50%); max-height: calc(var(--trainer-visible-height,100dvh) - 32px); padding: 16px; border: 0; border-radius: 16px; background: #fff; color: #171719; overflow: auto; white-space: normal; }
+.trainer-photo-dialog::backdrop { background: #000a; }
+.trainer-photo-dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.trainer-photo-dialog > img { display: block; max-width: 100%; max-height: min(65dvh, calc(var(--trainer-visible-height,100dvh) - 180px)); width: auto; height: auto; margin: 0 auto 12px; object-fit: contain; }
+.trainer-photo-confirm button { margin: 4px 8px 0 0; }

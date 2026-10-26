@@ -1,8 +1,10 @@
 """Synthetic SDK transport only; never an application launcher."""
 import hashlib
+import base64
 import json
 import os
 from pathlib import Path
+from urllib.parse import parse_qs
 import re
 import httpx
 import hermes_personal_connection as connection
@@ -17,8 +19,23 @@ if root not in home.parents or not home.name.startswith('synthetic-payer-'):
 connection.assert_tmpfs_home = payer.assert_tmpfs_home = lambda candidate: home if Path(candidate).resolve() == home else (_ for _ in ()).throw(RuntimeError('synthetic_home_required'))
 
 
+def current_token():
+    return 'synthetic.' + base64.urlsafe_b64encode(json.dumps({'exp': 4102444800}, separators=(',', ':')).encode()).decode().rstrip('=') + '.signature'
+
+
 def transport(_transport, request):
-    assert request.method == 'POST' and str(request.url).endswith('/responses')
+    assert request.method == 'POST'
+    if str(request.url) == 'https://auth.openai.com/oauth/token':
+        fields = parse_qs(request.read().decode())
+        assert fields.get('grant_type') == ['refresh_token'] and fields.get('refresh_token') == ['synthetic-refresh']
+        from hermes_cli.auth_constants import CODEX_OAUTH_CLIENT_ID
+        assert fields.get('client_id') == [CODEX_OAUTH_CLIENT_ID]
+        token = current_token()
+        with (root / 'synthetic-physical-posts.jsonl').open('a') as log:
+            log.write(json.dumps({'kind': 'oauth_refresh'}) + '\n')
+        return httpx.Response(200, json={'access_token': token, 'refresh_token': 'synthetic-rotated-refresh', 'token_type': 'Bearer'})
+    assert str(request.url).endswith('/responses')
+    assert request.headers.get('authorization') == 'Bearer ' + current_token(), 'synthetic_current_credential_required'
     data = request.read()
     if request.headers.get('content-encoding') == 'zstd':
         from compression.zstd import decompress
@@ -32,7 +49,23 @@ def transport(_transport, request):
     assert match and ('fresh-snapshot' in current or 'schemaVersion' in current)
     ident = hashlib.sha256(match[1].encode()).hexdigest()[:16]
     finished = any(item.get('type') == 'function_call_output' for item in items[last_user:])
-    if finished:
+    ready_case = False
+    for part in items[last_user].get('content', []):
+        if not isinstance(part, dict) or not isinstance(part.get('text'), str):
+            continue
+        marker = re.search(r'SCISENSE-INPUT-V1 [A-Za-z0-9-]+ [a-f0-9]{64}\n', part['text'])
+        if marker and 'schemaVersion' in part['text'][marker.end():]:
+            snapshot, _ = json.JSONDecoder().raw_decode(part['text'][marker.end():])
+            ready_case = 'SYNTHETIC_READY_DRAFT' in snapshot.get('message', '')
+    food_proposed = any(item.get('type') == 'function_call' and item.get('name') == 'propose_food_draft' for item in items[last_user:])
+    if ready_case and finished and not food_proposed:
+        draft = {'baseRevision': 0, 'dayRef': 'today', 'meal': 1, 'items': [{'itemId': '11111111-1111-4111-8111-111111111111',
+            'name': 'Синтетична страва', 'quantity': {'value': 200, 'unit': 'g'}, 'preparation': 'cooked',
+            'source': {'kind': 'estimate', 'estimateReason': 'recipe_estimate', 'assumptions': ['Синтетична оцінка для перевірки, не реальна їжа.'],
+                'nutritionBasis': {'value': 100, 'unit': 'g'}, 'nutrients': {'p': 10, 'f': 3, 'c': 14, 'cal': 123}}}]}
+        item = {'id': 'synthetic-draft-' + ident, 'call_id': 'synthetic-draft-tool-' + ident, 'type': 'function_call', 'name': 'propose_food_draft',
+                'arguments': json.dumps(draft), 'status': 'completed'}
+    elif finished:
         item = {'id': 'synthetic-message-' + ident, 'type': 'message', 'role': 'assistant', 'status': 'completed', 'phase': 'final_answer',
             'content': [{'type': 'output_text', 'text': 'Спільний native діалог збережений.', 'annotations': []}]}
     else:
@@ -43,7 +76,7 @@ def transport(_transport, request):
             'status': 'completed', 'output': [item], 'usage': {'input_tokens': 10, 'output_tokens': 5, 'total_tokens': 15}}}]
     image_count = sum(1 for entry in items if isinstance(entry, dict) for part in entry.get('content', []) if isinstance(part, dict) and part.get('type') == 'input_image' and str(part.get('image_url', '')).startswith('data:image/png;base64,'))
     with (root / 'synthetic-physical-posts.jsonl').open('a') as log:
-        log.write(json.dumps({'turnHash': ident, 'toolFinished': finished, 'imageSeen': image_count > 0, 'imageCount': image_count, 'bodyBytes': len(data)}) + '\n')
+        log.write(json.dumps({'kind': 'inference', 'turnHash': ident, 'toolFinished': finished, 'imageSeen': image_count > 0, 'imageCount': image_count, 'bodyBytes': len(data)}) + '\n')
     return httpx.Response(200, headers={'Content-Type': 'text/event-stream'}, content=b''.join(b'data: ' + json.dumps(event).encode() + b'\n\n' for event in events))
 
 

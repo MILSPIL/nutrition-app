@@ -16,6 +16,8 @@ export function createPersonalProcess({ connection, toolSchemas, onModel, onTool
     lookup: (channel, binding, options) => process.call("lookup", { channel, sessionId: binding.sessionId, inputId: binding.inputId, inputProof: binding.payloadHmac }, options),
     contextRead: options => process.call("contextRead", {}, options),
     contextCommit: (proposal, options) => process.call("contextCommit", { proposal }, options),
+    photoRead: (reference, variant, options) => process.call("photoRead", { reference, variant }, options),
+    photoDelete: (reference, options) => process.call("photoDelete", { reference }, options),
     stageImages: (inputId, images, options) => process.call("stageImages", { inputId, images }, options),
     clearStaged: (inputId, options) => process.call("clearStaged", { inputId }, options),
     detach: channel => process.exited ? undefined : process.call("detach", { channel }),

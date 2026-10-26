@@ -1,7 +1,7 @@
 // Actual built UI; isolated Firebase emulators and synthetic trainer transport only.
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
-import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,readdirSync} from 'node:fs';
 import {resolve,join,extname} from 'node:path';
 import {browserRuntime} from './browser-runtime.mjs';
 import {buildPlanCatalog} from '../src/services/planCatalog.js';
@@ -14,7 +14,8 @@ const build=resolve('tmp/coach-ui-build'),out=resolve('tmp/coach-ui-qa');mkdirSy
 const evidence={syntheticOnly:true,realBuiltUI:true,mockedTrainerAPI:true,widths:[],checks:[],consoleErrors:[],iconRequests:[],textAudits:[]};
 const check=(name,ok)=>{assert.ok(ok,name);evidence.checks.push(name);};
 let state={conversationId:'synthetic-coach',revision:0,composer:{text:'',revision:0},messages:[],drafts:[],contextProposals:[],currentTurn:null};
-let calls=0,sttCalls=0,lastInput=null,iconBodies=0;
+let calls=0,sttCalls=0,lastInput=null,iconBodies=0,photoDeleted=false,photoReads=0,photoDeletes=0;
+const photoFixture={type:'image/webp',data:readFileSync(join(build,'static/media',readdirSync(join(build,'static/media')).find(name=>name.startsWith('category-')&&name.endsWith('.webp')))).toString('base64')};
 const catalog=buildPlanCatalog({profile:{}}),ref=catalog.references.find(r=>r.name==='фрукти та ягоди');
 const item={itemId:'synthetic-fruit',name:'Синтетичний плід',quantity:{value:200,unit:'g'},nutritionBasis:{value:100,unit:'g'},nutrients:{p:1,f:2,c:3,cal:60},source:{kind:'estimate',estimateReason:'no_matching_source',portionOrigin:{kind:'estimate',assumption:'Припускаємо середній розмір, приблизно 200 г.'}},estimated:true,nutritionStatus:'complete',planMatch:{referenceId:ref.refId,consumedState:'as_sold',certainty:'matched'}};
 const [oldItem]=assignPlanItems([{...item,itemId:'earlier-fruit'}],catalog,{});
@@ -28,7 +29,12 @@ const server=createServer(async(req,res)=>{try{
   const body=chunks.length?JSON.parse(Buffer.concat(chunks)):{};
   const path=u.pathname.replace('/meal-api/trainer','');
   let result;
-  if(path==='/state')result=state;
+  if(path.startsWith('/photos/')){
+   if(req.method==='POST'){assert.deepEqual(body,{action:'delete'});photoDeleted=true;photoDeletes++;result={deleted:true};}
+   else if(photoDeleted){res.statusCode=404;result={error:'media_missing'};}
+   else {photoReads++;result=photoFixture;}
+  }
+  else if(path==='/state')result=state;
   else if(path==='/composer'){state.composer={text:body.text,revision:body.baseRevision+1};result=state.composer;}
   else if(path==='/turns'){
    calls++;lastInput=body;state.revision++;state.composer={text:'',revision:state.composer.revision+1};
@@ -173,6 +179,35 @@ try {
  await page.waitForFunction(()=>[...document.querySelectorAll('img[src*="category-"]')].every(n=>n.complete&&n.naturalWidth));
  check('repeat icons served from browser cache',iconBodies===warmBodies);
  evidence.iconCache={warmBodies,repeatBodies:iconBodies};
+ state.messages=[{id:'synthetic-native-photo',role:'user',content:'Синтетичне фото етикетки',photos:[{ref:'synthetic-own-photo'}]}];state.drafts=[];state.canonicalHistory=true;
+ const callsBeforePhotos=calls;evidence.photoWidths=[];
+ for(const width of [375,390,1366]){
+  photoDeleted=false;await page.setViewportSize({width,height:844});await launcher.click();
+  const openPhoto=page.getByRole('button',{name:'Відкрити фото 1',exact:true});await openPhoto.waitFor();await openPhoto.click();
+  const photoDialog=page.getByRole('dialog',{name:'Фото 1',exact:true});await photoDialog.locator('img').waitFor();
+  const bounds=await photoDialog.evaluate(node=>{const b=node.getBoundingClientRect(),h=node.querySelector('.trainer-photo-dialog-header').getBoundingClientRect(),close=node.querySelector('button').getBoundingClientRect();return {left:b.left,right:b.right,top:b.top,bottom:b.bottom,innerLeft:h.left-b.left,innerRight:b.right-close.right,overflow:document.documentElement.scrollWidth-innerWidth,minTap:Math.min(...[...node.querySelectorAll('button')].map(button=>button.getBoundingClientRect().height))};});
+  check('photo viewer edges '+width,bounds.innerLeft===16&&bounds.innerRight===16&&(width<=592?bounds.left===16&&bounds.right===width-16:bounds.left>=16&&bounds.right<=width-16)&&bounds.top>=16&&bounds.bottom<=828&&bounds.overflow===0&&bounds.minTap>=44);
+  evidence.photoWidths.push({width,...bounds});await page.screenshot({path:join(out,`photo-${width}.png`)});
+  if(width===390){
+   await page.evaluate(()=>{Object.defineProperty(visualViewport,'height',{configurable:true,value:480});visualViewport.dispatchEvent(new Event('resize'));});
+   await page.waitForFunction(()=>document.querySelector('.trainer-overlay').style.getPropertyValue('--trainer-visible-height')==='480px');
+   const keyboardPhoto=await photoDialog.evaluate(node=>{const r=node.getBoundingClientRect();return{top:r.top,bottom:r.bottom};});
+   check('photo fits visual keyboard',keyboardPhoto.top>=16&&keyboardPhoto.bottom<=464);evidence.keyboardPhoto=keyboardPhoto;
+   await page.evaluate(()=>{delete visualViewport.height;visualViewport.dispatchEvent(new Event('resize'));});
+  }
+  await page.keyboard.press('Escape');await photoDialog.waitFor({state:'hidden'});check('photo Escape keeps chat '+width,await page.getByRole('button',{name:'Закрити чат',exact:true}).count()===1&&await openPhoto.evaluate(node=>node===document.activeElement));
+  await openPhoto.click();await photoDialog.locator('img').waitFor();
+  await page.getByRole('button',{name:'Видалити фото',exact:true}).click();const beforeDelete=photoDeletes;
+  check('photo delete waits for confirmation '+width,await page.getByText('Видалити це фото з історії? Записи про їжу залишаться.',{exact:true}).count()===1&&photoDeletes===beforeDelete);
+  await page.getByRole('button',{name:'Так, видалити фото',exact:true}).click();await page.getByText('Фото видалено або вже недоступне.',{exact:true}).waitFor();
+  check('photo delete has no model or food write '+width,photoDeletes===beforeDelete+1&&calls===callsBeforePhotos&&state.messages.length===1);
+  check('photo delete keeps focus in chat '+width,await page.locator('.trainer-history-photo').evaluate(node=>node===document.activeElement));
+  await page.keyboard.press('Tab');check('photo delete Tab remains in chat '+width,await page.evaluate(()=>!!document.activeElement?.closest('.trainer-chat')));
+  await page.getByRole('button',{name:'Закрити чат',exact:true}).click();await launcher.waitFor();
+  await launcher.click();await page.getByText('Фото видалено або вже недоступне.',{exact:true}).waitFor();check('missing photo reload has no broken image '+width,await page.locator('.trainer-history-photo img').count()===0);
+  await page.getByRole('button',{name:'Закрити чат',exact:true}).click();await launcher.waitFor();
+ }
+ evidence.protectedPhotoRequests={reads:photoReads,deletes:photoDeletes};
  check('no page errors',evidence.consoleErrors.length===0);
  evidence.status='passed';
 }finally{

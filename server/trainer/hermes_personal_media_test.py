@@ -1,4 +1,6 @@
 import base64
+import hashlib
+import io
 import os
 from pathlib import Path
 import tempfile
@@ -65,6 +67,55 @@ class PhotoTests(unittest.TestCase):
         retained = self.retained / "kept.png"; retained.write_bytes(PNG); retained.chmod(0o600)
         ProfilePhotos(self.staging, self.retained)
         self.assertFalse(orphan.exists()); self.assertTrue(retained.exists())
+
+    def retained_photo(self):
+        from PIL import Image
+        output = io.BytesIO()
+        Image.new("RGB", (800, 600), "green").save(output, format="PNG")
+        data = output.getvalue()
+        directory = self.retained / hashlib.sha256(data).hexdigest()
+        directory.mkdir(mode=0o700)
+        path = directory / "label.png"
+        path.write_bytes(data); path.chmod(0o600)
+        reference = base64.urlsafe_b64encode(f"{directory.name}/label.png".encode()).decode().rstrip("=")
+        return path, data, reference
+
+    def test_authenticated_reference_returns_small_thumbnail_and_exact_original(self):
+        from PIL import Image
+        path, data, reference = self.retained_photo()
+        original = self.photos.read(reference, "original")
+        self.assertEqual(original["type"], "image/png")
+        self.assertEqual(base64.b64decode(original["data"]), data)
+        thumbnail = self.photos.read(reference)
+        self.assertEqual(thumbnail["type"], "image/webp")
+        with Image.open(io.BytesIO(base64.b64decode(thumbnail["data"]))) as image:
+            self.assertEqual(image.size, (360, 270))
+        self.assertEqual(path.read_bytes(), data)
+
+    def test_photo_delete_is_idempotent_and_missing_is_explicit(self):
+        path, data, reference = self.retained_photo()
+        self.assertGreater(self.photos._usage(), 0)
+        self.assertEqual(self.photos.delete(reference), {"deleted": True})
+        self.assertFalse(path.exists()); self.assertEqual(self.photos._usage(), 0)
+        self.assertEqual(self.photos.delete(reference), {"deleted": True})
+        with self.assertRaisesRegex(RuntimeError, "media_missing"):
+            self.photos.read(reference)
+
+    def test_photo_reference_cannot_escape_or_follow_alias_or_changed_bytes(self):
+        path, data, reference = self.retained_photo()
+        for raw in ("../private-key", str(path), "a" * 64 + "/../label.png"):
+            ref = base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
+            with self.assertRaisesRegex(RuntimeError, "invalid_image"):
+                self.photos.read(ref)
+        with self.assertRaisesRegex(RuntimeError, "invalid_image"):
+            self.photos.read(reference + "=")
+        path.write_bytes(data + b"changed")
+        with self.assertRaisesRegex(RuntimeError, "media_unavailable"):
+            self.photos.delete(reference)
+        path.unlink(); foreign = self.home / "secret.png"; foreign.write_bytes(data); foreign.chmod(0o600); path.symlink_to(foreign)
+        with self.assertRaisesRegex(RuntimeError, "media_unavailable"):
+            self.photos.read(reference)
+        self.assertEqual(foreign.read_bytes(), data)
 
     def test_age_sweep_policy_is_scoped_to_exact_profile_home(self):
         gateway = ModuleType("gateway"); calls = []

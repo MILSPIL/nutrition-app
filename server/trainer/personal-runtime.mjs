@@ -150,6 +150,12 @@ export async function createPersonalRuntime({ registry, platformKey, root, index
           if (method === "POST" && body?.action === "disconnect" && Object.keys(body).length === 1) return response(await sessions.disconnect(uid));
           throw Error("invalid_request");
         }
+        const photo = route.match(/^\/photos\/([A-Za-z0-9_-]{1,512})(?:\/(thumbnail|original))?$/);
+        if (photo) {
+          if (method === "GET") return response(await core.photo(uid, photo[1], photo[2] || "thumbnail", { signal }));
+          if (method === "POST" && !photo[2] && body?.action === "delete" && Object.keys(body).length === 1) return response(await core.deletePhoto(uid, photo[1], { signal }));
+          throw Error("invalid_request");
+        }
         // Authenticate a durable reader before admission or a draft mutation.
         // A retry after data_auth_required cannot duplicate an admitted turn.
         if (route === "/turns" && method === "POST" || route.startsWith("/days/") || route.startsWith("/drafts/") || route === "/notes") await sessions.getToken(uid, signal);

@@ -2,6 +2,8 @@
 No caller paths, remote URLs, model keys or arbitrary filesystem operations.
 """
 import base64
+import hashlib
+import io
 import os
 from pathlib import Path
 import re
@@ -129,6 +131,60 @@ class ProfilePhotos:
             for path in created:
                 path.unlink(missing_ok=True)
             raise
+
+    def _reference(self, reference):
+        if not isinstance(reference, str) or len(reference) > 512 or not re.fullmatch(r"[A-Za-z0-9_-]+", reference):
+            raise RuntimeError("invalid_image")
+        try:
+            relative = base64.urlsafe_b64decode(reference + "=" * (-len(reference) % 4)).decode("ascii")
+        except (ValueError, UnicodeError):
+            raise RuntimeError("invalid_image") from None
+        if base64.urlsafe_b64encode(relative.encode()).decode().rstrip("=") != reference or not re.fullmatch(r"[a-f0-9]{64}/[A-Za-z0-9_.-]{1,160}\.(png|jpe?g|webp|gif)", relative):
+            raise RuntimeError("invalid_image")
+        path = self.retained / relative
+        if path.resolve() != path:
+            raise RuntimeError("media_unavailable")
+        if path.parent.exists():
+            _dir(path.parent)
+        return path
+
+    def read(self, reference, variant="thumbnail"):
+        if variant not in {"thumbnail", "original"}:
+            raise RuntimeError("invalid_image")
+        path = self._reference(reference)
+        try:
+            data = _read(path, maximum=16 * 1024 * 1024)
+        except FileNotFoundError:
+            raise RuntimeError("media_missing") from None
+        mime = _image(data)
+        if not mime or hashlib.sha256(data).hexdigest() != path.parent.name:
+            raise RuntimeError("media_unavailable")
+        if variant == "thumbnail":
+            from PIL import Image, ImageOps
+            try:
+                with Image.open(io.BytesIO(data)) as image:
+                    if image.width * image.height > 25_000_000:
+                        raise ValueError()
+                    image = ImageOps.exif_transpose(image)
+                    image.thumbnail((360, 360))
+                    image = image.convert("RGB")
+                    output = io.BytesIO()
+                    image.save(output, format="WEBP", quality=78)
+                    data, mime = output.getvalue(), "image/webp"
+            except Exception:
+                raise RuntimeError("media_unavailable") from None
+        return {"type": mime, "data": base64.b64encode(data).decode("ascii")}
+
+    def delete(self, reference):
+        path = self._reference(reference)
+        if not path.exists():
+            return {"deleted": True}
+        data = _read(path, maximum=16 * 1024 * 1024)
+        if not _image(data) or hashlib.sha256(data).hexdigest() != path.parent.name:
+            raise RuntimeError("media_unavailable")
+        path.unlink()
+        _sync(path.parent)
+        return {"deleted": True}
 
     def clear(self, input_id):
         if not isinstance(input_id, str) or not re.fullmatch(r"[A-Za-z0-9-]{16,80}", input_id):

@@ -26,6 +26,7 @@ import {
 } from "../services/planAllocation";
 import PlanAllocationFields from "./PlanAllocationFields";
 import DecimalInput from "./DecimalInput";
+import TrainerPhoto from "./TrainerPhoto";
 import "./VoiceInputModal.css";
 import "./TrainerChat.css";
 const names = { 1: "Сніданок", 2: "Обід", 3: "Вечеря", 4: "Перекус" };
@@ -922,6 +923,7 @@ export default function TrainerChat({
               >
                 <span>{m.role === "user" ? "Ви" : "Тренер"}</span>
                 <p>{m.content}</p>
+                {(m.photos || []).map((photo, index) => <TrainerPhoto key={`${ownerKey}:${photo.ref}`} api={api} reference={photo.ref} number={index + 1} />)}
               </div>
             ))}
           </div>
