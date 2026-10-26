@@ -247,15 +247,15 @@ test("timed-out memory commit holds queue until unavailable owner is physically 
 });
 
 
-test("exhausted physical budget can use only the trusted local draft acknowledgement", async t => {
+for (const used of [3, 12]) test(`trusted ready draft completes locally after ${used} physical POSTs`, async t => {
  let f, localCalls=0, verifies=0; const inputId=randomUUID();
  f=fixture(t,{ beforeNative: async uid => {
-   for(let n=0;n<12;n++)f.outbox.reservePost(uid,inputId,{kind:n===0?"oauth_refresh":"inference",model:"synthetic",originHash:"a".repeat(64)});
+   for(let n=0;n<used;n++)f.outbox.reservePost(uid,inputId,{kind:n===0?"oauth_refresh":"inference",model:"synthetic",originHash:"a".repeat(64)});
  }, prepare: async () => ({apiText:"fresh",tools:async()=>({}),verify:async()=>{verifies++;},
    completeDraft:async(payload,connection)=>{localCalls++;assert.equal(connection.model,"synthetic");return {completion:{model:connection.model}};}}) });
  assert.equal((await f.core.submit("owner",inputId,{text:"validated food"})).state,"completed");
  assert.equal(localCalls,1);assert.equal(verifies,2);assert.equal(f.modelCalls.length,0);
- assert.deepEqual(f.outbox.postBudget("owner",inputId),{used:12,remaining:0});
+ assert.deepEqual(f.outbox.postBudget("owner",inputId),{used,remaining:12-used});
 });
 
 test("budget exhaustion alone does not invent a successful food draft", async t => {

@@ -50,10 +50,9 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
           callbackBinding(uid, record, options.nativeBinding);
           return (async () => {
             await active.verify?.();
-            // Once the real physical budget is exhausted, only a validated
-            // ready-draft acknowledgement may complete without another POST.
-            const local = outbox.postBudget(uid, active.inputId).remaining === 0
-              ? await active.completeDraft?.(payload, record.connection) : undefined;
+            // A validated ready draft is already the result. Its trusted local
+            // acknowledgement must not depend on exhausting the model budget.
+            const local = await active.completeDraft?.(payload, record.connection);
             const result = local ?? await active.invoke(payload, { ...options, signal: AbortSignal.any([options.signal, active.signal].filter(Boolean)) });
             await active.verify?.();
             return result;
