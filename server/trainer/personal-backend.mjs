@@ -124,10 +124,21 @@ export function createPersonalBackend({ uid, core, tools, store, releaseTools = 
       if (value.state === "queued" && !value.admissionId && execution.get(turn.id)?.settled !== false) return { state: "not_executed" };
       return value.state === "completed" ? { state: "completed", result: answer(value) } : { state: value.state };
     },
-    async stop(turn) { if (turn.owner !== uid) throw Error("profile_mismatch"); await execution.get(turn.id)?.done; return { stopped: true }; },
+    async stop(turn, { explicit = false, signal } = {}) {
+      if (turn.owner !== uid) throw Error("profile_mismatch");
+      await execution.get(turn.id)?.done;
+      if (explicit) return core.cancelInput(uid, turn.id, { signal });
+      return { stopped: true };
+    },
     async cleanup(turn) {
       if (turn.owner !== uid) throw Error("profile_mismatch");
       if (execution.get(turn.id)?.settled === false) return { cleaned: false };
+      if (turn.state === "cancelled") {
+        let row;
+        try { row = core.input(uid, turn.id); }
+        catch { return { cleaned: false }; }
+        if (row && ["dispatching", "admitted", "unknown"].includes(row.state)) return { cleaned: false };
+      }
       releaseTools(turn.id); transports.delete(turn.id); execution.delete(turn.id);
       // Canonical Native sessions/DB/media are never deleted as per-turn cleanup.
       return { cleaned: true };

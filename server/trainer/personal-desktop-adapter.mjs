@@ -106,7 +106,13 @@ export function createPersonalDesktopAdapter({ uid, channel, profileId, account,
     },
     async cancel(admissionId) {
       check();
-      const view = account.store.conversation(uid), current = account.store.current(uid, view.conversationId);
+      const view = account.store.conversation(uid);
+      let current = account.store.current(uid, view.conversationId);
+      if (admissionId && !current) {
+        const input = core.inputForAdmission?.(uid, admissionId), historical = input && ownedTurn(input.inputId);
+        if (!historical || historical.state !== "cancelled" || historical.run_id !== admissionId) throw Error("not_found");
+        current = { turnId: historical.id };
+      }
       if (!current) return { interrupted: false };
       const row = ownedTurn(current.turnId);
       if (admissionId && row?.run_id !== admissionId) throw Error("not_found");

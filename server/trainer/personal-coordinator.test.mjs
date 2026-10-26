@@ -15,7 +15,7 @@ function fixture(t, { beforeNative = async () => {}, beforeOwnerStart = async ()
   const profiles = personalProfiles({ version: 1, fundingOwner: "owner", profiles: ["owner", "wife"].map(uid => ({ uid, profileId: "p-" + uid, home: "/synthetic/" + uid, socket: "/synthetic/run-" + uid + "/native.sock", canonicalTitle: "Bot Chat" })) });
   const key = randomBytes(32), raw = openPersonalStore(join(dir, "outbox.sqlite"), { profiles, key });
   const outbox = { ...raw, unknown(...args) { if (unknownFailure) throw Error("synthetic-db-fault"); return raw.unknown(...args); } };
-  const messages = new Map(), receipts = new Map(), owners = [], modelCalls = [], prepared = [];
+  const messages = new Map(), receipts = new Map(), owners = [], modelCalls = [], prepared = [], rpcCalls = [];
   let active, epoch = 1, revision = 0, nativeCalls = 0, tip = 1, failStatus = false;
   const payer = { async start() { await startGate; return { provider: "openai-codex", model: "synthetic", contextWindow: 128000, supportsTools: true, supportsVision: true }; },
     async withTurn(value, execute) { assert.equal(active, undefined); active = value; try { return await execute(async payload => { modelCalls.push({ uid: active.uid, payload }); outbox.reservePost(active.uid, active.inputId, { kind: "inference", model: "synthetic", originHash: "a".repeat(64) }); return { completion: {} }; }); } finally { active = undefined; } },
@@ -30,6 +30,7 @@ function fixture(t, { beforeNative = async () => {}, beforeOwnerStart = async ()
       const session = "session-" + profile.uid;
       const owner = { identity, closed: false, async start() { await openGate; await beforeOwnerStart(profile.uid, ordinal); return identity; }, async bot() { await beforeBot(profile.uid, ordinal); if (botFailure && owners.length === 1) throw Error("execution_unknown"); return { session_id: session + "-" + tip, messages: messages.get(profile.uid) ?? [] }; },
         async rpc(_channel, method, params) {
+          rpcCalls.push({method,params});
           if (method === "prompt.submit") {
             nativeCalls++; await beforeNative(profile.uid);
             const receipt = { ref: { profile_id: profile.home, session_id: params.session_id }, admission_id: "native-" + params.submission_id, sequence: nativeCalls, authority_epoch: epoch, execution_generation: 1, status: "terminal", outcome: "completed", result: { final_response: "answer:" + profile.uid } };
@@ -40,6 +41,13 @@ function fixture(t, { beforeNative = async () => {}, beforeOwnerStart = async ()
             return staleAck ? { ...receipt, status: "queued", execution_generation: null, result: undefined } : receipt;
           }
           if (method === "prompt.receipt") { if (failStatus) { failStatus = false; throw Error("execution_unknown"); } return receipts.get(params.admission_id); }
+          if (method === "session.resume") return { session_id: params.session_id, pending: [...receipts.values()].filter(r => r.ref.profile_id === profile.home && r.ref.session_id === params.session_id && r.status !== "terminal") };
+          if (method === "session.interrupt") return { running: true };
+          if (method === "prompt.resolve_unknown") {
+            const row = receipts.get(params.admission_id);
+            assert.equal(row.status, "unknown"); assert.equal(params.execution_generation, row.execution_generation);
+            Object.assign(row, { status: "terminal", outcome: "interrupted" }); return row;
+          }
           throw Error("invalid_request");
         },
         async lookup(_channel, binding) { return lookupMiss ? null : receipts.get("native-" + binding.inputId) ?? null; },
@@ -50,7 +58,7 @@ function fixture(t, { beforeNative = async () => {}, beforeOwnerStart = async ()
     },
   });
   t.after(async () => { await core.close(); outbox.close(); key.fill(0); rmSync(dir, { recursive: true, force: true }); });
-  return { core, outbox, owners, prepared, modelCalls, get nativeCalls() { return nativeCalls; }, advanceTip() { tip++; }, change() { revision++; }, failStatus() { failStatus = true; }, nextEpoch() { epoch++; for (const owner of owners) owner.identity.authorityEpoch = epoch; } };
+  return { core, outbox, owners, prepared, modelCalls, receipts, rpcCalls, get nativeCalls() { return nativeCalls; }, advanceTip() { tip++; }, change() { revision++; }, failStatus() { failStatus = true; }, nextEpoch() { epoch++; for (const owner of owners) owner.identity.authorityEpoch = epoch; } };
 }
 
 test("web and Desktop share native history; another verified UID has isolated tools and model context", async t => {
@@ -256,6 +264,64 @@ for (const used of [3, 12]) test(`trusted ready draft completes locally after ${
  assert.equal((await f.core.submit("owner",inputId,{text:"validated food"})).state,"completed");
  assert.equal(localCalls,1);assert.equal(verifies,2);assert.equal(f.modelCalls.length,0);
  assert.deepEqual(f.outbox.postBudget("owner",inputId),{used,remaining:12-used});
+});
+
+test("explicit cancellation resolves its own unknown Native receipt without a model call or resubmit", async t => {
+ const f=fixture(t,{loseAckBeforeModel:true}),id=randomUUID();
+ await assert.rejects(f.core.submit('owner',id,{text:'synthetic interrupted input'}),/execution_unknown/);
+ const before=f.nativeCalls;
+ await assert.rejects(f.core.cancelInput('wife',id),/not_found/);
+ assert.equal(f.nativeCalls,before);
+ assert.deepEqual(await f.core.cancelInput('owner',id),{stopped:true});
+ assert.equal(f.outbox.read('owner',id).state,'cancelled');
+ assert.equal(f.modelCalls.length,0);assert.equal(f.nativeCalls,before);
+ await f.core.cancelInput('owner',id);assert.equal(f.nativeCalls,before);
+});
+
+test("pre-dispatch cancellation does not wait behind another profile or start an owner", async t => {
+ const queue=personalQueue(),f=fixture(t,{queue}),id=randomUUID();let release;
+ const held=queue.run('wife',()=>new Promise(resolve=>{release=resolve;}));
+ await sleep(1);
+ try {
+  f.core.enqueue('owner',id,{text:'synthetic pending input'});
+  const result=await Promise.race([f.core.cancelInput('owner',id),sleep(100).then(()=>{throw Error('queued_cancel_waited');})]);
+  assert.equal(result.stopped,true);assert.equal(f.owners.length,0);assert.equal(f.modelCalls.length,0);
+  assert.equal(f.outbox.budget().turns,0);
+ } finally {release();await held;}
+});
+
+test('latched Native interrupt holds the queue through physical exit and cold recovery of the same admission',async t=>{
+ let f,enter,release;const entered=new Promise(resolve=>{enter=resolve;}),gate=new Promise(resolve=>{release=resolve;}),queue=personalQueue();
+ f=fixture(t,{queue,loseAckBeforeModel:true,beforeOwnerClose:async(_uid,ordinal)=>{if(ordinal===1){enter();await gate;}},beforeOwnerStart:async(_uid,ordinal)=>{
+  if(ordinal===2){f.nextEpoch();for(const row of f.receipts.values())if(row.status==='started')row.status='unknown';}
+ }});
+ const id=randomUUID();await assert.rejects(f.core.submit('owner',id,{text:'synthetic'}),/execution_unknown/);await f.core.history('owner');
+ f.receipts.get('native-'+id).status='started';
+ const cancelling=f.core.cancelInput('owner',id);let secondStarted=false,second;
+ try {
+  await Promise.race([entered,sleep(500).then(()=>{throw Error('physical_exit_not_requested');})]);
+  second=queue.run('wife',()=>{secondStarted=true;});await sleep(5);assert.equal(secondStarted,false);assert.equal(f.owners.length,2);
+ } finally {release();}
+ await cancelling;await second;
+ assert.equal(secondStarted,true);assert.equal(f.owners.length,3);assert.equal(f.outbox.read('owner',id).state,'cancelled');
+ assert.equal(f.nativeCalls,1);assert.equal(f.modelCalls.length,0);
+ assert.deepEqual(f.rpcCalls.find(c=>c.method==='prompt.resolve_unknown').params,{session_id:'session-owner-1',admission_id:'native-'+id,execution_generation:1});
+});
+
+test("abort while cancelling still holds the queue until physical exit without starting another owner", async t => {
+ let f,enter,release;const entered=new Promise(resolve=>{enter=resolve;}),gate=new Promise(resolve=>{release=resolve;}),queue=personalQueue();
+ f=fixture(t,{queue,loseAckBeforeModel:true,beforeOwnerClose:async(_uid,ordinal)=>{if(ordinal===1){enter();await gate;}}});
+ const id=randomUUID();await assert.rejects(f.core.submit('owner',id,{text:'synthetic'}),/execution_unknown/);await f.core.history('owner');
+ f.receipts.get('native-'+id).status='started';
+ const controller=new AbortController(),cancelling=f.core.cancelInput('owner',id,{signal:controller.signal}).catch(error=>error);let nextStarted=false,next;
+ try {
+  await Promise.race([entered,sleep(500).then(()=>{throw Error('physical_exit_not_requested');})]);controller.abort();
+  next=queue.run('wife',()=>{nextStarted=true;});await sleep(5);
+  assert.equal(nextStarted,false);assert.equal(f.owners.length,2);
+ } finally {release();}
+ assert.ok((await cancelling) instanceof Error);await next;
+ assert.equal(f.owners.length,2);assert.equal(f.nativeCalls,1);assert.equal(f.modelCalls.length,0);
+ assert.equal(f.rpcCalls.some(c=>c.method==='prompt.resolve_unknown'),false);
 });
 
 test("budget exhaustion alone does not invent a successful food draft", async t => {

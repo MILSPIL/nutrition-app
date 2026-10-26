@@ -4,6 +4,7 @@ import { personalQueue } from "./personal-queue.mjs";
 import { abortable } from "./deadline.mjs";
 import { TOOLS, requireId, stableJSON } from "./limits.mjs";
 import { PERSONAL_LIMITS } from "./personal-limits.mjs";
+import { cancelNativeInput } from "./native-cancel.mjs";
 
 const uncertain = () => Error("execution_unknown");
 const signature = value => stableJSON([value.provider, value.model, value.contextWindow, value.supportsVision]);
@@ -211,6 +212,40 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
         if (!native) return row; // Miss never permits resubmission.
         return { ...receipt(uid, inputId, record, native), nativeReceipt: native, result: native.result ?? null };
       } catch (error) { await retire(uid, record); throw error; }
+    },
+    inputForAdmission(uid, admissionId) {
+      profiles.resolve(uid);
+      return outbox.byAdmission(uid, admissionId);
+    },
+    async cancelInput(uid, inputId, { signal } = {}) {
+      profiles.resolve(uid);
+      const initial = outbox.read(uid, inputId);
+      // Withdrawal before dispatch needs no Native owner or place in its queue.
+      if ((initial.state === "queued" && !initial.admissionId) || ["completed", "failed", "cancelled"].includes(initial.state)) return Promise.resolve({ stopped: true });
+      return queue.run(uid, async signal => {
+        const row = outbox.read(uid, inputId);
+        if (row.state === "queued" && !row.admissionId) return { stopped: true };
+        if (["completed", "failed", "cancelled"].includes(row.state)) return { stopped: true };
+        let record = await ownerFor(uid);
+        try {
+          const cancel = () => cancelNativeInput({ owner: record.owner,
+            binding: { ...outbox.binding(uid, inputId), admissionId: outbox.read(uid, inputId).admissionId }, signal,
+            accept: value => receipt(uid, inputId, record, value) });
+          try { await cancel(); }
+          catch (error) {
+            if (!error.needsNativeRestart || signal.aborted) throw error;
+            // Interrupt is only a latched request. Hold the global queue until
+            // the old process exits, then resolve that same birth admission.
+            await retire(uid, record);
+            if (signal.aborted) throw error;
+            record = await ownerFor(uid);
+            await cancel();
+          }
+          return { stopped: true };
+        } catch (error) {
+          await retire(uid, record); throw error;
+        }
+      }, { signal });
     },
     // Native history includes messages from BOTH channels; the app turn store
     // is never used as an independent editable assistant conversation.

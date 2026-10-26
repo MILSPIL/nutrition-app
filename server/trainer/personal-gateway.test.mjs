@@ -38,6 +38,7 @@ function fixture(t, { context = "synthetic", nativeState = "completed", drain, s
       } }), { signal }); },
     async history() { return { session_id: sessionId, messages: starts ? [{ role: "user", content: [...inputs.values()].at(-1).text }, { role: "assistant", content: "Відповідь тренера" }] : [] }; },
     input() { return { state: starts ? "admitted" : "queued", generation: starts ? 1 : null }; },
+    async cancelInput() { return { stopped: true }; },
   };
   let firstStage = true;
   const backend = createPersonalBackend({ uid: "owner", core, stageAttachments: async () => { if (stageError && firstStage) { firstStage = false; throw Error(stageError); } return []; }, tools: { read_confirmed_day: async (_args, ctx) => {
@@ -52,7 +53,7 @@ function fixture(t, { context = "synthetic", nativeState = "completed", drain, s
     readContext: async () => memory ? memory.value : ({ text: context, revision: 1 }), readDay: async (_uid, targetDate) => ({ targetDate, revision, meals: {}, notes: [] }), readPlan: async () => ({ planContext: {} }),
   });
   t.after(async () => { await g.close(); await queue.close(); store.close(); rmSync(dir, { recursive: true, force: true }); });
-  return { g, store, queue, snapshots, get starts() { return starts; }, get verifies() { return verifies; }, change() { revision++; clock += 10000; },
+  return { g, store, core, queue, snapshots, get starts() { return starts; }, get verifies() { return verifies; }, change() { revision++; clock += 10000; },
     async settle(id) { for (let n = 0; n < 100; n++) { const row = store.get("owner", id); if (!["running", "queued"].includes(row.state)) return row; await sleep(2); } throw Error("fixture_timeout"); } };
 }
 const body = () => ({ turnId: randomUUID(), baseRevision: 0, text: "Вчора з’їв яблуко", dateContext: { mode: "default" } });
@@ -90,6 +91,17 @@ test("queued cancel does not invoke Native and does not delete canonical history
 test("known failed Native receipt is failed rather than unknown", async t => {
   const f = fixture(t, { nativeState: "failed" }), input = body();
   await f.g.handle("owner", "/turns", "POST", input); assert.equal((await f.settle(input.turnId)).state, "failed");
+});
+
+test('failed explicit cancellation retains lost-ACK cleanup until Native proof, including no admission ID',async t=>{
+ const f=fixture(t,{nativeState:'unknown'}),input=body();
+ await f.g.handle('owner','/turns','POST',input);assert.equal((await f.settle(input.turnId)).state,'unknown');
+ let nativeState='unknown';f.core.input=()=>({state:nativeState,admissionId:null});
+ f.core.cancelInput=async()=>{if(nativeState==='unknown')throw Error('execution_unknown');return{stopped:true};};
+ await assert.rejects(f.g.handle('owner',`/turns/${input.turnId}/cancel`,'POST',{}),/execution_unknown/);
+ await f.g.handle('owner','/state','GET');assert.equal(f.store.cleanupJobs().length,1);
+ nativeState='cancelled';const result=await(await f.g.handle('owner',`/turns/${input.turnId}/cancel`,'POST',{})).json();
+ assert.equal(result.cleanupPending,false);assert.equal(result.state,'cancelled');assert.equal(f.store.cleanupJobs().length,0);
 });
 
 

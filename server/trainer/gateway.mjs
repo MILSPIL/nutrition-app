@@ -401,11 +401,12 @@ export function createTrainerGateway({
           const value = store.cancel(uid, turnId);
           proxy.cancel(turnId);
           controllers.get(turnId)?.abort();
-          const stopped = await boundedOperation(() =>
-            backend.stop(store.internal(turnId)),
-          ).catch(() => null);
+          const stopped = await boundedOperation(signal =>
+            backend.stop(store.internal(turnId), { explicit: true, signal }),
+          );
+          if (stopped?.stopped !== true) fail("execution_unknown", 409);
           if (stopped?.stopped === true) await cleanup();
-          return reply(value);
+          return reply(value.expired ? value : store.get(uid, turnId));
         }
         if (method === "POST" && match[2] === "/recover") {
           const turn = store.internal(turnId);

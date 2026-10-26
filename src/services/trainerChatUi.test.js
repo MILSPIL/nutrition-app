@@ -528,6 +528,25 @@ test("an old unknown cancellation cannot copy its text into another owner", asyn
   expect(api.send).not.toHaveBeenCalled();
 });
 
+test('returning a cancelled message retries its unconfirmed Native cleanup before restoring text',async()=>{
+ server.latestTurn={turnId:'synthetic-cancel-pending',state:'cancelled',cleanupPending:true,text:'Незавершений текст'};
+ await render();await click('Повернути текст для уточнення');
+ expect(api.cancel).toHaveBeenCalledWith('synthetic-cancel-pending',expect.anything());
+ expect(host.querySelector('textarea').value).toBe('Незавершений текст');expect(api.send).not.toHaveBeenCalled();
+});
+
+test('cancelled cleanup still blocks sending and exposes an explicit stop control',async()=>{
+ server.currentTurn={turnId:'synthetic-stopping',state:'cancelled',cleanupPending:true,text:'Попереднє повідомлення'};
+ server.composer.text='Нове повідомлення';
+ await render();
+ expect(host.querySelector('[aria-label="Надіслати повідомлення"]').disabled).toBe(true);
+ expect(host.querySelector('[aria-label="Почати запис"]').disabled).toBe(true);
+ expect(host.textContent).toContain('Завершую попередню обробку');
+ await click('Скасувати обробку');
+ expect(api.cancel).toHaveBeenCalledWith('synthetic-stopping',expect.anything());
+ expect(api.send).not.toHaveBeenCalled();
+});
+
 test("closing a voice preview releases its local object URL", async () => {
   await render(); await click("Почати запис");
   await act(async () => callbacks.onStop(new Blob(["synthetic"]), 2));

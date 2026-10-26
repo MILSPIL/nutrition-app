@@ -42,7 +42,7 @@ function fixture(t, { blockedAdmission = false, failedPreparation = false } = {}
     sessions: { async getToken(uid) { authenticated.push(uid); } }, admissions,
     detach: async () => { detached++; } });
   const one = create("desktop:first"); t.after(() => one.close());
-  return { one, create, rows, transports, admissions, posted, cancelled, authenticated, release,
+  return { one, create, core, rows, transports, admissions, posted, cancelled, authenticated, release, clearCurrent(){current=null;},
     get detached() { return detached; }, get receiptReads() { return receiptReads; } };
 }
 
@@ -94,4 +94,16 @@ test("pre-admission failure releases its unused transport; foreign rows and stal
   await assert.rejects(f.one.cancel("foreign-admission"), /not_found/);
   assert.deepEqual(await f.one.cancel("native-" + valid), { interrupted: true });
   assert.equal(f.cancelled.length, 1);
+});
+
+test('historical cancellation is bound to an own cancelled app turn and refuses a wrong current ID',async t=>{
+ const f=fixture(t),id=randomUUID();await f.one.submit({inputId:id,sessionId:'own-session',text:'synthetic',images:[]});
+ const row=f.rows.get(id);row.state='cancelled';
+ f.core.inputForAdmission=(uid,admission)=>{assert.equal(uid,'owner');return admission===row.run_id?{inputId:id}:undefined;};
+ f.clearCurrent();assert.deepEqual(await f.one.cancel(row.run_id),{interrupted:true});
+ assert.deepEqual(await f.one.cancel(row.run_id),{interrupted:true});
+ await assert.rejects(f.one.cancel('foreign-admission'),/not_found/);
+ row.state='completed';await assert.rejects(f.one.cancel(row.run_id),/not_found/);
+ row.state='cancelled';const next=randomUUID();await f.one.submit({inputId:next,sessionId:'own-session',text:'new synthetic',images:[]});
+ await assert.rejects(f.one.cancel(row.run_id),/not_found/);
 });

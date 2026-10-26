@@ -41,7 +41,7 @@ const initial = {
   admission: null,
 };
 const activeTurn = (t) =>
-  t && ["queued", "running", "unknown", "cleanup_pending"].includes(t.state);
+  t && (t.cleanupPending || ["queued", "running", "unknown", "cleanup_pending"].includes(t.state));
 const statuses = {
   queued: "Повідомлення отримано",
   running: "Тренер розбирає повідомлення",
@@ -821,7 +821,7 @@ export default function TrainerChat({
     const generation = epoch.current, own = session.current;
     if (!turn?.text || !current(generation) || sendLock.current) return;
     try {
-      if (activeTurn(turn)) await own.cancel(turn.turnId);
+      if (activeTurn(turn) || turn.cleanupPending) await own.cancel(turn.turnId);
       if (!current(generation) || session.current !== own) return;
       const existing = own.get().text;
       const restored = restoredTrainerText(turn);
@@ -1156,7 +1156,7 @@ export default function TrainerChat({
         <footer className="trainer-composer">
           {activeTurn(turn) && (
             <div className="trainer-turn" role="status">
-              <p>{turn.state === "unknown" ? feedback || "Завершення ще не підтверджене." : statuses[turn.state]}</p>
+              <p>{turn.state === "unknown" ? feedback || "Завершення ще не підтверджене." : turn.cleanupPending ? "Завершую попередню обробку" : statuses[turn.state]}</p>
               {turn.state === "unknown" && (
                 <button
                   onClick={() =>

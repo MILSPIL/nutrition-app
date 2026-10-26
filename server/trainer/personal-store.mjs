@@ -114,6 +114,12 @@ export function openPersonalStore(file, { profiles, key, now = Date.now } = {}) 
         });
       },
       read(uid, inputId) { return view(owned(uid, inputId)); },
+      byAdmission(uid, admissionId) {
+        check(); profiles.resolve(uid); if (!nativeId(admissionId)) fail("invalid_request");
+        const rows = db.prepare("SELECT input_id FROM personal_inputs WHERE uid=? AND admission_id=?").all(uid, admissionId);
+        if (rows.length > 1) fail("native_receipt_invalid", 502);
+        return rows[0] ? view(owned(uid, rows[0].input_id)) : undefined;
+      },
       // Correlation proof supplied only to the trusted native adapter. It is
       // an app HMAC, NOT Hermes' independently computed native payload_digest.
       binding(uid, inputId) {

@@ -25,6 +25,29 @@ const make = t => {
 };
 const baseAdmission = { sessionId: "session-owner", admissionId: "admission-1", generation: 1, nativeMessageId: null };
 
+test("admission lookup isolates accounts and keeps terminal receipts readable", t => {
+  const h = make(t); enqueue(h, "owner", inputId, { text: "private input" }); h.store.dispatch("owner", inputId);
+  const receipt = { ...baseAdmission, ...h.store.binding("owner", inputId) };
+  h.store.admitted("owner", inputId, receipt);
+  assert.equal(h.store.byAdmission("wife", receipt.admissionId), undefined);
+  assert.equal(h.store.byAdmission("owner", receipt.admissionId).inputId, inputId);
+  h.store.settle("owner", inputId, { ...receipt, state: "cancelled", resultRevision: "revision-1" });
+  h.reopen();
+  assert.equal(h.store.byAdmission("owner", receipt.admissionId).state, "cancelled");
+  assert.equal(h.store.byAdmission("wife", receipt.admissionId), undefined);
+});
+
+test("same admission identifier across birth sessions is ambiguous without changing either input", t => {
+  const h = make(t);
+  for (const [id, sessionId] of [[inputId, "birth-1"], [secondId, "birth-2"]]) {
+    enqueue(h, "owner", id, { text: id }, { sessionId }); h.store.dispatch("owner", id);
+    h.store.admitted("owner", id, { ...baseAdmission, ...h.store.binding("owner", id) });
+  }
+  assert.throws(() => h.store.byAdmission("owner", baseAdmission.admissionId), /native_receipt_invalid/);
+  assert.equal(h.store.read("owner", inputId).state, "admitted");
+  assert.equal(h.store.read("owner", secondId).state, "admitted");
+});
+
 test("same input is exactly once across retry/channel; another account has no access or fallback", t => {
   const h = make(t), payload = { text: "Приватний раціон власника" };
   assert.equal(enqueue(h, "owner", inputId, payload).replayed, false);
