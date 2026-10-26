@@ -97,7 +97,7 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
   async function execute(slot, context) {
     if (!slots.delete(slot) || closed) throw Error("turn_conflict");
     const { uid, inputId, signal, deadline } = slot;
-    let record, dispatched = false, stopping;
+    let record, dispatched = false, stopping, staged = false;
     const abort = () => {
       generations.set(uid, (generations.get(uid) ?? 0) + 1);
       const candidate = record ?? owners.get(uid); candidate?.owner.abort?.();
@@ -116,7 +116,11 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
       if (context.expectedSessionId && context.expectedSessionId !== sessionId) throw Error("session_changed");
       if (row.sessionId) await record.owner.rpc(channel, "session.resume", { session_id: sessionId }, { signal, timeoutMs: Math.max(1, Math.floor(deadline - now())) });
       const payload = outbox.payload(uid, inputId);
-      const prepared = await context.prepare({ uid, inputId, payload, sentAt: payload.sentAt ?? row.sentAt, signal, deadline, sessionId });
+      const prepared = await context.prepare({ uid, inputId, payload, sentAt: payload.sentAt ?? row.sentAt, signal, deadline, sessionId,
+        stageAttachments: images => {
+          staged = true;
+          return record.owner.stageImages(inputId, images, { signal, timeoutMs: Math.max(1, Math.floor(deadline - now())) });
+        } });
       if (signal.aborted || now() >= deadline) throw Error("trainer_timeout");
       if (!prepared || typeof prepared.apiText !== "string" || Buffer.byteLength(prepared.apiText) > 1024 * 1024 || typeof prepared.tools !== "function") throw Error("model_payload_invalid");
       outbox.startBudget(uid, inputId);
@@ -149,7 +153,15 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
         if (cleanup.some(result => result.status === "rejected")) { closed = true; throw Error("owner_shutdown_incomplete"); }
       }
       throw error;
-    } finally { signal.removeEventListener("abort", abort); await stopping; active = undefined; }
+    } finally {
+      signal.removeEventListener("abort", abort); await stopping;
+      try {
+        if (staged && record && !record.owner.exited) {
+          try { await record.owner.clearStaged(inputId, { timeoutMs: 5000 }); }
+          catch { await retire(uid, record); }
+        }
+      } finally { active = undefined; }
+    }
   }
   async function schedule(uid, inputId, callback, { signal } = {}) {
     if (closed) throw Error("trainer_unavailable");
@@ -197,7 +209,7 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
     // is never used as an independent editable assistant conversation.
     async history(uid, channel = "web") {
       const record = await ownerFor(uid);
-      try { return await record.owner.bot(channel); }
+      try { return { ...await record.owner.bot(channel), profileId: record.identity.profileId }; }
       catch (error) { await retire(uid, record); throw error; }
     },
     state: uid => queue.state(profiles.resolve(uid).uid),

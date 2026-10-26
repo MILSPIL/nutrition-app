@@ -44,3 +44,10 @@ test('context size error is accurate and concrete failure replaces generic recov
  expect(trainerFeedback({clientCode:'history_conflict',turn})).toContain('іншій вкладці');
  expect(trainerFeedback({turn:{state:'completed'}})).toBe('');
 });
+
+
+test("specific native photo failure takes precedence over generic retry text", () => {
+  const result = trainerFeedback({ clientCode: "trainer_unavailable", turn: { state: "failed", error: "media_quota" } });
+  expect(result).toContain("Місце для фото"); expect(result).toContain("цього профілю");
+  expect(trainerError(Error("media_unsupported"))).toContain("Вибрана в Hermes модель не підтримує фото");
+});

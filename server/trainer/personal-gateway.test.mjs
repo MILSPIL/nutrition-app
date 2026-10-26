@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { openTurnStore } from "./turn-store.mjs";
 import { createTrainerGateway } from "./gateway.mjs";
-import { createPersonalBackend } from "./personal-backend.mjs";
+import { createPersonalBackend, nativeMessageProjection } from "./personal-backend.mjs";
 import { personalQueue } from "./personal-queue.mjs";
 import { buildSnapshot } from "./snapshot.mjs";
 
@@ -114,4 +114,16 @@ test("native model callback always uses the Gateway day-proof verifier", async t
   const result = await f.settle(input.turnId);
   assert.equal(result.state, "failed"); assert.equal(result.error, "stale_snapshot");
   assert.equal(f.verifies, 0);
+});
+
+
+test("photo projection keeps literal markers and removes only a paired native suffix", () => {
+  const home = "/synthetic/home", path = home + "/cache/documents/native-inputs/" + "a".repeat(64) + "/scisense_synthetic.png";
+  const project = content => nativeMessageProjection({ session_id: "synthetic", profileId: home, messages: [{ role: "user", content }] })[0];
+  assert.equal(project("[screenshot]").content, "[screenshot]");
+  assert.equal(project("[screenshot detail=low]").content, "[screenshot detail=low]");
+  const own = project("Буквально [screenshot]\n[screenshot]\n\n[Image attached at: " + path + "]\n[screenshot]");
+  assert.equal(own.content, "Буквально [screenshot]\n[screenshot]"); assert.equal(own.photos.length, 1);
+  const foreign = "caption\n[Image attached at: /other/home/image.png]\n[screenshot]";
+  assert.equal(project(foreign).content, foreign); assert.equal(project(foreign).photos, undefined);
 });

@@ -41,8 +41,9 @@ def transport(_transport, request):
     events = [{'type': 'response.output_item.done', 'output_index': 0, 'item': item},
         {'type': 'response.completed', 'response': {'id': 'synthetic-response-' + ident, 'object': 'response', 'model': 'synthetic-model',
             'status': 'completed', 'output': [item], 'usage': {'input_tokens': 10, 'output_tokens': 5, 'total_tokens': 15}}}]
+    image_count = sum(1 for entry in items if isinstance(entry, dict) for part in entry.get('content', []) if isinstance(part, dict) and part.get('type') == 'input_image' and str(part.get('image_url', '')).startswith('data:image/png;base64,'))
     with (root / 'synthetic-physical-posts.jsonl').open('a') as log:
-        log.write(json.dumps({'turnHash': ident, 'toolFinished': finished}) + '\n')
+        log.write(json.dumps({'turnHash': ident, 'toolFinished': finished, 'imageSeen': image_count > 0, 'imageCount': image_count, 'bodyBytes': len(data)}) + '\n')
     return httpx.Response(200, headers={'Content-Type': 'text/event-stream'}, content=b''.join(b'data: ' + json.dumps(event).encode() + b'\n\n' for event in events))
 
 

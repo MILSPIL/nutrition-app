@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "sourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+  "sourceManifest": {
+    "scope": "all tracked Python source plus pinned importable suffixes, excluding installed dependencies",
+    "verifiedFiles": 9975,
+    "verifiedOtherSuffixes": 2,
+    "sha256": "a1e875821d26e706a10fde8f10d52c41f4083db91082a02a0d3bff62b7df9cc4"
+  },
+  "syntheticOnly": true,
+  "testExit": 0,
+  "nativeIpc": {
+    "passed": true,
+    "checks": 21,
+    "nativeCodexProducer": true,
+    "nativeTools": 4,
+    "canonicalHistoryBothChannels": true,
+    "realAppGateway": true,
+    "cleanDisplayTextWithoutApiContext": true,
+    "photoReachedNativeCodex": true,
+    "ephemeralPhotoCleared": true,
+    "exactPhotoTranscriptAfterRestart": true,
+    "nearLimitThreePhotoReplay": true,
+    "isolatedSecondProfile": true,
+    "exactMessagesAfterPhysicalRestart": true,
+    "sameReceiptBirthEpochAfterRestart": true,
+    "physicalPostReservations": 8,
+    "realModelRequests": 0,
+    "physicalProcessesWithOSCanaries": 7
+  },
+  "nativePythonTests": 29,
+  "mediaPythonTests": 7,
+  "nodeTests": 53,
+  "reactTests": 26,
+  "internalEnvelopeBytes": 50331648,
+  "newPhotoLimitBytes": 5242880,
+  "perProfilePhotoQuotaBytes": 268435456,
+  "review": {
+    "agent": "personal_contract_review",
+    "findings": {
+      "P1": 1,
+      "P2": 4
+    },
+    "resolved": 5,
+    "openP1P2": 0,
+    "verdict": "PASS"
+  },
+  "pending": [
+    "Linux tmpfs and kill/namespace cleanup with TTL<=300s",
+    "Linux aggregate2CPU/2GiB/swap0 near-limit peak and cross-profile canaries",
+    "authenticated historical photo GET/viewer/delete UI",
+    "personal runtime and private migration",
+    "real provider login/live/owner acceptance"
+  ],
+  "realModelRequests": 0,
+  "productionChanged": false
+}

@@ -14,6 +14,8 @@ export function createPersonalProcess({ connection, toolSchemas, onModel, onTool
     bot: (channel, options) => process.call("bot", { channel }, options),
     rpc: (channel, method, params, options) => process.call("rpc", { channel, method, params }, options),
     lookup: (channel, binding, options) => process.call("lookup", { channel, sessionId: binding.sessionId, inputId: binding.inputId, inputProof: binding.payloadHmac }, options),
+    stageImages: (inputId, images, options) => process.call("stageImages", { inputId, images }, options),
+    clearStaged: (inputId, options) => process.call("clearStaged", { inputId }, options),
     detach: channel => process.exited ? undefined : process.call("detach", { channel }),
     get exited() { return process.exited; }, abort: process.abort, waitForExit: process.waitForExit, close: process.close,
   });

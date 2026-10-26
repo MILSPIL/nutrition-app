@@ -117,3 +117,20 @@ test("per-callback deadline aborts a listening parent even without native cancel
   await new Promise(resolve => setTimeout(resolve, 20)); assert.equal(signal.aborted, true);
   assert.ok(f.kills.length >= 1); const close = f.owner.close(); f.exit(); await close;
 });
+
+
+for (const code of ["media_quota", "media_unsupported", "media_conflict", "media_unavailable", "invalid_image"]) test(`typed photo failure survives the private process pipe: ${code}`, async () => {
+  const f = fixture({ command: (value, reply) => { if (value.type === "stageImages") reply({ type: "result", id: value.id, error: code }); } });
+  await f.owner.start();
+  await assert.rejects(f.owner.stageImages("synthetic-input-0001", []), error => error.message === code);
+  const closing = f.owner.close(); f.exit(); await closing;
+});
+
+
+test("private process rejects a frame above the bounded 48MiB photo envelope", async () => {
+  const f = fixture(); await f.owner.start();
+  const pending = assert.rejects(f.owner.rpc("web", "session.resume", {}), /execution_unknown/);
+  await new Promise(resolve => setImmediate(resolve));
+  f.child.stdout.write(Buffer.alloc(48 * 1024 * 1024 + 1, 120)); await pending;
+  assert.deepEqual(f.kills, ["SIGKILL"]); const closing = f.owner.close(); f.exit(); await closing;
+});

@@ -5,7 +5,9 @@ import queue
 import threading
 import uuid
 
-MAX_BYTES = 16 * 1024 * 1024
+# Native replay retains 3..5 recent 5MiB photos (including the current turn).
+# Base64 + a <=512KB fresh snapshot fit under this fixed, bounded 48MiB frame.
+MAX_BYTES = 48 * 1024 * 1024
 
 
 class Peer:

@@ -4,6 +4,7 @@ own resolver/SDK; changing its selected model does not move anyone's history.
 """
 import json
 import math
+from hermes_personal_ipc import MAX_BYTES
 from types import SimpleNamespace
 
 IPC_SENTINEL = "scisense-parent-ipc-not-a-provider-credential"
@@ -31,7 +32,7 @@ def _payload(values, selected_model):
         raise BrokerRefusal("model_payload_invalid")
     try:
         encoded = json.dumps(values, ensure_ascii=False, allow_nan=False)
-        if len(encoded.encode()) > 16 * 1024 * 1024:
+        if len(encoded.encode()) > MAX_BYTES:
             raise ValueError()
     except (TypeError, ValueError):
         raise BrokerRefusal("model_payload_invalid") from None

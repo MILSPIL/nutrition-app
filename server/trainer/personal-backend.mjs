@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { posix } from "node:path";
 import { stableJSON, TOOLS } from "./limits.mjs";
 
 const answer = value => {
@@ -15,13 +16,30 @@ export function nativeMessageProjection(snapshot) {
       : Array.isArray(message.content) ? message.content.filter(part => part?.type === "text").map(part => part.text || "").join("\n") : "";
     if (!content.trim()) return [];
     const id = "native-" + createHash("sha256").update(stableJSON([snapshot.session_id, message.id ?? index, message.role, content])).digest("hex");
-    return [{ id, role: message.role, content, native: true }];
+    let photos = [], visible = content;
+    const root = typeof snapshot.profileId === "string" ? posix.join(snapshot.profileId, "cache/documents/native-inputs") + "/" : "";
+    if (message.role === "user" && root) {
+      const candidates = [], hint = /^\[Image attached at: ([^\r\n]+)\]$/gm;
+      for (const match of content.matchAll(hint)) {
+        const relative = match[1].startsWith(root) ? match[1].slice(root.length) : "";
+        if (/^[a-f0-9]{64}\/[A-Za-z0-9_.-]{1,160}\.(png|jpe?g|webp|gif)$/.test(relative)) candidates.push({ line: match[0], ref: Buffer.from(relative).toString("base64url") });
+      }
+      const suffix = content.match(/(?:\n\[screenshot(?: detail=(?:low|high|auto))?\])+$/);
+      // Only paired, own-native image hints + the actual trailing marker block
+      // are machine presentation. A literal user '[screenshot]' stays intact.
+      if (candidates.length && suffix && (suffix[0].match(/\[screenshot/g) || []).length === candidates.length) {
+        visible = content.slice(0, suffix.index);
+        for (const photo of candidates) visible = visible.replace(photo.line, "");
+        visible = visible.replace(/\n+$/, ""); photos = candidates.map(({ ref }) => ({ ref }));
+      }
+    }
+    return [{ id, role: message.role, content: visible, native: true, ...(photos.length ? { photos } : {}) }];
   });
 }
 
 // Per-account adapter. Shared coordinator owns processes/queue; this adapter
 // owns only this account's app leases, drafts and temporary media references.
-export function createPersonalBackend({ uid, core, tools, releaseTools = () => {}, stageAttachments = async (_uid, _id, images) => { if (images?.length) throw Error("media_unavailable"); return []; }, verify = async () => {} }) {
+export function createPersonalBackend({ uid, core, tools, releaseTools = () => {}, stageAttachments, verify = async () => {} }) {
   const execution = new Map(), transports = new Map();
   const backend = {
     canonicalHistory: true,
@@ -44,8 +62,13 @@ export function createPersonalBackend({ uid, core, tools, releaseTools = () => {
       };
       try {
         const value = await args.slot.execute({ channel: transport.channel, expectedSessionId: transport.sessionId,
-          prepare: async ({ signal, sessionId }) => {
-            const attachments = await stageAttachments(uid, args.turn.id, args.images, { sessionId, signal });
+          prepare: async ({ signal, sessionId, stageAttachments: nativeStage }) => {
+            let attachments = [];
+            if (stageAttachments) attachments = await stageAttachments(uid, args.turn.id, args.images, { sessionId, signal });
+            else if (args.images?.length) {
+              if (!nativeStage) throw Error("media_unavailable");
+              attachments = await nativeStage(args.images);
+            }
             const context = { turn: args.turn, input: args.input, snapshot: args.snapshot, signal };
             return { apiText: JSON.stringify({ ...args.snapshot, history: [] }), attachments,
               verify: async () => { try { await args.verifySnapshot?.(); await verify(args.turn, signal); } catch (error) { contextError = error; throw error; } },

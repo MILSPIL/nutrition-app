@@ -39,7 +39,7 @@ def personal_config(connection):
                   "parallel_tool_call_guidance": False, "disabled_toolsets": ["memory", "terminal", "file", "browser", "web", "delegate", "skills", "skill_manage", "cronjob", "session_search"]},
         "memory": {"memory_enabled": False, "user_profile_enabled": False, "nudge_interval": 0},
         "auxiliary": {"background_review": {"enabled": False}, "title_generation": {"enabled": False, "model_upgrade_enabled": False}, "transient_retries": 0},
-        "compression": {"enabled": True},
+        "compression": {"enabled": True}, "vision": {"replay_recent_images": 3},
         "model_overrides": {"scisense-shared": {model: {"supports_vision": connection.get("supportsVision") is True,
             "supports_tools": True, "context_window": window, "max_output_tokens": 4096}}},
         "telemetry": {"shared_metrics": {"enabled": False, "send": False}},
@@ -145,6 +145,7 @@ class PersonalOwner:
             raise RuntimeError("personal_tools_invalid")
         self.tool_schemas, self.on_event = tool_schemas, on_event
         self.runner, self.authority, self.connections = None, None, {}
+        self.photos = None
         self.closed = False
         self._close_task = None
         self._claimed = False
@@ -188,12 +189,22 @@ class PersonalOwner:
             registry.register(name=name, toolset="scisense", schema=self.tool_schemas[name], handler=handler, check_fn=lambda: True)
         create_custom_toolset("scisense", "SciSense", list(_TOOL_NAMES))
         try:
+            from hermes_personal_media import retain_profile_photos, clean_photo_transcripts
+            retain_profile_photos(self.home)
+            clean_photo_transcripts(self)
             self.runner = GatewayRunner(GatewayConfig(platforms={}, multiplex_profiles=False, stt_enabled=False,
                 max_concurrent_sessions=1, loop_watchdog=False))
             await initialize_gateway_runtime(self.runner)
             self.authority = self.runner.session_authority
             if self.authority.profile_id != str(self.home):
                 raise RuntimeError("personal_home_mismatch")
+            from hermes_personal_media import ProfilePhotos
+            from gateway.platforms.base import get_image_cache_dir
+            from gateway.session_ingress_media import native_inputs_store
+            from hermes_dir_acl import make_user_dir
+            retained = native_inputs_store()
+            make_user_dir(retained, mode=0o700, parents=True, exist_ok=True)
+            self.photos = ProfilePhotos(get_image_cache_dir(), retained)
             return {"profileId": self.authority.profile_id, "instanceId": self.authority.instance_id,
                     "authorityEpoch": self.authority.epoch}
         except BaseException:
@@ -214,6 +225,18 @@ class PersonalOwner:
                 "instance_id": self.authority.instance_id, "capabilities": ["session:create", "session:read", "session:submit", "session:control", "session:respond"]}
             self.connections[channel] = (AuthorityConnection(self.authority, transport, identity), transport)
         return self.connections[channel][0]
+
+    def stage_images(self, input_id, images):
+        if self.closed or self.photos is None:
+            raise RuntimeError("trainer_unavailable")
+        if self.connection.get("supportsVision") is not True:
+            raise RuntimeError("media_unsupported")
+        return self.photos.stage(input_id, images)
+
+    def clear_staged(self, input_id):
+        if self.closed or self.photos is None:
+            raise RuntimeError("trainer_unavailable")
+        return self.photos.clear(input_id)
 
     def execution_binding(self):
         # Native ContextVar identifies the actual admitted turn, including aux

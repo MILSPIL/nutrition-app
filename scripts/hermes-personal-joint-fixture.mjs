@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { readFileSync, mkdirSync } from "node:fs";
 import { randomBytes, randomUUID } from "node:crypto";
 import { join, dirname } from "node:path";
+import { deflateSync, crc32 } from "node:zlib";
 import { createPersonalProcess } from "../server/trainer/personal-process.mjs";
 import { createPersonalPayer } from "../server/trainer/personal-payer.mjs";
 import { createPersonalCoordinator } from "../server/trainer/personal-coordinator.mjs";
@@ -15,6 +16,7 @@ import { createTrainerGateway } from "../server/trainer/gateway.mjs";
 import { createPersonalBackend } from "../server/trainer/personal-backend.mjs";
 import { createTrainerTools } from "../server/trainer/tools.mjs";
 import { buildSnapshot } from "../server/trainer/snapshot.mjs";
+import { createMediaStore } from "../server/trainer/media.mjs";
 const setup = JSON.parse(readFileSync(process.argv[2])), root = setup.env.SCISENSE_FIXTURE_ROOT;
 const key = randomBytes(32), homes = ["owner", "wife"].map(uid => join(root, "joint-" + uid));
 for (const home of homes) mkdirSync(home, { mode: 0o700 });
@@ -73,21 +75,51 @@ try {
   const kit = createTrainerTools({ store: appStore, index: {}, ...reader });
   const backend = createPersonalBackend({ uid: "owner", core, releaseTools: kit.release, verify: async () => {},
     tools: { ...kit.tools, read_confirmed_day: async (...args) => { toolCalls++; return kit.tools.read_confirmed_day(...args); } } });
+  const mediaRoot = join(root, "app-media"); mkdirSync(mediaRoot, { mode: 0o700 });
+  const media = createMediaStore(mediaRoot, { hash: appStore.hash });
   app = createTrainerGateway({ ownerUid: "owner", store: appStore, backend, ...reader,
     readContext: async () => ({ text: "SYNTHETIC-CONTEXT", revision: 1 }), queueWindowMs: 225000,
     snapshotFactory: value => buildSnapshot({ ...value, history: [], maxPayloadBytes: 512000 }),
-    media: { describe: () => [], stage() {}, load: () => [], remove() {}, sweep: () => ({ faults: 0 }) }, proxy: { cancel() {}, close() {} },
+    media, proxy: { cancel() {}, close() {} },
   });
-  const request = { turnId: randomUUID(), baseRevision: 0, text: "Покажи день із сайта.", dateContext: { mode: "default" } };
+  // Valid, high-entropy PNGs near the 5MiB contract, not tiny placeholders.
+  const png = () => {
+    const width = 1280, row = width * 3 + 1, pixels = randomBytes(row * width);
+    for (let y = 0; y < width; y++) pixels[y * row] = 0;
+    const chunk = (name, data) => { const type = Buffer.from(name), packet = Buffer.alloc(data.length + 12); packet.writeUInt32BE(data.length); type.copy(packet, 4); data.copy(packet, 8); packet.writeUInt32BE(crc32(Buffer.concat([type, data])), data.length + 8); return packet; };
+    const header = Buffer.alloc(13); header.writeUInt32BE(width); header.writeUInt32BE(width, 4); header[8] = 8; header[9] = 2;
+    return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]), chunk("IHDR", header), chunk("IDAT", deflateSync(pixels, { level: 0 })), chunk("IEND", Buffer.alloc(0))]).toString("base64");
+  };
+  const request = { turnId: randomUUID(), baseRevision: 0, text: "Покажи день із сайта.", dateContext: { mode: "default" }, images: [{ type: "image/png", data: png() }, { type: "image/png", data: png() }] };
   assert.equal((await app.handle("owner", "/turns", "POST", request)).status, 202);
   let projected;
   for (let n = 0; n < 200; n++) { projected = appStore.get("owner", request.turnId); if (!["running", "queued"].includes(projected.state)) break; await new Promise(resolve => setTimeout(resolve, 50)); }
   assert.equal(projected.state, "completed"); checks++;
   const state = await (await app.handle("owner", "/state", "GET")).json();
-  assert.equal(state.canonicalHistory, true); assert.equal(state.messages.at(-2).content, request.text); assert.equal(state.latestTurn.nativeInputClaimed, true); checks++;
+  assert.equal(state.canonicalHistory, true); assert.ok(state.messages.at(-2).content === request.text, "clean user text must exclude API-only context"); assert.equal(state.latestTurn.nativeInputClaimed, true); assert.equal(state.messages.at(-2).photos.length, 2); checks++;
   assert.ok(state.messages.every(message => !message.content.includes("SCISENSE-INPUT-V1") && !message.content.includes("SYNTHETIC-CONTEXT"))); checks++;
   assert.deepEqual(outbox.budget(), { turns: 3, posts: 6 }); assert.equal(toolCalls, 3); checks++;
-  console.log(JSON.stringify({ passed: true, checks, nativeCodexProducer: true, nativeTools: toolCalls, canonicalHistoryBothChannels: true, realAppGateway: true, cleanDisplayTextWithoutApiContext: true,
+  const physical = readFileSync(join(root, "synthetic-physical-posts.jsonl"), "utf8").trim().split("\n").map(line => JSON.parse(line));
+  assert.ok(physical.some(row => row.imageSeen === true)); checks++;
+  assert.deepEqual((await import("node:fs")).readdirSync(join(homes[0], "cache/images")), []); checks++;
+  const keptRoot = join(homes[0], "cache/documents/native-inputs");
+  const kept = (await import("node:fs")).readdirSync(keptRoot, { recursive: true }).filter(name => name.endsWith(".png"));
+  assert.equal(kept.length, 2); for (const name of kept) assert.ok(readFileSync(join(keptRoot, name)).length > 4 * 1024 * 1024); checks++;
+  const beforePhotoRestart = await core.history("owner");
+  await app.close(); app = null; appStore.close(); appStore = null; await core.close(); core = make();
+  const afterPhotoRestart = await core.history("owner", "desktop:photo-reopen");
+  assert.deepEqual(afterPhotoRestart.messages, beforePhotoRestart.messages); checks++;
+  assert.deepEqual(outbox.budget(), { turns: 3, posts: 6 }); checks++;
+  const third = { type: "image/png", data: png() };
+  const replayed = await core.submit("owner", randomUUID(), { text: "Ще одне синтетичне фото після restart." }, { channel: "desktop:photo-reopen", prepare: async ({ stageAttachments }) => ({
+    apiText: "fresh-snapshot. Перевір фото через read_confirmed_day.", attachments: await stageAttachments([third]),
+    tools: async () => { toolCalls++; return { targetDate: "2026-10-26", totals: { cal: 123, p: 10, f: 3, c: 14 } }; },
+  }) });
+  assert.equal(replayed.state, "completed"); checks++;
+  const replayPosts = readFileSync(join(root, "synthetic-physical-posts.jsonl"), "utf8").trim().split("\n").map(line => JSON.parse(line));
+  assert.ok(replayPosts.some(row => row.imageCount >= 3 && row.bodyBytes > 16 * 1024 * 1024)); checks++;
+  assert.deepEqual(outbox.budget(), { turns: 4, posts: 8 }); checks++;
+  console.log(JSON.stringify({ passed: true, checks, nativeCodexProducer: true, nativeTools: toolCalls, canonicalHistoryBothChannels: true, realAppGateway: true, cleanDisplayTextWithoutApiContext: true, photoReachedNativeCodex: true, ephemeralPhotoCleared: true, exactPhotoTranscriptAfterRestart: true, nearLimitThreePhotoReplay: true,
     isolatedSecondProfile: true, exactMessagesAfterPhysicalRestart: true, sameReceiptBirthEpochAfterRestart: true, physicalPostReservations: outbox.budget().posts, realModelRequests: 0 }));
 } catch (error) {
   console.error(JSON.stringify({ syntheticStage: stage, error: error.message })); throw error;

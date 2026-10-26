@@ -26,7 +26,8 @@ def _origin(url):
 
 def request_json(request):
     raw = request.read()
-    limit = 16 * 1024 * 1024
+    from hermes_personal_ipc import MAX_BYTES
+    limit = MAX_BYTES
     if len(raw) > limit:
         raise BrokerRefusal("model_payload_invalid")
     encoding = request.headers.get("content-encoding", "identity").lower()

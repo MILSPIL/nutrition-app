@@ -48,10 +48,11 @@ class EgressTests(unittest.TestCase):
 
     def test_compressed_wire_request_cannot_exceed_json_observation_budget(self):
         from compression.zstd import compress
+        from hermes_personal_ipc import MAX_BYTES
         guard, transport, posts, grants = self.fixture(lambda _r: httpx.Response(200, json=self.result()))
         with guard, httpx.Client(transport=transport) as client:
             with self.assertRaisesRegex(BrokerRefusal, "model_payload_invalid"):
-                client.post(BASE + "/responses", content=compress(b"x" * (16 * 1024 * 1024 + 1)), headers={"Content-Encoding": "zstd"})
+                client.post(BASE + "/responses", content=compress(json.dumps({"model": MODEL, "padding": "x" * MAX_BYTES}).encode()), headers={"Content-Encoding": "zstd"})
         self.assertEqual(len(posts), 0); self.assertEqual(len(grants), 0)
 
     def test_real_sdk_retries_each_consume_a_physical_reservation(self):
