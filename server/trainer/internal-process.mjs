@@ -10,7 +10,9 @@ const errors = new Set(["trainer_unavailable", "trainer_timeout", "trainer_quota
 const failure = code => Error(errors.has(code) ? code : "trainer_unavailable");
 
 // spawnWorker is an operator-owned OS-isolated launcher. It must expose only
-// this profile's HOME, no network or grant, and return an owned ChildProcess.
+// this profile's HOME, no network or grant, and return an owned lifecycle.
+// Remote launchers set requiresPhysicalDrain=true and emit exit only after
+// independently proving their captured service cgroup has no live descendants.
 // This transport is internal: public ingress must use the admission coordinator.
 export function createInternalProcess({ spawnWorker, setup, handlers, validateIdentity, validateEvent = () => false, onEvent = () => {}, deadlineMs = 45000, exitGraceMs = 5000 }) {
   if (typeof spawnWorker !== "function" || !handlers || Object.values(handlers).some(handler => typeof handler !== "function") || typeof validateIdentity !== "function" ||
@@ -99,12 +101,12 @@ export function createInternalProcess({ spawnWorker, setup, handlers, validateId
       if (typeof child?.once === "function") {
         child.once("exit", (code, signal) => { dead = true; lifetime.abort(); exited = { code, signal }; clearTimeout(exitTimer); rejectAll(); resolveExit(exited); });
         child.once("error", () => {
-          if (!child.pid) { dead = true; resolveExit({ notStarted: true }); }
+          if (!child.pid && child.requiresPhysicalDrain !== true) { dead = true; resolveExit({ notStarted: true }); }
           fault();
         });
       }
       if (!child?.stdout || !child?.stdin || typeof child.kill !== "function" || typeof child.once !== "function") {
-        if (!child?.pid) { dead = true; resolveExit({ notStarted: true }); }
+        if (!child?.pid && child?.requiresPhysicalDrain !== true) { dead = true; resolveExit({ notStarted: true }); }
         throw failure("trainer_unavailable");
       }
       const decoder = new StringDecoder("utf8"); let buffer = "", bufferedBytes = 0;

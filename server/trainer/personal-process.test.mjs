@@ -4,9 +4,10 @@ import { EventEmitter } from "node:events";
 import { PassThrough, Writable } from "node:stream";
 import { createPersonalProcess } from "./personal-process.mjs";
 
-function fixture({ command = () => {}, deadlineMs = 100, spawnFailure = false, missingStream = false, onModel = async () => ({ completion: {} }) } = {}) {
+function fixture({ command = () => {}, deadlineMs = 100, spawnFailure = false, missingStream = false, remote = false, onModel = async () => ({ completion: {} }) } = {}) {
   const child = new EventEmitter(), packets = [], kills = [];
-  child.pid = spawnFailure ? undefined : 123456;
+  child.pid = spawnFailure || remote ? undefined : 123456;
+  if (remote) child.requiresPhysicalDrain = true;
   child.stdout = new PassThrough();
   child.stderr = new PassThrough({ highWaterMark: 1024 });
   const reply = value => child.stdout.write(JSON.stringify(value) + "\n");
@@ -133,4 +134,16 @@ test("private process rejects a frame above the bounded 48MiB photo envelope", a
   await new Promise(resolve => setImmediate(resolve));
   f.child.stdout.write(Buffer.alloc(48 * 1024 * 1024 + 1, 120)); await pending;
   assert.deepEqual(f.kills, ["SIGKILL"]); const closing = f.owner.close(); f.exit(); await closing;
+});
+
+for (const missingStream of [false, true]) test(`remote activation ${missingStream ? "with invalid stdio" : "error"} waits for physical drain without a pid`, async () => {
+  const f = fixture({ remote: true, spawnFailure: !missingStream, missingStream });
+  await assert.rejects(f.owner.start(), /trainer_unavailable|execution_unknown/);
+  assert.equal(f.owner.exited, false);
+  let drained = false;
+  const closing = f.owner.close().then(() => { drained = true; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(drained, false);
+  f.exit(); await closing;
+  assert.equal(f.owner.exited, true);
 });
