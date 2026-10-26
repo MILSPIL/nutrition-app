@@ -14,6 +14,7 @@ function completion(payload, { nativeBinding }) {
   assert.equal(payload.model, model);
   assert.ok(calls.length <= 2, "restart/replay must not issue another model call");
   const finished = payload.messages.some(message => message.role === "tool");
+  if (finished) assert.ok(payload.messages.some(message => message.role === "tool" && String(message.content).includes("invalid_date")), "native tool retains its typed validation error");
   const message = finished ? { role: "assistant", content: "Спільний синтетичний IPC діалог збережено." }
     : { role: "assistant", content: null, tool_calls: [{ id: "synthetic-ipc-tool", type: "function", function: { name: "read_confirmed_day", arguments: '{"dayRef":"today"}' } }] };
   const value = { id: "synthetic-ipc-completion", object: "chat.completion", created: 1, model,
@@ -27,7 +28,7 @@ const make = () => createPersonalProcess({
   spawnWorker: () => spawn(setup.command, setup.args, { env: setup.env, cwd: setup.cwd, stdio: ["pipe", "pipe", "ignore"] }),
   connection: { model, contextWindow: 128000, supportsTools: true, supportsVision: true }, toolSchemas: setup.toolSchemas,
   onModel: completion,
-  onTool: (name, arguments_) => { tools.push({ name, arguments_ }); assert.equal(name, "read_confirmed_day"); return { targetDate: "2026-10-25", totals: { cal: 123, p: 10, f: 3, c: 14 } }; },
+  onTool: (name, arguments_) => { tools.push({ name, arguments_ }); assert.equal(name, "read_confirmed_day"); throw Error("invalid_date"); },
   onEvent: (channel, event) => events.push({ channel, event }),
 });
 let owner = make(), checks = 0, stage = "open";

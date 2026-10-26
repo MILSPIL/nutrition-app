@@ -4,7 +4,7 @@ import { EventEmitter } from "node:events";
 import { PassThrough, Writable } from "node:stream";
 import { createPersonalProcess } from "./personal-process.mjs";
 
-function fixture({ command = () => {}, deadlineMs = 100, spawnFailure = false, missingStream = false, remote = false, onModel = async () => ({ completion: {} }) } = {}) {
+function fixture({ command = () => {}, deadlineMs = 100, spawnFailure = false, missingStream = false, remote = false, onModel = async () => ({ completion: {} }), onTool = async () => ({}) } = {}) {
   const child = new EventEmitter(), packets = [], kills = [];
   child.pid = spawnFailure || remote ? undefined : 123456;
   if (remote) child.requiresPhysicalDrain = true;
@@ -20,7 +20,7 @@ function fixture({ command = () => {}, deadlineMs = 100, spawnFailure = false, m
   child.kill = signal => { kills.push(signal); return true; };
   if (missingStream) child.stdout = null;
   const owner = createPersonalProcess({ spawnWorker: () => { if (spawnFailure) queueMicrotask(() => child.emit("error", Error("synthetic spawn failure"))); return child; },
-    connection: {}, toolSchemas: {}, onModel, onTool: async () => ({}), deadlineMs });
+    connection: {}, toolSchemas: {}, onModel, onTool, deadlineMs });
   return { owner, child, packets, kills, reply, exit: () => child.emit("exit", 0, null) };
 }
 
@@ -61,6 +61,16 @@ test("model error is redacted and native events stay on their own channel", asyn
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(f.packets.at(-1), { type: "reply", id: "a".repeat(32), error: "trainer_unavailable" });
   const close = f.owner.close(); f.exit(); await close;
+});
+
+test("tool validation codes reach the model while arbitrary error text stays redacted", async () => {
+  for (const [thrown,expected] of [["invalid_date","invalid_date"],["food_source_not_offered","food_source_not_offered"],["Bearer synthetic-private","trainer_unavailable"]]) {
+    const f=fixture({onTool:async()=>{throw Error(thrown);}});await f.owner.start();
+    f.reply({type:"tool",id:"c".repeat(32),name:"propose_food_draft",arguments:{}});
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.deepEqual(f.packets.at(-1),{type:"reply",id:"c".repeat(32),error:expected});
+    const close=f.owner.close();f.exit();await close;
+  }
 });
 
 test("physical process exit aborts any parent-owned model request", async () => {

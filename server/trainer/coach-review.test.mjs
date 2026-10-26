@@ -6,7 +6,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { dateHints, foodIntentAllowed } from './date-context.mjs';
+import { dateHints, foodIntentAllowed, resolveToolDate } from './date-context.mjs';
+
+test('explicit calendar date accepts sentence punctuation without accepting another day', () => {
+  const sentAt='2026-10-26T21:12:00Z';
+  for (const suffix of ['.', '...', '. Далі уточнення.']) {
+    const text='Запис за 26.10.2026'+suffix;
+    assert.deepEqual(dateHints(text,sentAt).explicitDates,['2026-10-26']);
+    const ctx={input:{text,sentAt},snapshot:{sentAt}};
+    assert.equal(resolveToolDate({dayRef:'explicit',targetDate:'2026-10-26'},ctx),'2026-10-26');
+    assert.throws(()=>resolveToolDate({dayRef:'explicit',targetDate:'2026-10-25'},ctx),/invalid_date/);
+  }
+  assert.deepEqual(dateHints('26.10.2026.5',sentAt).explicitDates,[]);
+});
 import { modelPlan, decodeModelPlan } from './snapshot.mjs';
 import { createTrainerTools } from './tools.mjs';
 import { createTrainerGateway } from './gateway.mjs';

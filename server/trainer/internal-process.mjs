@@ -6,7 +6,9 @@ const MAX_BYTES = 48 * 1024 * 1024;
 const errors = new Set(["trainer_unavailable", "trainer_timeout", "trainer_quota", "connection_auth_required",
   "connection_model_changed", "model_payload_invalid", "execution_unknown", "personal_owner_conflict",
   "personal_channel_limit", "personal_channel_invalid", "profile_mismatch", "not_found",
-  "owner_shutdown_incomplete", "owner_channel_close_failed", "invalid_request", "conflict", "connection_conflict", "connection_unconfigured", "connection_busy", "permission_denied", "admission_conflict", "invalid_image", "media_unavailable", "media_unsupported", "media_conflict", "media_quota", "media_missing", "context_unavailable", "context_conflict", "context_too_large", "invalid_context_proposal"]);
+  "owner_shutdown_incomplete", "owner_channel_close_failed", "invalid_request", "conflict", "connection_conflict", "connection_unconfigured", "connection_busy", "permission_denied", "admission_conflict", "invalid_image", "media_unavailable", "media_unsupported", "media_conflict", "media_quota", "media_missing", "context_unavailable", "context_conflict", "context_too_large", "invalid_context_proposal",
+  "invalid_date", "date_clarification", "date_change_requires_confirmation", "consumption_unconfirmed", "day_unavailable",
+  "invalid_food_query", "invalid_food_source", "invalid_food_proposal", "food_source_not_offered", "assumptions_required", "brand_is_not_exact", "invalid_plan_match"]);
 const failure = code => Error(errors.has(code) ? code : "trainer_unavailable");
 
 // spawnWorker is an operator-owned OS-isolated launcher. It must expose only

@@ -8,6 +8,15 @@ from hermes_personal_ipc import Peer
 
 
 class PeerTests(unittest.TestCase):
+    def test_only_known_tool_validation_errors_bypass_transport_refusal(self):
+        for kind,code in [("tool","invalid_date"),("tool","food_source_not_offered"),("model","invalid_date"),("tool","Bearer synthetic-private")]:
+            self.peer.send=lambda packet:self.peer.pending[packet["id"]].put_nowait({"error":code})
+            if kind=="tool" and code in ("invalid_date","food_source_not_offered"):
+                self.assertEqual(self.peer.ask(kind,{}),{"error":code})
+            else:
+                with self.assertRaisesRegex(RuntimeError,"^trainer_unavailable$"):self.peer.ask(kind,{})
+            self.assertEqual(self.peer.pending,{})
+
     def setUp(self):
         self.input_read, self.input_write = os.pipe()
         self.output_read, self.output_write = os.pipe()

@@ -8,6 +8,8 @@ import uuid
 # Native replay retains 3..5 recent 5MiB photos (including the current turn).
 # Base64 + a <=512KB fresh snapshot fit under this fixed, bounded 48MiB frame.
 MAX_BYTES = 48 * 1024 * 1024
+TOOL_ERRORS = frozenset({"invalid_date", "date_clarification", "date_change_requires_confirmation", "consumption_unconfirmed", "day_unavailable",
+    "invalid_food_query", "invalid_food_source", "invalid_food_proposal", "food_source_not_offered", "assumptions_required", "brand_is_not_exact", "invalid_plan_match"})
 
 
 class Peer:
@@ -91,6 +93,8 @@ class Peer:
                     pass
                 raise RuntimeError("trainer_timeout") from None
             if reply.get("error"):
+                if kind == "tool" and isinstance(reply["error"], str) and reply["error"] in TOOL_ERRORS:
+                    return {"error": reply["error"]}
                 from hermes_personal_provider import BrokerRefusal
                 raise BrokerRefusal(reply["error"])
             return reply.get("result")
