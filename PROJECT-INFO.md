@@ -8,6 +8,8 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-26T17:10:05.982298+00:00: B2 реально активований, реліз9c218d1:4сеанси/88повідомлень/2матеріали з незмінними ID/контекстом,2ізольовані профілі. Сайт/API200, встановлений Hermes Desktop бачить gpt-6.1-sol і ту саму основну історію;4HTTP routes/negative401 та SSH TCP/session denial перевірені. Temporary admin06 відсутній. B3 контрольна відповідь ще не подана, UI інструмент завершився timeout; Google data-session, реальна відповідь/STT, приймання дружини та щоденний offsite pending. Snapshot/restore пройдено до native policy adoption. [Доказ](docs/evidence/hermes-personal-live-2026-10-26.json). G02–G11/C01–C10 pending. Нижчі записи є історією.
+
 2026-10-26T12:51:02.475056+00:00: A0 нового native OpenAI входу на сервері завершений: encrypted revision1, тимчасовий HOME прибраний,0модельнихвикликів. Окремий Firebase акаунт дружини підготовлений без пароля/хибного email-proof. Source inventory однозначна; уточнений Mac exporter пройшов40Native перевірок і fresh review, [доказ](docs/evidence/hermes-personal-source-compat-2026-10-26.json). B2 import/Desktop/B3 ще не виконані; старий production21b0cd3 збережений, тимчасовий admin03 відкликаний і відсутній.
 
 2026-10-26T12:06:32.081502+00:00: пакет9c218d1 і всі4CI перевірки пройдені. На фактичному MS-WEB B1-r2 пройшов39 перевірок сховища/контексту та33 перевірки двох native профілів, фото, моделі й перезапуску; пік1435893760байтів у2GiB,2CPU,swap0,Tasks128. Фізичне завершення підтверджене, чинний production21b0cd3 без змін. A0 окремого входу й B2 приватної історії наступні,0реальнихAPI/STT. [Доказ](docs/evidence/hermes-personal-host-b1-2026-10-26.json).

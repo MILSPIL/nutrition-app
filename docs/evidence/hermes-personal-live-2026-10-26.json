@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-26T17:10:05.982298+00:00",
+  "releaseId": "9c218d1ac4d295c9264f9076d23c1589072cb282",
+  "stage": "B2-live-B3-pending",
+  "siteHttp": 200,
+  "apiHealthHttp": 200,
+  "canonicalImport": {
+    "sessions": 4,
+    "messages": 88,
+    "curatedMaterials": 2,
+    "photos": 0,
+    "sameBotChatId": true,
+    "nativeAdoption": true,
+    "remotePrincipalResume": true,
+    "contextUnchanged": true
+  },
+  "profiles": {
+    "isolated": 2,
+    "wifeHealthNotInvented": true
+  },
+  "desktop": {
+    "installedAndRestarted": true,
+    "safeStorage": true,
+    "canonicalHttpRoutesPassed": 4,
+    "protectedRouteWrongTokenStatus": 401,
+    "configuredModel": "gpt-6.1-sol",
+    "primaryVisibleMessages": 20,
+    "actualSshTcpDenied": true,
+    "actualSshSessionDenied": true,
+    "wifeSocketNegativeNotYetExecuted": true,
+    "localCompatibilityCommit": "3470c9b580",
+    "vendorUpstreamPush": false
+  },
+  "hostCaps": {
+    "cpu": 2,
+    "memoryGiB": 2,
+    "swapBytes": 0,
+    "tasksMax": 128,
+    "modelDeadlineSeconds": 45,
+    "pilotTurns": 8,
+    "pilotPhysicalPosts": 24
+  },
+  "backup": {
+    "sourceEncryptedOffsiteVerified": true,
+    "canonicalEncryptedOffsiteAndSameHomeRestorePassed": true,
+    "canonicalBackupPredatesNativePolicyAdoption": true,
+    "dailySevenCopyRoutineConfigured": false
+  },
+  "liveModelCheck": {
+    "submitted": false,
+    "firstSocketClosedBeforeSubmission": true,
+    "automaticRetry": false,
+    "desktopUiInspectionTimedOut": true,
+    "freshSyntheticSttNotRun": true
+  },
+  "temporaryAdminAbsent": true,
+  "oldAnthropicBudgetUnchanged": true,
+  "ownerAcceptance": false,
+  "goalVerdicts": "pending",
+  "privateReceiptSha256": {
+    "owned-adopt-r3-receipt-private.json": "9aee9959f02cbd7379acb8d3e6d2b2480b42d8341419f20fa5f080d35d92c0ab",
+    "desktop-actual-http-proof-private.json": "5cdefa69a34f89bb0ed2b5cbd793be04ec201cbcdd46567bb8aa432f9515fb9f",
+    "desktop-actual-negative-private.json": "1d08ad6b149dad3a0b9d975a930af28924bbca6fe7556bf2f55ea72297e233ee",
+    "ssh-streamlocal-init-private.json": "9ed7b73ffa3ff644966afce15ae15538a06f4d8abab55ca90d76b6c343eb399e",
+    "canonical-capture-receipt-private.json": "bbaf2f2ce0ff727453b0d462e044245c91fb5c733907d32e750d7bd3490134a6",
+    "canonical-restore-receipt-private.json": "c4f37d1d2b008fdaa451042b323ce8a5480bbb45b26fe04c71aa56cd92053cbe",
+    "b3-desktop-first-attempt-private.json": "8fe8b37f6dc84acdcef320a3fdf9ea1bd3f2561314ad35f9fbb854aac0aa2e42"
+  },
+  "pending": [
+    "Google user data-session refresh by opening website Trainer",
+    "real model response and web/Desktop history readback",
+    "one bounded Ukrainian STT test",
+    "wife authenticated isolation acceptance",
+    "fresh policy-inclusive canonical backup and daily offsite routine"
+  ]
+}
