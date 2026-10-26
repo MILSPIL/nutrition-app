@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "task": "HERMES-PERSONAL-01",
+  "codeSha": "db3330898cb763b97bac3b901ef2490599ca12a2",
+  "ci": {
+    "runId": 40278840084,
+    "url": "https://github.com/MILSPIL/nutrition-app/actions/runs/40278840084",
+    "conclusion": "success",
+    "allFourJobsPassed": true
+  },
+  "build": {
+    "cleanGitExport": true,
+    "node": "24.22.1",
+    "trainerChatEnabled": true,
+    "localLabEnabled": false,
+    "phoneLabEnabled": false,
+    "pilotModeEnabled": false
+  },
+  "package": {
+    "passed": true,
+    "codeSha": "db3330898cb763b97bac3b901ef2490599ca12a2",
+    "archiveHashes": 4,
+    "appFiles": 287,
+    "manifestSha256": "864f8ea119727c67a792b1bdf351f8e40a0817a5fbafabaa0c43bc74a8941583",
+    "disabledV3": true,
+    "nativeSnapshotAndOperatorPresent": true,
+    "privateDataIncluded": false,
+    "keysIncluded": false,
+    "runtimeFiles": 31727,
+    "files": {
+      "app.tar.gz": {
+        "sha256": "440d03193a25095603f366441ea3c01e1e2c7f1ef248c91f3e86284605124213",
+        "bytes": 11694987
+      },
+      "app-manifest.json": {
+        "sha256": "eed563d7274c0fc37207a2edefcfc4e7dbd3d43e7536c2d77965be694f1da99f",
+        "bytes": 41929
+      },
+      "runtime.tar.gz": {
+        "sha256": "e9935a4b8aef42491602a8381d3e5406feaf727c900929515196c75bfd762453",
+        "bytes": 222857413
+      },
+      "runtime-manifest.json": {
+        "sha256": "c2facd7edae6b94b4a6d9973486dc2e83d0c43bb4079489b796cfa01441aec05",
+        "bytes": 5064763
+      }
+    },
+    "workerLock": {
+      "path": "isolation/personal-worker-lock.so",
+      "sha256": "1435f166fc0862dac56d6dc4f7354d03fae22f5a529d415ff12986b7098c2e12",
+      "bytes": 16200
+    },
+    "runtimeComponents": {
+      "node": "v24.22.1",
+      "python": "Python 3.14.6",
+      "bubblewrap": "bubblewrap 0.11.0"
+    },
+    "ws": {
+      "version": "8.22.0",
+      "integrity": "sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg=="
+    }
+  },
+  "linuxMigrationSuite": {
+    "tests": 39,
+    "seconds": 14.277,
+    "passed": true,
+    "network": "none",
+    "cpu": 2,
+    "memoryBytes": 2147483648,
+    "swapBytes": 0
+  },
+  "linuxCanonicalRuntime": {
+    "passed": true,
+    "actualNative": true,
+    "nativeSourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+    "nativeChecks": 33,
+    "actualLinuxTmpfsGuard": true,
+    "separateUidProfiles": true,
+    "nativeHistoryAfterPhysicalRestart": true,
+    "largePhotoReplay": true,
+    "maxBodyBytes": 17239011,
+    "maxReplayPhotos": 3,
+    "threeDistinctExpectedPhotosAfterRestart": true,
+    "aggregateCpu": 2,
+    "memoryMax": 2147483648,
+    "memoryPeak": 1394073600,
+    "swapMax": 0,
+    "oomEvents": 0,
+    "oomKills": 0,
+    "oomGroupKills": 0,
+    "physicalFakePosts": 7,
+    "expiredGrantRefreshes": 1,
+    "realApiRequests": 0,
+    "ephemeralDirsRemoved": true,
+    "isolation": {
+      "architecture": "x86_64",
+      "platform": "linux/amd64",
+      "dockerTransport": "local-unix",
+      "noHostBinds": true,
+      "noPublishedPorts": true,
+      "network": "none",
+      "cpu": 2,
+      "memoryBytes": 2147483648
+    },
+    "containerName": "scisense-personal-native-51166472-906b-454d-aedc-87bfbc219311",
+    "cleanup": true
+  },
+  "review": {
+    "snapshot": "personal_contract_review PASS",
+    "packageAndRunbook": "activation_readiness PASS; four archive readback, no confirmed P1/P2",
+    "operatorGates": "actual inventory and fixed host driver remain pending"
+  },
+  "production": {
+    "changed": false,
+    "publicStatus": 200,
+    "lastConfirmedCodeSha": "21b0cd3116fce40d1dd706244cbff4bde81ef156"
+  },
+  "boundaries": {
+    "realApiCallsThisIncrement": 0,
+    "serverWritesThisIncrement": 0,
+    "privateTrainerProfileRead": false,
+    "keychainValueRead": false,
+    "b1": false,
+    "a0": false,
+    "b2": false,
+    "b3": false,
+    "ownerAcceptance": false
+  }
+}

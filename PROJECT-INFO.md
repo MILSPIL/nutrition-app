@@ -8,6 +8,8 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-26T06:33:54.954592+00:00: кандидат db33308 повністю пройшов CI40278840084; реальний V3 package287app/31727runtime,4archiveSHA+allappSHA, disabledV3/noUID, independent review PASS. Linux39backup/context tests і33canonicalruntimechecks, peak1394073600bytes/OOM0. Keychain unlock та actual-host inventory ще очікуються; B1/A0/B2/B3 не пройдені, production21b0cd3 без змін. [Доказ](docs/evidence/hermes-personal-package-db33308-2026-10-26.json).
+
 2026-10-26T06:15:43.252617+00:00: canonical snapshot/restore пройшов39native/CLI/context tests+4OSguards та свіже рев’ю PASS; source SHA і tail/unknown підтверджені. CI2fc0cbf PASS. Host access/backup destinations відсутні, Keychain check timeout; B1/A0/B2/B3 ще не виконані, production без змін. [Доказ](docs/evidence/hermes-personal-snapshot-2026-10-26.json).
 
 2026-10-26 04:30 UTC: actual Electron + Native пройшов text/photo/dialog/terminal event/exact replay після закриття клієнта:36 checks,9 OS-guarded processes,7 fake POST,0 real API;0 page errors, browser cleanup verified. [Доказ](docs/evidence/hermes-personal-desktop-wire-2026-10-26.json). Linux candidate CI, міграція, пакети й B1–B3 ще pending; production не змінений.
