@@ -103,11 +103,11 @@ class EgressTests(unittest.TestCase):
     def test_post_cap_and_redirect_fence_never_reach_another_host(self):
         guard, transport, posts, grants = self.fixture(lambda _r: httpx.Response(200, json=self.result()))
         with guard, httpx.Client(transport=transport) as client:
-            for _ in range(3):
+            for _ in range(12):
                 client.post(BASE + "/chat/completions", json={"model": MODEL})
             with self.assertRaisesRegex(BrokerRefusal, "trainer_quota"):
                 client.post(BASE + "/chat/completions", json={"model": MODEL})
-        self.assertEqual(len(posts), 3); self.assertEqual(len(grants), 3)
+        self.assertEqual(len(posts), 12); self.assertEqual(len(grants), 12)
         guard, transport, posts, _ = self.fixture(lambda _r: httpx.Response(307, headers={"location": "https://another.invalid/responses"}))
         with guard, httpx.Client(transport=transport, follow_redirects=True) as client:
             with self.assertRaisesRegex(BrokerRefusal, "model_payload_invalid"):

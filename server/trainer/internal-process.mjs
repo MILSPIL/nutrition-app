@@ -16,9 +16,9 @@ const failure = code => Error(errors.has(code) ? code : "trainer_unavailable");
 // Remote launchers set requiresPhysicalDrain=true and emit exit only after
 // independently proving their captured service cgroup has no live descendants.
 // This transport is internal: public ingress must use the admission coordinator.
-export function createInternalProcess({ spawnWorker, setup, handlers, validateIdentity, validateEvent = () => false, onEvent = () => {}, deadlineMs = 45000, exitGraceMs = 5000 }) {
+export function createInternalProcess({ spawnWorker, setup, handlers, validateIdentity, validateEvent = () => false, onEvent = () => {}, deadlineMs = 90000, exitGraceMs = 5000 }) {
   if (typeof spawnWorker !== "function" || !handlers || Object.values(handlers).some(handler => typeof handler !== "function") || typeof validateIdentity !== "function" ||
-    !Number.isInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > 45000 ||
+    !Number.isInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > 90000 ||
     !Number.isInteger(exitGraceMs) || exitGraceMs < 1 || exitGraceMs > 60000) throw failure("invalid_request");
   let child, identity, starting, closing, exited, dead = false, disconnected = false;
   let resolveExit, exitTimer;

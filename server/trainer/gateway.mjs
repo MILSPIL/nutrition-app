@@ -54,7 +54,7 @@ export function createTrainerGateway({
   if (
     !Number.isInteger(runDeadlineMs) ||
     runDeadlineMs < 1 ||
-    runDeadlineMs > LIMITS.deadlineMs
+    runDeadlineMs > 90000
   )
     fail("trainer_config", 503);
   const fresh=(uid,date,signal)=>boundedOperation(s=>loadConfirmed({readSnapshot,readDay,readPlan},uid,date,s),5000,signal);

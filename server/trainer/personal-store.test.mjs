@@ -161,8 +161,9 @@ test("physical POST reservations across logical calls, retries and crashes never
   h.store.reservePost("owner", inputId, proof); h.reopen();
   h.store.startBudget("owner", inputId); h.store.reservePost("owner", inputId, { ...proof, kind: "oauth_refresh" });
   assert.equal(h.store.reservePost("owner", inputId, proof).attempt, 3);
+  for (let n = 3; n < 12; n++) h.store.reservePost("owner", inputId, proof);
   assert.throws(() => h.store.reservePost("owner", inputId, proof), /trainer_quota/);
-  assert.deepEqual(h.store.budget(), { turns: 1, posts: 3 });
+  assert.deepEqual(h.store.budget(), { turns: 1, posts: 12 });
   h.store.enqueue("wife", secondId, { text: "synthetic other profile" });
   assert.throws(() => h.store.startBudget("wife", secondId, { maxTurns: 9 }), /invalid_request/);
   h.store.startBudget("wife", secondId);
@@ -170,10 +171,29 @@ test("physical POST reservations across logical calls, retries and crashes never
   assert.throws(() => h.store.startBudget("wife", secondId, { scope: "new-budget" }), /invalid_request/);
   for (let n = 0; n < 7; n++) {
     const id = `synthetic-budget-${n}`; h.store.enqueue("wife", id, { text: id });
-    if (n === 6) { assert.throws(() => h.store.startBudget("wife", id), /trainer_quota/); break; }
     h.store.startBudget("wife", id);
     for (let i = 0; i < 3; i++) h.store.reservePost("wife", id, proof);
   }
   for (let i = 0; i < 3; i++) h.store.reservePost("wife", secondId, proof);
-  h.reopen(); assert.deepEqual(h.store.budget(), { turns: 8, posts: 24 });
+  h.reopen(); assert.deepEqual(h.store.budget(), { turns: 9, posts: 36 });
+  assert.deepEqual(h.store.postBudget("wife", secondId), { used: 3, remaining: 9 });
+});
+
+test("normal family use passes the old aggregate pilot caps without erasing accounting", t => {
+  const h = make(t), proof = { kind: "inference", model: "synthetic", originHash: "b".repeat(64) };
+  for (let n = 0; n < 40; n++) {
+    const owner = n % 2 ? "wife" : "owner", id = `normal-use-${n}-synthetic`;
+    h.store.enqueue(owner, id, { text: "synthetic family turn" });
+    h.store.startBudget(owner, id);
+    h.store.reservePost(owner, id, proof);
+    h.store.reservePost(owner, id, proof);
+    if (n === 19) h.reopen();
+  }
+  assert.deepEqual(h.store.budget(), { turns: 40, posts: 80 });
+  h.reopen();
+  assert.deepEqual(h.store.budget(), { turns: 40, posts: 80 });
+  const id = "normal-use-last-synthetic";
+  h.store.enqueue("owner", id, { text: "next turn remains available" });
+  h.store.startBudget("owner", id);
+  assert.equal(h.store.reservePost("owner", id, proof).accepted, true);
 });

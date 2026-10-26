@@ -76,7 +76,7 @@ class Peer:
         finally:
             self.close()
 
-    def ask(self, kind, payload, timeout=45):
+    def ask(self, kind, payload, timeout=90):
         ident, waiter = uuid.uuid4().hex, queue.Queue(maxsize=1)
         with self.lock:
             if self.closed.is_set() or len(self.pending) >= 16:

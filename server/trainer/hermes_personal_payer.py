@@ -171,7 +171,7 @@ class NativePayer:
         return {"ok": True, "provider": provider, "model": model, "changed": True}
 
     def invoke(self, payload, *, client_options, timeout_ms):
-        if self.closed or self.selection_changed or type(timeout_ms) is not int or not 0 < timeout_ms <= 45000:
+        if self.closed or self.selection_changed or type(timeout_ms) is not int or not 0 < timeout_ms <= 90000:
             raise BrokerRefusal("trainer_timeout")
         payload = _payload(payload, self.model)
         # The native Codex adapter uses this same explicit wire identity. It is

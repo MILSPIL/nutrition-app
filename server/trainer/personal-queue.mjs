@@ -1,11 +1,12 @@
 import { fail } from "./limits.mjs";
+import { PERSONAL_LIMITS } from "./personal-limits.mjs";
 
 const refusal = code => Object.assign(Error(code), { status: 409, definitelyNotExecuted: true });
 const executionAbort = code => Object.assign(Error(code), { status: 409 });
 // One physical native execution across both profiles. The slot stays held until
 // execute settles after abort: a timer must never start a second live worker.
-export function personalQueue({ deadlineMs = 45000, maxWaiting = 4 } = {}) {
-  if (!Number.isSafeInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > 45000 ||
+export function personalQueue({ deadlineMs = PERSONAL_LIMITS.deadlineMs, maxWaiting = 4 } = {}) {
+  if (!Number.isSafeInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > PERSONAL_LIMITS.deadlineMs ||
       !Number.isSafeInteger(maxWaiting) || maxWaiting < 1 || maxWaiting > 4)
     fail("personal_config_invalid", 503);
   let active = null, closed = false;

@@ -9,13 +9,14 @@ import { personalProfiles } from './trainer/personal-profiles.mjs';
 import { stableJSON } from './trainer/limits.mjs';
 import { createSystemdProcess } from './trainer/systemd-process.mjs';
 import { callProvider } from '../workers/meal-parser/src/providers.js';
+import { PERSONAL_LIMITS } from './trainer/personal-limits.mjs';
 
 const fail = () => { throw Error('personal_activation_invalid'); };
 const uid = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value);
 const stamp = value => typeof value === 'string' && Number.isFinite(Date.parse(value)) && Date.parse(value) <= Date.now();
 const exact = (value, fields) => value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === fields.length && fields.every(field => Object.hasOwn(value, field));
-export const PERSONAL_POLICY = Object.freeze({ version: 1, task: 'HERMES-PERSONAL-01', sourcePin: '3f2afed3eb813cb00bd381d29b084d0e01de048f',
-  nativeLane: 'openai-codex', scope: 'hermes-personal-b3', turns: 8, posts: 24, postsPerTurn: 3, deadlineMs: 45000,
+export const PERSONAL_POLICY = Object.freeze({ version: 2, task: 'HERMES-PERSONAL-01', sourcePin: '3f2afed3eb813cb00bd381d29b084d0e01de048f',
+  nativeLane: 'openai-codex', scope: PERSONAL_LIMITS.scope, turns: null, posts: null, postsPerTurn: PERSONAL_LIMITS.postsPerTurn, deadlineMs: PERSONAL_LIMITS.deadlineMs,
   cpu: 2, memoryBytes: 2147483648, swapBytes: 0, activeModels: 1, maxWaiting: 4, stt: 'groq-free-whisper-large-v3',
   desktopTransport: 'ssh-uds-token-v1', desktopRpcBytes: 16777216,
   privateProfiles: true, canonicalHistory: true, explicitMemoryAppend: true, previewBeforeAdd: true });

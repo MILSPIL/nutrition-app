@@ -61,6 +61,11 @@ class PersonalConfigSelectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=os.environ["SCISENSE_FIXTURE_ROOT"]) as temporary:
             target = Path(temporary) / "config.yaml"
             publish_personal_config(target, CONNECTION)
+            legacy = personal_config(CONNECTION)
+            legacy["agent"]["max_turns"] = 4
+            target.write_text(json.dumps(legacy)); target.chmod(0o600)
+            publish_personal_config(target, CONNECTION)
+            self.assertEqual(json.loads(target.read_text())["agent"]["max_turns"], 8)
             changed = {**CONNECTION, "model": "synthetic-next", "contextWindow": 256000}
             publish_personal_config(target, changed)
             self.assertEqual(json.loads(target.read_text()), personal_config(changed))

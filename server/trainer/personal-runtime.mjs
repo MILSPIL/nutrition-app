@@ -22,6 +22,7 @@ import { createMediaStore } from "./media.mjs";
 import { openFoodIndex } from "./food-lookup.mjs";
 import { buildSnapshot } from "./snapshot.mjs";
 import { stableJSON } from "./limits.mjs";
+import { PERSONAL_LIMITS } from "./personal-limits.mjs";
 
 const fail = () => { throw Error("personal_runtime_invalid"); };
 const response = value => Response.json(value, { headers: { "Cache-Control": "no-store" } });
@@ -149,7 +150,7 @@ export async function createPersonalRuntime({ registry, platformKey, root, ephem
       storeFor: uid => openPersonalCredentials(paths.account(uid).session, { key: firebaseKeys.get(uid), fundingOwnerUid: uid, purpose: "firebase-session" }) });
     index = indexFactory(paths.index, indexSha256);
     for (const { uid } of entries) {
-      const p = paths.account(uid), store = openTurnStore(p.turns, { hmacKey: key("turns:" + uid) });
+      const p = paths.account(uid), store = openTurnStore(p.turns, { hmacKey: key("turns:" + uid), runDeadlineMs: PERSONAL_LIMITS.deadlineMs });
       const account = { store }; accounts.set(uid, account);
       account.reader = readerFactory({ project, ownerUid: uid, profileId: dataProfiles[uid], fetcher, getOwnerToken: (uid, signal) => sessions.getToken(uid, signal) });
       account.kit = createTrainerTools({ store, index, ...account.reader, memoryWriteEnabled: true, contextUpdateMode: "append" });
@@ -169,7 +170,7 @@ export async function createPersonalRuntime({ registry, platformKey, root, ephem
         proxy: { cancel() {}, close() {} }, ...account.reader, releaseTools: account.kit.release,
         authorizeTurn: (uid, signal) => sessions.getToken(uid, signal),
         readContext: (_uid, signal) => context.read(signal), contextStore: context, memoryWriteEnabled: true,
-        queueWindowMs: 225000, snapshotFactory: value => buildSnapshot({ ...value, history: [], maxPayloadBytes: 512000 }) });
+        runDeadlineMs: PERSONAL_LIMITS.deadlineMs, queueWindowMs: PERSONAL_LIMITS.queueWindowMs, snapshotFactory: value => buildSnapshot({ ...value, history: [], maxPayloadBytes: 512000 }) });
       await account.gateway.recover();
     }
     // Resolve/auth metadata without HTTP and start each sole authority before

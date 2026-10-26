@@ -34,7 +34,7 @@ def lock_worker():
 
 def arm_deadline(turn, deadline_unix_ms, timeout_ms):
     global _turn, _deadline
-    if not isinstance(turn, str) or not 1 <= len(turn) <= 100 or type(deadline_unix_ms) is not int or type(timeout_ms) is not int or not 0 < timeout_ms <= 45000:
+    if not isinstance(turn, str) or not 1 <= len(turn) <= 100 or type(deadline_unix_ms) is not int or type(timeout_ms) is not int or not 0 < timeout_ms <= 90000:
         raise RuntimeError('invalid_request')
     now = time.monotonic()
     remaining = min(timeout_ms, deadline_unix_ms - int(time.time() * 1000)) / 1000

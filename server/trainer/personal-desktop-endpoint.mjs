@@ -222,7 +222,7 @@ export function createPersonalDesktopEndpoint({ runtime, uid, token, socketPath,
         if (url.pathname === "/api/model/options") return adapter.modelOptions();
         if (url.pathname === "/api/model/info") { const c = await connection(); return { model: c.model, provider: c.provider, effective_context_length: c.contextWindow, capabilities: { supports_tools: c.supportsTools, supports_vision: c.supportsVision } }; }
         if (url.pathname === "/api/profiles") { const c = await connection(); return { profiles: [{ name: "default", display_name: title, bot_title: title, path: adapter.profileId, model: c.model, provider: c.provider, is_default: true, skill_count: 0, has_env: false }] }; }
-        if (["/api/config", "/api/config/defaults"].includes(url.pathname)) { const c = await connection(); return { model: { default: c.model, provider: c.provider }, agent: { max_turns: 3 }, stt: { enabled: false }, display: { language: "uk" } }; }
+        if (["/api/config", "/api/config/defaults"].includes(url.pathname)) { const c = await connection(); return { model: { default: c.model, provider: c.provider }, agent: { max_turns: 8 }, stt: { enabled: false }, display: { language: "uk" } }; }
         if (!url.pathname.startsWith("/api/sessions") && !url.pathname.startsWith("/api/profiles/sessions")) throw error("endpoint_not_found");
         const history = await adapter.history();
         const row = { id: history.session_id, session_id: history.session_id,

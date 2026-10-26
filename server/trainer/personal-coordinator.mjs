@@ -3,6 +3,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { personalQueue } from "./personal-queue.mjs";
 import { abortable } from "./deadline.mjs";
 import { TOOLS, requireId, stableJSON } from "./limits.mjs";
+import { PERSONAL_LIMITS } from "./personal-limits.mjs";
 
 const uncertain = () => Error("execution_unknown");
 const signature = value => stableJSON([value.provider, value.model, value.contextWindow, value.supportsVision]);
@@ -174,7 +175,7 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
     if (closed) throw Error("trainer_unavailable");
     profiles.resolve(uid); requireId(inputId);
     return queue.run(uid, async signal => {
-      const slot = Object.freeze({ uid, inputId, signal, deadline: now() + 45000 }); slots.add(slot);
+      const slot = Object.freeze({ uid, inputId, signal, deadline: now() + PERSONAL_LIMITS.deadlineMs }); slots.add(slot);
       try { return await callback({ signal, deadline: slot.deadline, execute: context => execute(slot, context) }); }
       finally { slots.delete(slot); }
     }, { signal });
@@ -279,7 +280,7 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
         return Promise.reject(Error("model_selection_refused"));
       return queue.run(uid, async signal => {
         changing = true;
-        const deadline = now() + 45000;
+        const deadline = now() + PERSONAL_LIMITS.deadlineMs;
         const preparing = new Map(owners), draining = new Map();
         let payerDrain;
         const stopOwners = () => {

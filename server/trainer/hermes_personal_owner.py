@@ -35,7 +35,7 @@ def personal_config(connection):
                   "base_url": "http://hermes.invalid/v1", "key_env": "SCISENSE_IPC_KEY"},
         "fallback_providers": [], "auth": {"adopt_external_logins": False},
         "platform_toolsets": {surface: ["scisense", "no_mcp"] for surface in ("gui", "cli", "api_server")},
-        "agent": {"max_turns": 4, "image_input_mode": "native", "task_completion_guidance": False,
+        "agent": {"max_turns": 8, "image_input_mode": "native", "task_completion_guidance": False,
                   "parallel_tool_call_guidance": False, "disabled_toolsets": ["memory", "terminal", "file", "browser", "web", "delegate", "skills", "skill_manage", "cronjob", "session_search"]},
         "memory": {"memory_enabled": False, "user_profile_enabled": False, "nudge_interval": 0},
         "auxiliary": {"background_review": {"enabled": False}, "title_generation": {"enabled": False, "model_upgrade_enabled": False}, "transient_retries": 0},
@@ -62,7 +62,8 @@ def publish_personal_config(target, connection):
                 "supportsTools": metadata["supports_tools"], "supportsVision": metadata["supports_vision"]})
         except (ValueError, KeyError, TypeError):
             raise RuntimeError("personal_config_invalid") from None
-        if previous != original:
+        legacy = {**original, "agent": {**original["agent"], "max_turns": 4}}
+        if previous != original and previous != legacy:
             raise RuntimeError("personal_config_invalid")
         if previous == expected:
             return

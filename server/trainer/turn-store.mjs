@@ -18,10 +18,11 @@ const safeError = (value) =>
   /^[a-z_]{1,60}$/.test(value || "") ? value : "trainer_failed";
 export function openTurnStore(
   file,
-  { hmacKey, now = Date.now, recover = true } = {},
+  { hmacKey, now = Date.now, recover = true, runDeadlineMs = LIMITS.deadlineMs } = {},
 ) {
   if (!Buffer.isBuffer(hmacKey) || hmacKey.length < 32)
     fail("trainer_config", 503);
+  if (!Number.isInteger(runDeadlineMs) || runDeadlineMs < 1 || runDeadlineMs > 90000) fail("trainer_config", 503);
   file = resolve(file);
   const directory = dirname(file),
     dir = lstatSync(directory);
@@ -356,8 +357,8 @@ export function openTurnStore(
         return { text: value.text, revision: value.revision };
       });
     },
-    admit(uid, id, input, snapshot, {dayProof=snapshot.day?.freshness, queueWindowMs=LIMITS.deadlineMs}={}) {
-      if (!Number.isInteger(queueWindowMs) || queueWindowMs < LIMITS.deadlineMs || queueWindowMs > 225000) fail("invalid_request");
+    admit(uid, id, input, snapshot, {dayProof=snapshot.day?.freshness, queueWindowMs=runDeadlineMs}={}) {
+      if (!Number.isInteger(queueWindowMs) || queueWindowMs < runDeadlineMs || queueWindowMs > Math.min(runDeadlineMs * 5, 225000)) fail("invalid_request");
       requireId(input.turnId);
       return tx(() => {
         if (retention.gone(input.turnId)) fail("turn_gone", 410);
@@ -452,7 +453,7 @@ export function openTurnStore(
       return tx(() => {
         const row = own(uid, id);
         if (row.state !== "queued" || row.run_id || row.call_count || now() >= row.deadline) fail("turn_inactive", 409);
-        if (!Number.isSafeInteger(deadline) || deadline <= now() || deadline > now() + LIMITS.deadlineMs) fail("invalid_request");
+        if (!Number.isSafeInteger(deadline) || deadline <= now() || deadline > now() + runDeadlineMs) fail("invalid_request");
         db.prepare("UPDATE turns SET snapshot=?,snapshot_hmac=?,deadline=? WHERE id=?").run(stableJSON(snapshot), hash(snapshot), deadline, id);
         db.prepare("DELETE FROM turn_days WHERE turn_id=?").run(id);
         if (dayProof) db.prepare("INSERT INTO turn_days VALUES(?,?,?)").run(id, dayProof.targetDate, stableJSON(dayProof));

@@ -4,6 +4,7 @@ import { closeSync, existsSync, lstatSync, openSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { privateDirectory, privateRead, syncDirectory } from "./private-files.mjs";
 import { fail, requireId, stableJSON } from "./limits.mjs";
+import { PERSONAL_LIMITS } from "./personal-limits.mjs";
 
 const terminal = new Set(["completed", "failed", "cancelled"]);
 const nativeId = value => typeof value === "string" && value.length > 0 && value.length <= 256 && !/[\0\r\n]/.test(value);
@@ -137,37 +138,35 @@ export function openPersonalStore(file, { profiles, key, now = Date.now } = {}) 
       },
       startBudget(uid, inputId, options = {}) {
         if (Object.keys(options).length) fail("invalid_request");
-        const scope = "hermes-personal-b3", maxTurns = 8;
+        const { scope } = PERSONAL_LIMITS;
         return tx(() => {
           owned(uid, inputId);
           const old = db.prepare("SELECT * FROM personal_turn_budgets WHERE uid=? AND input_id=?").get(uid, inputId);
           if (old) { if (old.scope !== scope) fail("turn_conflict", 409); return; }
-          if (db.prepare("SELECT COUNT(*) AS n FROM personal_turn_budgets WHERE scope=?").get(scope).n >= maxTurns) fail("trainer_quota", 429);
           db.prepare("INSERT INTO personal_turn_budgets VALUES(?,?,?)").run(uid, inputId, scope);
         });
       },
       reservePost(uid, inputId, { kind, model, originHash }, options = {}) {
         if (Object.keys(options).length) fail("invalid_request");
-        const scope = "hermes-personal-b3", maxPosts = 24;
+        const { scope, postsPerTurn } = PERSONAL_LIMITS;
         if (!["inference", "oauth_refresh"].includes(kind) || typeof model !== "string" || !model || !/^[a-f0-9]{64}$/.test(originHash)) fail("invalid_request");
         return tx(() => {
           owned(uid, inputId);
           if (db.prepare("SELECT scope FROM personal_turn_budgets WHERE uid=? AND input_id=?").get(uid, inputId)?.scope !== scope) fail("turn_conflict", 409);
           const count = db.prepare("SELECT COUNT(*) AS n FROM personal_attempts WHERE uid=? AND input_id=?").get(uid, inputId).n;
-          if (count >= 3 || db.prepare("SELECT COUNT(*) AS n FROM personal_attempts WHERE scope=?").get(scope).n >= maxPosts) fail("trainer_quota", 429);
+          if (count >= postsPerTurn) fail("trainer_quota", 429);
           db.prepare("INSERT INTO personal_attempts VALUES(?,?,?,?,?)").run(uid, inputId, count + 1, kind, scope);
           return { accepted: true, attempt: count + 1 };
         });
       },
       postBudget(uid, inputId) {
         owned(uid, inputId);
-        const scope = "hermes-personal-b3";
+        const { postsPerTurn } = PERSONAL_LIMITS;
         const used = db.prepare("SELECT COUNT(*) AS n FROM personal_attempts WHERE uid=? AND input_id=?").get(uid, inputId).n;
-        const total = db.prepare("SELECT COUNT(*) AS n FROM personal_attempts WHERE scope=?").get(scope).n;
-        return { used, remaining: Math.max(0, Math.min(3 - used, 24 - total)) };
+        return { used, remaining: Math.max(0, postsPerTurn - used) };
       },
       budget() {
-        const scope = "hermes-personal-b3";
+        const { scope } = PERSONAL_LIMITS;
         check(); return { turns: db.prepare("SELECT COUNT(*) AS n FROM personal_turn_budgets WHERE scope=?").get(scope).n,
           posts: db.prepare("SELECT COUNT(*) AS n FROM personal_attempts WHERE scope=?").get(scope).n };
       },

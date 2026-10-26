@@ -16,6 +16,17 @@ MODEL = "synthetic-codex-model"
 
 
 class NativePayerTests(unittest.TestCase):
+    def test_family_deadline_reaches_real_native_sdk_and_rejects_over_maximum(self):
+        payer = self.start()
+        payload = {"model": MODEL, "messages": [{"role": "user", "content": "synthetic"}]}
+        with patch.object(httpx.HTTPTransport, "handle_request", lambda _transport, request: self.transport(request)):
+            result = payer.invoke(payload, client_options={}, timeout_ms=90000)
+        self.assertTrue(result["proof"]["rawTerminalModelVerified"])
+        self.assertEqual(len(self.calls), 1)
+        with self.assertRaisesRegex(RuntimeError, "trainer_timeout"):
+            payer.invoke(payload, client_options={}, timeout_ms=90001)
+        self.assertEqual(len(self.calls), 1)
+
     def setUp(self):
         self.root = tempfile.TemporaryDirectory(prefix="payer-", dir=os.environ["SCISENSE_FIXTURE_ROOT"])
         self.home = Path(self.root.name).resolve(); self.home.chmod(0o700)

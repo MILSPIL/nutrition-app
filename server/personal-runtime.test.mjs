@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createPersonalServerRuntime as createRuntime, validatePersonalManifest, validatePersonalActivation, personalPolicyHash } from './personal-runtime.mjs';
+import { createPersonalServerRuntime as createRuntime, validatePersonalManifest, validatePersonalActivation, personalPolicyHash, PERSONAL_POLICY } from './personal-runtime.mjs';
 import { createHandler } from '../workers/meal-parser/src/index.js';
 // These unit cases substitute only the socket listener. The real HTTP/WS
 // endpoint and Native wire have separate actual Unix-socket acceptance tests.
@@ -84,4 +84,12 @@ test('a Desktop bind failure closes partial ingress and drains trainer without r
  await assert.rejects(runtime.listen(),/server_start_refused/);
  assert.ok(closed.includes('owner'));assert.ok(closed.includes('wife'));assert.ok(closed.includes('trainer'));assert.equal(closed.at(-1),'ledger');
  assert.ok(buffers.every(buffer=>buffer.every(byte=>byte===0)));
+});
+
+
+test('family policy removes aggregate caps but retains bounded physical execution', () => {
+ assert.equal(PERSONAL_POLICY.version,2);assert.equal(PERSONAL_POLICY.turns,null);assert.equal(PERSONAL_POLICY.posts,null);
+ assert.equal(PERSONAL_POLICY.postsPerTurn,12);assert.equal(PERSONAL_POLICY.deadlineMs,90000);
+ assert.equal(PERSONAL_POLICY.cpu,2);assert.equal(PERSONAL_POLICY.memoryBytes,2147483648);assert.equal(PERSONAL_POLICY.swapBytes,0);
+ assert.equal(PERSONAL_POLICY.privateProfiles,true);assert.equal(PERSONAL_POLICY.previewBeforeAdd,true);
 });

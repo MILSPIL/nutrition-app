@@ -11,7 +11,7 @@ test("payer diagnostics retain fixed metadata only and reject free text", () => 
   assert.equal(safe.responses[0].terminalModelSeen, false);
   assert.equal(JSON.stringify(safe).includes("private"), false);
   assert.equal(JSON.stringify(safe).includes("secret"), false);
-  for (const change of [{ stage: "private text" }, { code: "Bearer synthetic" }, { posts: 4 }, { responses: [{ ...response, success: "secret" }] }])
+  for (const change of [{ stage: "private text" }, { code: "Bearer synthetic" }, { posts: 13 }, { responses: [{ ...response, success: "secret" }] }])
     assert.throws(() => safePayerDiagnostic({ ...message, ...change }), /invalid_request/);
 });
 

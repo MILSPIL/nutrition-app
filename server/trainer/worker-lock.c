@@ -30,7 +30,7 @@ int scisense_lock_worker(void) {
 static timer_t deadline;
 static int initialized=0;
 int scisense_deadline_arm(int milliseconds) {
- if(milliseconds<1||milliseconds>45000)return -1;
+ if(milliseconds<1||milliseconds>90000)return -1;
  if(!initialized) {
   struct sigevent event; memset(&event,0,sizeof(event));
   event.sigev_notify=SIGEV_SIGNAL;event.sigev_signo=SIGKILL;
