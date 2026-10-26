@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "task": "HERMES-PERSONAL-01",
+  "release": "9c218d1ac4d295c9264f9076d23c1589072cb282",
+  "ci": {
+    "run": 40310021981,
+    "jobsPassed": 4
+  },
+  "package": {
+    "manifestSha256": "e4f62ba8c20bc75db3a32ef03b19211da1e7e095cdc619d245726aa1fff554ff",
+    "appFiles": 287,
+    "runtimeFiles": 31727
+  },
+  "actualHostB1": {
+    "passed": true,
+    "nativeChecks": 33,
+    "nativeStoreRestoreTests": 39,
+    "physicalFakePosts": 7,
+    "cpu": 2,
+    "memoryMax": 2147483648,
+    "memoryPeak": 1435893760,
+    "swapMax": 0,
+    "tasksMax": 128,
+    "currentApiUntouched": true,
+    "physicalServicesStopped": true,
+    "capturedSlicePhysicallyEmpty": true,
+    "ephemeralDirectoriesRemoved": true,
+    "realModelCalls": 0
+  },
+  "personalTrainerMigrated": false,
+  "productionActivated": false,
+  "ownerAcceptance": "pending"
+}
