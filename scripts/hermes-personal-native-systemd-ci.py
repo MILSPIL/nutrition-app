@@ -28,7 +28,11 @@ def wait_for(fn, seconds=100):
     raise RuntimeError('synthetic_wait_timeout')
 
 
-Path('/sys/fs/cgroup/init.scope/cgroup.procs').write_text(str(os.getpid()))
+init_scope=Path('/sys/fs/cgroup/init.scope/cgroup.procs')
+# systemd may accept DBus before it creates init.scope on a cold CI runner.
+# Keep the controller in that exact scope, without a fallback or resource change.
+wait_for(lambda:init_scope.is_file(),seconds=15)
+init_scope.write_text(str(os.getpid()))
 root=Path('/etc/scisense/personal');root.mkdir(parents=True,exist_ok=True)
 broker=Path('/run/scisense-broker');broker.mkdir(mode=0o710,exist_ok=True);os.chown(broker,0,10005);broker.chmod(0o710)
 adapters=Path('/opt/scisense/personal/adapters')

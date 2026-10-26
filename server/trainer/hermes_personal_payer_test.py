@@ -98,6 +98,21 @@ class NativePayerTests(unittest.TestCase):
                 self.assertEqual(list(value)[0].choices[0].delta.content if stream else value.choices[0].message.content, "Синтетична відповідь")
         self.assertEqual(len(self.calls), 2)
 
+    def test_native_codex_sse_without_event_stream_header_retains_raw_model_proof(self):
+        payer = self.start()
+        class FragmentedStream(httpx.SyncByteStream):
+            def __init__(self, body): self.body = body
+            def __iter__(self):
+                for start in range(0, len(self.body), 2): yield self.body[start:start + 2]
+        def transport(_transport, request):
+            response = self.transport(request)
+            return httpx.Response(200, stream=FragmentedStream(response.content))
+        with patch.object(httpx.HTTPTransport, "handle_request", transport):
+            result = payer.invoke({"model": MODEL, "messages": [{"role": "user", "content": "synthetic"}]}, client_options={}, timeout_ms=10000)
+        self.assertEqual(result["completion"]["choices"][0]["message"]["content"], "Синтетична відповідь")
+        self.assertTrue(result["proof"]["rawTerminalModelVerified"])
+        self.assertEqual(len(self.calls), 1)
+
     def _bridge(self, payer, payload, options):
         result = payer.invoke(payload, client_options=options, timeout_ms=20000)
         self.assertTrue(result["proof"]["rawTerminalModelVerified"])

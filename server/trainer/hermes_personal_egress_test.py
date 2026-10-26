@@ -92,6 +92,14 @@ class EgressTests(unittest.TestCase):
                 client.post(BASE + "/responses", json={"model": MODEL})
                 self.assertEqual(guard.proof(), {"model": MODEL, "physicalPostAttempts": 1, "reservedPostAttempts": 1, "rawTerminalModelVerified": True})
 
+    def test_headerless_stream_still_rejects_foreign_models_and_missing_terminal(self):
+        for body, code in [(b'data: {"type":"response.completed","response":{"model":"foreign-model"}}\n\n', "connection_model_changed"),
+                           (b'data: {"model":"synthetic-model","object":"chat.completion.chunk","choices":[]}\n\n', "model_payload_invalid")]:
+            guard, transport, _, _ = self.fixture(lambda _r: httpx.Response(200, stream=httpx.ByteStream(body)))
+            with guard, httpx.Client(transport=transport) as client:
+                client.post(BASE + "/responses", json={"model": MODEL})
+                with self.assertRaisesRegex(BrokerRefusal, code): guard.proof()
+
     def test_post_cap_and_redirect_fence_never_reach_another_host(self):
         guard, transport, posts, grants = self.fixture(lambda _r: httpx.Response(200, json=self.result()))
         with guard, httpx.Client(transport=transport) as client:

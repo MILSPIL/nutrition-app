@@ -478,6 +478,10 @@ try {
   await page.getByRole("button", { name: "Зупинити запис", exact: true }).waitFor();
   await page.waitForTimeout(600);
   await page.getByRole("button", { name: "Зупинити запис", exact: true }).click();
+  await page.getByRole("button", { name: "Скасувати голосове", exact: true }).waitFor();
+  check("Голос спершу показує текст без Hermes запиту", sttCalls === 1 && calls === 1);
+  check("Голос можна відредагувати до надсилання", await page.locator('#trainer-message').isEditable());
+  await page.getByRole("button", { name: "Надіслати повідомлення", exact: true }).click();
   await page.getByLabel("Кількість 1", { exact: true }).waitFor();
   await page.waitForFunction(
     () => document.querySelector('[aria-label="Кількість 1"]').value === "150",

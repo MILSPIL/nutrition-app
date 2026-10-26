@@ -95,7 +95,13 @@ class ModelProof:
         if len(self.buffer) > 1024 * 1024:
             raise BrokerRefusal("model_payload_invalid")
         if not self.sse:
-            return
+            # Native Codex can return SSE without an event-stream Content-Type.
+            # Recognize framing from a bounded prefix, while ordinary/pretty JSON
+            # still waits for finish(). The same terminal model check applies.
+            prefix = self.buffer[:256].lstrip()
+            self.sse = prefix.startswith((b"data:", b"event:", b"id:", b"retry:", b":"))
+            if not self.sse:
+                return
         while b"\n" in self.buffer:
             line, _, self.buffer = self.buffer.partition(b"\n")
             line = line.strip()
