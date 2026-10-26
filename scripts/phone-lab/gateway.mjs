@@ -99,6 +99,7 @@ export async function createPhoneGateway({
   now = Date.now,
   bodyTimeoutMs = 15000,
   deadlineMs = 65000,
+  onProxyError = () => {},
 }) {
   if (
     !Number.isInteger(bodyTimeoutMs) || bodyTimeoutMs <= 0 || bodyTimeoutMs > 15000 ||
@@ -477,7 +478,9 @@ export async function createPhoneGateway({
             },
           );
           proxy.setTimeout(60000, () => proxy.destroy());
-          proxy.on("error", () => {
+          proxy.on("error", (error) => {
+            try { onProxyError({ code: typeof error.code === "string" && /^[A-Z_]{1,40}$/.test(error.code) ? error.code : "UNCLASSIFIED",
+              reusedSocket: proxy.reusedSocket === true, method: req.method, path: pathname }); } catch {}
             if (!res.headersSent)
               send(res, 502, { error: "emulator_unavailable" });
             else res.destroy();

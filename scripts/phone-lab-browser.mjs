@@ -33,6 +33,7 @@ const evidence = {
   unexpectedNetwork: [],
   blockedSdkConnectivityProbes: 0,
   failedRoutes: [],
+  proxyErrors: [],
   providerCalls: { transcribe: 0, analyze: 0 },
   apiRequests: { transcribe: 0, analyze: 0 },
   groqTransport: [],
@@ -151,6 +152,7 @@ try {
   };
   check("STT-only не має ключа Anthropic", !sttOnly || !("ANTHROPIC_API_KEY" in apiEnv));
   gateway = await createPhoneGateway({
+    onProxyError: error => { if (evidence.proxyErrors.length < 64) evidence.proxyErrors.push(error); },
     host: "127.0.0.1",
     port: 8444,
     key: tls.key,

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { request } from "node:https";
-import { createServer } from "node:http";
+import { createServer, globalAgent as httpAgent } from "node:http";
 import { checkServerIdentity } from "node:tls";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -336,6 +336,58 @@ test("Local SQLite cannot silently recreate lost budget; restart and other UID k
     assert.throws(() => localBudget(file, 100));
   } finally {
     budget?.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+
+test("emulator proxy observes resets without retries and aborts disconnected streams", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "scisense-proxy-reuse-")), tls = await generateTls("127.0.0.1");
+  const previousMax = httpAgent.maxSockets; httpAgent.maxSockets = 1;
+  let gateway, forwarded = 0, streamed = false, streamClosed; const proxyErrors = [];
+  const stopped = new Promise(resolve => { streamClosed = resolve; });
+  const upstream = createServer((req, res) => {
+    forwarded++; req.resume();
+    if (req.headers["x-goog-api-client"] === "synthetic-reset") { req.socket.destroy(); return; }
+    if (req.headers["x-goog-api-client"] === "synthetic-stream") {
+      streamed = true; res.writeHead(200, { "Content-Type": "application/json" }); res.write("["); res.once("close", streamClosed);
+    } else res.end("[]");
+  });
+  await new Promise(resolve => upstream.listen(9448, "127.0.0.1", resolve));
+  const get = (route, method = "GET", headers = {}, body = "") => new Promise((resolve, reject) => {
+    const req = request("https://127.0.0.1:9447" + route, { method, ca: tls.ca, headers }, res => {
+      const chunks = []; res.on("data", value => chunks.push(value));
+      res.once("end", () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString() }));
+    }); req.once("error", reject); req.end(body);
+  });
+  try {
+    await writeFile(path.join(dir, "index.html"), "LAB");
+    gateway = await createPhoneGateway({ host: "127.0.0.1", port: 9447, key: tls.key, cert: tls.cert,
+      buildDir: dir, authPort: 9448, firestorePort: 9448, onProxyError: error => proxyErrors.push(error) }); await gateway.listen();
+    const setup = await get("/lab/setup"), code = setup.body.match(/<code>([a-f0-9]+)<\/code>/)[1];
+    const pair = await get("/lab/pair", "POST", { origin: gateway.origin }, "code=" + code);
+    const headers = { cookie: pair.headers["set-cookie"][0].split(";")[0], origin: gateway.origin,
+      authorization: "Bearer " + token(), "content-type": "application/json" };
+    const route = "/v1/projects/demo-scisense/databases/(default)/documents:batchGet";
+    const body = JSON.stringify({ documents: ["projects/demo-scisense/databases/(default)/documents/users/" + UID] });
+    const results = await Promise.all(Array.from({ length: 16 }, () => get(route, "POST", headers, body)));
+    assert.deepEqual(results.map(value => value.status), Array(16).fill(200));
+    assert.equal(forwarded, 16);
+    const reset = await get(route, "POST", { ...headers, "x-goog-api-client": "synthetic-reset" }, body);
+    assert.equal(reset.status, 502); assert.equal(forwarded, 17);
+    assert.equal(proxyErrors.length, 1); assert.equal(proxyErrors[0].code, "ECONNRESET");
+    assert.equal(JSON.stringify(proxyErrors).includes(headers.authorization), false);
+    await new Promise((resolve, reject) => {
+      const req = request("https://127.0.0.1:9447" + route, { method: "POST", ca: tls.ca,
+        headers: { ...headers, "x-goog-api-client": "synthetic-stream" } }, res => {
+        res.once("data", () => { req.destroy(); resolve(); });
+      }); req.once("error", error => { if (!streamed) reject(error); }); req.end(body);
+    });
+    await Promise.race([stopped, new Promise((_, reject) => setTimeout(() => reject(Error("upstream_stream_not_aborted")), 2000))]);
+    assert.equal(streamed, true);
+  } finally {
+    httpAgent.maxSockets = previousMax;
+    await gateway?.close(); upstream.closeAllConnections(); await new Promise(resolve => upstream.close(resolve));
     await rm(dir, { recursive: true, force: true });
   }
 });
