@@ -44,7 +44,11 @@ export function createPersonalBackend({ uid, core, tools, store, releaseTools = 
   const execution = new Map(), transports = new Map();
   const backend = {
     canonicalHistory: true,
-    transport(inputId, value) { if (transports.has(inputId)) throw Error("turn_conflict"); transports.set(inputId, value); },
+    transport(inputId, value) {
+      if (transports.has(inputId)) throw Error("turn_conflict");
+      transports.set(inputId, value);
+      return () => { if (transports.get(inputId) === value && !execution.has(inputId)) transports.delete(inputId); };
+    },
     schedule(turn, run, { signal }) {
       if (turn.owner !== uid) throw Error("profile_mismatch");
       const input = JSON.parse(turn.input), transport = transports.get(turn.id) ?? {};

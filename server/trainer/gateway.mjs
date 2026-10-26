@@ -47,6 +47,7 @@ export function createTrainerGateway({
   runDeadlineMs = LIMITS.deadlineMs,
   snapshotFactory = buildSnapshot,
   queueWindowMs = LIMITS.deadlineMs,
+  authorizeTurn = async () => {},
 }) {
   if (typeof ownerUid !== "string" || !ownerUid || ownerUid.length > 128)
     fail("trainer_config", 503);
@@ -250,6 +251,7 @@ export function createTrainerGateway({
         if(replay)return reply(replay);
         // Capture once, durably, before context/Firestore I/O or any queue wait.
         const sentAt=store.captureAdmission(uid,id,requestInput);
+        await boundedOperation(s => authorizeTurn(uid, s), 5000, signal);
         const drafts=store.drafts(uid,id).filter(d=>d.state!=="saved");
         const resolved=turnDateContext({text:input.text,dateContext:input.dateContext,sentAt,drafts});
         const storedInput={...requestInput,sentAt,targetDate:resolved.targetDate};

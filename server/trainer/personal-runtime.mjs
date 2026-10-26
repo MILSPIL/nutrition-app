@@ -11,6 +11,7 @@ import { openTurnStore } from "./turn-store.mjs";
 import { createPersonalPayer } from "./personal-payer.mjs";
 import { createPersonalProcess } from "./personal-process.mjs";
 import { createPersonalCoordinator } from "./personal-coordinator.mjs";
+import { createPersonalDesktopAdapter } from "./personal-desktop-adapter.mjs";
 import { createPersonalBackend } from "./personal-backend.mjs";
 import { createPersonalContext } from "./personal-context.mjs";
 import { createFirebaseSessions } from "./firebase-sessions.mjs";
@@ -113,12 +114,13 @@ export async function createPersonalRuntime({ registry, platformKey, root, ephem
   preparePersonalEphemeral(paths, profiles);
   const entries = profiles.entries();
   if (!dataProfiles || Object.keys(dataProfiles).length !== entries.length || entries.some(({ uid }) => !/^[A-Za-z0-9_-]{1,128}$/.test(dataProfiles[uid] || ""))) fail();
-  const keys = [], accounts = new Map();
+  const keys = [], accounts = new Map(), desktop = new Map();
   const key = name => { const value = derive(platformKey, name); keys.push(value); return value; };
   let outbox, credentials, sessions, payer, core, index, sweeper, closing, ready = false;
   const close = () => closing ??= (async () => {
     let failed = false;
     const wait = async fn => { try { await fn(); } catch { failed = true; } };
+    for (const binding of [...desktop.values()]) await wait(() => binding.close());
     for (const account of accounts.values()) await wait(() => account.gateway?.close());
     await wait(() => core?.close()); await wait(() => sessions?.close());
     for (const account of accounts.values()) await wait(() => account.store.close());
@@ -148,13 +150,17 @@ export async function createPersonalRuntime({ registry, platformKey, root, ephem
       account.media = createMediaStore(p.media, { hash: store.hash });
     }
     payer = createPersonalPayer({ credentials, spawnWorker: spawnPayer, reservePost: (uid, inputId, proof) => outbox.reservePost(uid, inputId, proof) });
-    core = createPersonalCoordinator({ profiles, outbox, payer, onEvent,
+    core = createPersonalCoordinator({ profiles, outbox, payer, onEvent(uid, channel, event) {
+      try { onEvent(uid, channel, event); } catch {}
+      try { desktop.get(uid + ":" + channel)?.notify(event); } catch {}
+    },
       ownerFactory: (profile, hooks) => createPersonalProcess({ ...hooks, toolSchemas: accounts.get(profile.uid).kit.schemas, spawnWorker: () => spawnOwner(profile) }) });
     for (const { uid } of entries) {
       const account = accounts.get(uid), context = createPersonalContext(uid, core);
       account.backend = createPersonalBackend({ uid, core, store: account.store, tools: account.kit.tools, releaseTools: account.kit.release });
       account.gateway = createTrainerGateway({ ownerUid: uid, store: account.store, media: account.media, backend: account.backend,
         proxy: { cancel() {}, close() {} }, ...account.reader, releaseTools: account.kit.release,
+        authorizeTurn: (uid, signal) => sessions.getToken(uid, signal),
         readContext: (_uid, signal) => context.read(signal), contextStore: context, memoryWriteEnabled: true,
         queueWindowMs: 225000, snapshotFactory: value => buildSnapshot({ ...value, history: [], maxPayloadBytes: 512000 }) });
       await account.gateway.recover();
@@ -166,6 +172,16 @@ export async function createPersonalRuntime({ registry, platformKey, root, ephem
     ready = true;
     return Object.freeze({
       accepts(uid) { try { profiles.resolve(uid); return !closing; } catch { return false; } },
+      openDesktop(uid, channel, notify) {
+        profiles.resolve(uid);
+        const id = uid + ":" + channel;
+        if (closing || typeof notify !== "function" || !["desktop:primary", "desktop:secondary"].includes(channel) ||
+            desktop.has(id) || [...desktop.keys()].filter(key => key.startsWith(uid + ":")).length >= 2) throw Error("desktop_unavailable");
+        const account = accounts.get(uid); account.desktopAdmissions ??= new Map();
+        const adapter = createPersonalDesktopAdapter({ uid, channel, account, core, admissions: account.desktopAdmissions,
+          detach: async () => { desktop.delete(id); } });
+        desktop.set(id, { notify, close: adapter.close }); return adapter;
+      },
       connection(uid) { profiles.resolve(uid); if (closing) throw Error("trainer_unavailable"); return core.connection(uid); },
       modelOptions(uid, options) { profiles.resolve(uid); if (closing) throw Error("trainer_unavailable"); return core.modelOptions(uid, options); },
       selectModel(uid, selection, options) { profiles.resolve(uid); if (closing) throw Error("trainer_unavailable"); return core.selectModel(uid, selection, options); },
@@ -186,7 +202,7 @@ export async function createPersonalRuntime({ registry, platformKey, root, ephem
         }
         // Authenticate a durable reader before admission or a draft mutation.
         // A retry after data_auth_required cannot duplicate an admitted turn.
-        if (route === "/turns" && method === "POST" || route.startsWith("/days/") || route.startsWith("/drafts/") || route === "/notes") await sessions.getToken(uid, signal);
+        if (route.startsWith("/days/") || route.startsWith("/drafts/") || route === "/notes") await sessions.getToken(uid, signal);
         const result = await accounts.get(uid).gateway.handle(uid, route, method, body, { signal });
         if (route === "/state" && method === "GET" && result.ok) return response({ ...await result.json(), dataSession: sessions.status(uid) });
         return result;

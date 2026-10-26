@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, chmodSync, realpathSync, rmSync, unlinkSync, writeFileSync, statfsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { personalProfiles } from "./personal-profiles.mjs";
 import { provisionPersonalRuntime, createPersonalRuntime, closeProvisionResources, preparePersonalEphemeral, personalRuntimePaths } from "./personal-runtime.mjs";
 
@@ -35,7 +35,7 @@ test("both verified accounts share payer capability without revealing another pr
 });
 test("missing Firebase delegation refuses before any admission or native process",async t=>{
  const f=fixture(t);f.provision();const runtime=await f.open();
- await assert.rejects(runtime.handle("wife","/turns","POST",{text:"own food"}),/data_auth_required/);
+ await assert.rejects(runtime.handle("wife","/turns","POST",{turnId:randomUUID(),baseRevision:0,text:"own food",dateContext:{mode:"default"}}),/data_auth_required/);
  assert.equal(f.native,0);assert.equal(f.calls,0);
 });
 test("delegated own Firebase sessions stay bound to verified UID and explicit Firestore profile",async t=>{
@@ -77,4 +77,17 @@ test("ephemeral upload provision rejects a regular disk instead of silently stor
  const paths=personalRuntimePaths(f.root,profiles,f.config.index,{ephemeralRoot});
  assert.throws(()=>preparePersonalEphemeral(paths,profiles),/personal_runtime_invalid/);assert.deepEqual(readdirSync(ephemeralRoot),[]);
  assert.throws(()=>personalRuntimePaths(f.root,profiles,f.config.index,{ephemeralRoot:join(f.root,"media")}),/personal_runtime_invalid/);
+});
+
+test("Desktop viewer lanes remain bounded and reusable across repeated reconnects", async t => {
+ const f=fixture(t);f.provision();const runtime=await f.open();
+ for(let index=0;index<12;index++){
+  const primary=runtime.openDesktop("owner","desktop:primary",()=>{});
+  assert.throws(()=>runtime.openDesktop("owner","desktop:primary",()=>{}),/desktop_unavailable/);
+  const secondary=runtime.openDesktop("owner","desktop:secondary",()=>{});
+  const wife=runtime.openDesktop("wife","desktop:primary",()=>{});
+  assert.throws(()=>runtime.openDesktop("owner","desktop:third",()=>{}),/desktop_unavailable/);
+  await Promise.all([primary.close(),secondary.close(),wife.close()]);
+ }
+ assert.equal(f.native,0);
 });

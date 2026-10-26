@@ -217,6 +217,23 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
       try { return { ...await record.owner.bot(channel), profileId: record.identity.profileId }; }
       catch (error) { await retire(uid, record); throw error; }
     },
+    async readNative(uid, channel, method, params = {}, { signal } = {}) {
+      const allowed = {
+        "session.resume": ["session_id", "defer_history", "omit_messages", "cols", "display_projection"],
+        "session.info": ["session_id"],
+        "session.events.since": ["session_id", "last_sequence", "last_seen", "replay_epoch"],
+        "prompt.receipt": ["session_id", "admission_id", "include_result"],
+      };
+      if (!Object.hasOwn(allowed, method) || !params || Array.isArray(params) ||
+          Object.keys(params).some(key => !allowed[method].includes(key))) throw Error("desktop_method_forbidden");
+      const record = await ownerFor(uid);
+      try {
+        const bot = await record.owner.bot(channel);
+        if (params.session_id !== bot.session_id) throw Error("session_changed");
+        const reading = record.owner.rpc(channel, method, params, { timeoutMs: 5000 });
+        return await (signal ? abortable(reading, signal) : reading);
+      } catch (error) { if (record.owner.unavailable) await retire(uid, record); throw error; }
+    },
     async context(uid, { signal } = {}) {
       const record = await ownerFor(uid);
       // Abandoning a read must not kill an authority executing a model turn.

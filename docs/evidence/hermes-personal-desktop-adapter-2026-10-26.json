@@ -1,0 +1,82 @@
+{
+  "task": "HERMES-PERSONAL-01",
+  "date": "2026-10-26",
+  "component": "Desktop app admission adapter",
+  "syntheticOnly": true,
+  "nodeTests": 51,
+  "nativeRuntime": {
+    "passed": true,
+    "checks": 35,
+    "realPersonalRuntime": true,
+    "realNativeCodexProducer": true,
+    "separateDataProfiles": true,
+    "canonicalHistoryAfterPhysicalRestart": true,
+    "delegatedSessionAfterRestart": true,
+    "protectedNativePhotoReadDelete": true,
+    "nativeModelSelectedWithoutInference": true,
+    "nativeHistoryAfterModelSelection": true,
+    "desktopAppAdmission": true,
+    "desktopReceiptReplayNoDuplicate": true,
+    "desktopLiveEvents": true,
+    "desktopRawRpcRefused": true,
+    "foreignPhotoRefRefused": true,
+    "modelLoginNeededForWife": false,
+    "startupNoProviderPosts": true,
+    "expiredNativeRefreshBeforeInference": true,
+    "rotatedConnectionUsedAfterPhysicalRestart": true,
+    "readyDraftLocalCompletionWithoutFourthPost": true,
+    "physicalPostReservations": 7,
+    "realModelRequests": 0,
+    "physicalProcessesWithOSCanaries": 9
+  },
+  "sourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+  "sourceManifest": {
+    "scope": "all tracked Python source plus pinned importable suffixes, excluding installed dependencies",
+    "verifiedFiles": 9975,
+    "verifiedOtherSuffixes": 2,
+    "sha256": "a1e875821d26e706a10fde8f10d52c41f4083db91082a02a0d3bff62b7df9cc4"
+  },
+  "sourceSha256": {
+    "server/trainer/hermes_personal_owner_test.py": "b055d92481b861242d9f98364ae76a7a7d23519f58aa71400e6c98788ab922f1",
+    "server/trainer/hermes_personal_provider_test.py": "98bc520bcd8ae79edfae5f67b2115a6117fb41148572638246f4e1010b00d68b",
+    "scripts/hermes-personal-owner-check.py": "d9c0363624c68e2d90fb404b3baeff74c2d22403c0f00df7b11d5bcbd6ff9405",
+    "scripts/hermes_personal_fixture.py": "d6abc8334d28287f5cc378651c9f031e5880b70e1f1128e7b4b4cb5de32b8752",
+    "server/trainer/hermes_personal_owner.py": "ac4155843246d04622d78e0b99cf5c4e69ebc8dac6d9fdb8b721048a6adc4cdd",
+    "server/trainer/hermes_personal_media.py": "2060a5dc02c27501da130b586f121f0060b468fcbfdc65f6034c294c7022fc9a",
+    "server/trainer/hermes_personal_context.py": "3eb329910be0279f279c5fc3b1d839eec97c453215a90b935f251405bd1722e3",
+    "server/trainer/hermes_personal_provider.py": "37ca1542a44179dc3e7c2faf4c1768fe2980b0b58015ea0e85bf39c34d592f1f",
+    "server/trainer/hermes_personal_ipc.py": "8819dc38030dbd588aee73ddb468f6d523ede214d478e2fe0e930e41f96dc313",
+    "server/trainer/hermes_personal_worker.py": "8127c09b45545f63e8bdc22d217cb0488d78c40057941ff7ef28c573d7b3d223",
+    "server/trainer/personal-process.mjs": "53890009b8f57caae188be279010e5ecd9b2f1fe8b3104c16b66ff7fafd2b255",
+    "server/trainer/internal-process.mjs": "e8c592347e4cef337545f18daa3768d41a51e4c7dacaeda81805149161b268a7",
+    "scripts/hermes-personal-ipc-fixture.mjs": "ab4b17cb26eec3cadc7d696adb53a0aa5cd46ba630f05778703cb443919ec12f",
+    "server/trainer/personal-runtime.mjs": "ef028c417d23c18d91ba2e6c4fea1967d3b4aae87f062be6482cf6d499775795",
+    "server/trainer/personal-runtime.test.mjs": "286eccecede31e86a8dfae11e2425b9bfc36d43a8415bbdd1f3bcf3ae67d0667",
+    "server/trainer/personal-desktop-adapter.mjs": "435256e8bd95850fcb644318c0f74234a02d424ce828ab34bfbb7a5964448b6d",
+    "scripts/hermes-personal-runtime-fixture.mjs": "73faca2816d25e45ab8b17a5b3131c4ebc372bfdd05fea2bdd226e69db71664f",
+    "server/trainer/firebase-sessions.mjs": "9dea0d2ac0205d34d4e53a82fbd4775ed8330ab8dae4f7d42aa6d49dc58f430d",
+    "server/trainer/personal-coordinator.mjs": "f1ad264b6a5779672ea2941d3ddde29e56e90ab48be244cdf3449e4e9033331b",
+    "server/trainer/personal-backend.mjs": "9c2b48a2d82a1cbe9a9761053cc245df18cef2c0e2184879f35bf8367efe30df",
+    "server/trainer/personal-payer.mjs": "ce8694ed3fce6099e85213033e8398bd986e28a1651b5939dd3a274bdd87728d",
+    "scripts/hermes-personal-payer-fixture.py": "7e88553ab3bf828d2ab1e2468d4cb9e2655b2276953427d78602e19f9bf032c9"
+  },
+  "independentReview": {
+    "reviewer": "personal_local_review",
+    "verdict": "PASS",
+    "fixed": [
+      "read observer abort",
+      "last viewer execution binding",
+      "midnight authorization anchor",
+      "fanout write acknowledgment",
+      "transport registration cleanup"
+    ]
+  },
+  "scopeLimitations": [
+    "HTTP and WebSocket facade pending",
+    "real Desktop UI pending",
+    "migration pending",
+    "B1 B2 B3 pending"
+  ],
+  "realModelRequests": 0,
+  "productionChanged": false
+}

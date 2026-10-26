@@ -293,3 +293,21 @@ test("model selection waits for an active turn and its physical cleanup", async 
   release(); await turn; await selection; assert.equal(changed, true);
   assert.deepEqual(f.outbox.budget(), { turns: 1, posts: 1 });
 });
+
+test("abandoning a Desktop read cannot abort the native owner or its next model turn", async t => {
+  const f = fixture(t); await f.core.history("owner");
+  const owner = f.owners[0], originalRpc = owner.rpc;
+  let release, captured;
+  const gate = new Promise(resolve => { release = resolve; });
+  owner.rpc = async (_channel, method, _params, options) => {
+    assert.equal(method, "session.info"); captured = options; await gate; return { model: "synthetic" };
+  };
+  const controller = new AbortController();
+  const reading = f.core.readNative("owner", "desktop:primary", "session.info", { session_id: "session-owner-1" }, { signal: controller.signal });
+  await new Promise(resolve => setImmediate(resolve)); controller.abort();
+  await assert.rejects(reading, /upstream_timeout/);
+  assert.equal(captured.signal, undefined); assert.equal(captured.timeoutMs, 5000); assert.equal(owner.closed, false);
+  release(); owner.rpc = originalRpc;
+  assert.equal((await f.core.submit("owner", randomUUID(), { text: "Still alive" })).state, "completed");
+  assert.equal(f.owners.length, 1);
+});

@@ -12,7 +12,7 @@ import { personalQueue } from "./personal-queue.mjs";
 import { stableJSON } from "./limits.mjs";
 import { buildSnapshot } from "./snapshot.mjs";
 
-function fixture(t, { context = "synthetic", nativeState = "completed", drain, stageError, staleBeforeVerify = false, memory } = {}) {
+function fixture(t, { context = "synthetic", nativeState = "completed", drain, stageError, staleBeforeVerify = false, memory, authorize = async () => {} } = {}) {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "scisense-personal-gateway-"))); chmodSync(dir, 0o700);
   let clock = Date.parse("2026-10-24T20:59:59Z"), revision = 0, starts = 0, verifies = 0;
   const store = openTurnStore(join(dir, "turns.sqlite"), { hmacKey: randomBytes(32), now: () => clock });
@@ -41,6 +41,7 @@ function fixture(t, { context = "synthetic", nativeState = "completed", drain, s
   const g = createTrainerGateway({ ownerUid: "owner", store, backend, now: () => clock, queueWindowMs: 225000,
     snapshotFactory: value => buildSnapshot({ ...value, history: [], maxPayloadBytes: 512000 }),
     media: { describe: () => [], stage() {}, load: () => [], remove() {}, sweep: () => ({ faults: 0 }) }, proxy: { cancel() {}, close() {} },
+    authorizeTurn: (uid, signal) => authorize({ uid, signal, advance() { clock += 10000; } }),
     memoryWriteEnabled: !!memory, contextStore: memory ? { commit: (...args) => memory.commit(...args) } : undefined,
     readContext: async () => memory ? memory.value : ({ text: context, revision: 1 }), readDay: async (_uid, targetDate) => ({ targetDate, revision, meals: {}, notes: [] }), readPlan: async () => ({ planContext: {} }),
   });
@@ -170,4 +171,20 @@ test("failed asynchronous memory commit cannot claim confirmation", async t => {
   await assert.rejects(f.g.handle("owner", `/context/${p.proposalId}/confirm`, "POST", {}), /context_unavailable/);
   const state = await (await f.g.handle("owner", "/state", "GET")).json();
   assert.equal(state.contextProposals.find(value => value.proposalId === p.proposalId).state, "proposed");
+});
+
+test("Firebase refresh across midnight keeps the durable admission's original day", async t => {
+  const f = fixture(t, { authorize: async ({ uid, advance }) => { assert.equal(uid, "owner"); advance(); } });
+  const input = body();
+  await f.g.handle("owner", "/turns", "POST", input);
+  assert.equal((await f.settle(input.turnId)).state, "completed");
+  assert.equal(f.snapshots[0].sentAt, "2026-10-24T20:59:59.000Z");
+  assert.equal(f.snapshots[0].targetDate, "2026-10-23");
+});
+
+test("denied Firebase delegation stops before Native, context, or model admission", async t => {
+  const f = fixture(t, { authorize: async () => { throw Error("data_auth_required"); } });
+  const input = body();
+  await assert.rejects(f.g.handle("owner", "/turns", "POST", input), /data_auth_required/);
+  assert.equal(f.starts, 0); assert.deepEqual(f.snapshots, []);
 });

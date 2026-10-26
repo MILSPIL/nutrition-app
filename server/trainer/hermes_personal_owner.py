@@ -159,11 +159,17 @@ class EventTransport:
         self.auth_identity = None
 
     def write(self, value):
-        if not self.closed:
-            self.callback(json.loads(value) if isinstance(value, str) else value)
+        if self.closed:
+            return False
+        self.callback(json.loads(value) if isinstance(value, str) else value)
+        # Native FanoutTransport removes a peer unless write acknowledges it.
+        return True
 
     async def write_async(self, value):
-        self.write(value)
+        return self.write(value)
+
+    def close(self):
+        self.closed = True
 
     def is_closed(self):
         return self.closed

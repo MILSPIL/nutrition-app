@@ -80,14 +80,28 @@ try{
  for(const [uid,before] of [["owner",owner],["wife",wife]]){const after=await state(uid);assert.deepEqual(after.messages,before.messages);assert.equal(after.latestTurn.nativeInputClaimed,true);assert.equal(after.dataSession.phase,"connected");checks++;}
  await assert.rejects(runtime.handle("stranger","/state","GET"),/pilot_forbidden/);checks++;
  stage="rotated-connection-after-restart";
- await send("owner","Покажи стан після restart без нового refresh. SYNTHETIC_MODEL_CHANGED"+(setup.systemd?" SYNTHETIC_AFTER_RESTART":""),setup.systemd?[{type:"image/png",data:thirdPng}]:[]);checks++;
+ const desktopEvents=[];
+ const desktop=runtime.openDesktop("owner","desktop:primary",event=>{if(event.method==="event")desktopEvents.push(event.params.type);});
+ try{
+  const native=await desktop.history();assert.equal(native.messages.filter(message=>message.role==="user").length,owner.messages.filter(message=>message.role==="user").length);checks++;
+  await assert.rejects(desktop.read("prompt.submit",{session_id:native.session_id,text:"forged bypass"}),/desktop_method_forbidden/);checks++;
+  await assert.rejects(desktop.read("session.info",{session_id:"another-profile-session"}),/session_changed/);checks++;
+  const inputId=randomUUID(),text="Покажи стан після restart без нового refresh. SYNTHETIC_MODEL_CHANGED"+(setup.systemd?" SYNTHETIC_AFTER_RESTART":"");
+  const images=setup.systemd?[{type:"image/png",data:thirdPng}]:[],imageRefs=images.map(image=>desktop.hashImage(image));
+  const ack=await desktop.submit({inputId,sessionId:native.session_id,text,images,imageRefs});assert.ok(ack.admission_id);checks++;
+  for(let until=Date.now()+45000;;){const turn=await(await runtime.handle("owner","/turns/"+inputId,"GET")).json();if(!["queued","running"].includes(turn.state)){assert.equal(turn.state,"completed");break;}if(Date.now()>until)throw Error("desktop_fixture_timeout");await new Promise(resolve=>setTimeout(resolve,25));}checks++;
+  assert.ok((await state("owner")).messages.some(message=>message.content.includes("SYNTHETIC_MODEL_CHANGED")));
+  for(let until=Date.now()+1000;!desktopEvents.includes("message.complete")&&Date.now()<until;)await new Promise(resolve=>setTimeout(resolve,5));
+  assert.ok(desktopEvents.includes("message.complete"),JSON.stringify(desktopEvents));checks++;
+  const repeated=await desktop.submit({inputId,sessionId:native.session_id,text,imageRefs});assert.equal(repeated.admission_id,ack.admission_id);checks++;
+ }finally{await desktop.close();}
  if(setup.systemd){await runtime.handle("owner",`/photos/${photoRef}`,"POST",{action:"delete"});await assert.rejects(runtime.handle("owner",`/photos/${photoRef}/original`,"GET"),/media_missing/);checks++;}
  if(!setup.systemd){
  const posts=readFileSync(join(root,"synthetic-physical-posts.jsonl"),"utf8").trim().split("\n").map(JSON.parse);
  assert.equal(posts.length,7);assert.equal(posts.filter(post=>post.kind==="oauth_refresh").length,1);checks++;
  }
  const db=new DatabaseSync(join(stateRoot,"outbox.sqlite"),{readOnly:true});try{assert.equal(db.prepare("SELECT COUNT(*) AS n FROM personal_attempts").get().n,7);assert.equal(db.prepare("SELECT COUNT(*) AS n FROM personal_turn_budgets").get().n,3);}finally{db.close();}checks++;
- const result={passed:true,checks,realPersonalRuntime:true,realNativeCodexProducer:true,separateDataProfiles:true,canonicalHistoryAfterPhysicalRestart:true,delegatedSessionAfterRestart:true,protectedNativePhotoReadDelete:true,nativeModelSelectedWithoutInference:true,nativeHistoryAfterModelSelection:true,foreignPhotoRefRefused:true,modelLoginNeededForWife:false,startupNoProviderPosts:true,expiredNativeRefreshBeforeInference:true,rotatedConnectionUsedAfterPhysicalRestart:true,readyDraftLocalCompletionWithoutFourthPost:true,physicalPostReservations:7,realModelRequests:0};
+ const result={passed:true,checks,realPersonalRuntime:true,realNativeCodexProducer:true,separateDataProfiles:true,canonicalHistoryAfterPhysicalRestart:true,delegatedSessionAfterRestart:true,protectedNativePhotoReadDelete:true,nativeModelSelectedWithoutInference:true,nativeHistoryAfterModelSelection:true,desktopAppAdmission:true,desktopReceiptReplayNoDuplicate:true,desktopLiveEvents:true,desktopRawRpcRefused:true,foreignPhotoRefRefused:true,modelLoginNeededForWife:false,startupNoProviderPosts:true,expiredNativeRefreshBeforeInference:true,rotatedConnectionUsedAfterPhysicalRestart:true,readyDraftLocalCompletionWithoutFourthPost:true,physicalPostReservations:7,realModelRequests:0};
  console.log(JSON.stringify(result));
  if(setup.systemd)(await import("node:fs")).writeFileSync("/var/lib/scisense/native-result.json",JSON.stringify(result),{mode:0o600});
 }catch(error){console.error(JSON.stringify({syntheticStage:stage,error:error.message}));throw error;}

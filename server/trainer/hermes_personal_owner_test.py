@@ -15,6 +15,27 @@ CONNECTION = {"model": MODEL, "contextWindow": 128000, "supportsTools": True, "s
 SCHEMAS = json.loads(Path(os.environ["SCISENSE_TEST_SCHEMAS"]).read_text())
 
 
+class EventTransportTests(unittest.IsolatedAsyncioTestCase):
+    async def test_native_fanout_keeps_acknowledged_peer_until_closed(self):
+        from hermes_personal_owner import EventTransport
+        from tui_gateway.transport import FanoutTransport
+        frames = []
+        transport = EventTransport(frames.append)
+        fanout = FanoutTransport(transport)
+        for index in range(3):
+            fanout.write({"index": index})
+            for _ in range(100):
+                if len(frames) == index + 1:
+                    break
+                await asyncio.sleep(0.001)
+            self.assertEqual(len(frames), index + 1)
+            self.assertTrue(fanout.contains(transport))
+        self.assertTrue(await transport.write_async({"async": True}))
+        transport.close()
+        self.assertFalse(transport.write({"after": "close"}))
+        self.assertEqual(len(frames), 4)
+
+
 class ProvisionedStateTests(unittest.TestCase):
     def test_lost_native_receipts_or_epoch_is_refused_without_repair(self):
         from hermes_state import SessionDB
@@ -180,6 +201,11 @@ class PersistentOwnerTests(unittest.IsolatedAsyncioTestCase):
                     break
                 await asyncio.sleep(0.05)
             self.assertEqual(current["status"], "terminal", current)
+            for _ in range(100):
+                if any(channel == "desktop:one" and event.get("params", {}).get("type") == "message.complete" for channel, event in events):
+                    break
+                await asyncio.sleep(0.01)
+            self.assertTrue(any(channel == "desktop:one" and event.get("params", {}).get("type") == "message.complete" for channel, event in events))
             history = await first.rpc("desktop:one", "session.resume", {"session_id": sid})
             messages = history["messages"]
             self.assertTrue(any("Синтетичний підсумок" in str(message) for message in messages), {"messages": messages, "receipt": current, "modelCalls": len(calls), "tools": tools})
