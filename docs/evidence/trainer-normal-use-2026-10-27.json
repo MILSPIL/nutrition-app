@@ -1,0 +1,21 @@
+{
+  "version": "1.9.4",
+  "codeSha": "1c81bcefacc460f3ef4bf9771eed41a5ca31093a",
+  "checkedAt": "2026-10-26T23:36:53Z",
+  "url": "https://ntzg.pp.ua/",
+  "goal": "objective_e45aa8ac1aa3",
+  "ownerAcceptance": "pending",
+  "familyPhoneAcceptance": "pending",
+  "performancePilotAcceptance": "pending",
+  "pilotAggregateCapsRemoved": true,
+  "historicalAccountingPreserved": true,
+  "inferenceGuard": {"postsPerInput": 12, "deadlineMs": 90000, "cpu": 2, "memoryBytes": 2147483648, "swapBytes": 0},
+  "ci": {"run": 40419061094, "groupsPassed": 4, "groupsFailed": 0},
+  "regressions": {"node": 79, "react": 51, "recorderBrowser": 43, "coachBrowser": 87, "actualPinnedNativeComposition": true},
+  "ui": {"widths": [375, 390, 1366], "keyboardHeight": 480, "gutterPx": 16, "edgeDeltasPx": 0, "horizontalOverflowPx": 0, "minimumVisibleControlHeightPx": 44, "screenshotsInspected": true, "ownedBrowsersRemoved": true},
+  "recording": {"explicitStart": true, "previewBeforeSend": true, "playbackVerified": true, "cancelVerified": true, "failedSttRetainsRecording": true, "noAutomaticModelSend": true},
+  "liveControl": {"passed": true, "newInputs": 1, "oldInputReplays": 0, "nativeCompleted": true, "appCompleted": true, "readyDraftItems": 1, "completeNutritionItems": 1, "automaticPlanMatches": 1, "physicalPosts": 3, "elapsedMs": 88491, "foodSaveCommandsUnchanged": true, "oldUnknowns": 0, "profilesIsolated": true},
+  "publication": {"exactPublicFileHashes": 37, "siteHttp": 200, "apiHttp": 200, "labFlagsOff": true},
+  "cleanup": {"temporaryAdministratorAbsent": true, "temporaryKeychainEntriesDeleted": 3, "keychainAbsenceVerified": true, "ownedSleepInhibitorStopped": true},
+  "remaining": ["Контрольна обробка зайняла близько 89 секунд; швидкість ще потребує покращення й пілотної перевірки", "Фізичні телефони Юрія та дружини приймають власники"]
+}
