@@ -10,7 +10,7 @@ import {assignPlanItems} from '../src/services/planAllocation.js';
 assert.equal(process.env.FIRESTORE_EMULATOR_HOST,'127.0.0.1:8088');
 assert.equal(process.env.FIREBASE_AUTH_EMULATOR_HOST,'127.0.0.1:9099');
 const {chromium}=await browserRuntime();
-const textAudit=readFileSync('/Users/user/.codex/skills/layout-text-check/scripts/check-text.js','utf8');
+const textAudit=readFileSync(new URL('./qa/check-text.browser.js',import.meta.url),'utf8');
 const build=resolve('tmp/coach-ui-build'),out=resolve('tmp/coach-ui-qa');mkdirSync(out,{recursive:true});
 const evidence={syntheticOnly:true,realBuiltUI:true,mockedTrainerAPI:true,widths:[],checks:[],consoleErrors:[],iconRequests:[],textAudits:[]};
 const check=(name,ok)=>{assert.ok(ok,name);evidence.checks.push(name);};

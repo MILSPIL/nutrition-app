@@ -1,0 +1,50 @@
+{
+  "task": "HERMES-PERSONAL-01",
+  "syntheticOnly": true,
+  "production": false,
+  "ownerAcceptance": false,
+  "realApiCalls": 0,
+  "messenger": {
+    "checks": 31,
+    "widths": [
+      375,
+      390,
+      1366
+    ],
+    "outerGutters": [
+      16,
+      16
+    ],
+    "edgeDelta": 0,
+    "overflow": 0,
+    "textInsetForAttachmentButton": 50,
+    "runner": "df1a5769dcca4697-luejiu7w",
+    "cleanup_ok": true,
+    "removed": true
+  },
+  "coach": {
+    "checks": 58,
+    "widths": [
+      375,
+      390,
+      1366
+    ],
+    "outerGutters": [
+      16,
+      16
+    ],
+    "edgeDelta": 0,
+    "overflow": 0,
+    "minimumTapTarget": 44,
+    "keyboardViewportHeight": 480,
+    "runner": "05f2f5f037374b67-a7isisr3",
+    "cleanup_ok": true,
+    "removed": true
+  },
+  "textAudit": {
+    "script": "scripts/qa/check-text.browser.js",
+    "sha256": "c7488575d0a1557fb55dede116c9123cae09dc7f5288b819480ef68711c90079",
+    "origin": "local layout-text-check script, exact standalone snapshot"
+  },
+  "fullCiStillPending": true
+}
