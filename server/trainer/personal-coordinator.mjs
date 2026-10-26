@@ -28,8 +28,8 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
     startups.add(task); task.finally(() => { startups.delete(task); if (openings.get(uid) === task) openings.delete(uid); }).catch(() => {});
     return task;
   }
-  async function openOwner(uid, version) {
-    const valid = () => !closed && !changing && version === (generations.get(uid) ?? 0);
+  async function openOwner(uid, version, preparingSelection = false) {
+    const valid = () => !closed && (!changing || preparingSelection) && version === (generations.get(uid) ?? 0);
     const profile = profiles.resolve(uid), connection = await payer.start();
     if (!valid()) throw Error("trainer_unavailable");
     let record = owners.get(uid);
@@ -282,7 +282,27 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
           await Promise.allSettled([...startups]);
           await Promise.all([...owners.entries()].map(([uid, record]) => retire(uid, record)));
           signal.throwIfAborted();
-          return await payer.selectModel({ provider: selection.provider, model: selection.model }, { signal });
+          const selected = await payer.selectModel({ provider: selection.provider, model: selection.model }, { signal });
+          // A model change retires every authority. Prepare their native chat
+          // before reopening the five-second context-read window, just as at
+          // initial runtime startup. Keep all read ingress fenced meanwhile.
+          const warming = profiles.entries().map(({ uid }) => {
+            const task = (async () => {
+              const record = await openOwner(uid, generations.get(uid) ?? 0, true);
+              await record.owner.bot("web");
+              signal.throwIfAborted();
+            })();
+            startups.add(task);
+            task.finally(() => startups.delete(task)).catch(() => {});
+            return task;
+          });
+          const results = await Promise.allSettled(warming);
+          const failed = results.find(result => result.status === "rejected");
+          if (failed) {
+            await Promise.all([...owners.entries()].map(([uid, record]) => retire(uid, record)));
+            throw failed.reason;
+          }
+          return selected;
         } finally { changing = false; }
       }, { signal });
     },

@@ -9,7 +9,7 @@ import { createPersonalCoordinator } from "./personal-coordinator.mjs";
 import { openPersonalStore } from "./personal-store.mjs";
 import { personalProfiles } from "./personal-profiles.mjs";
 
-function fixture(t, { beforeNative = async () => {}, prepare, loseAck = false, unknownFailure = false, closeGate = Promise.resolve(), botFailure = false, startGate = Promise.resolve(), openGate = Promise.resolve(), onAbort = () => {}, loseAckBeforeModel = false, lookupMiss = false, bindingPatch = {}, staleAck = false, abortFailure = false, payerExtensions = {} } = {}) {
+function fixture(t, { beforeNative = async () => {}, beforeOwnerStart = async () => {}, beforeBot = async () => {}, prepare, loseAck = false, unknownFailure = false, closeGate = Promise.resolve(), botFailure = false, startGate = Promise.resolve(), openGate = Promise.resolve(), onAbort = () => {}, loseAckBeforeModel = false, lookupMiss = false, bindingPatch = {}, staleAck = false, abortFailure = false, payerExtensions = {} } = {}) {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "scisense-coordinator-"))); chmodSync(dir, 0o700);
   const profiles = personalProfiles({ version: 1, fundingOwner: "owner", profiles: ["owner", "wife"].map(uid => ({ uid, profileId: "p-" + uid, home: "/synthetic/" + uid, socket: "/synthetic/run-" + uid + "/native.sock", canonicalTitle: "Bot Chat" })) });
   const key = randomBytes(32), raw = openPersonalStore(join(dir, "outbox.sqlite"), { profiles, key });
@@ -24,9 +24,10 @@ function fixture(t, { beforeNative = async () => {}, prepare, loseAck = false, u
   const core = createPersonalCoordinator({ profiles, outbox, payer, pollMs: 1,
     prepare: async ctx => { prepared.push({ uid: ctx.uid, revision, sentAt: ctx.sentAt }); return prepare ? prepare(ctx) : { apiText: "fresh:" + revision, tools: async () => ({}) }; },
     ownerFactory(profile, hooks) {
+      const ordinal = owners.length;
       const identity = { profileId: profile.home, instanceId: randomUUID(), authorityEpoch: epoch };
       const session = "session-" + profile.uid;
-      const owner = { identity, closed: false, async start() { await openGate; return identity; }, async bot() { if (botFailure && owners.length === 1) throw Error("execution_unknown"); return { session_id: session + "-" + tip, messages: messages.get(profile.uid) ?? [] }; },
+      const owner = { identity, closed: false, async start() { await openGate; await beforeOwnerStart(profile.uid, ordinal); return identity; }, async bot() { await beforeBot(profile.uid, ordinal); if (botFailure && owners.length === 1) throw Error("execution_unknown"); return { session_id: session + "-" + tip, messages: messages.get(profile.uid) ?? [] }; },
         async rpc(_channel, method, params) {
           if (method === "prompt.submit") {
             nativeCalls++; await beforeNative(profile.uid);
@@ -275,9 +276,67 @@ test("only the funding owner selects models after every physical profile drain",
   await assert.rejects(f.core.selectModel("owner", { provider: "openai-codex", model: "next", api_key: "forged" }), /model_selection_refused/);
   assert.equal((await f.core.modelOptions("wife")).provider, "openai-codex");
   await f.core.selectModel("owner", { provider: "openai-codex", model: "next" });
-  assert.equal(actions.length, 1); assert.equal(f.owners.length, 2);
+  assert.equal(actions.length, 1); assert.equal(f.owners.length, 4);
   assert.equal((await f.core.history("owner")).session_id, before.session_id);
-  assert.equal(f.owners.length, 3); assert.deepEqual(f.outbox.budget(), { turns: 0, posts: 0 });
+  assert.equal(f.owners.length, 4); assert.deepEqual(f.outbox.budget(), { turns: 0, posts: 0 });
+});
+
+test("model selection keeps reads fenced until both cold native chats are prepared", { timeout: 2000 }, async t => {
+  let release, entered, cold = 0, settled = false;
+  const gate = new Promise(resolve => { release = resolve; });
+  const ready = new Promise(resolve => { entered = resolve; });
+  const f = fixture(t, { beforeOwnerStart: async (_uid, ordinal) => {
+    if (ordinal >= 2) { if (++cold === 2) entered(); await gate; }
+  }, payerExtensions: { async selectModel() { return { ok: true }; } } });
+  await f.core.history("owner"); await f.core.history("wife");
+  const selection = f.core.selectModel("owner", { provider: "openai-codex", model: "next" }).then(value => { settled = true; return value; });
+  try {
+    await ready;
+    assert.equal(settled, false);
+    await assert.rejects(f.core.context("owner"), /trainer_busy/);
+    await assert.rejects(f.core.history("wife"), /trainer_busy/);
+    assert.deepEqual(f.outbox.budget(), { turns: 0, posts: 0 });
+  } finally { release(); }
+  await selection;
+  await f.core.history("owner"); await f.core.history("wife");
+  assert.equal(f.owners.length, 4); assert.equal(f.modelCalls.length, 0);
+});
+
+test("failed model-change preparation waits for the other profile then drains both", { timeout: 2000 }, async t => {
+  let release, entered, settled = false;
+  const gate = new Promise(resolve => { release = resolve; });
+  const ready = new Promise(resolve => { entered = resolve; });
+  const f = fixture(t, { beforeBot: async (uid, ordinal) => {
+    if (ordinal < 2) return;
+    if (uid === "owner") throw Error("synthetic-warmup-fault");
+    entered(); await gate;
+  }, payerExtensions: { async selectModel() { return { ok: true }; } } });
+  await f.core.history("owner"); await f.core.history("wife");
+  const selection = f.core.selectModel("owner", { provider: "openai-codex", model: "next" }).catch(error => { settled = true; return error; });
+  try { await ready; assert.equal(settled, false); await assert.rejects(f.core.history("owner"), /trainer_busy/); }
+  finally { release(); }
+  assert.equal((await selection).message, "synthetic-warmup-fault");
+  assert.ok(f.owners.every(owner => owner.closed));
+  assert.deepEqual(f.outbox.budget(), { turns: 0, posts: 0 });
+});
+
+test("closing during model-change preparation cannot publish a late ready owner", { timeout: 2000 }, async t => {
+  let release, entered, count = 0;
+  const gate = new Promise(resolve => { release = resolve; });
+  const ready = new Promise(resolve => { entered = resolve; });
+  const f = fixture(t, { beforeOwnerStart: async (_uid, ordinal) => {
+    if (ordinal >= 2) { if (++count === 2) entered(); await gate; }
+  }, payerExtensions: { async selectModel() { return { ok: true }; } } });
+  await f.core.history("owner"); await f.core.history("wife");
+  const selection = f.core.selectModel("owner", { provider: "openai-codex", model: "next" }).catch(error => error);
+  let closed;
+  try { await ready; closed = f.core.close(); await new Promise(resolve => setImmediate(resolve)); }
+  finally { release(); }
+  await closed;
+  assert.equal((await selection).message, "trainer_unavailable");
+  assert.ok(f.owners.every(owner => owner.closed));
+  await assert.rejects(f.core.history("owner"), /trainer_unavailable/);
+  assert.equal(f.owners.length, 4); assert.deepEqual(f.outbox.budget(), { turns: 0, posts: 0 });
 });
 
 test("model selection waits for an active turn and its physical cleanup", async t => {
