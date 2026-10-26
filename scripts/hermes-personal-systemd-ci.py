@@ -94,6 +94,10 @@ def accept_loop():
             pass
 thread=threading.Thread(target=accept_loop);thread.start()
 proof=[]
+# docker exec joins the namespace root cgroup. Move only this owned synthetic
+# driver to PID1's init.scope so the cgroup-v2 no-internal-process rule permits
+# enabling resource controllers on the manager's root. Never a host operation.
+Path('/sys/fs/cgroup/init.scope/cgroup.procs').write_text(str(os.getpid()))
 try:
     ctl('daemon-reload');ctl('start','scisense.slice','scisense-y.socket','scisense-w.socket','scisense-payer.socket')
     slice_dir=Path('/sys/fs/cgroup/scisense.slice')

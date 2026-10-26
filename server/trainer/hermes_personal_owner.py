@@ -157,6 +157,9 @@ class PersonalOwner:
         if os.environ.get("SCISENSE_NATIVE_PROVISIONED") == "1":
             # Read-only native API before any writable bootstrap can repair or
             # initialize schema. Missing/malformed stores remain a hard failure.
+            from hermes_state_reconcile import schema_drift_reason
+            if schema_drift_reason(self.home / "state.db") is not None:
+                raise RuntimeError("personal_state_invalid")
             from hermes_state import SessionDB
             existing = SessionDB(self.home / "state.db", read_only=True)
             try:
