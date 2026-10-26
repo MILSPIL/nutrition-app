@@ -36,8 +36,20 @@
     "apps/desktop/electron/remote-ws-headers.ts": {
       "before": "ea3497274dbc75b88d317fe88030ad4d0f155f510f829291773cf2b0247c656e",
       "after": "8284a6b20e0a54ec47f65586ecd91d59ef0e495efaaecdc548f521872cb471e4"
+    },
+    "apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts": {
+      "before": "4354dc7f330675251e77e0964015ab3fec2b50d9c284754a53337e129fd8b6d0",
+      "after": "99134f7980d011bca0014f40553b841d8a57e7cd3f0b5368bc1e0c1dc667d8ad"
+    },
+    "apps/desktop/src/app/session/hooks/use-prompt-actions/upload-composer-attachment.test.ts": {
+      "before": "12136de84475840001094e69a248bc5cbeac2a792ba130a983ebed4725fd39ac",
+      "after": "fad54454dfefa00434ee3dfa4d2ee878b3ee35634fc9ebc8a899070ccd19c03e"
+    },
+    "apps/desktop/src/app/types.ts": {
+      "before": "9af4ec73e3d339f7bd05772b9cb8bc31e5bedbad9aa22b5eb372af428e1c9724",
+      "after": "7e15a7e4d1cabc8fbaac1344f667725b49e4fe2694e0e9b938d8d9a065b3a93f"
     }
   },
-  "patchSha256": "fcdab958d335bef487884ed80b1bbea3828bdb69f26f8c0ab00668bdc84fc396",
+  "patchSha256": "e3eac62a9b1ec3cfae72268b1b3626c049436ea83ac18251a98b7c9a9fb80856",
   "contextBlankWhitespaceNormalized": true
 }

@@ -344,10 +344,10 @@ test("Local SQLite cannot silently recreate lost budget; restart and other UID k
 test("emulator proxy observes resets without retries and aborts disconnected streams", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "scisense-proxy-reuse-")), tls = await generateTls("127.0.0.1");
   const previousMax = httpAgent.maxSockets; httpAgent.maxSockets = 1;
-  let gateway, forwarded = 0, streamed = false, streamClosed; const proxyErrors = [];
+  let gateway, forwarded = 0, streamed = false, streamClosed; const proxyErrors = [], upstreamSockets = new Set();
   const stopped = new Promise(resolve => { streamClosed = resolve; });
   const upstream = createServer((req, res) => {
-    forwarded++; req.resume();
+    forwarded++; upstreamSockets.add(req.socket); req.resume();
     if (req.headers["x-goog-api-client"] === "synthetic-reset") { req.socket.destroy(); return; }
     if (req.headers["x-goog-api-client"] === "synthetic-stream") {
       streamed = true; res.writeHead(200, { "Content-Type": "application/json" }); res.write("["); res.once("close", streamClosed);
@@ -372,10 +372,10 @@ test("emulator proxy observes resets without retries and aborts disconnected str
     const body = JSON.stringify({ documents: ["projects/demo-scisense/databases/(default)/documents/users/" + UID] });
     const results = await Promise.all(Array.from({ length: 16 }, () => get(route, "POST", headers, body)));
     assert.deepEqual(results.map(value => value.status), Array(16).fill(200));
-    assert.equal(forwarded, 16);
+    assert.equal(forwarded, 16); assert.equal(upstreamSockets.size, 16);
     const reset = await get(route, "POST", { ...headers, "x-goog-api-client": "synthetic-reset" }, body);
     assert.equal(reset.status, 502); assert.equal(forwarded, 17);
-    assert.equal(proxyErrors.length, 1); assert.equal(proxyErrors[0].code, "ECONNRESET");
+    assert.equal(proxyErrors.length, 1); assert.equal(proxyErrors[0].code, "ECONNRESET"); assert.equal(proxyErrors[0].reusedSocket, false);
     assert.equal(JSON.stringify(proxyErrors).includes(headers.authorization), false);
     await new Promise((resolve, reject) => {
       const req = request("https://127.0.0.1:9447" + route, { method: "POST", ca: tls.ca,

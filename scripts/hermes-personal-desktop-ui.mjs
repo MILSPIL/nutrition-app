@@ -93,7 +93,7 @@ export async function checkPersonalDesktopUi({ root, socketPath, token, source, 
     await page.getByText(expectedAnswer, { exact: false }).last().waitFor({ timeout: 45000 }); answerSeen = true;
     for(const until=Date.now()+5000;(!liveEvent||!nativeReceipt)&&Date.now()<until;)await page.waitForTimeout(25);
     assert.equal(sent.length, 1); assert.equal(sent[0].sessionId, sessionId); assert.equal(wireSecretsAbsent, true); assert.equal(liveEvent, true); assert.ok(nativeReceipt?.admission_id);
-    if (photo) assert.equal(photoRpcSeen, true);
+    if (photo) { assert.equal(photoRpcSeen, true); assert.equal(sent[0].attachments.length, 1, "desktop_photo_missing_from_submit"); assert.equal(sent[0].attachments[0].mime, "image/png"); }
     assert.deepEqual(errors, []);
     await page.screenshot({ path: join(evidenceDir, "desktop-native-chat.png") });
     const historyVisible = (await page.locator("body").innerText()).includes(existingText);

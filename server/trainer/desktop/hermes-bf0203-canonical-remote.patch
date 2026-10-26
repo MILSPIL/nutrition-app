@@ -1,29 +1,125 @@
-diff --git a/apps/desktop/electron/connection-config.ts b/apps/desktop/electron/connection-config.ts
-index 7b691bb1..a78e7f70 100644
---- a/apps/desktop/electron/connection-config.ts
-+++ b/apps/desktop/electron/connection-config.ts
+diff --git a/apps/shared/src/canonical-remote.ts b/apps/shared/src/canonical-remote.ts
+new file mode 100644
+index 00000000..de809e80
+--- /dev/null
++++ b/apps/shared/src/canonical-remote.ts
+@@ -0,0 +1,57 @@
++// Only a negotiated transport marker. Credentials still use the existing
++// remote gateway auth; local private tickets never become remote URL tokens.
++export const CANONICAL_REMOTE_QUERY = 'hermes_canonical'
++export const SCISENSE_BRIDGE_PROTOCOL = 'hermes-gateway-v1'
++
++export function canonicalRemoteWsUrl(rawUrl: string, status: unknown): string {
++  const url = new URL(rawUrl)
++  url.searchParams.delete(CANONICAL_REMOTE_QUERY)
++  const bridge = (status as { scisense?: { bridge_version?: unknown; protocol?: unknown; engine_commit?: unknown } } | null)?.scisense
++
++  if (bridge === undefined) { return url.toString() }
++  if (bridge.bridge_version !== 1 || bridge.protocol !== SCISENSE_BRIDGE_PROTOCOL ||
++      typeof bridge.engine_commit !== 'string' || !/^[a-f0-9]{40}$/.test(bridge.engine_commit)) {
++    throw new Error('Несумісне підключення Hermes. Оновіть клієнт або сервер.')
++  }
++  if (!['ws:', 'wss:'].includes(url.protocol) ||
++      !(url.searchParams.has('token') || url.searchParams.has('ticket'))) {
++    throw new Error('Для Hermes потрібне авторизоване підключення.')
++  }
++  url.searchParams.set(CANONICAL_REMOTE_QUERY, '1')
++
++  return url.toString()
++}
++
++export function canonicalGatewayWsUrl(rawUrl: string): boolean {
++  const url = new URL(rawUrl)
++
++  return url.searchParams.has('native_dial') || url.searchParams.get(CANONICAL_REMOTE_QUERY) === '1'
++}
++
++export function freshRemoteCanonicalWsUrl(rawUrl: string, previousUrl: string): string {
++  const url = new URL(rawUrl)
++  const previous = new URL(previousUrl)
++
++  if (previous.searchParams.get(CANONICAL_REMOTE_QUERY) !== '1') { return rawUrl }
++  if (url.origin !== previous.origin || url.pathname !== previous.pathname) {
++    throw new Error('Підключення Hermes змінилося. Підключіться повторно.')
++  }
++  url.searchParams.set(CANONICAL_REMOTE_QUERY, '1')
++
++  return url.toString()
++}
++
++// A negotiated URL is an in-memory dial descriptor only. Neither native nor
++// SciSense credentials travel in the actual WebSocket URL.
++export function canonicalSocketDial(rawUrl: string): { url: string; protocols?: string[] } {
++  const url = new URL(rawUrl)
++  if (!canonicalGatewayWsUrl(rawUrl)) { return { url: rawUrl } }
++  const ticket = url.searchParams.get('ticket') || url.searchParams.get('token')
++  const token = url.searchParams.get('token')
++  if (!ticket || (token && token !== ticket) || !/^[A-Za-z0-9_-]+$/.test(ticket)) {
++    throw new Error('Потрібне чинне авторизоване підключення Hermes.')
++  }
++  url.searchParams.delete('token')
++  url.searchParams.delete('ticket')
++  return { url: url.toString(), protocols: [SCISENSE_BRIDGE_PROTOCOL, `hermes-gateway-ticket.${ticket}`] }
++}
+diff --git a/apps/shared/src/index.ts b/apps/shared/src/index.ts
+index 3bf687a2..ffe645a3 100644
+--- a/apps/shared/src/index.ts
++++ b/apps/shared/src/index.ts
 @@ -1,3 +1,4 @@
-+import { canonicalRemoteWsUrl } from '@hermes/shared/canonical-remote'
- /**
-  * connection-config.ts
-  *
-@@ -286,14 +287,14 @@ async function resolveTestWsUrl(baseUrl, authMode, token, deps: any = {}) {
-       )
-     }
++export { canonicalSocketDial, canonicalGatewayWsUrl, canonicalRemoteWsUrl, freshRemoteCanonicalWsUrl } from './canonical-remote'
+ export { hasAnsi, sanitizeAnsiForRender, stripAnsi } from './ansi'
+ export { backendScopeKey, backendScopePrefix, LOCAL_CONNECTION_ID, registryBackendScopeKey } from './backend-scope'
+ export {
+diff --git a/apps/shared/package.json b/apps/shared/package.json
+index ca592ec6..6c45cb4e 100644
+--- a/apps/shared/package.json
++++ b/apps/shared/package.json
+@@ -6,6 +6,7 @@
+   "exports": {
+     ".": "./src/index.ts",
+     "./ansi": "./src/ansi.ts",
++    "./canonical-remote": "./src/canonical-remote.ts",
+     "./billing": "./src/billing-types.ts",
+     "./billing-policy": "./src/billing-policy.ts",
+     "./charge-settlement": "./src/charge-settlement.ts",
+diff --git a/apps/desktop/src/api/client.ts b/apps/desktop/src/api/client.ts
+index 68c5a3e1..f0ace80d 100644
+--- a/apps/desktop/src/api/client.ts
++++ b/apps/desktop/src/api/client.ts
+@@ -1,4 +1,6 @@
+ import {
++  canonicalGatewayWsUrl,
++  canonicalSocketDial,
+   type GatewayEvent,
+   type GatewayEventName,
+   JsonRpcGatewayClient,
+@@ -333,7 +335,7 @@ export class HermesGateway extends JsonRpcGatewayClient {
 
--    return buildGatewayWsUrlWithTicket(baseUrl, ticket)
-+    return canonicalRemoteWsUrl(buildGatewayWsUrlWithTicket(baseUrl, ticket), deps.status)
-   }
-
-   if (!token) {
-     return null
-   }
-
--  return buildGatewayWsUrl(baseUrl, token)
-+  return canonicalRemoteWsUrl(buildGatewayWsUrl(baseUrl, token), deps.status)
- }
-
- // Normalize a profile name to a connection scope key, or null for the global
+   override async connect(wsUrl: string): Promise<void> {
+     this.connectionGeneration++
+-    this.canonical = new URL(wsUrl).searchParams.has('native_dial')
++    this.canonical = canonicalGatewayWsUrl(wsUrl)
+     this.attached.clear()
+     this.deliveredPrompts.clear()
+     this.sessionProfiles.clear()
+@@ -529,15 +531,8 @@ export class HermesGateway extends JsonRpcGatewayClient {
+         console.warn(`[gateway] Hermes Desktop has no server-request registry for ${request.method} (${request.id})`),
+       requestTimeoutMs: DEFAULT_GATEWAY_REQUEST_TIMEOUT_MS,
+       socketFactory: url => {
+-        const parsed = new URL(url)
+-
+-        if (!parsed.searchParams.has('native_dial')) {return new WebSocket(url)}
+-        const ticket = parsed.searchParams.get('ticket')
+-
+-        if (!ticket) {throw new Error('Native gateway requires a fresh private ticket')}
+-        parsed.searchParams.delete('ticket')
+-
+-        return new WebSocket(parsed.toString(), [CANONICAL_GATEWAY_PROTOCOL, `hermes-gateway-ticket.${ticket}`])
++        const dial = canonicalSocketDial(url)
++        return new WebSocket(dial.url, dial.protocols)
+       }
+     })
+     this.onEvent(event => {
 diff --git a/apps/desktop/electron/main.ts b/apps/desktop/electron/main.ts
 index 3206f7e6..bda1c483 100644
 --- a/apps/desktop/electron/main.ts
@@ -78,24 +174,32 @@ index 3206f7e6..bda1c483 100644
      mintTicket: url => mintGatewayWsTicket(url, testHeaders)
    })
 
-diff --git a/apps/desktop/electron/remote-ws-headers.ts b/apps/desktop/electron/remote-ws-headers.ts
-index 5cbd053a..536599ed 100644
---- a/apps/desktop/electron/remote-ws-headers.ts
-+++ b/apps/desktop/electron/remote-ws-headers.ts
+diff --git a/apps/desktop/electron/connection-config.ts b/apps/desktop/electron/connection-config.ts
+index 7b691bb1..a78e7f70 100644
+--- a/apps/desktop/electron/connection-config.ts
++++ b/apps/desktop/electron/connection-config.ts
 @@ -1,3 +1,4 @@
-+import { freshRemoteCanonicalWsUrl } from '@hermes/shared/canonical-remote'
- import { remoteRequestMatchesBaseUrl } from './connection-config'
- import { registryGatewayWsUrl } from './plugin-profile-routes'
-
-@@ -231,7 +232,7 @@ export function createRegistryGatewayWsUrlHandler(dependencies: RegistryGatewayW
-
-     if (connection.authMode === 'oauth') {
-       const ticket = await dependencies.mintTicket(connection.baseUrl, connection.headers)
--      wsUrl = dependencies.buildTicketUrl(connection.baseUrl, ticket)
-+      wsUrl = freshRemoteCanonicalWsUrl(dependencies.buildTicketUrl(connection.baseUrl, ticket), connection.wsUrl)
++import { canonicalRemoteWsUrl } from '@hermes/shared/canonical-remote'
+ /**
+  * connection-config.ts
+  *
+@@ -286,14 +287,14 @@ async function resolveTestWsUrl(baseUrl, authMode, token, deps: any = {}) {
+       )
      }
 
-     const finalWsUrl = registryGatewayWsUrl(connection, wsUrl)
+-    return buildGatewayWsUrlWithTicket(baseUrl, ticket)
++    return canonicalRemoteWsUrl(buildGatewayWsUrlWithTicket(baseUrl, ticket), deps.status)
+   }
+
+   if (!token) {
+     return null
+   }
+
+-  return buildGatewayWsUrl(baseUrl, token)
++  return canonicalRemoteWsUrl(buildGatewayWsUrl(baseUrl, token), deps.status)
+ }
+
+ // Normalize a profile name to a connection scope key, or null for the global
 diff --git a/apps/desktop/src/api/canonical-create-options.test.ts b/apps/desktop/src/api/canonical-create-options.test.ts
 index 7135835b..e0400bc6 100644
 --- a/apps/desktop/src/api/canonical-create-options.test.ts
@@ -194,125 +298,68 @@ index 00000000..276c682c
 +  expect(() => canonicalSocketDial('ws://localhost/api/ws?hermes_canonical=1&token=one&ticket=two')).toThrow()
 +  expect(canonicalSocketDial('ws://localhost/api/ws?token=legacy')).toEqual({ url: 'ws://localhost/api/ws?token=legacy' })
 +})
-diff --git a/apps/desktop/src/api/client.ts b/apps/desktop/src/api/client.ts
-index 68c5a3e1..f0ace80d 100644
---- a/apps/desktop/src/api/client.ts
-+++ b/apps/desktop/src/api/client.ts
-@@ -1,4 +1,6 @@
- import {
-+  canonicalGatewayWsUrl,
-+  canonicalSocketDial,
-   type GatewayEvent,
-   type GatewayEventName,
-   JsonRpcGatewayClient,
-@@ -333,7 +335,7 @@ export class HermesGateway extends JsonRpcGatewayClient {
-
-   override async connect(wsUrl: string): Promise<void> {
-     this.connectionGeneration++
--    this.canonical = new URL(wsUrl).searchParams.has('native_dial')
-+    this.canonical = canonicalGatewayWsUrl(wsUrl)
-     this.attached.clear()
-     this.deliveredPrompts.clear()
-     this.sessionProfiles.clear()
-@@ -529,15 +531,8 @@ export class HermesGateway extends JsonRpcGatewayClient {
-         console.warn(`[gateway] Hermes Desktop has no server-request registry for ${request.method} (${request.id})`),
-       requestTimeoutMs: DEFAULT_GATEWAY_REQUEST_TIMEOUT_MS,
-       socketFactory: url => {
--        const parsed = new URL(url)
--
--        if (!parsed.searchParams.has('native_dial')) {return new WebSocket(url)}
--        const ticket = parsed.searchParams.get('ticket')
--
--        if (!ticket) {throw new Error('Native gateway requires a fresh private ticket')}
--        parsed.searchParams.delete('ticket')
--
--        return new WebSocket(parsed.toString(), [CANONICAL_GATEWAY_PROTOCOL, `hermes-gateway-ticket.${ticket}`])
-+        const dial = canonicalSocketDial(url)
-+        return new WebSocket(dial.url, dial.protocols)
-       }
-     })
-     this.onEvent(event => {
-diff --git a/apps/shared/package.json b/apps/shared/package.json
-index ca592ec6..6c45cb4e 100644
---- a/apps/shared/package.json
-+++ b/apps/shared/package.json
-@@ -6,6 +6,7 @@
-   "exports": {
-     ".": "./src/index.ts",
-     "./ansi": "./src/ansi.ts",
-+    "./canonical-remote": "./src/canonical-remote.ts",
-     "./billing": "./src/billing-types.ts",
-     "./billing-policy": "./src/billing-policy.ts",
-     "./charge-settlement": "./src/charge-settlement.ts",
-diff --git a/apps/shared/src/canonical-remote.ts b/apps/shared/src/canonical-remote.ts
-new file mode 100644
-index 00000000..de809e80
---- /dev/null
-+++ b/apps/shared/src/canonical-remote.ts
-@@ -0,0 +1,57 @@
-+// Only a negotiated transport marker. Credentials still use the existing
-+// remote gateway auth; local private tickets never become remote URL tokens.
-+export const CANONICAL_REMOTE_QUERY = 'hermes_canonical'
-+export const SCISENSE_BRIDGE_PROTOCOL = 'hermes-gateway-v1'
-+
-+export function canonicalRemoteWsUrl(rawUrl: string, status: unknown): string {
-+  const url = new URL(rawUrl)
-+  url.searchParams.delete(CANONICAL_REMOTE_QUERY)
-+  const bridge = (status as { scisense?: { bridge_version?: unknown; protocol?: unknown; engine_commit?: unknown } } | null)?.scisense
-+
-+  if (bridge === undefined) { return url.toString() }
-+  if (bridge.bridge_version !== 1 || bridge.protocol !== SCISENSE_BRIDGE_PROTOCOL ||
-+      typeof bridge.engine_commit !== 'string' || !/^[a-f0-9]{40}$/.test(bridge.engine_commit)) {
-+    throw new Error('Несумісне підключення Hermes. Оновіть клієнт або сервер.')
-+  }
-+  if (!['ws:', 'wss:'].includes(url.protocol) ||
-+      !(url.searchParams.has('token') || url.searchParams.has('ticket'))) {
-+    throw new Error('Для Hermes потрібне авторизоване підключення.')
-+  }
-+  url.searchParams.set(CANONICAL_REMOTE_QUERY, '1')
-+
-+  return url.toString()
-+}
-+
-+export function canonicalGatewayWsUrl(rawUrl: string): boolean {
-+  const url = new URL(rawUrl)
-+
-+  return url.searchParams.has('native_dial') || url.searchParams.get(CANONICAL_REMOTE_QUERY) === '1'
-+}
-+
-+export function freshRemoteCanonicalWsUrl(rawUrl: string, previousUrl: string): string {
-+  const url = new URL(rawUrl)
-+  const previous = new URL(previousUrl)
-+
-+  if (previous.searchParams.get(CANONICAL_REMOTE_QUERY) !== '1') { return rawUrl }
-+  if (url.origin !== previous.origin || url.pathname !== previous.pathname) {
-+    throw new Error('Підключення Hermes змінилося. Підключіться повторно.')
-+  }
-+  url.searchParams.set(CANONICAL_REMOTE_QUERY, '1')
-+
-+  return url.toString()
-+}
-+
-+// A negotiated URL is an in-memory dial descriptor only. Neither native nor
-+// SciSense credentials travel in the actual WebSocket URL.
-+export function canonicalSocketDial(rawUrl: string): { url: string; protocols?: string[] } {
-+  const url = new URL(rawUrl)
-+  if (!canonicalGatewayWsUrl(rawUrl)) { return { url: rawUrl } }
-+  const ticket = url.searchParams.get('ticket') || url.searchParams.get('token')
-+  const token = url.searchParams.get('token')
-+  if (!ticket || (token && token !== ticket) || !/^[A-Za-z0-9_-]+$/.test(ticket)) {
-+    throw new Error('Потрібне чинне авторизоване підключення Hermes.')
-+  }
-+  url.searchParams.delete('token')
-+  url.searchParams.delete('ticket')
-+  return { url: url.toString(), protocols: [SCISENSE_BRIDGE_PROTOCOL, `hermes-gateway-ticket.${ticket}`] }
-+}
-diff --git a/apps/shared/src/index.ts b/apps/shared/src/index.ts
-index 3bf687a2..ffe645a3 100644
---- a/apps/shared/src/index.ts
-+++ b/apps/shared/src/index.ts
+diff --git a/apps/desktop/electron/remote-ws-headers.ts b/apps/desktop/electron/remote-ws-headers.ts
+index 5cbd053a..536599ed 100644
+--- a/apps/desktop/electron/remote-ws-headers.ts
++++ b/apps/desktop/electron/remote-ws-headers.ts
 @@ -1,3 +1,4 @@
-+export { canonicalSocketDial, canonicalGatewayWsUrl, canonicalRemoteWsUrl, freshRemoteCanonicalWsUrl } from './canonical-remote'
- export { hasAnsi, sanitizeAnsiForRender, stripAnsi } from './ansi'
- export { backendScopeKey, backendScopePrefix, LOCAL_CONNECTION_ID, registryBackendScopeKey } from './backend-scope'
- export {
++import { freshRemoteCanonicalWsUrl } from '@hermes/shared/canonical-remote'
+ import { remoteRequestMatchesBaseUrl } from './connection-config'
+ import { registryGatewayWsUrl } from './plugin-profile-routes'
+
+@@ -231,7 +232,7 @@ export function createRegistryGatewayWsUrlHandler(dependencies: RegistryGatewayW
+
+     if (connection.authMode === 'oauth') {
+       const ticket = await dependencies.mintTicket(connection.baseUrl, connection.headers)
+-      wsUrl = dependencies.buildTicketUrl(connection.baseUrl, ticket)
++      wsUrl = freshRemoteCanonicalWsUrl(dependencies.buildTicketUrl(connection.baseUrl, ticket), connection.wsUrl)
+     }
+
+     const finalWsUrl = registryGatewayWsUrl(connection, wsUrl)
+diff --git a/apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts b/apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts
+index 9ce68029..81846370 100644
+--- a/apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts
++++ b/apps/desktop/src/app/session/hooks/use-prompt-actions/index.ts
+@@ -190,6 +190,9 @@ export async function uploadComposerAttachment(
+         attachedSessionId: liveSessionId,
+         label: attachedPath ? pathLabel(attachedPath) : attachment.label,
+         path: attachedPath,
++        // Native staging returns the MIME even when a file-picker chip has none.
++        // submit.ts requires it to include this image in immutable attachments.
++        mime: result.mime || attachment.mime,
+         uploadState: undefined
+       }
+     }
+diff --git a/apps/desktop/src/app/session/hooks/use-prompt-actions/upload-composer-attachment.test.ts b/apps/desktop/src/app/session/hooks/use-prompt-actions/upload-composer-attachment.test.ts
+index 6998acdf..7a8a30d1 100644
+--- a/apps/desktop/src/app/session/hooks/use-prompt-actions/upload-composer-attachment.test.ts
++++ b/apps/desktop/src/app/session/hooks/use-prompt-actions/upload-composer-attachment.test.ts
+@@ -72,7 +72,7 @@ describe('uploadComposerAttachment image cache contract', () => {
+
+     const requestGateway = vi.fn(async (method: string) => {
+       if (method === 'image.attach_bytes') {
+-        return { attached: true, path: '/gw/images/shot.png' } as never
++        return { attached: true, path: '/gw/images/shot.png', mime: 'image/png' } as never
+       }
+
+       return {} as never
+@@ -96,6 +96,7 @@ describe('uploadComposerAttachment image cache contract', () => {
+       session_id: RUNTIME_SESSION_ID
+     })
+     expect(uploaded.path).toBe('/gw/images/shot.png')
++    expect(uploaded.mime).toBe('image/png')
+   })
+ })
+
+diff --git a/apps/desktop/src/app/types.ts b/apps/desktop/src/app/types.ts
+index 501dcdd7..3a3b3d86 100644
+--- a/apps/desktop/src/app/types.ts
++++ b/apps/desktop/src/app/types.ts
+@@ -11,6 +11,7 @@ export interface ContextSuggestion {
+ }
+
+ export interface ImageAttachResponse {
++  mime?: string
+   attached?: boolean
+   path?: string
+   text?: string

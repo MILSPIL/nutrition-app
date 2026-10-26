@@ -459,6 +459,10 @@ export async function createPhoneGateway({
               path: url.pathname + url.search,
               method: req.method,
               headers,
+              // Emulator WebChannel closes idle sockets between streams. A
+              // fresh loopback connection avoids stale reuse without replaying
+              // a POST that may already have reached the emulator.
+              agent: false,
             },
             (incoming) => {
               res.writeHead(incoming.statusCode, {

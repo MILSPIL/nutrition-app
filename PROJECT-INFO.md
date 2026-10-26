@@ -8,6 +8,8 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-26 04:30 UTC: actual Electron + Native пройшов text/photo/dialog/terminal event/exact replay після закриття клієнта:36 checks,9 OS-guarded processes,7 fake POST,0 real API;0 page errors, browser cleanup verified. [Доказ](docs/evidence/hermes-personal-desktop-wire-2026-10-26.json). Linux candidate CI, міграція, пакети й B1–B3 ще pending; production не змінений.
+
 2026-10-26 04:18 UTC: приватний per-UID Desktop transport і V3 binding підготовлені;29 targeted Node tests та свіже незалежне рев’ю PASS після1P1/2P2. [Контракт](docs/deployment/hermes-personal-desktop-01.md). Actual Electron уже надсилає повідомлення до справжнього synthetic Native й отримує відповідь/terminal event, без unhandled errors; UI photo chooser та replay після закриття Desktop ще pending. Host, ключі, бюджет і production не змінені.
 
 2026-10-26 03:31 UTC: внутрішній Desktop adapter пройшов 51 Node і 35 actual Native перевірок, 9 OS-guarded процесів. Повтор після втрати з’єднання не виконується вдруге; події, фото й історія спільні. Незалежне рев’ю PASS. [Доказ](docs/evidence/hermes-personal-desktop-adapter-2026-10-26.json). CI `dd417ad` повністю PASS, але зовнішній Desktop transport, міграція й B1–B3 ще pending; production не змінений.
@@ -393,3 +395,5 @@ npx firebase-tools deploy --only firestore:rules --project nutrition-tracker-ua
 ### 2026-10-21: G04 локальний UI перевірено
 
 Атомарний протокол у 1015846 (29/29 rules + незалежні SDK-проби). Обидва клієнтські вікна використовують спільну згоду й захист повторів; тренерський UI очищає відкликані дані та ігнорує старі відповіді. Незалежний trainer_ui_review: done; Jest 99/99. Браузерний demo-scisense з трьома ізольованими акаунтами підтвердив request/accept/revoke/reconnect/stranger deny, 375/390/1024 px без переповнення. Доказ: docs/evidence/trainer-ui-preparation-2026-10-21.json. G04 кінцевого релізу pending; справжній Firebase не змінено. Далі Linux Whisper і synthetic runtime/budget.
+
+- 2026-10-26T04:39:23.885731+00:00: HERMES-PERSONAL-01: actual Desktop фото перевірене до model body після MIME fix;37 checks/9 OS guarded/7 fake POST,0 real API, exact replay. Linux40269370242 і повний CI40269370275 на b1b4d09 PASS. Нова MIME/proxy дельта ще до окремого CI; production без змін. Доказ: docs/evidence/hermes-personal-desktop-wire-2026-10-26.json.
