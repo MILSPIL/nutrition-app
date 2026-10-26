@@ -140,6 +140,10 @@ try:
     print(json.dumps({'passed':True,'actualSystemd':True,'aggregateCpu':2,'memoryBytes':2147483648,'swapBytes':0,
                       'defaultRootBrokerSocket0660':True,'nativeUidSeparation':True,'oldThreadSeccomp':True,'kernelTimer':True,
                       'rawTtlIdle':True,'physicalDrainCases':proof,'oomKills':0,'realApiRequests':0}))
+except Exception:
+    result = subprocess.run(['journalctl','--no-pager','-o','cat','-n','30','-u','scisense-y@*','-u','scisense-w@*','-u','scisense-payer@*'],text=True,capture_output=True,timeout=3)
+    print(result.stdout[-5000:])
+    raise
 finally:
     ctl('stop','scisense-api.service','scisense-y.socket','scisense-w.socket','scisense-payer.socket',check=False)
     stop_listener.set();thread.join(timeout=1);listener.close()

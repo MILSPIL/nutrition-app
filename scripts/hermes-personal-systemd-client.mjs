@@ -7,9 +7,10 @@ import { startSystemdWatchdog } from '../server/trainer/systemd-watchdog.mjs';
 const {scenario,brokerGid}=JSON.parse(readFileSync('/etc/scisense/personal/scenario.json'));
 const mark=value=>{writeFileSync('/var/lib/scisense/stage.tmp',JSON.stringify(value),{mode:0o600});renameSync('/var/lib/scisense/stage.tmp','/var/lib/scisense/stage.json');};
 const watchdog=startSystemdWatchdog();watchdog.ready();
-let clients=[];
+let clients=[], phase='start';
 try {
   for(const role of scenario==='happy'?['y','w','payer']:['y']){
+    phase='start-'+role;
     const client=createInternalProcess({spawnWorker:()=>createSystemdProcess({socketPath:'/run/scisense-broker/'+role+'.sock',role,brokerGid}),setup:{padding:'x'.repeat(20000)},handlers:{},deadlineMs:3000,validateIdentity:value=>Number.isInteger(value?.uid)});
     clients.push(client);const identity=await client.start();
     assert.equal(identity.uid,{y:10002,w:10003,payer:10004}[role]);
@@ -28,5 +29,5 @@ try {
     if(scenario==='backpressure')clients[0].call('blocked',{padding:'x'.repeat(48*1024*1024-1000)}).catch(()=>{});
     await clients[0].waitForExit();mark({stage:'drained',passed:true});
   }
-}catch(error){mark({stage:'failed',passed:false,error:error.message.slice(0,100)});process.exitCode=1;}
+}catch(error){mark({stage:'failed',passed:false,phase,error:error.message.slice(0,100)});process.exitCode=1;}
 finally {await Promise.allSettled(clients.map(client=>client.close()));watchdog.close();}
