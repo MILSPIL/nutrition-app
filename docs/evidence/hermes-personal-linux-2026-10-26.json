@@ -1,0 +1,43 @@
+{
+  "passed": true,
+  "actualSystemd": true,
+  "aggregateCpu": 2,
+  "memoryBytes": 2147483648,
+  "swapBytes": 0,
+  "defaultRootBrokerSocket0660": true,
+  "nativeUidSeparation": true,
+  "oldThreadSeccomp": true,
+  "kernelTimer": true,
+  "rawTtlIdle": true,
+  "physicalDrainCases": [
+    "happy",
+    "wrapper-kill",
+    "guardian-kill",
+    "guardian-stop",
+    "node-kill",
+    "node-stop",
+    "backpressure"
+  ],
+  "oomKills": 0,
+  "realApiRequests": 0,
+  "isolation": {
+    "architecture": "x86_64",
+    "platform": "linux/amd64",
+    "dockerTransport": "local-unix",
+    "noHostBinds": true,
+    "noPublishedPorts": true,
+    "network": "none",
+    "cpu": 2,
+    "memoryBytes": 2147483648
+  },
+  "containerName": "scisense-personal-systemd-0e8cd9c5-019f-400f-b4a1-d699760b8bee",
+  "cleanup": true,
+  "task": "HERMES-PERSONAL-01",
+  "checkedAt": "2026-10-26T02:07:50.649185+00:00",
+  "commit": "19e4028f83abebc7abc260261faf6f9ff426c606",
+  "ciRun": "https://github.com/MILSPIL/nutrition-app/actions/runs/40257190992",
+  "scope": "OS/systemd guardian with synthetic workers; not actual Native Hermes resource proof",
+  "actualNative": false,
+  "hostChecked": false,
+  "production": false
+}

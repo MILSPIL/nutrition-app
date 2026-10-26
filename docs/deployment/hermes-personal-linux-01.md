@@ -1,6 +1,6 @@
 # HERMES-PERSONAL-01: контракт Linux запуску
 
-Статус: локальна реалізація за погодженим планом; Linux canaries і B1 ще не виконані. Цей документ не є доказом установлених служб. Goal objective_e45aa8ac1aa3, G04/G05/G06/G08/G11 pending.
+Статус: OS/systemd canaries пройшли CI19e4028, [доказ](../evidence/hermes-personal-linux-2026-10-26.json). Actual Native resource proof і B1 ще не виконані. Цей документ не є доказом установлених служб. Goal objective_e45aa8ac1aa3, G04/G05/G06/G08/G11 pending.
 
 ## Обраний спосіб
 
@@ -56,3 +56,9 @@
 Context7 monthly quota вичерпана; прочитані primary [systemd.socket255](https://www.freedesktop.org/software/systemd/man/255/systemd.socket.html), [resource control255](https://www.freedesktop.org/software/systemd/man/255/systemd.resource-control.html), [kernel cgroupv2](https://docs.kernel.org/admin-guide/cgroup-v2.html), pinned gateway/runtime_ownership.py та власний internal-process.mjs. Для реалізації syscall/notify додатково звірити відповідні man pages.
 
 Архітектурне personal_contract_review виявило P1 про !pid→notStarted для UDS; прийнятий двофазний startup і remote lifecycle. Додані вимоги pidfd, peer trust, PID1 watchdog/SIGSTOP, explicit stdio і TSYNC. Нових P1 дизайну рев’юер не бачить. Це не приймання реалізації, canaries чи хоста.
+
+## Доведені особливості kernfs
+
+У CI після systemd removal captured directory/events FD повертають ENODEV, а не надійний nlink0. У [kernfs file.c](https://github.com/torvalds/linux/blob/v6.8/fs/kernfs/file.c#L136) це відмова active reference. [cgroup_destroy_locked](https://github.com/torvalds/linux/blob/v6.8/kernel/cgroup/cgroup.c#L5527) перед kernfs_remove вимагає populated0 і відсутності online children. Launcher19e4028 додатково звіряє незмінні root/parent inode/device, cgroup2 filesystem і відсутність саме старого captured inode. Bare ENOENT, EOF або wrapper exit окремо не дозволяють release.
+
+CI host Ubuntu22 з pinned Ubuntu24 payload повторює наявний маршрут проєкту. Sysctl чи AppArmor policy runner не змінювалися. Перевірка точкового AppArmor на actual MS-WEB лишається гейтом B1. Тестовий container є privileged лише як власна VM для PID1/cgroup namespace, без host bind mounts, ports, provider network чи keys. Runtime units усередині зберігають NoNewPrivileges, empty capabilities і всі власні фільтри.

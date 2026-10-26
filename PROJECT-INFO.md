@@ -8,6 +8,8 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-26 02:07 UTC: OS/systemd CI19e4028 PASS у2CPU/2GiB/swap0:3UID,TSYNC,TTL,kernel timer,7drain cases,OOM0,cleanuptrue. [Доказ](docs/evidence/hermes-personal-linux-2026-10-26.json). Actual Native/resource/Desktop/міграція/B1–B3 ще pending,production не змінений.
+
 2026-10-26 02:04 UTC: V3 activation/main/free STT та tmpfs uploads пройшли16Node/13actualPython, незалежне рев’юPASS після2P2. [Контракт](docs/deployment/hermes-personal-v3-01.md). LinuxCI/canonicalDesktop/міграція/live ще pending;production не змінений.
 
 2026-10-26 01:40 UTC: Linux systemd launcher/guardian/TSYNC/kernel deadline підготовлені локально;29Node/5Python і25actual Mac runtime checks PASS,5P2 рев’ю виправлені. Linux CI ще pending, production не змінений. [Журнал](.agents/journal/2026-10-26-0340-codex-gpt-6.1-sol-hermes-linux-services.md).
