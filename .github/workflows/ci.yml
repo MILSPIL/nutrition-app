@@ -147,5 +147,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: hermes-linux-evidence
-          path: tmp/hermes-linux/
+          path: |
+            tmp/hermes-linux/
+            tmp/hermes-personal-linux/
           retention-days: 7

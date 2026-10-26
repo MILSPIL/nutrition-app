@@ -404,16 +404,18 @@ try {
         title = r("#trainer-title"),
         intro = r(".trainer-intro"),
         input = r("#trainer-message"),
+        row = r(".trainer-input-row"),
         footer = r(".trainer-composer");
       return {
         width: innerWidth,
         overflow: document.documentElement.scrollWidth - innerWidth,
         headingLeft: title.left - chat.left,
         introLeft: intro.left - chat.left,
-        composerLeft: input.left - chat.left,
-        right: chat.right - input.right,
+        composerLeft: row.left - chat.left,
+        right: chat.right - row.right,
+        textInset: input.left - row.left,
         edges:
-          Math.abs(title.left - input.left) + Math.abs(intro.left - input.left),
+          Math.abs(title.left - row.left) + Math.abs(intro.left - row.left),
         headerWidth: head.width,
         footerWidth: footer.width,
         controls: [
@@ -425,19 +427,20 @@ try {
           .map((n) => n.getBoundingClientRect().height),
       };
     });
+    evidence.widths.push(geometry);
     check(
       "Краї " + width,
       geometry.overflow === 0 &&
         geometry.edges === 0 &&
         geometry.headingLeft === 16 &&
         geometry.right === 16 &&
+        geometry.textInset === 50 &&
         geometry.headerWidth === geometry.footerWidth,
     );
     check(
       "44px " + width,
       geometry.controls.every((h) => h >= 44),
     );
-    evidence.widths.push(geometry);
     await page.screenshot({ path: join(out, `ready-${width}.png`) });
     await page
       .getByRole("button", { name: "Закрити чат", exact: true })
@@ -506,10 +509,11 @@ try {
     mimeType: "image/png",
     buffer: Buffer.from(image, "base64"),
   };
-  const chooser = page.waitForEvent("filechooser");
   await page
     .getByRole("button", { name: "Фото етикетки цього продукту", exact: true })
     .click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "З галереї", exact: true }).click();
   await (await chooser).setFiles(file);
   await page.locator(".trainer-photos img").waitFor();
   mode = "photo";
@@ -658,6 +662,7 @@ try {
         .catch(() => ""),
     );
   }
+  writeFileSync(join(out, "evidence.json"), JSON.stringify({ ...evidence, passed: false, failure: e.message }, null, 2));
   console.error("SYNTHETIC_QA_FAILURE", e.message);
   throw e;
 } finally {
