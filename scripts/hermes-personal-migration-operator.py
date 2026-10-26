@@ -156,7 +156,7 @@ def export_selection(selection):
     for material in selection['materials']:
         if not isinstance(material,dict) or set(material)!={'name','path'} or not isinstance(material['path'],str):raise RuntimeError('migration_selection_invalid')
         path=Path(material['path'])
-        if path.is_absolute() or '..' in path.parts or not path.parts or path.parts[0] not in ('yura-context.md','memory','memories','context') or path.suffix not in ('.md','.txt') or re.search('auth|secret|token|config|hook|cron|telegram',str(path),re.I):
+        if path.is_absolute() or '..' in path.parts or not path.parts or (path.parts[0] not in ('yura-context.md','memory','memories','context') and path.as_posix() != 'home/yura-context.md') or path.suffix not in ('.md','.txt') or re.search('auth|secret|token|config|hook|cron|telegram',str(path),re.I):
             raise RuntimeError('migration_material_not_allowed')
         materials.append({'name':material['name'],'text':read_data(home/path,400000).decode('utf8')})
     media=[]

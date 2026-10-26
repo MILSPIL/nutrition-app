@@ -25,3 +25,11 @@ Fresh personal_contract_review PASS:3P2 закриті, останній environ
 Public image нормалізує лише власний untracked Native source cache до тестів і перед export; pinned blobs незмінні. Так CI та встановлюваний runtime перевірятимуть однакове холодне дерево. Ця Linux-дельта пройшла exact CI40275442033 на2fc0cbf. Новий snapshot потребує наступного exact CI.
 
 Режими оператора тепер також включають `snapshot` і `restore`. Сукупний suite міграції, повного backup і регресій контексту:39PASS,4OSguards,0realAPI. Свіже незалежне рев’ю PASS. [Доказ повного відновлення](../evidence/hermes-personal-snapshot-2026-10-26.json).
+
+## Звірка фактичного source layout
+
+2026-10-26: інвентаризація підтвердила, що `state.db` лежить у корені Hermes-профілю, а `home/yura-context.md` є окремим curated файлом. Mac exporter дозволяє лише цей точний додатковий шлях. Сусідні файли й обхід через `..` залишаються забороненими.
+
+Pinned Native визначає `gateway_input_owner` як маркер accepted-input старого gateway, а `session_meta` як перший запис tools/model/platform bookkeeping, який не є model input. При початковому експорті маркер права повторного приймання виключається; порожній `session_meta` без tool-полів не переносить frozen policy. Raw source fingerprint збережений, текст/IDs/дати інших повідомлень не змінюються. Неочікуваний текст, некоректний owner або невідоме display metadata блокують export.
+
+40 Native перевірок і свіже незалежне рев’ю PASS. [Доказ](../evidence/hermes-personal-source-compat-2026-10-26.json). Це поправка Mac оператора, формат bundle і серверний runtime не змінені.

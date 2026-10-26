@@ -106,6 +106,12 @@ def prepare(*, uid, source_home, destination_home, primary_id, sessions, materia
             session["title"] = "Історична розмова: Bot Chat"
         session["messages"] = []
         for index, message in enumerate(raw["messages"]):
+            # Native first-turn setup is logging/config, never conversational
+            # input. It is retained in source provenance, not adopted as policy.
+            if isinstance(message, dict) and message.get("role") == "session_meta":
+                if message.get("content") is not None or any(message.get(k) for k in ("tool_calls", "tool_call_id", "tool_name")):
+                    raise RuntimeError("migration_session_meta_unsupported")
+                continue
             if not isinstance(message, dict) or message.get("role") not in ("user", "assistant", "tool") or not isinstance(message.get("content"), (str, list, type(None))):
                 _fail()
             item = {k: message[k] for k in MESSAGE_FIELDS if k in message}
@@ -113,9 +119,22 @@ def prepare(*, uid, source_home, destination_home, primary_id, sessions, materia
                 item["message_uid"] = "scisense-migrate-" + digest([raw["id"], index, message])
             metadata = item.get("display_metadata")
             if metadata is not None:
-                if not isinstance(metadata, dict) or set(metadata) - {"model_only"} or any(type(v) not in (bool, int) or v not in (0, 1) for v in metadata.values()):
+                if not isinstance(metadata, dict):
                     raise RuntimeError("migration_display_metadata_unsupported")
-                item["display_metadata"] = {k: bool(v) for k, v in metadata.items()}
+                metadata = dict(metadata)
+                # Native accepted-input ownership belongs to the old gateway,
+                # not to the transcript. A fresh HOME must not adopt its replay
+                # claim; source provenance still fingerprints the original.
+                if "gateway_input_owner" in metadata:
+                    owner = metadata.pop("gateway_input_owner")
+                    if not isinstance(owner, str) or not 0 < len(owner.encode()) <= 1024 or "\0" in owner:
+                        raise RuntimeError("migration_display_metadata_unsupported")
+                if set(metadata) - {"model_only"} or any(type(v) not in (bool, int) or v not in (0, 1) for v in metadata.values()):
+                    raise RuntimeError("migration_display_metadata_unsupported")
+                if metadata:
+                    item["display_metadata"] = {k: bool(v) for k, v in metadata.items()}
+                else:
+                    item.pop("display_metadata", None)
             session["messages"].append(item)
         clean.append(session)
         provenance.append({"id": raw["id"], "source": raw.get("source"), "sourceFingerprint": digest(semantic(raw))})

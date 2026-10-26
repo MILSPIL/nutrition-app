@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "task": "HERMES-PERSONAL-01",
+  "operatorOnly": true,
+  "runtimeCandidateUnchanged": "9c218d1ac4d295c9264f9076d23c1589072cb282",
+  "testExit": 0,
+  "nativeTestsPassed": 40,
+  "osCanaries": {
+    "privateReadDenied": true,
+    "childProcessDenied": true,
+    "tcpDenied": true,
+    "udpDenied": true
+  },
+  "realModelRequests": 0,
+  "review": "personal_contract_review PASS",
+  "knownSourceLayout": "profile root contains state.db; home/yura-context.md contains curated data",
+  "notAdopted": [
+    "gateway_input_owner replay marker",
+    "empty session_meta setup record"
+  ],
+  "preserved": [
+    "source provenance fingerprint",
+    "visible messages and tool history",
+    "model_only display flag",
+    "message IDs and timestamps"
+  ],
+  "sourceSha256": {
+    "scripts/hermes-personal-migration-operator.py": "4655f1cbbd7d7fe6c52e3c547bbcd485b525875cd26accf3931938f51fd27ffc",
+    "server/trainer/hermes_personal_migration.py": "039629cf5cb37b82ade2c13519ab185729536e6f70e77b100036e0139383cc75",
+    "server/trainer/hermes_personal_migration_test.py": "5702e6de4a470a5503b471f0612d415b6b21e88e76e156891ae365d38b86df1a"
+  }
+}

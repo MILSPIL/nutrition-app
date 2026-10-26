@@ -151,6 +151,26 @@ class MigrationTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'migration_media_missing'):
             self.bundle(sessions=raw,media=[{'sourcePath':old,'mime':'image/png','data':base64.b64encode(PNG).decode()}])
 
+    def test_old_gateway_input_owner_is_not_adopted_by_the_new_home(self):
+        raw=copy.deepcopy(self.sessions)
+        raw[0]['messages'][0]['display_metadata']={'gateway_input_owner':'old-telegram-owner'}
+        bundle=self.bundle(sessions=raw)
+        self.assertNotIn('display_metadata',bundle['sessions'][0]['messages'][0])
+        self.assertEqual(bundle['provenance'][0]['sourceFingerprint'],digest(semantic(raw[0])))
+        raw[0]['messages'][0]['display_metadata']['model_only']=True
+        self.assertEqual(self.bundle(sessions=raw)['sessions'][0]['messages'][0]['display_metadata'],{'model_only':True})
+        raw=copy.deepcopy(self.sessions)
+        raw[0]['messages'].append({'role':'session_meta','content':None,'message_uid':'legacy-setup-only'})
+        bundle=self.bundle(sessions=raw)
+        self.assertEqual(len(bundle['sessions'][0]['messages']),len(self.sessions[0]['messages']))
+        self.assertEqual(bundle['provenance'][0]['sourceFingerprint'],digest(semantic(raw[0])))
+        raw[0]['messages'][-1]['content']='Unexpected content must not disappear'
+        with self.assertRaisesRegex(RuntimeError,'migration_session_meta_unsupported'):self.bundle(sessions=raw)
+        raw=copy.deepcopy(self.sessions)
+        for owner in ['',{},'x'*1025,'bad\0owner']:
+            raw[0]['messages'][0]['display_metadata']={'gateway_input_owner':owner}
+            with self.assertRaisesRegex(RuntimeError,'migration_display_metadata_unsupported'):self.bundle(sessions=raw)
+
     def test_fixed_operator_inventory_selection_and_native_source_fence(self):
         import importlib.util
         operator_path=Path(__file__).resolve().parents[2]/'scripts/hermes-personal-migration-operator.py'
@@ -166,6 +186,13 @@ class MigrationTests(unittest.TestCase):
             bundle=operator.export_selection(selected)
             self.assertEqual(bundle['materials'][0]['text'],'Синтетичний контекст, тільки власника')
         with operator.source_fence(self.source):pass
+        (self.source/'home').mkdir(mode=0o700)
+        (self.source/'home/yura-context.md').write_text('Контекст із робочої теки профілю')
+        selected['materials'][0]['path']='home/yura-context.md'
+        self.assertEqual(operator.export_selection(selected)['materials'][0]['text'],'Контекст із робочої теки профілю')
+        for denied in ['home/auth.json','home/other.md','home/../yura-context.md']:
+            selected['materials'][0]['path']=denied
+            with self.assertRaisesRegex(RuntimeError,'migration_material_not_allowed'):operator.export_selection(selected)
         selected['materials'][0]['path']='../auth.json'
         with self.assertRaisesRegex(RuntimeError,'migration_material_not_allowed'):operator.export_selection(selected)
         self.assertEqual((self.source/'state.db').read_bytes(),self.before)
