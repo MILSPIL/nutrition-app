@@ -75,6 +75,40 @@ class PersonalConfigSelectionTests(unittest.TestCase):
 
 
 class PersistentOwnerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_failed_public_bridge_reopens_without_touching_real_grants_or_history(self):
+        from hermes_personal_owner import _private_directory, reset_borrowed_bridge_status
+        from agent.credential_persistence import fingerprint_secret_value
+        from hermes_personal_provider import IPC_SENTINEL
+        home = Path(os.environ["HERMES_HOME"]).resolve()
+        auth = home / "auth.json"
+        original = auth.read_bytes() if auth.exists() else None
+        history = (home / "state.db").read_bytes() if (home / "state.db").exists() else None
+        entry = {"id": "synthetic", "source": "env:SCISENSE_IPC_KEY", "label": "SCISENSE_IPC_KEY",
+            "auth_type": "api_key", "base_url": "http://hermes.invalid/v1", "secret_fingerprint": fingerprint_secret_value(IPC_SENTINEL),
+            "last_status": "exhausted", "last_error_code": 503, "last_error_message": "trainer_quota", "failure_reason": "transient", "request_count": 3}
+        try:
+            auth.write_text(json.dumps({"version": 1, "providers": {}, "credential_pool": {"scisense-shared": [entry]}})); auth.chmod(0o600)
+            _private_directory(home)
+            reset_borrowed_bridge_status(home)
+            restored = json.loads(auth.read_text())["credential_pool"]["scisense-shared"][0]
+            self.assertEqual(restored["request_count"], 3)
+            self.assertNotIn("last_status", restored)
+            self.assertNotIn("last_error_message", restored)
+            _private_directory(home)
+            if history is not None:
+                self.assertEqual((home / "state.db").read_bytes(), history)
+            for invalid in ({"api_key": "synthetic-not-allowed"}, {"last_error_message": "Bearer synthetic-not-allowed"}):
+                auth.write_text(json.dumps({"version": 1, "providers": {}, "credential_pool": {"scisense-shared": [{**entry, **invalid}]}}))
+                before = auth.read_bytes()
+                with self.assertRaisesRegex(RuntimeError, "personal_credentials_forbidden"):
+                    reset_borrowed_bridge_status(home)
+                self.assertEqual(auth.read_bytes(), before)
+        finally:
+            if original is None:
+                auth.unlink(missing_ok=True)
+            else:
+                auth.write_bytes(original)
+
     async def test_real_grants_and_foreign_pool_cannot_enter_personal_profile(self):
         from hermes_personal_owner import _private_directory
         home = Path(os.environ["HERMES_HOME"]).resolve()

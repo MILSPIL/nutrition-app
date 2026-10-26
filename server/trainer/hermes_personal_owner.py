@@ -124,33 +124,72 @@ def _private_directory(home):
             raise RuntimeError("personal_credentials_forbidden")
         scalar_types = {"id": str, "label": str, "auth_type": str, "source": str, "base_url": str,
             "secret_fingerprint": str, "priority": int, "request_count": int,
-            "last_status": str, "last_status_at": (float, int, str), "status_cleared_at": (float, int)}
-        null_only = {"last_error_code", "last_error_reason", "last_error_message", "last_error_reset_at"}
+            "last_status": str, "last_status_at": (float, int, str), "status_cleared_at": (float, int),
+            "last_error_code": int, "last_error_reason": str, "last_error_message": str,
+            "last_error_reset_at": (float, int), "failure_reason": str}
+        nullable = {"last_status", "last_status_at", "status_cleared_at", "last_error_code", "last_error_reason", "last_error_message", "last_error_reset_at", "failure_reason"}
         for entry in entries:
-            if not isinstance(entry, dict) or set(entry) - set(scalar_types) - null_only - {"model_cooldowns"}:
+            if not isinstance(entry, dict) or set(entry) - set(scalar_types) - {"model_cooldowns"}:
                 raise RuntimeError("personal_credentials_forbidden")
             for key, value in entry.items():
-                if key in null_only:
-                    valid = value is None
-                elif key == "model_cooldowns":
+                if key == "model_cooldowns":
                     valid = value is None or value == {}
                 elif value is None:
-                    valid = key in {"last_status", "last_status_at", "status_cleared_at"}
+                    valid = key in nullable
                 else:
                     expected = scalar_types[key]
                     valid = not isinstance(value, bool) and isinstance(value, expected)
                     if valid and isinstance(value, str):
-                        valid = len(value) <= 160 and not any(c in value for c in "\0\r\n")
+                        valid = len(value) <= (2000 if key == "last_error_message" else 160) and not any(c in value for c in "\0\r\n")
+                        if key in nullable and re.search(r"(?i)(?:\bBearer\s|\bsk-|\bgsk_)", value):
+                            valid = False
                     if valid and isinstance(value, (float, int)):
                         valid = math.isfinite(value) and value >= 0
                 if not valid:
                     raise RuntimeError("personal_credentials_forbidden")
-            if entry.get("last_status") not in (None, "ok") or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", entry.get("id", "")):
+            if entry.get("last_status") not in (None, "ok", "exhausted", "dead") or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", entry.get("id", "")):
                 raise RuntimeError("personal_credentials_forbidden")
             if not isinstance(entry, dict) or entry.get("source") != "env:SCISENSE_IPC_KEY" or entry.get("label") != "SCISENSE_IPC_KEY" or entry.get("base_url") != "http://hermes.invalid/v1" or entry.get("auth_type") != "api_key" or entry.get("secret_fingerprint") != fingerprint_secret_value(IPC_SENTINEL):
                 raise RuntimeError("personal_credentials_forbidden")
 
     return home
+
+
+def reset_borrowed_bridge_status(home):
+    # This profile has only the public IPC sentinel, never a payer grant.
+    # Native marks that sentinel exhausted after a failed tool/model bridge.
+    # Clear its local cooldown only after the sole-owner fence is acquired;
+    # the independent payer ledger and all terminal admissions remain intact.
+    _private_directory(home)
+    target = home / "auth.json"
+    if not target.exists():
+        return
+    original = target.read_bytes()
+    store = json.loads(original)
+    fields = {"last_status", "last_status_at", "last_error_code", "last_error_reason", "last_error_message", "last_error_reset_at", "failure_reason", "model_cooldowns"}
+    changed = False
+    for entry in store.get("credential_pool", {}).get("scisense-shared", []):
+        if entry.get("last_status") in ("exhausted", "dead") or any(entry.get(key) is not None for key in fields - {"last_status", "last_status_at"}):
+            for key in fields:
+                entry.pop(key, None)
+            changed = True
+    if not changed:
+        return
+    temporary = target.with_name(".personal-bridge-" + uuid.uuid4().hex)
+    try:
+        descriptor = os.open(temporary, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(descriptor, "w") as output:
+            json.dump(store, output); output.flush(); os.fsync(output.fileno())
+        if target.read_bytes() != original:
+            raise RuntimeError("personal_credentials_forbidden")
+        os.replace(temporary, target)
+        directory = os.open(home, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 class EventTransport:
@@ -229,6 +268,7 @@ class PersonalOwner:
             self.closed = True
             raise
         publish_personal_config(self.home / "config.yaml", self.connection)
+        reset_borrowed_bridge_status(self.home)
         register_parent_provider(self.model_bridge, self.connection["model"],
             supports_vision=self.connection.get("supportsVision") is True, supports_tools=True)
         for name in _TOOL_NAMES:
