@@ -1,0 +1,109 @@
+{
+  "task": "TELEGRAM-COACH-01",
+  "date": "2026-10-26",
+  "stage": "preparation",
+  "preparation_approval": "received",
+  "implementation_approval": "pending",
+  "live_application_approval": "pending",
+  "private_inventory": {
+    "path": ".agents/runtime/telegram-coach-2026-10-26/intake.json",
+    "checked": true,
+    "has_omitted_video": true,
+    "has_omitted_stickers": true,
+    "content_in_this_evidence": false
+  },
+  "synthetic_indexer_probe": {
+    "parser": "telegram",
+    "messages": 2,
+    "participants": 2,
+    "reply_chains": 1,
+    "exact_search_hits": 1,
+    "index_deleted_and_absence_checked": true
+  },
+  "real_chat_indexed": false,
+  "real_media_transcribed": false,
+  "production_changed": false,
+  "native_contract": {
+    "repo": "MILSPIL/nutrition-app",
+    "sha": "d06c3ce7f44e62809bbbb2dda67d563ea4f75cc3",
+    "file": "server/trainer/hermes_personal_context.py",
+    "max_proposal_utf8_bytes": 8000,
+    "max_total_utf8_bytes": 400000
+  },
+  "faster_whisper_source_sha": "9e472ae9de8bb374552f531f752654554b76b2d6",
+  "context7": "monthly_quota",
+  "spec_probe": {
+    "round_1_material_findings": 11,
+    "round_2_material_findings": 0
+  },
+  "claude_review": {
+    "model": "claude-fable-5-1",
+    "exit_code": 2,
+    "permission_denials": 5,
+    "tokens": 406948,
+    "seconds": 374.0,
+    "findings": 19,
+    "confirmed": 10,
+    "partial": 8,
+    "false": 1,
+    "v1_doc_sha256": {
+      "2026-10-26-telegram-coach-knowledge.md:specs": "809af94bce5a5033931d55d468270652dbe77ff9b40d68b1cdc85d3cdd212c5e",
+      "2026-10-26-telegram-coach-knowledge.md:plans": "89e594100c4de577a8bb73034e96d16bcafff1ab846f5962e2a2383af6fedf02"
+    }
+  },
+  "independent_preparation_review": {
+    "agent": "telegram_preparation_review",
+    "verdict": "done",
+    "scope": "preparation_only",
+    "open_findings": 0,
+    "checks": [
+      {
+        "id": "P01",
+        "verdict": "PASS",
+        "evidence": "Межі підготовки, реалізації та живого застосування розділено; погодження індексування очікується."
+      },
+      {
+        "id": "P02",
+        "verdict": "PASS",
+        "evidence": "Незалежний HTMLParser і повна звірка SHA/розмірів збіглися з приватним intake; пропуски обліковано."
+      },
+      {
+        "id": "P03",
+        "verdict": "PASS",
+        "evidence": "Сирі синтетичні квитанції перечитано, відсутність тестового й приватних індексів у спільному registry перевірено."
+      },
+      {
+        "id": "P04",
+        "verdict": "PASS",
+        "evidence": "ASR, прослуховування й огляд кадрів розрізнено; сумнівне не позначається перевіреним."
+      },
+      {
+        "id": "P05",
+        "verdict": "PASS",
+        "evidence": "Є версії, незалежна перевірка, зворотне зіставлення фактів і транзитивне позначення застарілого."
+      },
+      {
+        "id": "P06",
+        "verdict": "PASS",
+        "evidence": "Runtime ігнорується Git та виключений з індексу; task-only CLI data_dir і межі рев’ю визначено."
+      },
+      {
+        "id": "P07",
+        "verdict": "PASS",
+        "evidence": "Native контракт звірено за SHA; поточна ревізія живого контексту і сукупна місткість очікують окремого кроку."
+      },
+      {
+        "id": "P08",
+        "verdict": "PASS",
+        "evidence": "Послідовні блоки, негативні перевірки, відновлення й передача кандидата визначені; C01–C08 не виконувалися."
+      }
+    ],
+    "fixed_during_review": "Застарілий статус перевірок у кінці плану виправлено й перечитано рев’юером.",
+    "final_editorial_update": "Після вердикту оновлено лише підсумкові статуси перевірки й це свідчення; вимоги та план не змінено."
+  },
+  "implementation_criteria": "C01-C08 not executed; baseline is output absence, not semantic regression tests",
+  "final_document_sha256": {
+    "docs/superpowers/specs/2026-10-26-telegram-coach-knowledge.md": "39234b13d8495f27c3c81d7090f583a976c8b0a3200aa168f0751dfb60f26fe7",
+    "docs/superpowers/plans/2026-10-26-telegram-coach-knowledge.md": "27130250591cdf2320c75a8abca5e3e5893df280eefcf87e2f712829a1ef157d"
+  }
+}

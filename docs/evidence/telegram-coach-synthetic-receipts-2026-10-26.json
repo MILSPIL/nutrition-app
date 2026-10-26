@@ -1,0 +1,35 @@
+{
+  "task": "TELEGRAM-COACH-01",
+  "kind": "synthetic_only",
+  "note": "Незмінені відповіді інструментів на штучний чат, без приватних даних. Тимчасовий індекс видалений.",
+  "stats": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\n  \"activity\": {\n    \"by_hour\": [\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      2,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0,\n      0\n    ],\n    \"by_month\": [\n      {\n        \"messages\": 2,\n        \"month\": \"2025-01\"\n      }\n    ],\n    \"by_weekday\": [\n      {\n        \"day\": \"Mon\",\n        \"messages\": 0\n      },\n      {\n        \"day\": \"Tue\",\n        \"messages\": 0\n      },\n      {\n        \"day\": \"Wed\",\n        \"messages\": 2\n      },\n      {\n        \"day\": \"Thu\",\n        \"messages\": 0\n      },\n      {\n        \"day\": \"Fri\",\n        \"messages\": 0\n      },\n      {\n        \"day\": \"Sat\",\n        \"messages\": 0\n      },\n      {\n        \"day\": \"Sun\",\n        \"messages\": 0\n      }\n    ]\n  },\n  \"budget_bytes\": 2500,\n  \"date_range\": {\n    \"first\": \"01.01.2025\",\n    \"last\": \"01.01.2025\"\n  },\n  \"forwarded_messages\": 0,\n  \"media_summary\": {\n    \"calls\": 0,\n    \"contacts\": 0,\n    \"files\": 0,\n    \"gifs\": 0,\n    \"photos\": 0,\n    \"polls\": 0,\n    \"stickers\": 0,\n    \"videos\": 0\n  },\n  \"participants\": [\n    {\n      \"avg_message_length\": 53,\n      \"first_message\": \"01.01.2025 10:00:00\",\n      \"last_message\": \"01.01.2025 10:00:00\",\n      \"media\": {\n        \"calls\": 0,\n        \"contacts\": 0,\n        \"files\": 0,\n        \"gifs\": 0,\n        \"photos\": 0,\n        \"polls\": 0,\n        \"stickers\": 0,\n        \"videos\": 0\n      },\n      \"messages\": 1,\n      \"name\": \"Coach Alpha\",\n      \"percentage\": \"50.0%\",\n      \"reactions_in_messages\": 0\n    }\n  ],\n  \"participants_total\": 2,\n  \"project\": \"telegram-format-probe-01a17a02\",\n  \"reply_chains\": 1,\n  \"top_links\": [],\n  \"top_links_total\": 0,\n  \"total_messages\": 2,\n  \"warnings\": [\n    \"byte budget 2500: 1 of 2 participant row(s) fit (ranked by message count, so the busiest are kept). `participants_total` still names the whole chat; pass `max_bytes=0` for no budget, a larger `max_bytes`, `compact=true`, or `min_messages` to choose the slice yourself.\"\n  ]\n}"
+      }
+    ]
+  },
+  "search": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"deduped_count\":0,\"etag\":\"ci1-b46700d69e6fef33\",\"hints\":[\"freshness unknown for this project (non-git or no recorded commit) — results carry no staleness signal, so it can't be verified whether the index reflects the current working tree.\"],\"mode\":\"exact\",\"projects_searched\":[\"telegram-format-probe-01a17a02\"],\"results\":[{\"code\":\"[Coach Alpha] (01.01.2025 10:00:00): Synthetic exercise plan: two sets of ten repetitions.\",\"end_line\":1,\"file_path\":\"messages.html\",\"language\":\"telegram\",\"node_type\":\"message\",\"relevance\":1.0,\"start_line\":1,\"symbol_name\":\"Coach Alpha\"}],\"total_results\":1}"
+      }
+    ]
+  },
+  "absence_after_delete": {
+    "content": [
+      {
+        "type": "text",
+        "text": "No projects matching 'telegram-format-probe-01a17a02'"
+      }
+    ]
+  },
+  "translation_uk": {
+    "search_example": "Штучний план вправ: два підходи по десять повторень.",
+    "stats_warning": "Ліміт відповіді 2500 байтів умістив дані одного з двох учасників; загальна кількість лишилася два.",
+    "search_hint": "Для тестового джерела поза Git свіжість індексу за комітом не визначається.",
+    "absence_after_delete": "Проєктів із назвою тимчасового тестового індексу не знайдено."
+  }
+}

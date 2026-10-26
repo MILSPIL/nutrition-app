@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-27",
+  "scope": "ledger and independent verifier",
+  "unit_tests": {
+    "passed": 20,
+    "failed": 0
+  },
+  "independent_review": {
+    "agent": "Codex child reviewer",
+    "open_P1": 0,
+    "open_P2": 0,
+    "interruption_cases_unchanged_media": 18,
+    "interruption_cases_changed_media": 18,
+    "cross_version_receipt": "rejected",
+    "changed_author": "rejected",
+    "C01_C02_all_recovery_cases": "passed"
+  },
+  "not_accepted": [
+    "C03",
+    "C04",
+    "C05",
+    "C06",
+    "C07",
+    "C08",
+    "MLX backend",
+    "live Hermes integration"
+  ]
+}
