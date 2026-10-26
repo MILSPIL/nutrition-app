@@ -113,7 +113,7 @@ test("H01 text question uses trainer only and never writes food", async () => {
   expect(host.textContent).toContain("синтетична відповідь");
   expect(props.onAdd).not.toHaveBeenCalled();
 });
-test("H01 stop calls STT once then one Hermes turn, without analyze or automatic mic restart", async () => {
+test("H01 stop previews editable text and waits for an explicit send", async () => {
   await render();
   await click("Почати запис");
   expect(recorderFactory).toHaveBeenCalledTimes(1);
@@ -121,10 +121,69 @@ test("H01 stop calls STT once then one Hermes turn, without analyze or automatic
     await callbacks.onStop(new Blob(["synthetic"]), 2);
   });
   expect(props.transcribe).toHaveBeenCalledTimes(1);
+  expect(api.send).not.toHaveBeenCalled();
+  expect(host.querySelector("textarea").value).toBe("Синтетичне яблуко");
+  expect(button("Скасувати голосове")).toBeTruthy();
+  await act(async () => Simulate.change(host.querySelector("textarea"), { target: { value: "Виправлене яблуко" } }));
+  await click("Надіслати повідомлення");
+  expect(api.send).toHaveBeenCalledTimes(1);
+  expect(api.send.mock.calls[0][0].text).toBe("Виправлене яблуко");
+  expect(button("Скасувати голосове")).toBeFalsy();
+  expect(props.onAdd).not.toHaveBeenCalled();
+});
+test("cancel voice preview restores existing text without sending or losing photos", async () => {
+  server.composer.text = "Вже набраний текст";
+  props.photoNormalizer = jest.fn(async () => ({ type: "image/jpeg", data: "synthetic-photo", preview: "data:image/jpeg;base64,c3ludGhldGlj" }));
+  await render();
+  await act(async () => Simulate.change(host.querySelector('input[type="file"]'), { target: { files: [new File(["photo"], "synthetic.jpg", { type: "image/jpeg" })], value: "" } }));
+  await click("Почати запис");
+  await act(async () => callbacks.onStop(new Blob(["synthetic"]), 2));
+  expect(host.querySelector("textarea").value).toBe("Вже набраний текст\nСинтетичне яблуко");
+  await click("Скасувати голосове");
+  expect(host.querySelector("textarea").value).toBe("Вже набраний текст");
+  expect(api.send).not.toHaveBeenCalled();
+  expect(button("Почати запис").disabled).toBe(false);
+  expect(host.querySelectorAll('img[alt="Фото етикетки перед надсиланням"]')).toHaveLength(1);
+});
+test("cancel before the voice metric ACK never opens the microphone", async () => {
+  const pending = deferred();
+  props.ledger = { enabled: true, start: jest.fn(() => pending.promise), update: jest.fn(async () => {}) };
+  await render();
+  await click("Почати запис");
+  await click("Скасувати запис");
+  await act(async () => pending.resolve("cancelled-attempt"));
+  expect(recorderFactory).not.toHaveBeenCalled();
+  expect(props.transcribe).not.toHaveBeenCalled();
+  expect(api.send).not.toHaveBeenCalled();
+});
+test("cancel during transcription ignores a late transcript", async () => {
+  const pending = deferred();
+  props.transcribe = jest.fn(() => pending.promise);
+  await render();
+  await click("Почати запис");
+  let stopped;
+  await act(async () => { stopped = callbacks.onStop(new Blob(["synthetic"]), 2); });
+  await click("Скасувати запис");
+  await act(async () => { pending.resolve({ text: "Скасований текст" }); await stopped; });
+  expect(host.querySelector("textarea").value).toBe("");
+  expect(api.send).not.toHaveBeenCalled();
+  expect(button("Скасувати голосове")).toBeFalsy();
+});
+test("explicit send locks preview cancellation while its metric ACK is pending", async () => {
+  const pending = deferred();
+  props.ledger = { enabled: true, start: jest.fn(async () => "voice-attempt"), update: jest.fn(async (_id, patch) => {
+    if (patch.status === "processing") await pending.promise;
+  }) };
+  await render();
+  await click("Почати запис");
+  await act(async () => callbacks.onStop(new Blob(["synthetic"]), 2));
+  await click("Надіслати повідомлення");
+  expect(button("Скасувати голосове").disabled).toBe(true);
+  await act(async () => Simulate.click(button("Скасувати голосове")));
+  expect(host.querySelector("textarea").value).toBe("Синтетичне яблуко");
+  await act(async () => pending.resolve());
   expect(api.send).toHaveBeenCalledTimes(1);
   expect(api.send.mock.calls[0][0].text).toBe("Синтетичне яблуко");
-  expect(button("Почати запис").disabled).toBe(false);
-  expect(props.onAdd).not.toHaveBeenCalled();
 });
 test("H06 recovered current turn uses actual turnId for cancellation", async () => {
   server.currentTurn = { turnId: "synthetic-turn-id", state: "unknown" };

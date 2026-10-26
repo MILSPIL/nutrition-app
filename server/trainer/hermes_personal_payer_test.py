@@ -44,6 +44,8 @@ class NativePayerTests(unittest.TestCase):
             self.events.append((kind, value))
             if kind == "budget":
                 return {"accepted": True}
+            if kind == "diagnostic":
+                return {"recorded": True}
             self.assertEqual(value["options"]["expectedRevision"], revision[0]); revision[0] += 1
             return {"phase": "ready", "revision": revision[0]}
         self.payer = NativePayer(home=self.home, material={key: base64.b64encode(data).decode() for key, data in files.items()}, revision=1, callback=callback)
@@ -80,10 +82,41 @@ class NativePayerTests(unittest.TestCase):
         self.assertEqual(len(self.calls), 2)
         self.assertEqual(len([event for event in self.events if event[0] == "budget"]), 2)
 
+    def test_native_codex_unbuffered_sse_stream_retains_physical_proof(self):
+        payer = self.start()
+        class FragmentedStream(httpx.SyncByteStream):
+            def __init__(self, body): self.body = body
+            def __iter__(self):
+                for start in range(0, len(self.body), 17): yield self.body[start:start + 17]
+        def transport(_transport, request):
+            response = self.transport(request)
+            return httpx.Response(200, headers=response.headers, stream=FragmentedStream(response.content))
+        with patch.object(httpx.HTTPTransport, "handle_request", transport):
+            client = ParentProviderClient(lambda payload, client_options: self._bridge(payer, payload, client_options), MODEL)
+            for stream in (False, True):
+                value = client.chat.completions.create(model=MODEL, messages=[{"role": "user", "content": "synthetic"}], stream=stream)
+                self.assertEqual(list(value)[0].choices[0].delta.content if stream else value.choices[0].message.content, "Синтетична відповідь")
+        self.assertEqual(len(self.calls), 2)
+
     def _bridge(self, payer, payload, options):
         result = payer.invoke(payload, client_options=options, timeout_ms=20000)
         self.assertTrue(result["proof"]["rawTerminalModelVerified"])
         return iter(result["chunks"]) if payload.get("stream") else result["completion"]
+
+    def test_unverified_response_reports_metadata_without_prompt_or_provider_text(self):
+        payer = self.start()
+        def transport(_transport, request):
+            response = self.transport(request)
+            return httpx.Response(200, headers=response.headers, content=response.content.replace(json.dumps(MODEL).encode(), b'null'))
+        with patch.object(httpx.HTTPTransport, "handle_request", transport):
+            with self.assertRaisesRegex(RuntimeError, "^model_payload_invalid$"):
+                payer.invoke({"model": MODEL, "messages": [{"role": "user", "content": "synthetic private prompt"}]}, client_options={}, timeout_ms=10000)
+        diagnostic = [value for kind, value in self.events if kind == "diagnostic"][-1]
+        self.assertEqual(diagnostic["stage"], "proof")
+        self.assertTrue(diagnostic["responses"][0]["terminalSeen"])
+        self.assertFalse(diagnostic["responses"][0]["terminalModelSeen"])
+        self.assertNotIn("prompt", json.dumps(diagnostic))
+        self.assertNotIn(MODEL, json.dumps(diagnostic))
 
     def test_auto_selection_is_refused_and_cannot_spend_through_fallback(self):
         with self.assertRaisesRegex(RuntimeError, "connection_auth_required"):

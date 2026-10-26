@@ -18,6 +18,8 @@ export function nativeMessageProjection(snapshot) {
     if (!content.trim()) return [];
     const id = "native-" + createHash("sha256").update(stableJSON([snapshot.session_id, message.id ?? index, message.role, content])).digest("hex");
     let photos = [], visible = content;
+    if (message.role === "assistant" && message.display_kind === "failed_turn")
+      visible = "Не вдалося обробити повідомлення. Текст збережений у розмові. Перед повторним надсиланням перевірте щоденник.";
     const root = typeof snapshot.profileId === "string" ? posix.join(snapshot.profileId, "cache/documents/native-inputs") + "/" : "";
     if (message.role === "user" && root) {
       const candidates = [], hint = /^\[Image attached at: ([^\r\n]+)\]$/gm;

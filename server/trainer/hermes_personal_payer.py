@@ -181,6 +181,18 @@ class NativePayer:
         guard = HTTPXEgressGuard(model=wire_model, credential_guard=self.bridge,
             authorize_post=lambda proof: self.callback("budget", {"proof": proof}),
             deadline_seconds=timeout_ms / 1000, timeout_options=client_options)
+        stage = "resolver"
+        def diagnostic(code):
+            # Only fixed codes, counts and booleans cross this diagnostic seam.
+            # No prompt, response, model string, URL, header or grant is retained.
+            try:
+                self.callback("diagnostic", {"code": code, "stage": stage, "posts": guard.sends,
+                    "responses": [{"success": p.success, "status": p.status, "sse": p.sse, "finished": p.finished,
+                        "abandoned": p.abandoned, "failed": p.failed, "hasModels": bool(p.models),
+                        "modelMatches": p.models == {guard.model}, "terminalSeen": p.terminal_seen,
+                        "terminalModelSeen": p.terminal_model_seen} for p in guard.proofs]})
+            except Exception:
+                pass
         try:
             with guard:
                 from hermes_cli.runtime_provider import resolve_runtime_provider, resolve_requested_provider, expand_direct_api_alias
@@ -209,7 +221,9 @@ class NativePayer:
                     import httpx
                     timeout = client_options["timeout"]
                     values["timeout"] = httpx.Timeout(**timeout) if isinstance(timeout, dict) else timeout
+                stage = "sdk"
                 response = client.chat.completions.create(**values)
+                stage = "completion"
                 if payload.get("stream") and isinstance(response, SimpleNamespace):
                     result = {"chunks": [_completion_chunk(response)]}
                 elif payload.get("stream"):
@@ -228,15 +242,20 @@ class NativePayer:
                     result = {"chunks": chunks}
                 else:
                     result = {"completion": _completion(response)}
+                stage = "proof"
                 result["proof"] = {**guard.proof(), "selectedModel": self.model, "selectedProvider": self.provider, "apiMode": runtime["api_mode"]}
                 return result
-        except BrokerRefusal:
+        except BrokerRefusal as error:
+            diagnostic(str(error))
             raise
         except Exception as error:
             if guard.last_refusal:
+                diagnostic(guard.last_refusal)
                 raise BrokerRefusal(guard.last_refusal) from None
             status = getattr(error, "status_code", None)
-            raise BrokerRefusal("connection_auth_required" if status in (401, 403) else "trainer_quota" if status == 429 else "trainer_unavailable") from None
+            code = "connection_auth_required" if status in (401, 403) else "trainer_quota" if status == 429 else "trainer_unavailable"
+            diagnostic(code)
+            raise BrokerRefusal(code) from None
         finally:
             if client is not None:
                 client.close()

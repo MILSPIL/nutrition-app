@@ -58,11 +58,13 @@ class ModelProof:
         self.sse = False
         self.models, self.last_model, self.message_model = set(), None, None
         self.failed, self.success, self.finished, self.abandoned = False, None, False, False
+        self.terminal_seen, self.terminal_model_seen = False, False
+        self.status = None
 
     def _value(self, value):
         if not isinstance(value, dict):
             return
-        if value.get("error") or value.get("type") == "error":
+        if value.get("error") or value.get("type") in ("error", "response.failed"):
             self.failed = True
         model = value.get("model")
         if isinstance(model, str) and 0 < len(model) <= 160:
@@ -84,6 +86,9 @@ class ModelProof:
             terminal = model
         if isinstance(terminal, str) and 0 < len(terminal) <= 160:
             self.models.add(terminal)
+        if kind in ("response.completed", "response.incomplete", "response.done", "response.failed", "message_stop"):
+            self.terminal_seen = True
+            self.terminal_model_seen = isinstance(terminal, str) and bool(terminal)
 
     def feed(self, chunk):
         self.buffer.extend(chunk)
@@ -273,6 +278,7 @@ class HTTPXEgressGuard:
         if proof is None:
             return response
         proof.success = 200 <= response.status_code < 300
+        proof.status = response.status_code
         if not proof.success:
             return response
         proof.sse = "text/event-stream" in response.headers.get("content-type", "").lower()

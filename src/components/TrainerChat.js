@@ -332,6 +332,8 @@ export default function TrainerChat({
   const [view, setView] = useState(initial),
     [error, setError] = useState(""),
     [recordState, setRecordState] = useState("ready"),
+    [voicePreview, setVoicePreview] = useState(null),
+    [sendPending, setSendPending] = useState(false),
     [seconds, setSeconds] = useState(0),
     [showAttachments, setShowAttachments] = useState(false),
     [dateContext, setDateContext] = useState(() => initialTrainerDate(initialDateContext)),
@@ -353,6 +355,8 @@ export default function TrainerChat({
     alive = useRef(false),
     epoch = useRef(0),
     recorder = useRef(),
+    recordingEpoch = useRef(0),
+    sendLock = useRef(false),
     sttAbort = useRef(),
     editRef = useRef({}),
     flushTask = useRef(),
@@ -407,6 +411,9 @@ export default function TrainerChat({
     setError("");
     setCanDiscard(false);
     setRecordState("ready");
+    setVoicePreview(null);
+    setSendPending(false);
+    sendLock.current = false;
     const epochs = epoch;
     const generation = epochs.current;
     const attempts = turnAttempts.current;
@@ -454,6 +461,9 @@ export default function TrainerChat({
       editFailure.current = false;
       setView(initial);
       setPhotos([]);
+      setVoicePreview(null);
+      setSendPending(false);
+      sendLock.current = false;
       setEdits({});
       editRef.current = {};
       recorder.current?.cancel();
@@ -627,14 +637,17 @@ export default function TrainerChat({
     }
   }
   async function send(text, voiceAttempt, generation = epoch.current) {
+    if (!current(generation) || sendLock.current) return;
+    sendLock.current = true;
+    setSendPending(true);
     const own = session.current;
-    let id = voiceAttempt;
+    let id = voiceAttempt || voicePreview?.attemptId;
     try {
       if (!current(generation)) return;
       setError("");
       await flushEdits();
       if (!current(generation)) return;
-      id = voiceAttempt || (await startMetric("text"));
+      id = id || (await startMetric("text"));
       if (!current(generation)) return;
       const content =
         text ||
@@ -661,6 +674,7 @@ export default function TrainerChat({
       });
       if (!current(generation)) return;
       if (id) turnAttempts.current.set(turnId, id);
+      setVoicePreview(null);
       setPhotos([]);
       await metric(
         { status: "processing", hasPhoto: latest.current.photos.length > 0 },
@@ -672,7 +686,11 @@ export default function TrainerChat({
         await metric({ status: "error" }, id);
       }
     } finally {
-      if (current(generation)) setRecordState("ready");
+      if (current(generation)) {
+        sendLock.current = false;
+        setSendPending(false);
+        setRecordState("ready");
+      }
     }
   }
   async function beginRecording() {
@@ -681,64 +699,86 @@ export default function TrainerChat({
       recordState !== "ready" ||
       view.busy ||
       activeTurn(view.server?.currentTurn) ||
-      view.admission
+      view.admission || voicePreview || sendLock.current
     )
       return;
     setError("");
+    const recording = ++recordingEpoch.current;
+    const isCurrent = () => current(generation) && recordingEpoch.current === recording;
     setRecordState("permission");
     startedAt.current = Date.now();
     const id = await startMetric("voice");
-    if (!current(generation)) return;
+    if (!isCurrent()) { void metric({ status: "abandoned", finishedAt: Date.now() }, id); return; }
     attempt.current = id;
     await metric({ ownerKey }, id);
-    if (!current(generation)) return;
+    if (!isCurrent()) return;
     const r = recorderFactory({
       onState: (s) => {
-        if (current(generation)) setRecordState(s);
+        if (isCurrent()) setRecordState(s);
       },
       onTime: (s) => {
-        if (current(generation)) setSeconds(s);
+        if (isCurrent()) setSeconds(s);
       },
       onWaiting: () => {
-        if (current(generation))
+        if (isCurrent())
           setError("Браузер очікує дозволу на мікрофон.");
       },
       onError: (e) => {
-        if (!current(generation)) return;
+        if (!isCurrent()) return;
         catchError(e);
         void metric({ status: "error", finishedAt: Date.now() }, id);
         if (attempt.current === id) attempt.current = null;
         if (current(generation)) setRecordState("ready");
       },
       onStop: async (blob, duration) => {
-        if (!current(generation)) return;
+        if (!isCurrent()) return;
         setRecordState("transcribing");
         sttAbort.current = new AbortController();
         try {
           const audio = await audioNormalizer(blob);
-          if (!current(generation)) return;
+          if (!isCurrent()) return;
           const result = await transcribe(
             audio,
             duration,
             sttAbort.current.signal,
             "auto",
           );
-          if (!current(generation)) return;
-          const text = [session.current.get().text.trim(), result.text?.trim()]
+          if (!isCurrent()) return;
+          const before = session.current.get().text;
+          const text = [before.trim(), result.text?.trim()]
             .filter(Boolean)
             .join("\n");
           if (!result.text?.trim()) throw Error("empty_transcript");
-          await send(text, id, generation);
+          session.current.type(text);
+          setVoicePreview({ before, attemptId: id });
+          setRecordState("ready");
         } catch (e) {
-          if (!current(generation)) return;
+          if (!isCurrent()) return;
           catchError(e);
           await metric({ status: "error", finishedAt: Date.now() }, id);
-          if (current(generation)) setRecordState("ready");
+          if (isCurrent()) setRecordState("ready");
         }
       },
     });
     recorder.current = r;
     await r.start();
+  }
+  function cancelRecording() {
+    recordingEpoch.current++;
+    recorder.current?.cancel();
+    sttAbort.current?.abort();
+    setRecordState("ready");
+    setError("");
+    void metric({ status: "abandoned", finishedAt: Date.now() }, attempt.current);
+    attempt.current = null;
+  }
+  function cancelVoicePreview() {
+    if (!voicePreview || sendLock.current) return;
+    session.current.type(voicePreview.before);
+    void metric({ status: "abandoned", finishedAt: Date.now() }, voicePreview.attemptId);
+    if (attempt.current === voicePreview.attemptId) attempt.current = null;
+    setVoicePreview(null);
+    setError("");
   }
   async function addPhoto(file) {
     const generation = epoch.current;
@@ -846,7 +886,7 @@ export default function TrainerChat({
       if (current(generation)) catchError(e);
     }
   }
-  const busy = view.busy || recordState !== "ready",
+  const busy = view.busy || sendPending || recordState !== "ready",
     turn = view.server?.currentTurn,
     canSend =
       !!view.server &&
@@ -1202,6 +1242,10 @@ export default function TrainerChat({
               ))}
             </div>
           )}
+          {voicePreview && <div className="trainer-voice-preview">
+            <p role="status">Розпізнаний текст можна змінити. Щоб надіслати його, натисніть «Надіслати».</p>
+            <button className="trainer-secondary" disabled={busy || !!view.admission} onClick={cancelVoicePreview}>Скасувати голосове</button>
+          </div>}
           <input
             ref={fileInput}
             className="trainer-file"
@@ -1222,10 +1266,11 @@ export default function TrainerChat({
             <button ref={attachmentTrigger} className="trainer-icon-button" aria-label="Прикріпити фото" aria-expanded={showAttachments} title="Прикріпити фото" disabled={busy || !!view.admission || !view.server} onClick={()=>{photoTarget.current=null;setShowAttachments(value=>!value);}}><Paperclip size={21}/></button>
             <textarea ref={textarea} id="trainer-message" rows="1" placeholder={mode === "food" ? "Що ви з’їли?" : "Напишіть тренеру…"} value={view.text} disabled={busy || !!view.admission} onChange={e=>{setError("");session.current.type(e.target.value);}}/>
             {recordState === "recording" ? <button className="trainer-recording trainer-stop" aria-label="Зупинити запис" onClick={()=>recorder.current.stop()}><Square size={19}/>{seconds} с</button> : <>
-              <button className="trainer-icon-button" aria-label="Почати запис" title="Почати запис" disabled={!view.server || busy || !!view.admission || activeTurn(turn)} onClick={()=>void beginRecording()}><Mic size={21}/></button>
+              <button className="trainer-icon-button" aria-label="Почати запис" title="Почати запис" disabled={!view.server || busy || !!view.admission || activeTurn(turn) || !!voicePreview} onClick={()=>void beginRecording()}><Mic size={21}/></button>
               <button className="trainer-primary trainer-icon-button" aria-label="Надіслати повідомлення" title="Надіслати" disabled={!canSend} onClick={()=>void send()}><Send size={21}/></button>
             </>}
           </div>
+          {["permission", "recording", "transcribing"].includes(recordState) && <button className="trainer-secondary" onClick={cancelRecording}>Скасувати запис</button>}
           {recordState === "transcribing" && <p className="trainer-date-hint" role="status">Розпізнаю голос…</p>}
           {recordState === "permission" && <p className="trainer-date-hint" role="status">Очікую дозволу на мікрофон…</p>}
           {view.server &&

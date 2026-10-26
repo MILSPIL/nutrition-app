@@ -8,6 +8,12 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { openTurnStore } from "./turn-store.mjs";
 import { createTrainerGateway } from "./gateway.mjs";
 import { createPersonalBackend, nativeMessageProjection } from "./personal-backend.mjs";
+
+test("native failed-turn boundary is a Ukrainian notice instead of a model answer", () => {
+  const [message] = nativeMessageProjection({ session_id: "synthetic", messages: [{ role: "assistant", display_kind: "failed_turn", content: "Your request was not processed." }] });
+  assert.match(message.content, /Не вдалося обробити повідомлення/);
+  assert.doesNotMatch(message.content, /Your request/);
+});
 import { personalQueue } from "./personal-queue.mjs";
 import { stableJSON } from "./limits.mjs";
 import { buildSnapshot } from "./snapshot.mjs";

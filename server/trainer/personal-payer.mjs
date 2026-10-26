@@ -1,8 +1,19 @@
 import { createInternalProcess } from "./internal-process.mjs";
 
+export function safePayerDiagnostic(message) {
+  const codes = new Set(["trainer_unavailable", "trainer_timeout", "trainer_quota", "connection_auth_required", "connection_model_changed", "model_payload_invalid"]);
+  const bools = ["sse", "finished", "abandoned", "failed", "hasModels", "modelMatches", "terminalSeen", "terminalModelSeen"];
+  if (!message || !codes.has(message.code) || !["resolver", "sdk", "completion", "proof"].includes(message.stage) ||
+      !Number.isInteger(message.posts) || message.posts < 0 || message.posts > 3 || !Array.isArray(message.responses) || message.responses.length > 3) throw Error("invalid_request");
+  return { code: message.code, stage: message.stage, posts: message.posts, responses: message.responses.map(p => {
+    if (!p || ![true, false, null].includes(p.success) || p.status !== null && (!Number.isInteger(p.status) || p.status < 100 || p.status > 599) || bools.some(k => typeof p[k] !== "boolean")) throw Error("invalid_request");
+    return { success: p.success, status: p.status, ...Object.fromEntries(bools.map(k => [k, p[k]])) };
+  }) };
+}
+
 // One shared native producer, used only while the global queue owns a turn.
 // The profile never receives this process handle or the connection material.
-export function createPersonalPayer({ spawnWorker, credentials, reservePost, deadlineMs = 45000, now = Date.now }) {
+export function createPersonalPayer({ spawnWorker, credentials, reservePost, onDiagnostic = () => {}, deadlineMs = 45000, now = Date.now }) {
   let process, active, identity, starting, controlActive = false, closed = false, generation = 0;
   const boot = () => {
     if (closed || active?.cancelled) throw Error("trainer_unavailable");
@@ -12,6 +23,11 @@ export function createPersonalPayer({ spawnWorker, credentials, reservePost, dea
         setup: { revision: restored.revision, files: Object.fromEntries(Object.entries(restored.files).map(([name, bytes]) => [name, bytes.toString("base64")])) },
         validateIdentity: value => value && typeof value.instanceId === "string" && typeof value.provider === "string" && typeof value.model === "string" && value.supportsTools === true && Number.isSafeInteger(value.contextWindow) && value.contextWindow >= 64000,
         handlers: {
+          diagnostic(message) {
+            if (!active) throw Error("invalid_request");
+            onDiagnostic(safePayerDiagnostic(message));
+            return { recorded: true };
+          },
           credentials(message) {
             if (message.action === "beginRefresh") return credentials.beginRefresh(message.refreshId, message.options);
             if (message.action === "requireReauth") return credentials.requireReauth(message.options);

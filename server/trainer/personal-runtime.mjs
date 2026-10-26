@@ -155,7 +155,8 @@ export async function createPersonalRuntime({ registry, platformKey, root, ephem
       account.kit = createTrainerTools({ store, index, ...account.reader, memoryWriteEnabled: true, contextUpdateMode: "append" });
       account.media = createMediaStore(p.media, { hash: store.hash });
     }
-    payer = createPersonalPayer({ credentials, spawnWorker: spawnPayer, reservePost: (uid, inputId, proof) => outbox.reservePost(uid, inputId, proof) });
+    payer = createPersonalPayer({ credentials, spawnWorker: spawnPayer, reservePost: (uid, inputId, proof) => outbox.reservePost(uid, inputId, proof),
+      onDiagnostic: value => privateWrite(join(paths.root, "last-payer-failure.json"), JSON.stringify(value)) });
     core = createPersonalCoordinator({ profiles, outbox, payer, onEvent(uid, channel, event) {
       try { onEvent(uid, channel, event); } catch {}
       try { desktop.get(uid + ":" + channel)?.notify(event); } catch {}

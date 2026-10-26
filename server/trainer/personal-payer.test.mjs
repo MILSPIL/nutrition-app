@@ -1,7 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { createPersonalPayer } from "./personal-payer.mjs";
+import { createPersonalPayer, safePayerDiagnostic } from "./personal-payer.mjs";
+
+test("payer diagnostics retain fixed metadata only and reject free text", () => {
+  const response = { success: true, status: 200, sse: true, finished: true, abandoned: false, failed: false,
+    hasModels: false, modelMatches: false, terminalSeen: true, terminalModelSeen: false, body: "private synthetic body" };
+  const message = { code: "model_payload_invalid", stage: "proof", posts: 1, responses: [response], grant: "synthetic-secret" };
+  const safe = safePayerDiagnostic(message);
+  assert.equal(safe.responses[0].terminalModelSeen, false);
+  assert.equal(JSON.stringify(safe).includes("private"), false);
+  assert.equal(JSON.stringify(safe).includes("secret"), false);
+  for (const change of [{ stage: "private text" }, { code: "Bearer synthetic" }, { posts: 4 }, { responses: [{ ...response, success: "secret" }] }])
+    assert.throws(() => safePayerDiagnostic({ ...message, ...change }), /invalid_request/);
+});
 
 test("outer deadline physically kills a blocked producer before releasing the turn", async () => {
   let child, exited = false;
