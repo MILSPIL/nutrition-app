@@ -24,6 +24,20 @@ class ContextTests(unittest.TestCase):
     def proposal(self, text="Синтетичний підтверджений факт", revision=None):
         return {"proposalId": "synthetic-proposal-0001", "baseRevision": self.context.read()["revision"] if revision is None else revision, "text": text}
 
+    def test_read_only_context_never_reconciles_or_commits_memory(self):
+        self.source("Синтетичні факти")
+        before = (self.home / "personal-context/memory.json").read_bytes()
+        with self.assertRaisesRegex(RuntimeError, "context_conflict"):
+            ProfileContext(self.home, read_only=True)
+        self.assertEqual((self.home / "personal-context/memory.json").read_bytes(), before)
+        expected = self.context.read(); readonly = ProfileContext(self.home, read_only=True)
+        self.assertEqual(readonly.read(), expected)
+        with self.assertRaisesRegex(RuntimeError, "context_read_only"):
+            readonly.commit(self.proposal())
+        self.assertEqual(readonly.read(), expected)
+        with self.assertRaisesRegex(RuntimeError, "context_unavailable"):
+            ProfileContext(self.home, initialize=True, read_only=True)
+
     def test_empty_profile_has_no_shared_facts_or_targets(self):
         value = self.context.read()
         self.assertEqual(value["text"], ""); self.assertEqual(value["applied"], {}); self.assertEqual(value["mode"], "append")

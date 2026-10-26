@@ -193,7 +193,7 @@ def operator_environment(root):
 
 def main():
     parser=argparse.ArgumentParser()
-    parser.add_argument('operation',choices=('inventory','export','verify','import'))
+    parser.add_argument('operation',choices=('inventory','export','verify','import','snapshot','restore'))
     parser.add_argument('--native-source',type=Path,required=True)
     parser.add_argument('--home',type=Path)
     parser.add_argument('--selection',type=Path)
@@ -201,6 +201,8 @@ def main():
     parser.add_argument('--output',type=Path)
     parser.add_argument('--uid')
     parser.add_argument('--destination-home')
+    parser.add_argument('--expected-sha256')
+    parser.add_argument('--minimum-epoch',type=int)
     args=parser.parse_args();source_code(args.native_source)
     if args.operation=='inventory':
         if not args.home or not args.output:raise RuntimeError('migration_arguments_invalid')
@@ -208,6 +210,27 @@ def main():
         print(json.dumps({'inventoryWritten':True,'sessions':len(result['sessions']),'selectionRequired':result['selectionRequired']}));return
     key=sys.stdin.buffer.read(32)
     if len(key)!=32:raise RuntimeError('migration_key_invalid')
+    if args.operation=='snapshot':
+        if not args.home or not args.uid or not args.output:
+            raise RuntimeError('migration_arguments_invalid')
+        home=_private(args.home,directory=True)
+        database_identity(home)
+        from gateway.runtime_ownership import exclusive_maintenance
+        from hermes_personal_snapshot import capture
+        with exclusive_maintenance([home],purpose='scisense-canonical-snapshot'):
+            receipt=capture(home,args.uid,args.output,key)
+            print(json.dumps({'snapshotWritten':True,'fenceHeld':True,**receipt}),flush=True)
+            line=sys.stdin.buffer.readline(4096)
+            if len(line)>=4096 or json.loads(line or '{}')!={'release':receipt['sha256']}:
+                raise RuntimeError('migration_cutover_not_confirmed')
+            print(json.dumps({'fenceReleased':True}),flush=True)
+        return
+    if args.operation=='restore':
+        if not args.bundle or not args.uid or not args.destination_home or not args.expected_sha256 or not args.minimum_epoch:
+            raise RuntimeError('migration_arguments_invalid')
+        from hermes_personal_snapshot import restore
+        result=restore(args.bundle,args.uid,Path(args.destination_home),key,expected_sha256=args.expected_sha256,minimum_epoch=args.minimum_epoch)
+        print(json.dumps(result),flush=True);return
     if args.operation=='export':
         if not args.selection or not args.output:raise RuntimeError('migration_arguments_invalid')
         selection=json.loads(read_data(args.selection,32000))

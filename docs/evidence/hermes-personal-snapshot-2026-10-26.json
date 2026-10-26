@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "task": "HERMES-PERSONAL-01",
+  "sourcePin": "3f2afed3eb813cb00bd381d29b084d0e01de048f",
+  "sourceManifest": {
+    "scope": "all tracked Python source plus pinned importable suffixes, excluding installed dependencies",
+    "verifiedFiles": 9975,
+    "verifiedOtherSuffixes": 2,
+    "sha256": "a1e875821d26e706a10fde8f10d52c41f4083db91082a02a0d3bff62b7df9cc4"
+  },
+  "syntheticOnly": true,
+  "testExit": 0,
+  "testsPassed": 39,
+  "stages": [
+    {
+      "stage": "migration",
+      "exit": 0,
+      "passed": true,
+      "tests": 39,
+      "osCanaries": {
+        "privateReadDenied": true,
+        "childProcessDenied": true,
+        "tcpDenied": true,
+        "udpDenied": true
+      }
+    }
+  ],
+  "realModelRequests": 0,
+  "sourceSha256": {
+    "scripts/hermes-personal-migration-operator.py": "c82310680074e6634ec566ef313f07c4fcc8567be5a2f1cb5df0043e76b32c70",
+    "server/trainer/hermes_personal_migration.py": "d0b3ca5da80b98c9a8dfff399f53d0ec536bce05f25bbb566d17890b928dd57d",
+    "server/trainer/hermes_personal_snapshot.py": "857f8a15391989654600e44275de123cb8cd5f31d1c3bc5bd4e212be94660339",
+    "server/trainer/hermes_personal_snapshot_test.py": "86dbf5c6cb7232cb85022788ae2aac7d6547bd74267e25e0ad40da78a2ad4f91",
+    "server/trainer/hermes_personal_context_test.py": "f28dc28c6d113db1b178919dd5863466becbfad9ef535f672c55d0ec72c1fc56",
+    "server/trainer/hermes_personal_migration_test.py": "990a5efa831653d3c774179c07bb90ad3751f36b9def73dce2ddae6c3dffca84",
+    "server/trainer/hermes_personal_owner_test.py": "b055d92481b861242d9f98364ae76a7a7d23519f58aa71400e6c98788ab922f1",
+    "server/trainer/hermes_personal_provider_test.py": "98bc520bcd8ae79edfae5f67b2115a6117fb41148572638246f4e1010b00d68b",
+    "scripts/hermes-personal-owner-check.py": "81d2d6ad2ddfe03bb30846f593713eb078fc95e6c96d1413a8776a69797cdc9b",
+    "scripts/hermes_personal_fixture.py": "d6abc8334d28287f5cc378651c9f031e5880b70e1f1128e7b4b4cb5de32b8752",
+    "server/trainer/hermes_personal_owner.py": "95ee7c7003fa64910e7bd3f916f0f287d6258e6a763893642a709534b93b0fd3",
+    "server/trainer/hermes_personal_media.py": "2060a5dc02c27501da130b586f121f0060b468fcbfdc65f6034c294c7022fc9a",
+    "server/trainer/hermes_personal_context.py": "10db379a10d9946cfe9a5a38ff1098aeff7e550204df1c3285e23f1ce52f46aa",
+    "server/trainer/hermes_personal_provider.py": "37ca1542a44179dc3e7c2faf4c1768fe2980b0b58015ea0e85bf39c34d592f1f",
+    "server/trainer/hermes_personal_ipc.py": "8819dc38030dbd588aee73ddb468f6d523ede214d478e2fe0e930e41f96dc313",
+    "server/trainer/hermes_personal_worker.py": "8127c09b45545f63e8bdc22d217cb0488d78c40057941ff7ef28c573d7b3d223",
+    "server/trainer/personal-process.mjs": "53890009b8f57caae188be279010e5ecd9b2f1fe8b3104c16b66ff7fafd2b255",
+    "server/trainer/internal-process.mjs": "e8c592347e4cef337545f18daa3768d41a51e4c7dacaeda81805149161b268a7",
+    "scripts/hermes-personal-ipc-fixture.mjs": "ab4b17cb26eec3cadc7d696adb53a0aa5cd46ba630f05778703cb443919ec12f"
+  },
+  "scope": "Offline synthetic canonical recovery only; host physical drain, Desktop cutover and production acceptance remain pending.",
+  "review": {
+    "agent": "personal_contract_review",
+    "verdict": "PASS",
+    "closedP2": 4,
+    "additionalBoundaryCases": [
+      "context-json-overhead",
+      "long-allowed-file-name"
+    ],
+    "unresolvedP1P2": 0
+  },
+  "assertions": {
+    "sameCanonicalHome": true,
+    "freshTailAndStableMessageIds": true,
+    "unknownAdmissionPreservedWithoutReplay": true,
+    "actualDecryptedStreamDigestBound": true,
+    "privateContextAndRetainedPhotoRestored": true,
+    "nativeIntegrityAndSchemaBeforePublication": true,
+    "noOverlay": true,
+    "noCredentialsOrAppLedgersRestored": true,
+    "coldCliSourceFence": true,
+    "corruptArchiveAndAliasRefused": true,
+    "renderedContextLimit": 400000
+  },
+  "productionChanged": false
+}

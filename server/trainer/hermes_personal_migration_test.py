@@ -264,5 +264,8 @@ class MigrationTests(unittest.TestCase):
         bundle=self.bundle(sessions=self.sessions+[first]);self.assertEqual(import_empty(bundle)['messages'],3)
 
 
+from hermes_personal_snapshot_test import CanonicalSnapshotTests
+from hermes_personal_context_test import ContextTests
+
 if __name__ == '__main__':
     unittest.main()

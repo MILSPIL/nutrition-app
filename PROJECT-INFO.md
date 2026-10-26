@@ -8,6 +8,8 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-26T06:15:43.252617+00:00: canonical snapshot/restore пройшов39native/CLI/context tests+4OSguards та свіже рев’ю PASS; source SHA і tail/unknown підтверджені. CI2fc0cbf PASS. Host access/backup destinations відсутні, Keychain check timeout; B1/A0/B2/B3 ще не виконані, production без змін. [Доказ](docs/evidence/hermes-personal-snapshot-2026-10-26.json).
+
 2026-10-26 04:30 UTC: actual Electron + Native пройшов text/photo/dialog/terminal event/exact replay після закриття клієнта:36 checks,9 OS-guarded processes,7 fake POST,0 real API;0 page errors, browser cleanup verified. [Доказ](docs/evidence/hermes-personal-desktop-wire-2026-10-26.json). Linux candidate CI, міграція, пакети й B1–B3 ще pending; production не змінений.
 
 2026-10-26 04:18 UTC: приватний per-UID Desktop transport і V3 binding підготовлені;29 targeted Node tests та свіже незалежне рев’ю PASS після1P1/2P2. [Контракт](docs/deployment/hermes-personal-desktop-01.md). Actual Electron уже надсилає повідомлення до справжнього synthetic Native й отримує відповідь/terminal event, без unhandled errors; UI photo chooser та replay після закриття Desktop ще pending. Host, ключі, бюджет і production не змінені.

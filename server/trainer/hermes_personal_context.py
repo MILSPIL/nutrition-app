@@ -53,9 +53,12 @@ def _atomic(path, value):
 
 
 class ProfileContext:
-    def __init__(self, home, *, now=time.time, initialize=False):
+    def __init__(self, home, *, now=time.time, initialize=False, read_only=False):
         home = _directory(Path(home))
         self.home = home
+        self.read_only = read_only is True
+        if self.read_only and initialize:
+            raise RuntimeError("context_unavailable")
         self.root, self.now, self.initializing = home / "personal-context", now, initialize is True
         if not self.root.exists():
             if not self.initializing:
@@ -121,6 +124,8 @@ class ProfileContext:
             except (ValueError, KeyError, TypeError, OSError):
                 raise RuntimeError("context_unavailable") from None
             if value["sourceDigest"] != digest:
+                if self.read_only:
+                    raise RuntimeError("context_conflict")
                 if digest == hashlib.sha256(b"").hexdigest():
                     raise RuntimeError("context_unavailable")
                 if value["revision"] >= MAX_REVISION:
@@ -151,6 +156,8 @@ class ProfileContext:
         return self._render(*self._load())
 
     def commit(self, proposal):
+        if self.read_only:
+            raise RuntimeError("context_read_only")
         self._proposal(proposal)
         source, state = self._load()
         old = next((entry for entry in state["entries"] if entry["proposalId"] == proposal["proposalId"]), None)
