@@ -111,3 +111,11 @@ test('maximum 90-second WAV reaches Groq through HTTP with duration derived from
  const form=new FormData();form.set('audio',new Blob([bytes],{type:'audio/wav'}),'private.wav');form.set('duration','1');form.set('language','ru');
  const res=await fetch(url+'/meal-api/transcribe',{method:'POST',headers:{Origin:'https://ntzg.pp.ua',Authorization:`Bearer ${jwt()}`},body:form});assert.equal(res.status,200);assert.deepEqual(await res.json(),{text:'Тест'});assert.equal(state.reserved,1);
 });
+
+test('personal runtime routes both verified allowlisted UIDs and refuses foreign accounts before body handling',async t=>{
+ const seen=[],trainer={accepts:uid=>['pilot','wife'].includes(uid),handle:async(uid,route)=>{seen.push(uid);return Response.json({route,own:true});},close:async()=>{}};
+ const {url,state}=await fixture(t,{trainer,env:{TRAINER_ENABLED:'true',ALLOWED_UIDS:'pilot,wife'}});
+ for(const uid of ['pilot','wife']){const res=await fetch(url+'/meal-api/trainer/capabilities',{headers:{Origin:'https://ntzg.pp.ua',Authorization:`Bearer ${jwt({sub:uid})}`}});assert.equal(res.status,200);}
+ const denied=await fetch(url+'/meal-api/trainer/data-session',{method:'PUT',headers:{Origin:'https://ntzg.pp.ua',Authorization:`Bearer ${jwt({sub:'foreign'})}`,'Content-Type':'application/json'},body:'invalid'});
+ assert.equal(denied.status,403);assert.deepEqual(seen,['pilot','wife']);assert.equal(state.calls,0);assert.equal(state.reserved,0);
+});

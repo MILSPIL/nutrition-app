@@ -24,7 +24,8 @@ def main():
     parser.add_argument("--egress", action="store_true")
     parser.add_argument("--payer", action="store_true")
     parser.add_argument("--joint", action="store_true")
-    parser.add_argument("--only", choices=("payer", "joint"))
+    parser.add_argument("--runtime", action="store_true")
+    parser.add_argument("--only", choices=("payer", "joint", "runtime"))
     args = parser.parse_args()
     if sys.platform != "darwin" or not Path("/usr/bin/sandbox-exec").is_file():
         raise RuntimeError("requires_verified_macos_sandbox")
@@ -86,7 +87,7 @@ runpy.run_path(script,run_name="__main__")'''
         stages = []
         expected_stages = ["provider", "first", "reopen"] + (["connection"] if args.connection else []) + (["egress"] if args.egress else []) + (["payer"] if args.payer else [])
         if args.only:
-            expected_stages = [] if args.only == "joint" else [args.only]
+            expected_stages = [] if args.only in ("joint", "runtime") else [args.only]
         for stage in expected_stages:
             stage_env = {**env, "SCISENSE_OWNER_STAGE": stage}
             if stage in ("connection", "payer"):
@@ -108,7 +109,7 @@ runpy.run_path(script,run_name="__main__")'''
                 break
         passed = len(stages) == len(expected_stages) and all(stage["passed"] for stage in stages)
         ipc = None
-        if passed and (args.ipc or args.joint):
+        if passed and (args.ipc or args.joint or args.runtime):
             ipc_profile = root / "ipc-profile"; ipc_profile.mkdir(mode=0o700)
             ipc_env = {**env, "HERMES_HOME": str(ipc_profile), "SCISENSE_IPC_WORKER": str(project / "server/trainer/hermes_personal_worker.py")}
             ipc_bootstrap = '''import os,json,runpy
@@ -124,13 +125,13 @@ runpy.run_path(os.environ["SCISENSE_IPC_WORKER"],run_name="__main__")'''
             config_file = root / "ipc-config.json"
             config_file.write_text(json.dumps({"command": "/usr/bin/sandbox-exec", "args": ["-p", policy, str(python), "-c", ipc_bootstrap],
                 "env": ipc_env, "cwd": str(root), "toolSchemas": json.loads(schemas.read_text())}))
-            result = subprocess.run([str(args.node), str(project / "scripts" / ("hermes-personal-joint-fixture.mjs" if args.joint else "hermes-personal-ipc-fixture.mjs")), str(config_file)], env=env, cwd=root, capture_output=True, text=True, timeout=100)
+            result = subprocess.run([str(args.node), str(project / "scripts" / ("hermes-personal-runtime-fixture.mjs" if args.runtime else "hermes-personal-joint-fixture.mjs" if args.joint else "hermes-personal-ipc-fixture.mjs")), str(config_file)], env=env, cwd=root, capture_output=True, text=True, timeout=100)
             print((result.stdout + result.stderr)[-5000:])
             if result.returncode == 0:
                 ipc = json.loads(result.stdout.strip().splitlines()[-1])
                 guards = [json.loads(path.read_text()) for path in root.glob("ipc-guard-*.json")]
                 ipc["physicalProcessesWithOSCanaries"] = len(guards)
-                passed = ipc.get("passed") is True and len(guards) == (7 if args.joint else 2) and all(all(guard.values()) for guard in guards)
+                passed = ipc.get("passed") is True and len(guards) == (6 if args.runtime else 7 if args.joint else 2) and all(all(guard.values()) for guard in guards)
             else:
                 passed = False
                 for log in list(ipc_profile.rglob("*.log"))[:3]:
@@ -138,9 +139,9 @@ runpy.run_path(os.environ["SCISENSE_IPC_WORKER"],run_name="__main__")'''
                     print(log.read_text(errors="replace")[-5500:])
         receipt = {"version": 1, "task": "HERMES-PERSONAL-01", "sourcePin": PIN, "sourceManifest": source_manifest,
             "syntheticOnly": True, "testExit": 0 if passed else 1, "testsPassed": sum(stage["tests"] for stage in stages if stage["passed"]),
-            "stages": stages, "nativeIpc": ipc, "physicalProcessRestart": "reopen" in expected_stages and all(stage["passed"] for stage in stages), "realModelRequests": 0, "sourceSha256": {
+            "stages": stages, "nativeIpc": ipc, "physicalProcessRestart": ("reopen" in expected_stages and all(stage["passed"] for stage in stages)) or bool(args.runtime and ipc and ipc.get("canonicalHistoryAfterPhysicalRestart")), "realModelRequests": 0, "sourceSha256": {
                 str(path.relative_to(project)): hashlib.sha256(path.read_bytes()).hexdigest()
-                for path in [script, script.with_name("hermes_personal_provider_test.py"), Path(__file__).resolve(), project / "scripts/hermes_personal_fixture.py", project / "server/trainer/hermes_personal_owner.py", project / "server/trainer/hermes_personal_media.py", project / "server/trainer/hermes_personal_context.py", project / "server/trainer/hermes_personal_provider.py", project / "server/trainer/hermes_personal_ipc.py", project / "server/trainer/hermes_personal_worker.py", project / "server/trainer/personal-process.mjs", project / "server/trainer/internal-process.mjs", project / "scripts/hermes-personal-ipc-fixture.mjs"] + ([project / "server/trainer/hermes_personal_connection.py", project / "server/trainer/hermes_personal_connection_test.py"] if args.connection or args.payer else []) + ([project / "server/trainer/hermes_personal_egress.py", project / "server/trainer/hermes_personal_egress_test.py"] if args.egress or args.payer else []) + ([project / "server/trainer/hermes_personal_payer.py", project / "server/trainer/hermes_personal_payer_test.py"] if args.payer else []) + ([project / "server/trainer/personal-coordinator.mjs", project / "server/trainer/personal-payer.mjs", project / "server/trainer/personal-backend.mjs", project / "server/trainer/gateway.mjs", project / "server/trainer/turn-store.mjs", project / "server/trainer/snapshot.mjs", project / "server/trainer/hermes_personal_payer.py", project / "server/trainer/hermes_personal_payer_worker.py", project / "server/trainer/hermes_personal_connection.py", project / "server/trainer/hermes_personal_egress.py", project / "scripts/hermes-personal-joint-fixture.mjs", project / "scripts/hermes-personal-payer-fixture.py"] if args.joint else [])}}
+                for path in [script, script.with_name("hermes_personal_provider_test.py"), Path(__file__).resolve(), project / "scripts/hermes_personal_fixture.py", project / "server/trainer/hermes_personal_owner.py", project / "server/trainer/hermes_personal_media.py", project / "server/trainer/hermes_personal_context.py", project / "server/trainer/hermes_personal_provider.py", project / "server/trainer/hermes_personal_ipc.py", project / "server/trainer/hermes_personal_worker.py", project / "server/trainer/personal-process.mjs", project / "server/trainer/internal-process.mjs", project / "scripts/hermes-personal-ipc-fixture.mjs"] + ([project / "server/trainer/hermes_personal_connection.py", project / "server/trainer/hermes_personal_connection_test.py"] if args.connection or args.payer else []) + ([project / "server/trainer/hermes_personal_egress.py", project / "server/trainer/hermes_personal_egress_test.py"] if args.egress or args.payer else []) + ([project / "server/trainer/hermes_personal_payer.py", project / "server/trainer/hermes_personal_payer_test.py"] if args.payer else []) + ([project / "server/trainer/personal-coordinator.mjs", project / "server/trainer/personal-payer.mjs", project / "server/trainer/personal-backend.mjs", project / "server/trainer/gateway.mjs", project / "server/trainer/turn-store.mjs", project / "server/trainer/snapshot.mjs", project / "server/trainer/hermes_personal_payer.py", project / "server/trainer/hermes_personal_payer_worker.py", project / "server/trainer/hermes_personal_connection.py", project / "server/trainer/hermes_personal_egress.py", project / "scripts/hermes-personal-joint-fixture.mjs", project / "scripts/hermes-personal-payer-fixture.py"] if args.joint else []) + ([project / "server/trainer/personal-runtime.mjs", project / "server/trainer/personal-runtime.test.mjs", project / "scripts/hermes-personal-runtime-fixture.mjs", project / "server/trainer/firebase-sessions.mjs", project / "server/trainer/personal-coordinator.mjs", project / "server/trainer/personal-backend.mjs", project / "server/trainer/personal-payer.mjs", project / "scripts/hermes-personal-payer-fixture.py"] if args.runtime else [])}}
         print(json.dumps(receipt))
         if args.receipt:
             args.receipt.parent.mkdir(parents=True, exist_ok=True)

@@ -51,3 +51,29 @@ test("specific native photo failure takes precedence over generic retry text", (
   expect(result).toContain("Місце для фото"); expect(result).toContain("цього профілю");
   expect(trainerError(Error("media_unsupported"))).toContain("Вибрана в Hermes модель не підтримує фото");
 });
+
+
+test("native state connects only the current own Firebase session and never requests a model login", async () => {
+ const fetcher=jest.fn(async url=>({ok:true,json:async()=>url.endsWith("/state")?{messages:[],dataSession:{phase:"reauth_required"}}:{phase:"connected"}}));
+ const api=createTrainerApi("owner",{endpoint:"/meal-api",fetcher,getUser:()=>({uid:"owner",refreshToken:"synthetic-own-refresh",getIdToken:async()=>"synthetic"})});
+ expect((await api.state()).dataSession.phase).toBe("connected");
+ expect(fetcher.mock.calls).toHaveLength(2);expect(fetcher.mock.calls[1][0]).toBe("/meal-api/trainer/data-session");
+ expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({refreshToken:"synthetic-own-refresh"});
+});
+test("data auth recovery deduplicates connection and retries the same unadmitted request once", async () => {
+ let connected=false; const bodies=[];
+ const fetcher=jest.fn(async(url,options)=>{
+  if(url.endsWith("/data-session")){await Promise.resolve();connected=true;return {ok:true,json:async()=>({phase:"connected"})};}
+  bodies.push(options.body);return {ok:connected,status:connected?202:401,json:async()=>connected?{state:"queued"}:{error:"data_auth_required"}};
+ });
+ const api=createTrainerApi("owner",{endpoint:"/meal-api",fetcher,getUser:()=>({uid:"owner",refreshToken:"synthetic-own-refresh",getIdToken:async()=>"synthetic"})});
+ await Promise.all([api.send({turnId:"same-1",text:"own food"}),api.send({turnId:"same-2",text:"own food 2"})]);
+ expect(fetcher.mock.calls.filter(([url])=>url.endsWith("/data-session"))).toHaveLength(1);
+ expect(bodies.filter(x=>JSON.parse(x).turnId==="same-1")).toEqual([JSON.stringify({turnId:"same-1",text:"own food"}),JSON.stringify({turnId:"same-1",text:"own food"})]);
+});
+test("UID switch during Firebase delegation cannot send the previous refresh token", async () => {
+ let uid="owner",tokenCalls=0;
+ const fetcher=jest.fn(async()=>({ok:true,json:async()=>({dataSession:{phase:"reauth_required"}})}));
+ const api=createTrainerApi("owner",{endpoint:"/meal-api",fetcher,getUser:()=>({uid,refreshToken:"synthetic-own-refresh",getIdToken:async()=>{if(++tokenCalls===2)uid="wife";return "synthetic";}})});
+ await expect(api.state()).rejects.toThrow("unauthorized");expect(fetcher).toHaveBeenCalledTimes(1);
+});

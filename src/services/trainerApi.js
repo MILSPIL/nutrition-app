@@ -1,6 +1,9 @@
 import { auth } from "../firebase";
 import { voiceError } from "./voiceApi";
 const messages = {
+  data_auth_required: "Не вдалося підключити ваш щоденник. Вийдіть з акаунта SciSense й увійдіть знову; текст збережено.",
+  connection_auth_required: "Підключення Hermes потребує повторного входу власника. Ручний трекер доступний.",
+  connection_unconfigured: "Підключення моделі в Hermes ще не налаштовано. Ручний трекер доступний.",
   media_quota: "Місце для фото цього профілю заповнене. Видаліть непотрібні фото або надішліть текст.",
   media_unsupported: "Вибрана в Hermes модель не підтримує фото. Оберіть модель із підтримкою зображень або надішліть текст.",
   media_conflict: "Фото цієї спроби вже відрізняється. Прикріпіть фото до нового повідомлення.",
@@ -57,7 +60,7 @@ export function createTrainerApi(
     timeoutMs = 15000,
   } = {},
 ) {
-  async function request(path, method = "GET", body, signal) {
+  async function rawRequest(path, method = "GET", body, signal) {
     if (!endpoint) throw Error("live_disabled");
     const c = new AbortController(),
       abort = () => c.abort();
@@ -107,9 +110,36 @@ export function createTrainerApi(
       signal?.removeEventListener("abort", abort);
     }
   }
+  let connecting;
+  async function connectData(signal) {
+    if (!connecting) {
+      const user = getUser();
+      if (!user || user.uid !== uid || typeof user.refreshToken !== "string" || !user.refreshToken) throw Error("data_auth_required");
+      // Normal own-user Firebase delegation, never a ChatGPT or model grant.
+      // No token is kept in local storage or returned by the server.
+      connecting = rawRequest("/data-session", "PUT", { refreshToken: user.refreshToken }).finally(() => { connecting = undefined; });
+    }
+    const result = await connecting;
+    if (signal?.aborted) throw Error("client_timeout");
+    if (getUser()?.uid !== uid) throw Error("unauthorized");
+    return result;
+  }
+  async function request(path, method = "GET", body, signal) {
+    try { return await rawRequest(path, method, body, signal); }
+    catch (error) {
+      // Server guarantees this refusal precedes admission or draft mutation.
+      if (error.message !== "data_auth_required" || path === "/data-session") throw error;
+      await connectData(signal);
+      return rawRequest(path, method, body, signal);
+    }
+  }
   return {
     request,
-    state: (s) => request("/state", "GET", undefined, s),
+    async state(s) {
+      const state = await request("/state", "GET", undefined, s);
+      if (state.dataSession && state.dataSession.phase !== "connected") return { ...state, dataSession: await connectData(s) };
+      return state;
+    },
     day: (date, s) => request(`/days/${date}`, "GET", undefined, s),
     refreshDraft: (id, revision, s) => request(`/drafts/${id}/refresh`, "PUT", { baseRevision: revision }, s),
     composer: (b, s) => request("/composer", "PUT", b, s),

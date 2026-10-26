@@ -8,6 +8,8 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-26 00:59 UTC: personal runtime/Firebase client пройшли16actual-native checks/6OS-guarded processes,17Node/7React і незалежне рев’ю PASS після2P2. [Доказ](docs/evidence/hermes-personal-runtime-2026-10-26.json). Два UID, explicit dataProfileId, history/session restart, fail-closed missing schema/provision cleanup. Production/Linux activation/Desktop/private migration ще pending;0реальнихAPI, production не змінений.
+
 2026-10-26 00:44 UTC: ready-чернетка може локально завершити Native turn після3physicalPOST, без четвертого запиту чи автоматичного Add.72Node перевірки та незалежне рев’ю PASS після P2-виправлення native malformed-tool result. [Журнал](.agents/journal/2026-10-26-0244-codex-gpt-6.1-sol-hermes-personal-draft-completion.md). Runtime/live ще pending, production не змінений.
 
 2026-10-26 00:32 UTC: canonical контекст і confirmed append пройшли27actual native checks,10contextPython/29nativePython/53Node/23React та незалежне рев’ю PASS. Сховище прив’язане доHOME, втрачені факти не замінюються порожніми, lostACK звіряється зnative receipt. [Доказ](docs/evidence/hermes-personal-context-2026-10-26.json). Production runtime/import operator/Desktop/Linux/live ще pending;0реальнихAPI, production не змінений.

@@ -39,7 +39,7 @@ export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, 
       !Number.isInteger(bodyTimeoutMs) || bodyTimeoutMs <= 0 || bodyTimeoutMs > 15000 ||
       !Number.isInteger(deadlineMs) || deadlineMs <= 0 || deadlineMs > 65000)
     throw Error('server_config_invalid');
-  if(env.TRAINER_ENABLED==='true'&&(!trainer||!env.TRAINER_OWNER_UID||!env.ALLOWED_UIDS.split(',').includes(env.TRAINER_OWNER_UID)))throw Error('server_config_invalid');
+  if(env.TRAINER_ENABLED==='true'&&(!trainer||typeof trainer.accepts!=='function'&&(!env.TRAINER_OWNER_UID||!env.ALLOWED_UIDS.split(',').includes(env.TRAINER_OWNER_UID))))throw Error('server_config_invalid');
   const handler = createHandler({
     authenticate: createFirebaseAuthenticator({ keyResolver }),
     provider, localTranscription: true,
@@ -103,7 +103,7 @@ export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, 
       if (trainerRoute) {
         if(req.method==='OPTIONS')return send(res,204,'',{'Access-Control-Allow-Origin':env.ALLOWED_ORIGINS,'Access-Control-Allow-Methods':'GET, PUT, POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type'});
         const uid=await trainerAuthenticate(new Request(url,{headers}),env);
-        if(uid!==env.TRAINER_OWNER_UID||!(env.ALLOWED_UIDS||'').split(',').includes(uid))throw Object.assign(Error('pilot_forbidden'),{status:403});
+        if(!(env.ALLOWED_UIDS||'').split(',').includes(uid)||(typeof trainer.accepts==='function'?trainer.accepts(uid)!==true:uid!==env.TRAINER_OWNER_UID))throw Object.assign(Error('pilot_forbidden'),{status:403});
         if(req.method==='POST'&&route==='/meal-api/trainer/turns'&&env.LIVE_ENABLED!=='true')throw Object.assign(Error('live_disabled'),{status:503});
         let body;
         if(['POST','PUT'].includes(req.method)){if(headers['Content-Type']!=='application/json')throw Error('bad_request');const bytes=await readBody(req,controller.signal,bodyTimeoutMs);body=bytes.length?JSON.parse(bytes.toString('utf8')):{};}
@@ -121,7 +121,7 @@ export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, 
       if (!controller.signal.aborted)
         send(res, response.status, await response.text(), Object.fromEntries(response.headers));
     } catch (error) {
-      const publicErrors = {media_quota:409,media_unsupported:409,media_conflict:409,media_unavailable:503,canonical_history_required:409,draft_conflict:409,draft_frozen:409,date_draft_conflict:409,notes_disabled:409,note_confirmation_required:409,save_unconfirmed:409,context_conflict:409,context_unavailable:503,invalid_quantity:400,invalid_food_note:400,note_conflict:409,turn_gone:410,conversation_gone:410,draft_too_large:413,invalid_request:400,invalid_date:400,invalid_image:400,message_too_large:413,context_too_large:413,not_found:404,turn_conflict:409,trainer_busy:409,history_conflict:409,composer_conflict:409,trainer_unavailable:503,unauthorized:401,pilot_forbidden:403,live_disabled:503,media_too_large:413,upstream_timeout:504};
+      const publicErrors = {data_auth_required:401,connection_auth_required:503,connection_unconfigured:503,media_quota:409,media_unsupported:409,media_conflict:409,media_unavailable:503,canonical_history_required:409,draft_conflict:409,draft_frozen:409,date_draft_conflict:409,notes_disabled:409,note_confirmation_required:409,save_unconfirmed:409,context_conflict:409,context_unavailable:503,invalid_quantity:400,invalid_food_note:400,note_conflict:409,turn_gone:410,conversation_gone:410,draft_too_large:413,invalid_request:400,invalid_date:400,invalid_image:400,message_too_large:413,context_too_large:413,not_found:404,turn_conflict:409,trainer_busy:409,history_conflict:409,composer_conflict:409,trainer_unavailable:503,unauthorized:401,pilot_forbidden:403,live_disabled:503,media_too_large:413,upstream_timeout:504};
       if (!controller.signal.aborted) reject(publicErrors[error.message] || 400, publicErrors[error.message] ? error.message : 'bad_request');
     } finally {
       clearTimeout(timer);
