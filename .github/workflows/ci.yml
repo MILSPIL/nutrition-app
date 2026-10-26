@@ -128,9 +128,11 @@ jobs:
         run: node scripts/hermes-systemd-ci.mjs
       - name: Actual personal Hermes profiles with photo replay under the same hard limits
         run: node scripts/hermes-personal-native-systemd-ci.mjs
+      - name: Synthetic migration and atomic no-replace publication on Linux
+        run: docker run --rm --init --network=none --cpus=2 --memory=2g --memory-swap=2g --pids-limit=128 --cap-drop=ALL --security-opt=no-new-privileges --read-only --tmpfs /tmp:rw,noexec,nosuid,size=128m --env SCISENSE_FIXTURE_ROOT=/tmp --env HERMES_HOME=/tmp/hermes-synthetic --env PYTHONPATH=/app/server/trainer:/opt/scisense/hermes/source --entrypoint /opt/scisense/hermes/source/.venv/bin/python scisense-hermes-ci /app/server/trainer/hermes_personal_migration_test.py
       - name: Export verified public Linux runtime without state or credentials
         run: |
-          docker run --name hermes-export --network=none --entrypoint python3 scisense-hermes-ci scripts/hermes-runtime-export.py
+          docker run --name hermes-export --network=none --env SCISENSE_PUBLIC_CODE_SHA=${{ github.sha }} --entrypoint python3 scisense-hermes-ci scripts/hermes-runtime-export.py
           mkdir -p tmp/hermes-runtime
           docker cp hermes-export:/tmp/hermes-public-runtime/. tmp/hermes-runtime/
           docker rm hermes-export

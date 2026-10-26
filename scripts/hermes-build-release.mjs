@@ -3,6 +3,7 @@
 import { existsSync, lstatSync, readFileSync, writeFileSync, readdirSync, mkdirSync, mkdtempSync, cpSync, rmSync, realpathSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { tmpdir, homedir } from "node:os";
+import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 
 export function buildHermesRelease({ enabled = false } = {}) {
@@ -69,6 +70,18 @@ export function buildHermesRelease({ enabled = false } = {}) {
       ? { codeSha: sha, trainerChatEnabled: true, localLabEnabled: false, phoneLabEnabled: false, pilotModeEnabled: false }
       : { codeSha: sha, trainerChatEnabled: false, localLabEnabled: false };
     writeFileSync(join(built, "scisense-build.json"), JSON.stringify(receipt) + "\n");
+    const assets = [];
+    const inventory = directory => {
+      for (const name of readdirSync(directory).sort()) {
+        const file = join(directory, name), info = lstatSync(file);
+        if (info.isSymbolicLink()) throw Error("build_asset_symlink");
+        if (info.isDirectory()) inventory(file);
+        else if (info.isFile()) assets.push({ path: file.slice(built.length + 1), bytes: info.size, sha256: createHash("sha256").update(readFileSync(file)).digest("hex") });
+        else throw Error("build_asset_special");
+      }
+    };
+    inventory(built);
+    writeFileSync(join(built, "scisense-build-files.json"), JSON.stringify({ version: 1, codeSha: sha, files: assets }) + "\n");
     // build/ is a generated, untracked directory. Never follow a substituted link.
     if (existsSync(output) && (!lstatSync(output).isDirectory() || lstatSync(output).isSymbolicLink())) throw Error("build_path_not_directory");
     rmSync(output, { recursive: true, force: true });

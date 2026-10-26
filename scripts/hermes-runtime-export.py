@@ -1,8 +1,12 @@
 """Export public Linux dependencies only, never the synthetic profile or state."""
-import pathlib,json,hashlib,tarfile,subprocess,os
+import pathlib,json,hashlib,tarfile,subprocess,os,re
 root=pathlib.Path('/tmp/hermes-public-runtime');root.mkdir(exist_ok=False)
 target=root/'runtime.tar.gz'
-entries=[('/opt/scisense/hermes','hermes'),('/opt/scisense/python','python'),('/usr/local/bin/node','node/bin/node'),('/usr/local/LICENSE','node/LICENSE'),('/opt/scisense/isolation/LICENSE.bubblewrap','isolation/LICENSE.bubblewrap'),('/usr/bin/bwrap','isolation/bwrap'),('/app/server/trainer/worker-seccomp.bpf','isolation/worker-seccomp.bpf'),('/app/.agents/runtime/food-data/foods-v1-reviewed.sqlite','data/foods-v1-reviewed.sqlite')]
+# Compile the production TSYNC/turn-timer guard from this exact committed C
+# source, never from a CI-only diagnostic adapter. This file is public code.
+lock=root/'personal-worker-lock.so'
+subprocess.run(['gcc','-O2','-Wall','-Werror','-shared','-fPIC','/app/server/trainer/worker-lock.c','-lseccomp','-lrt','-o',str(lock)],check=True)
+entries=[(str(lock),'isolation/personal-worker-lock.so'),('/opt/scisense/hermes','hermes'),('/opt/scisense/python','python'),('/usr/local/bin/node','node/bin/node'),('/usr/local/LICENSE','node/LICENSE'),('/opt/scisense/isolation/LICENSE.bubblewrap','isolation/LICENSE.bubblewrap'),('/usr/bin/bwrap','isolation/bwrap'),('/app/server/trainer/worker-seccomp.bpf','isolation/worker-seccomp.bpf'),('/app/.agents/runtime/food-data/foods-v1-reviewed.sqlite','data/foods-v1-reviewed.sqlite')]
 manifest={'version':1,'syntheticStateIncluded':False,'credentialsIncluded':False,'platform':'linux-x64','os':'ubuntu-24.04','files':[],'packages':subprocess.check_output(['dpkg-query','-W','libc6','libcap2','libseccomp2'],text=True).strip().splitlines()}
 manifest['components']={'node':subprocess.check_output(['/usr/local/bin/node','--version'],text=True).strip(),'python':subprocess.check_output(['/opt/scisense/python/bin/python3.14','--version'],text=True).strip(),'bubblewrap':subprocess.check_output(['/usr/bin/bwrap','--version'],text=True).strip()}
 with tarfile.open(target,'w:gz') as tf:
@@ -22,6 +26,9 @@ with tarfile.open(target,'w:gz') as tf:
    if info.isfile():
     with p.open('rb') as f:tf.addfile(info,f)
    else:tf.addfile(info)
+code_sha=os.environ.get('SCISENSE_PUBLIC_CODE_SHA','')
+if not re.fullmatch('[a-f0-9]{40}',code_sha):raise RuntimeError('public_code_sha_required')
+manifest['personalGuard']={'codeSha':code_sha,'sourceSha256':hashlib.sha256(pathlib.Path('/app/server/trainer/worker-lock.c').read_bytes()).hexdigest(),'seccompSourceSha256':hashlib.sha256(pathlib.Path('/app/server/trainer/worker-seccomp.c').read_bytes()).hexdigest(),'seccompSha256':hashlib.sha256(pathlib.Path('/app/server/trainer/worker-seccomp.bpf').read_bytes()).hexdigest(),'sha256':hashlib.sha256(lock.read_bytes()).hexdigest(),'platform':'linux-x64','format':'ELF64-ET_DYN-x86_64'}
 manifest['archiveSha256']=hashlib.sha256(target.read_bytes()).hexdigest();manifest['archiveBytes']=target.stat().st_size
 (root/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,separators=(',',':'))+'\n')
 print(json.dumps({'files':len(manifest['files']),'bytes':manifest['archiveBytes'],'sha256':manifest['archiveSha256'],'publicOnly':True}))
