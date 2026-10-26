@@ -1,0 +1,45 @@
+[Unit]
+Description=SciSense personal meal tracker
+After=network-online.target scisense-y.socket scisense-w.socket scisense-payer.socket
+Wants=network-online.target
+Requires=scisense-y.socket scisense-w.socket scisense-payer.socket
+[Service]
+Type=notify
+NotifyAccess=all
+WatchdogSec=2s
+WatchdogSignal=SIGKILL
+TimeoutStartSec=15s
+TimeoutStopSec=5s
+TimeoutAbortSec=1s
+User=scisense
+Group=scisense
+SupplementaryGroups=scisense-broker
+Slice=scisense.slice
+WorkingDirectory=/opt/scisense/current
+ExecStart=/opt/scisense/node/bin/node /opt/scisense/current/server/main.mjs
+Environment=NODE_ENV=production
+UMask=0077
+StateDirectory=scisense
+StateDirectoryMode=0700
+RuntimeDirectory=scisense
+RuntimeDirectoryMode=0700
+ReadWritePaths=/var/lib/scisense /run/scisense
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+KillMode=control-group
+Restart=no
+StandardOutput=null
+StandardError=null
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+[Unit]
+Description=SciSense private payer activation
+[Socket]
+ListenStream=/run/scisense-broker/payer.sock
+Accept=yes
+MaxConnections=1
+SocketUser=root
+SocketGroup=scisense-broker
+SocketMode=0660
+DirectoryMode=0710
+RemoveOnStop=yes
+[Install]
+WantedBy=sockets.target

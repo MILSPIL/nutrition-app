@@ -1,0 +1,37 @@
+name: Hermes personal Linux
+on:
+  push:
+    branches: [codex/hermes-personal-server]
+    paths:
+      - .github/workflows/hermes-personal-linux.yml
+      - deploy/personal/**
+      - server/trainer/systemd-*.mjs
+      - server/trainer/hermes_service_guardian*.py
+      - server/trainer/hermes_worker_lock.py
+      - server/trainer/worker-lock.c
+      - server/trainer/hermes-personal-systemd*
+      - scripts/hermes-personal-systemd*
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-systemd:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Test internal lifecycle and free STT ledger
+        run: node --test server/trainer/systemd-process.test.mjs server/trainer/personal-process.test.mjs server/free-stt-ledger.test.mjs
+      - name: Test coalesced Unix ACK and setup
+        run: PYTHONPATH=server/trainer python3 -m unittest hermes_service_guardian_test
+      - name: Prove real systemd cgroup namespaces and watchdogs
+        run: node scripts/hermes-personal-systemd-ci.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hermes-personal-linux
+          path: tmp/hermes-personal-linux/
+          retention-days: 7

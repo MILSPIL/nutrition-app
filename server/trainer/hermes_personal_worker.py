@@ -73,6 +73,8 @@ async def serve(peer):
             peer.send({"type": "result", "id": ident, "error": safe_error(error)})
     try:
         identity = await owner.start()
+        from hermes_worker_lock import lock_worker
+        lock_worker()
         peer.send({"type": "result", "id": setup.get("id"), "result": identity})
         while not peer.closed.is_set():
             value = await asyncio.to_thread(peer.commands.get)

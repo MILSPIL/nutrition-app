@@ -71,18 +71,28 @@ export function createPersonalPayer({ spawnWorker, credentials, reservePost, dea
       if (signal?.aborted) abort();
       try {
         await start();
+        const armMs = Math.floor(deadline - now());
+        if (armMs <= 0) throw Error("trainer_timeout");
+        const armed = await boot().call("beginTurn", { turnId: inputId, deadlineUnixMs: Math.floor(deadline), timeoutMs: armMs }, { signal, timeoutMs: armMs });
+        if (armed?.armed !== true) { process.abort(); throw Error("trainer_unavailable"); }
         const value = await execute(async (payload, { clientOptions = {}, signal: callbackSignal } = {}) => {
           if (active?.cancelled || signal?.aborted) throw Error("trainer_timeout");
           const remaining = Math.floor(deadline - now());
           if (remaining <= 0) throw Error("trainer_timeout");
           const guardSignal = AbortSignal.any([signal, callbackSignal].filter(Boolean));
-          const result = await boot().call("invoke", { payload, clientOptions, timeoutMs: remaining }, { signal: guardSignal, timeoutMs: remaining });
+          const result = await boot().call("invoke", { payload, clientOptions, timeoutMs: remaining, turnId: inputId, deadlineUnixMs: Math.floor(deadline) }, { signal: guardSignal, timeoutMs: remaining });
           if (result?.proof?.rawTerminalModelVerified !== true || result.proof.selectedModel !== identity?.model || result.proof.selectedProvider !== identity?.provider) { process.abort(); throw Error("model_payload_invalid"); }
           return result;
         });
         if (timedOut || now() >= deadline || signal?.aborted) throw Error("trainer_timeout");
         return value;
       } finally {
+        if (process && !process.unavailable && !signal?.aborted) {
+          try {
+            const remaining = Math.floor(deadline - now());
+            if (remaining <= 0 || (await process.call("endTurn", { turnId: inputId }, { signal, timeoutMs: remaining }))?.disarmed !== true) process.abort();
+          } catch { process.abort(); }
+        }
         clearTimeout(watchdog); signal?.removeEventListener("abort", abort);
         // Aborting synchronous SDK I/O is a physical process kill, not an
         // abandoned Promise. Replacement waits for actual callbacks and exit.

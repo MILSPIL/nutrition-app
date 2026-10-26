@@ -154,6 +154,16 @@ class PersonalOwner:
     async def start(self):
         if self.closed or self.runner is not None:
             raise RuntimeError("personal_owner_started")
+        if os.environ.get("SCISENSE_NATIVE_PROVISIONED") == "1":
+            # Read-only native API before any writable bootstrap can repair or
+            # initialize schema. Missing/malformed stores remain a hard failure.
+            from hermes_state import SessionDB
+            existing = SessionDB(self.home / "state.db", read_only=True)
+            try:
+                existing.list_sessions_rich(limit=1)
+                existing.get_messages("scisense-readonly-validation")
+            finally:
+                existing.close()
         from gateway.config import GatewayConfig
         from gateway.run import GatewayRunner
         from gateway.run_runtime import initialize_gateway_runtime

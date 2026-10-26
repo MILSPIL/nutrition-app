@@ -5,7 +5,9 @@ lines.on("line", line => {
   if (message.type === "close") { process.exit(0); }
   if (message.type === "setup") process.stdout.write(JSON.stringify({ type: "result", id: message.id,
     result: { instanceId: "synthetic-payer", provider: "openai-codex", model: "synthetic", supportsTools: true, contextWindow: 128000 } }) + "\n");
-  if (message.type === "invoke" && message.payload?.success) {
+  if (message.type === "beginTurn" || message.type === "endTurn") {
+    process.stdout.write(JSON.stringify({ type: "result", id: message.id, result: message.type === "beginTurn" ? { armed: true } : { disarmed: true } }) + "\n");
+  } else if (message.type === "invoke" && message.payload?.success) {
     process.stdout.write(JSON.stringify({ type: "result", id: message.id, result: { completion: {}, proof: { rawTerminalModelVerified: true, selectedProvider: "openai-codex", selectedModel: "synthetic", model: "synthetic" } } }) + "\n");
   } else if (message.type === "invoke") {
     // A real blocked process cannot receive/obey a close or cancellation frame.

@@ -1,0 +1,13 @@
+[Unit]
+Description=SciSense private y activation
+[Socket]
+ListenStream=/run/scisense-broker/y.sock
+Accept=yes
+MaxConnections=1
+SocketUser=root
+SocketGroup=scisense-broker
+SocketMode=0660
+DirectoryMode=0710
+RemoveOnStop=yes
+[Install]
+WantedBy=sockets.target

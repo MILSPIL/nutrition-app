@@ -18,6 +18,9 @@ def main():
         from hermes_personal_payer import NativePayer
         payer = NativePayer(home=Path(os.environ["HERMES_HOME"]), material=setup["files"], revision=setup["revision"],
             callback=lambda kind, data: peer.ask(kind, data))
+        from hermes_worker_lock import lock_worker, arm_deadline, end_deadline
+        lock_worker()
+        active_turn = None
         peer.send({"type": "result", "id": setup["id"], "result": payer.identity})
         while not peer.closed.is_set():
             value = peer.commands.get()
@@ -27,9 +30,20 @@ def main():
             if not isinstance(ident, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", ident):
                 raise RuntimeError("invalid_request")
             try:
-                if value.get("type") != "invoke" or set(value) - {"id", "type", "payload", "clientOptions", "timeoutMs"}:
+                kind = value.get("type")
+                if kind == "beginTurn" and set(value) == {"id", "type", "turnId", "deadlineUnixMs", "timeoutMs"} and active_turn is None:
+                    arm_deadline(value["turnId"], value["deadlineUnixMs"], value["timeoutMs"])
+                    active_turn = value["turnId"]
+                    result = {"armed": True}
+                elif kind == "endTurn" and set(value) == {"id", "type", "turnId"} and active_turn == value["turnId"]:
+                    end_deadline(active_turn)
+                    active_turn = None
+                    result = {"disarmed": True}
+                elif kind == "invoke" and set(value) <= {"id", "type", "payload", "clientOptions", "timeoutMs", "turnId", "deadlineUnixMs"} and active_turn is not None and value.get("turnId") == active_turn:
+                    arm_deadline(value["turnId"], value.get("deadlineUnixMs"), value.get("timeoutMs"))
+                    result = payer.invoke(value["payload"], client_options=value.get("clientOptions", {}), timeout_ms=value["timeoutMs"])
+                else:
                     raise RuntimeError("invalid_request")
-                result = payer.invoke(value["payload"], client_options=value.get("clientOptions", {}), timeout_ms=value["timeoutMs"])
                 peer.send({"type": "result", "id": ident, "result": result})
             except Exception as error:
                 code = str(error)
