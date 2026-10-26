@@ -8,6 +8,8 @@
 
 ## Поточний стан вебтренера, 2026-10-25
 
+2026-10-26 01:23 UTC: окремий zero-cost Groq limiter пройшов3Node tests і незалежне рев’ю PASS, без старого$5. [Доказ](docs/evidence/hermes-personal-free-stt-2026-10-26.json). [Linux контракт](docs/deployment/hermes-personal-linux-01.md) зафіксував startup/drain/watchdog/TSYNC гейти. Компонент/launcher ще не активовані, production не змінений.
+
 2026-10-26 01:01 UTC: приватна історія фото/viewer/delete/missing пройшла25actual-runtime checks/6OS processes,10Python/34React/58browser і незалежні рев’ю PASS. Окремо доведено expired native refresh, exact bearer післяrestart і ready draft без4POST. [Доказ](docs/evidence/hermes-personal-photos-2026-10-26.json). Mobile gutters16/16,overflow0,tap44;0realAPI. Server activation/Linux/Desktop/migration/live ще pending, production не змінений.
 
 2026-10-26 00:50 UTC: personal runtime/Firebase client пройшли16actual-native checks/6OS-guarded processes,17Node/7React і незалежне рев’ю PASS після2P2. [Доказ](docs/evidence/hermes-personal-runtime-2026-10-26.json). Два UID, explicit dataProfileId, history/session restart, fail-closed missing schema/provision cleanup. Production/Linux activation/Desktop/private migration ще pending;0реальнихAPI, production не змінений.

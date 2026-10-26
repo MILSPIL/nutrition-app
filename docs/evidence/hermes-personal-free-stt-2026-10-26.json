@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "task": "HERMES-PERSONAL-01",
+  "component": "free-stt-ledger",
+  "syntheticOnly": true,
+  "realModelRequests": 0,
+  "realSttRequests": 0,
+  "testsPassed": 3,
+  "reviewer": "personal_local_review",
+  "reviewVerdict": "PASS",
+  "wiredToServerMain": false,
+  "productionChanged": false,
+  "sourceSha256": {
+    "server/free-stt-ledger.mjs": "51eb7a12dc417fa942272e491a4d389e5f722d138e22a44af122952cd826c9c9",
+    "server/free-stt-ledger.test.mjs": "70bd7f7443af194a29a1dba2346216224b23a8f49b40741ff6745236672a26ab"
+  }
+}
