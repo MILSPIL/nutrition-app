@@ -1,0 +1,55 @@
+{
+  "scope": "Незалежне рев’ю виправлень verifier C04/C05; приватний пакет не прийнято",
+  "reviewer": "Codex telegram_final_review",
+  "reviewed_at": "2026-10-26T23:19:48.000352+00:00",
+  "verdict": "PASS",
+  "head_commit": "2a7fdaae118212063aa41a3967d74a115641e87d",
+  "files_sha256": {
+    "tools/telegram-coach/verify.py": "3f5f7ea28e9f6c99ecebc1f03de35c07a426f1e6eff6c4499e19c030d619a999",
+    "tools/telegram-coach/test_verify.py": "2869bc0737b91ec948d4e82408057dc0fa5aed81880f2834077fdd6fb0617d2d"
+  },
+  "reviewed_diff_sha256": "64735e2691ddbf3adb9fe25faf7279e2ae981c13033f65405168f1c8a7004874",
+  "checks": {
+    "unit_tests": {
+      "command": "python -B -m unittest test_verify test_pipeline -v",
+      "cwd": "tools/telegram-coach",
+      "passed": 28,
+      "failures": 0,
+      "errors": 0
+    },
+    "git_diff_check": true,
+    "in_memory_checks": [
+      {
+        "scenario": "valid",
+        "expected_outcome_observed": true,
+        "verifier_passed": true
+      },
+      {
+        "scenario": "duplicate_ids",
+        "expected_outcome_observed": true,
+        "verifier_passed": false
+      },
+      {
+        "scenario": "wrong_project",
+        "expected_outcome_observed": true,
+        "verifier_passed": false
+      },
+      {
+        "scenario": "wrong_case",
+        "expected_outcome_observed": true,
+        "verifier_passed": false
+      },
+      {
+        "scenario": "old_case_digest",
+        "expected_outcome_observed": true,
+        "verifier_passed": false
+      }
+    ]
+  },
+  "open_findings": [],
+  "private_package_C01_C08": "pending",
+  "source_completeness": "not_assessed",
+  "live_integration": "not_performed",
+  "real_searches_executed": false,
+  "models_executed": false
+}

@@ -42,4 +42,56 @@ class Verification(unittest.TestCase):
         (self.run/'facts.jsonl').write_text(json.dumps(dict(id='F1',sources=[dict(message_id='message999')]))+'\n'); self.assertIn('unknown fact source',verify(self.run,'C04')['errors'])
     def test_not_implemented_criteria_fail(self):
         for c in range(3,9): self.assertFalse(verify(self.run,f'C{c:02d}')['passed'])
+    def reviewed_fixture(self):
+        (self.run/'reviews').mkdir();(self.run/'knowledge').mkdir();(self.run/'hermes').mkdir()
+        fact=dict(id='F1',claim='Neutral synthetic fact',sources=[dict(message_id='message1')])
+        (self.run/'facts.jsonl').write_text(json.dumps(fact)+'\n')
+        for name in ['knowledge/training-program-draft.md','hermes/addendum.md','hermes/proposals.json']:(self.run/name).write_text('Neutral synthetic fixture\n')
+        mapping={m['message_id']:{'fact_ids':['F1'] if m['message_id']=='message1' else []} for m in self.messages}
+        (self.run/'reviews/content-coverage.json').write_text(json.dumps({'messages':mapping}))
+        reviewed=['facts.jsonl','knowledge/training-program-draft.md','hermes/addendum.md','hermes/proposals.json']
+        (self.run/'reviews/independent-content-review.json').write_text(json.dumps({'verdict':'PASS','all_facts_checked':True,'sha256':{name:digest(self.run/name) for name in reviewed}}))
+        self.assertTrue(verify(self.run,'C04')['passed'])
+    def test_old_pass_rejected_after_interrupted_facts_publication(self):
+        self.reviewed_fixture()
+        path=self.run/'facts.jsonl';path.write_text(path.read_text().replace('Neutral synthetic fact','Changed synthetic fact'))
+        self.assertIn('semantic review digest mismatch: facts.jsonl',verify(self.run,'C04')['errors'])
+    def test_changed_program_cannot_reuse_fact_only_review(self):
+        self.reviewed_fixture();(self.run/'knowledge/training-program-draft.md').write_text('Changed fixture')
+        self.assertIn('semantic review digest mismatch: knowledge/training-program-draft.md',verify(self.run,'C04')['errors'])
+    def test_missing_reverse_fact_reference_is_rejected(self):
+        self.reviewed_fixture();path=self.run/'reviews/content-coverage.json';data=json.loads(path.read_text());data['messages']['message1']['fact_ids']=[];path.write_text(json.dumps(data))
+        self.assertIn('content reverse mapping mismatch',verify(self.run,'C04')['errors'])
+    def retrieval_fixture(self):
+        folder=self.run/'reviews/search';folder.mkdir(parents=True)
+        cases={'frozen_before_search':True,'cases':[{'id':f'R{i:02}','query':f'neutral question {i}'} for i in range(1,13)]};(self.run/'retrieval-cases.json').write_text(json.dumps(cases))
+        assessment={'cases_sha256':digest(self.run/'retrieval-cases.json'),'index_receipts_sha256':{},'search_receipts_sha256':{},'search_outputs_sha256':{},'results':[{'id':x['id'],'pass':True} for x in cases['cases']]}
+        for group in ('telegram','knowledge'):
+            project='coach-telegram-private' if group=='telegram' else 'coach-knowledge-private'
+            path=self.run/'reviews'/('index-final-'+group+'.json');path.write_text(json.dumps({'exit_code':0,'project':project,'fingerprint':'fixture-'+group}));assessment['index_receipts_sha256'][group]=digest(path)
+            for case in cases['cases']:
+                key=case['id']+'-'+group;output=folder/(key+'.txt');output.write_text('Neutral synthetic search output')
+                receipt=folder/(key+'.json');receipt.write_text(json.dumps({'exit_code':0,'project':project,'case':case['id'],'cases_sha256':digest(self.run/'retrieval-cases.json'),'query':case['query'],'mode':'semantic','limit':5,'index_fingerprint':'fixture-'+group,'output_sha256':digest(output)}))
+                assessment['search_receipts_sha256'][key]=digest(receipt);assessment['search_outputs_sha256'][key]=digest(output)
+        (self.run/'reviews/retrieval-results.json').write_text(json.dumps(assessment));self.assertTrue(verify(self.run,'C05')['passed'])
+    def test_retrieval_assessment_rejects_changed_cases(self):
+        self.retrieval_fixture();p=self.run/'retrieval-cases.json';p.write_text(p.read_text().replace('neutral question 1','changed question 1'))
+        self.assertIn('retrieval cases digest mismatch',verify(self.run,'C05')['errors'])
+    def test_retrieval_assessment_rejects_new_index_receipt(self):
+        self.retrieval_fixture();p=self.run/'reviews/index-final-knowledge.json';p.write_text(p.read_text().replace('fixture-knowledge','new-index'))
+        self.assertIn('retrieval index receipt mismatch: knowledge',verify(self.run,'C05')['errors'])
+    def test_retrieval_assessment_rejects_changed_output_and_failed_receipt(self):
+        self.retrieval_fixture();(self.run/'reviews/search/R01-telegram.txt').write_text('changed output')
+        p=self.run/'reviews/search/R02-knowledge.json';data=json.loads(p.read_text());data['exit_code']=1;p.write_text(json.dumps(data))
+        errors=verify(self.run,'C05')['errors'];self.assertIn('retrieval search output mismatch: R01-telegram',errors);self.assertIn('retrieval search binding mismatch: R02-knowledge',errors)
+    def test_duplicate_retrieval_ids_are_rejected(self):
+        self.retrieval_fixture();p=self.run/'retrieval-cases.json';data=json.loads(p.read_text());data['cases']=[data['cases'][0]]*12;p.write_text(json.dumps(data))
+        p=self.run/'reviews/retrieval-results.json';data=json.loads(p.read_text());data['results']=[data['results'][0]]*12;p.write_text(json.dumps(data))
+        self.assertIn('retrieval unique id count mismatch',verify(self.run,'C05')['errors'])
+    def test_search_identity_cannot_be_replaced_even_with_new_receipt_hash(self):
+        self.retrieval_fixture();p=self.run/'reviews/search/R01-telegram.json';original=json.loads(p.read_text());a=self.run/'reviews/retrieval-results.json';assessment=json.loads(a.read_text())
+        for field,value in [('project','wrong-project'),('case','R02'),('cases_sha256','old-cases')]:
+            with self.subTest(field=field):
+                changed=dict(original);changed[field]=value;p.write_text(json.dumps(changed));assessment['search_receipts_sha256']['R01-telegram']=digest(p);a.write_text(json.dumps(assessment))
+                self.assertIn('retrieval search identity mismatch: R01-telegram',verify(self.run,'C05')['errors'])
 if __name__=='__main__': unittest.main()

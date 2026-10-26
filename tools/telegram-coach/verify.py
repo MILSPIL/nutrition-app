@@ -70,6 +70,26 @@ def inspect_source(root):
     return rows
 def read_jsonl(path):
     with Path(path).open() as f: return [json.loads(x) for x in f if x.strip()]
+def retrieval_provenance(run,cases,assessment):
+    run=Path(run);errors=[]
+    def check(ok,why):
+        if not ok:errors.append(why)
+    check(assessment.get('cases_sha256')==digest(run/'retrieval-cases.json'),'retrieval cases digest mismatch')
+    expected=set()
+    for group in ('telegram','knowledge'):
+        project='coach-telegram-private' if group=='telegram' else 'coach-knowledge-private'
+        path=run/'reviews'/('index-final-'+group+'.json');index=json.loads(path.read_text())
+        check(index['exit_code']==0 and index.get('project')==project and assessment.get('index_receipts_sha256',{}).get(group)==digest(path),'retrieval index receipt mismatch: '+group)
+        for case in cases['cases']:
+            if not re.fullmatch(r'R\d{2}',case['id']):raise ValueError('unsafe retrieval case id')
+            key=case['id']+'-'+group;expected.add(key);receipt_path=run/'reviews/search'/(key+'.json');output=run/'reviews/search'/(key+'.txt');receipt=json.loads(receipt_path.read_text())
+            check(assessment.get('search_receipts_sha256',{}).get(key)==digest(receipt_path),'retrieval search receipt mismatch: '+key)
+            check(assessment.get('search_outputs_sha256',{}).get(key)==digest(output)==receipt.get('output_sha256'),'retrieval search output mismatch: '+key)
+            check(receipt.get('exit_code')==0 and receipt.get('query')==case['query'] and receipt.get('mode')=='semantic' and receipt.get('limit')==5 and receipt.get('index_fingerprint')==index.get('fingerprint'),'retrieval search binding mismatch: '+key)
+            check(receipt.get('project')==project and receipt.get('case')==case['id'] and receipt.get('cases_sha256')==digest(run/'retrieval-cases.json'),'retrieval search identity mismatch: '+key)
+    check(set(assessment.get('index_receipts_sha256',{}))=={'telegram','knowledge'},'retrieval index receipt set mismatch')
+    for field in ('search_receipts_sha256','search_outputs_sha256'):check(set(assessment.get(field,{}))==expected,'retrieval receipt set mismatch: '+field)
+    return errors
 def verify(run,criterion):
     run=Path(run).resolve(); errors=[]
     def check(ok,why):
@@ -125,10 +145,21 @@ def verify(run,criterion):
                 check(bool(f.get('sources')),'fact lacks source')
                 for s in f.get('sources',[]): check(s['message_id'] in ids,'unknown fact source')
             mapping=json.loads((run/'reviews/content-coverage.json').read_text()); check(set(mapping['messages'])==ids,'content coverage')
+            reverse={mid:[] for mid in ids}
+            for f in facts:
+                for source in f.get('sources',[]):
+                    if source['message_id'] in reverse:reverse[source['message_id']].append(f['id'])
+            for mid,expected in reverse.items():
+                check(sorted(mapping['messages'].get(mid,{}).get('fact_ids',[]))==sorted(expected),'content reverse mapping mismatch')
             review=json.loads((run/'reviews/independent-content-review.json').read_text()); check(review['verdict']=='PASS' and review['all_facts_checked'],'semantic review pending')
+            for relative in ['facts.jsonl','knowledge/training-program-draft.md','hermes/addendum.md','hermes/proposals.json']:
+                check(review.get('sha256',{}).get(relative)==digest(run/relative),'semantic review digest mismatch: '+relative)
         elif criterion=='C05':
             cases=json.loads((run/'retrieval-cases.json').read_text()); check(len(cases['cases'])==12 and cases['frozen_before_search'],'retrieval protocol')
-            r=json.loads((run/'reviews/retrieval-results.json').read_text()); check(len(r['results'])==12 and all(x['pass'] for x in r['results']),'retrieval failed')
+            r=json.loads((run/'reviews/retrieval-results.json').read_text()); check(len(r['results'])==12 and all(x['pass'] is True for x in r['results']),'retrieval failed')
+            check(len({x['id'] for x in r['results']})==len({x['id'] for x in cases['cases']})==12,'retrieval unique id count mismatch')
+            check({x['id'] for x in r['results']}=={x['id'] for x in cases['cases']},'retrieval result ids mismatch')
+            errors.extend(retrieval_provenance(run,cases,r))
         elif criterion=='C06':
             e=json.loads((run/'reviews/privacy.json').read_text()); check(e['positive_tcp'] and e['negative_tcp'],'network guard')
             check(e['stt_offline'] and e['local_indexes_only'] and not e['production_changed'],'privacy boundary')
