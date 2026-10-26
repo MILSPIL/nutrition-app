@@ -233,7 +233,7 @@ export default function ClientApp() {
     setOtherActivity(user.otherActivity || "");
   };
 
-  const calculateCurrentDay = (startDate) => calculateProgramDay(startDate);
+  const calculateCurrentDay = (startDate) => calculateProgramDay(startDate, parseDateInput(kyivDateKey()));
 
   // Google Sign In
   const handleGoogleSignIn = async () => {
@@ -683,7 +683,14 @@ export default function ClientApp() {
         isOpen={showDaySelector}
         onClose={() => setShowDaySelector(false)}
         programDay={programDay}
-        onDayChange={value=>changeMetadata('programDay',setProgramDay,value)}
+        onDayChange={value => {
+          const startDate = users[currentUser]?.startDate;
+          if (!startDate) return changeMetadata('programDay',setProgramDay,value);
+          const date = new Date(`${startDate}T12:00:00Z`);
+          date.setUTCDate(date.getUTCDate() + value - 1);
+          chooseDate(date.toISOString().slice(0, 10));
+        }}
+        disabled={dateBusy || !mealDay.ready}
         startDate={users[currentUser]?.startDate}
         calculateCurrentDay={calculateCurrentDay}
       />

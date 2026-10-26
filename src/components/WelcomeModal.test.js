@@ -22,10 +22,11 @@ afterEach(async () => {
 
 test('показує одну людську версію та поточні новини', async () => {
   await render();
-  expect(APP_VERSION).toBe('1.9.0');
+  expect(APP_VERSION).toBe('1.9.1');
   expect(require('../../package.json').version).toBe(APP_VERSION);
   expect(container.textContent).toContain(`Версія ${APP_VERSION}`);
   expect(container.textContent).toContain(`Що нового у v${APP_VERSION}`);
+  expect(container.textContent).toContain('Номер дня можна стерти й набрати заново');
   expect(container.textContent).toContain('Запис починається після кнопки «Почати запис»');
   expect(container.textContent).toContain('ntzg.pp.ua');
   expect(container.textContent).not.toContain('ntzg.fun');
@@ -46,10 +47,10 @@ test('закриті новини не повторюються після по�
 });
 
 test('попередня версія отримує новини без втрати інших локальних даних', async () => {
-  localStorage.setItem('app_version_seen', '1.6.0');
+  localStorage.setItem('app_version_seen', '1.9.0');
   localStorage.setItem('existing-user-preference', 'keep');
   await render();
-  expect(container.textContent).toContain('Що нового у v1.9.0');
+  expect(container.textContent).toContain(`Що нового у v${APP_VERSION}`);
   await close();
   expect(localStorage.getItem('existing-user-preference')).toBe('keep');
 });
@@ -58,7 +59,7 @@ test('відмова сховища не блокує відкриття й за
   jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw Error('blocked'); });
   jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw Error('blocked'); });
   await render();
-  expect(container.textContent).toContain('Що нового у v1.9.0');
+  expect(container.textContent).toContain(`Що нового у v${APP_VERSION}`);
   await close();
   expect(container.textContent).toBe('');
 });
@@ -68,7 +69,7 @@ test('навіть SHA у build environment не стає видимою вер�
   process.env.REACT_APP_VERSION = 'bad8217421d0eff859b920885d849e3e121cbf72';
   try {
     jest.isolateModules(() => {
-      expect(require('./WelcomeModal').APP_VERSION).toBe('1.9.0');
+      expect(require('./WelcomeModal').APP_VERSION).toBe('1.9.1');
     });
   } finally {
     if (previous === undefined) delete process.env.REACT_APP_VERSION;

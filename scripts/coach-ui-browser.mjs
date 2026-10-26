@@ -209,6 +209,39 @@ try {
   await page.getByRole('button',{name:'Закрити чат',exact:true}).click();await launcher.waitFor();
  }
  evidence.protectedPhotoRequests={reads:photoReads,deletes:photoDeletes};
+ await page.setViewportSize({width:390,height:844});
+ await page.getByTitle('Налаштування',{exact:true}).click();
+ await page.getByRole('button',{name:/Дата початку програми/}).click();
+ await page.locator('input[type="date"]').last().fill('2026-10-19');
+ await page.getByRole('button',{name:'Зберегти',exact:true}).click();
+ await page.getByText('Дату збережено',{exact:true}).waitFor();
+ await page.locator('.fixed.z-50').filter({has:page.getByRole('heading',{name:'Налаштування',exact:true})}).locator('button:has(svg.lucide-x)').first().click();
+ await page.locator('[data-modal-surface]').waitFor({state:'hidden'});
+ await page.getByRole('button',{name:/^День\s*7/}).waitFor();
+ evidence.daySelector=[];
+ for(const width of [375,390,1366]){
+  await page.setViewportSize({width,height:844});
+  await page.getByRole('button',{name:/^День\s*7/}).click();
+  await page.waitForFunction(()=>{const sheet=document.querySelector('[data-modal-surface]')?.firstElementChild;return sheet&&getComputedStyle(sheet).transform==='matrix(1, 0, 0, 1, 0, 0)';});
+  const dayInput=page.getByLabel('Перейти на день',{exact:true});
+  const done=page.getByRole('button',{name:'Готово',exact:true});
+  await dayInput.fill('');
+  check('day input remains empty '+width,await dayInput.inputValue()===''&&await done.isDisabled());
+  await dayInput.fill('8');check('future day is blocked '+width,await done.isDisabled());
+  await dayInput.fill('6');
+  check('typing does not navigate '+width,await page.getByLabel('Дата записів',{exact:true}).inputValue()==='2026-10-25');
+  const bounds=await dayInput.evaluate(node=>{const r=node.getBoundingClientRect(),buttons=node.closest('.p-4').querySelectorAll('.flex.gap-3 > button'),left=buttons[0].getBoundingClientRect(),right=buttons[1].getBoundingClientRect();return {leftDelta:r.left-left.left,rightDelta:right.right-r.right,overflow:document.documentElement.scrollWidth-innerWidth,minTap:Math.min(left.height,right.height)};});
+  check('day selector edges '+width,bounds.leftDelta===0&&bounds.rightDelta===0&&bounds.overflow===0&&bounds.minTap>=44);
+  evidence.daySelector.push({width,...bounds});await page.screenshot({path:join(out,`day-selector-${width}.png`)});
+  if(width===390)await dayInput.press('Enter');else await done.click();
+  await page.locator('[data-modal-surface]').waitFor({state:'hidden'});
+  check('day six opens its date '+width,await page.getByLabel('Дата записів',{exact:true}).inputValue()==='2026-10-24');
+  await page.getByRole('button',{name:/^День\s*6/}).click();
+  await page.getByRole('button',{name:'Поточний',exact:true}).click();
+  check('current day follows Kyiv '+width,await dayInput.inputValue()==='7');
+  await done.click();await page.locator('[data-modal-surface]').waitFor({state:'hidden'});
+  check('current day opens Kyiv today '+width,await page.getByLabel('Дата записів',{exact:true}).inputValue()==='2026-10-25');
+ }
  check('no page errors',evidence.consoleErrors.length===0);
  evidence.status='passed';
 }finally{

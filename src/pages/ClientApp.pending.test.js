@@ -15,11 +15,12 @@ jest.mock('../components/PilotPanel',()=>p=>{mockPilotVersion=p.version;return n
 jest.mock('../components/VoiceInputModal',()=>p=>{mockVoiceProps=p;return p.isOpen?<div data-testid="pending-modal">{p.pendingSave?'Перевірка попереднього запису':'Нова чернетка'}</div>:null;});
 jest.mock('../components',()=>{
  const React=require('react');const Header=jest.requireActual('../components/Header').default;const empty=()=>null;
- return {Header,ToastProvider:({children})=><>{children}</>,toast:{error:jest.fn()},LoginScreen:empty,MealSection:empty,ProductModal:empty,ReportModal:empty,AddCustomProductModal:empty,PortionSettingsModal:empty,DaySelectorModal:empty,AccountSwitchModal:empty,SettingsModal:empty,ActivitySection:empty,RulesSection:empty,LoadingScreen:empty,WelcomeModal:empty,AddTrainerModal:empty,MeasurementsModal:empty,MeasurementReminderModal:empty};
+ const DaySelectorModal=props=>{mockDayProps=props;return null;};
+ return {Header,ToastProvider:({children})=><>{children}</>,toast:{error:jest.fn()},LoginScreen:empty,MealSection:empty,ProductModal:empty,ReportModal:empty,AddCustomProductModal:empty,PortionSettingsModal:empty,DaySelectorModal,AccountSwitchModal:empty,SettingsModal:empty,ActivitySection:empty,RulesSection:empty,LoadingScreen:empty,WelcomeModal:empty,AddTrainerModal:empty,MeasurementsModal:empty,MeasurementReminderModal:empty};
 });
 global.IS_REACT_ACT_ENVIRONMENT=true;
 let root,container,state;
-let mockVoiceProps,mockPilotVersion;
+let mockVoiceProps,mockPilotVersion,mockDayProps;
 const button=text=>[...container.querySelectorAll('button')].find(n=>(n.getAttribute('aria-label')||n.textContent.trim())===text);
 beforeEach(async()=>{
  jest.clearAllMocks();getDoc.mockResolvedValue({exists:()=>true,data:()=>({users:{'demo-owner':{name:'Синтетичний користувач',portions:{}}}})});
@@ -51,4 +52,22 @@ test('review: ACK і retry оновлюють PilotPanel навіть коли �
  state.commit=jest.fn(async()=>({}));await act(async()=>root.render(<ClientApp/>));const before=mockPilotVersion;
  await act(async()=>mockVoiceProps.onAdd({},mockVoiceProps.date));expect(mockPilotVersion).toBe(before+1);
  await act(async()=>mockVoiceProps.onRetryPending());expect(mockPilotVersion).toBe(before+2);
+});
+
+test('номер дня відкриває його дату без зміни записів харчування',async()=>{
+ getDoc.mockResolvedValue({exists:()=>true,data:()=>({users:{'demo-owner':{name:'Синтетичний користувач',startDate:'2026-10-20',portions:{}}}})});
+ await act(async()=>root.unmount());root=createRoot(container);
+ state.hasPending=false;state.commit=jest.fn();
+ await act(async()=>root.render(<ClientApp/>));
+ await act(async()=>mockDayProps.onDayChange(6));
+ expect(useMealDay.mock.calls.at(-1)[2]).toBe('2026-10-25');
+ expect(state.commit).not.toHaveBeenCalled();
+ expect(mockDayProps.disabled).toBe(false);
+});
+
+test('перехід за номером дня заблокований під час непідтвердженого запису',async()=>{
+ const before=useMealDay.mock.calls.at(-1)[2];
+ expect(mockDayProps.disabled).toBe(true);
+ await act(async()=>mockDayProps.onDayChange(6));
+ expect(useMealDay.mock.calls.at(-1)[2]).toBe(before);
 });
