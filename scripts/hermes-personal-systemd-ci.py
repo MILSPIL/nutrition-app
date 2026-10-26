@@ -136,10 +136,10 @@ try:
                 assert result.get('passed') is True,result
         proof.append(scenario)
     events=dict(line.split() for line in (slice_dir/'memory.events').read_text().splitlines())
-    assert events['oom_kill']=='0'
+    assert events['oom_kill']=='0' and events['oom']=='0'
     print(json.dumps({'passed':True,'actualSystemd':True,'aggregateCpu':2,'memoryBytes':2147483648,'swapBytes':0,
                       'defaultRootBrokerSocket0660':True,'nativeUidSeparation':True,'oldThreadSeccomp':True,'kernelTimer':True,
-                      'rawTtlIdle':True,'physicalDrainCases':proof,'oomKills':0,'realApiRequests':0}))
+                      'rawTtlIdle':True,'physicalDrainCases':proof,'oomEvents':int(events['oom']),'oomKills':int(events['oom_kill']),'oomGroupKills':int(events['oom_group_kill']) if 'oom_group_kill' in events else None,'realApiRequests':0}))
 except Exception:
     print(json.dumps({'clientStage':stage()}))
     result = subprocess.run(['journalctl','--no-pager','-o','cat','-n','30','-u','scisense-y@*','-u','scisense-w@*','-u','scisense-payer@*'],text=True,capture_output=True,timeout=3)
