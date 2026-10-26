@@ -1,7 +1,9 @@
 # Disposable systemd VM container. No host mounts, provider network or keys.
 FROM ubuntu:24.04@sha256:a2d43bffc46670d7108bb3c0468c67c5557c4c92e83e1e34cbff1322ad1b94dc
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends systemd systemd-sysv dbus python3 bubblewrap gcc libc6-dev libseccomp-dev ca-certificates curl xz-utils && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends systemd systemd-sysv dbus python3 gcc libc6-dev libseccomp-dev ca-certificates curl xz-utils git meson ninja-build pkg-config libcap-dev && rm -rf /var/lib/apt/lists/*
 RUN curl -fL https://nodejs.org/dist/v24.22.1/node-v24.22.1-linux-x64.tar.xz -o /tmp/node.tar.xz && echo '6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6  /tmp/node.tar.xz' | sha256sum -c - && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 && rm /tmp/node.tar.xz
+# Same pinned bwrap as the approved host runtime, rather than Ubuntu's older 0.9.
+RUN git clone --depth 1 --branch v0.11.0 https://github.com/containers/bubblewrap.git /tmp/bwrap && test "$(git -C /tmp/bwrap rev-parse HEAD)" = 9ca3b05ec787acfb4b17bed37db5719fa777834f && meson setup /tmp/bwrap/build /tmp/bwrap --prefix=/usr -Dman=disabled -Dtests=false -Dbash_completion=disabled -Dzsh_completion=disabled && meson compile -C /tmp/bwrap/build && meson install -C /tmp/bwrap/build && rm -rf /tmp/bwrap
 RUN groupadd --gid 10001 scisense && groupadd --gid 10005 scisense-broker && useradd --uid 10001 --gid scisense --groups scisense-broker --no-create-home --shell /usr/sbin/nologin scisense && useradd --uid 10002 --user-group --groups scisense --no-create-home --shell /usr/sbin/nologin scisense-y && useradd --uid 10003 --user-group --groups scisense --no-create-home --shell /usr/sbin/nologin scisense-w && useradd --uid 10004 --user-group --groups scisense --no-create-home --shell /usr/sbin/nologin scisense-payer
 WORKDIR /app
 COPY server/trainer /app/server/trainer
