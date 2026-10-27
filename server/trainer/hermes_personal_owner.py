@@ -39,7 +39,10 @@ def personal_config(connection):
                   "parallel_tool_call_guidance": False, "disabled_toolsets": ["memory", "terminal", "file", "browser", "web", "delegate", "skills", "skill_manage", "cronjob", "session_search"]},
         "memory": {"memory_enabled": False, "user_profile_enabled": False, "nudge_interval": 0},
         "auxiliary": {"background_review": {"enabled": False}, "title_generation": {"enabled": False, "model_upgrade_enabled": False}, "transient_retries": 0},
-        "compression": {"enabled": True}, "vision": {"replay_recent_images": 3},
+        # Context is projected by the trusted parent before inference. Native
+        # automatic compression would summarize replayed app sidecars before
+        # that projection and would need an unrelated auxiliary model call.
+        "compression": {"enabled": False}, "vision": {"replay_recent_images": 3},
         "model_overrides": {"scisense-shared": {model: {"supports_vision": connection.get("supportsVision") is True,
             "supports_tools": True, "context_window": window, "max_output_tokens": 4096}}},
         "telemetry": {"shared_metrics": {"enabled": False, "send": False}},
@@ -62,8 +65,11 @@ def publish_personal_config(target, connection):
                 "supportsTools": metadata["supports_tools"], "supportsVision": metadata["supports_vision"]})
         except (ValueError, KeyError, TypeError):
             raise RuntimeError("personal_config_invalid") from None
-        legacy = {**original, "agent": {**original["agent"], "max_turns": 4}}
-        if previous != original and previous != legacy:
+        approved = [
+            {**original, "agent": {**original["agent"], "max_turns": turns}, "compression": {"enabled": compression}}
+            for turns in (4, 8) for compression in (False, True)
+        ]
+        if previous not in approved:
             raise RuntimeError("personal_config_invalid")
         if previous == expected:
             return

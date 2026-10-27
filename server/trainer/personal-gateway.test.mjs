@@ -14,11 +14,25 @@ test("native failed-turn boundary is a Ukrainian notice instead of a model answe
   assert.match(message.content, /Не вдалося обробити повідомлення/);
   assert.doesNotMatch(message.content, /Your request/);
 });
+test("native timeline uses admission ownership and stable row identity across repeated text", () => {
+  const snapshot = { session_id: "synthetic", messages: [
+    { role: "user", row_id: 20, message_id: "admission-one", content: "Так" },
+    { role: "assistant", row_id: 21, content: "Прев’ю" },
+    { role: "user", row_id: 22, message_id: "admission-two", content: "Так" },
+    { role: "assistant", row_id: 23, content: "Порада" },
+    { role: "user", row_id: 24, platform_message_id: 42, content: "Legacy" },
+    { role: "assistant", row_id: 25, content: "Legacy reply" },
+  ] };
+  const result = nativeMessageProjection(snapshot, id => ({ inputId: { "admission-one": "input-one", "admission-two": "input-two" }[id] }));
+  assert.deepEqual(result.map(m => m.turnId), ["input-one", "input-one", "input-two", "input-two", undefined, undefined]);
+  assert.equal(new Set(result.map(m => m.id)).size, 6);
+  assert.equal(nativeMessageProjection({ ...snapshot, messages: snapshot.messages.slice(1) })[0].id, result[1].id);
+});
 import { personalQueue } from "./personal-queue.mjs";
 import { stableJSON } from "./limits.mjs";
 import { buildSnapshot } from "./snapshot.mjs";
 
-function fixture(t, { context = "synthetic", nativeState = "completed", drain, stageError, staleBeforeVerify = false, memory, authorize = async () => {} } = {}) {
+function fixture(t, { context = "synthetic", nativeState = "completed", malformedResult = false, drain, stageError, staleBeforeVerify = false, memory, authorize = async () => {} } = {}) {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "scisense-personal-gateway-"))); chmodSync(dir, 0o700);
   let clock = Date.parse("2026-10-24T20:59:59Z"), revision = 0, starts = 0, verifies = 0;
   const store = openTurnStore(join(dir, "turns.sqlite"), { hmacKey: randomBytes(32), now: () => clock });
@@ -34,7 +48,7 @@ function fixture(t, { context = "synthetic", nativeState = "completed", drain, s
         await prepared.tools("read_confirmed_day", { dayRef: "today" }, { signal, nativeBinding: { admissionId: native.admission_id, sessionId } });
         await prepared.onAdmission(native); if (staleBeforeVerify) revision++; await prepared.verify();
         if (drain) { drain.entered(); await new Promise(resolve => { if (signal.aborted) resolve(); else signal.addEventListener("abort", resolve, { once: true }); }); await drain.wait; }
-        return { state: nativeState, result: { final_response: "Відповідь тренера" } };
+        return { state: nativeState, result: malformedResult ? {} : { final_response: "Відповідь тренера" } };
       } }), { signal }); },
     async history() { return { session_id: sessionId, messages: starts ? [{ role: "user", content: [...inputs.values()].at(-1).text }, { role: "assistant", content: "Відповідь тренера" }] : [] }; },
     input() { return { state: starts ? "admitted" : "queued", generation: starts ? 1 : null }; },
@@ -91,6 +105,11 @@ test("queued cancel does not invoke Native and does not delete canonical history
 test("known failed Native receipt is failed rather than unknown", async t => {
   const f = fixture(t, { nativeState: "failed" }), input = body();
   await f.g.handle("owner", "/turns", "POST", input); assert.equal((await f.settle(input.turnId)).state, "failed");
+});
+test("completed Native with a malformed answer is a known failed turn, not a blocked chat", async t => {
+  const f = fixture(t, { malformedResult: true }), input = body();
+  await f.g.handle("owner", "/turns", "POST", input);
+  assert.equal((await f.settle(input.turnId)).state, "failed");
 });
 
 test('failed explicit cancellation retains lost-ACK cleanup until Native proof, including no admission ID',async t=>{
@@ -150,6 +169,9 @@ test("photo projection keeps literal markers and removes only a paired native su
   assert.equal(own.content, "Буквально [screenshot]\n[screenshot]"); assert.equal(own.photos.length, 1);
   const foreign = "caption\n[Image attached at: /other/home/image.png]\n[screenshot]";
   assert.equal(project(foreign).content, foreign); assert.equal(project(foreign).photos, undefined);
+  const row = { role: "user", message_id: "owned-admission", row_id: 5, content: 'SCISENSE-INPUT-V1 synthetic-input-0001 ' + 'a'.repeat(64) + '\n{"schemaVersion":1,"context":"private fixture","message":"Фото"}\n[Image attached at: ' + path + ']\n[screenshot]' };
+  const [owned] = nativeMessageProjection({ session_id: 'synthetic', profileId: home, messages: [row] }, () => ({ inputId: 'synthetic-input-0001', text: 'Фото' }));
+  assert.equal(owned.content, 'Фото'); assert.equal(owned.photos.length, 1); assert.equal(owned.turnId, 'synthetic-input-0001');
 });
 
 

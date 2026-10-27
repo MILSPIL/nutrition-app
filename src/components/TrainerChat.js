@@ -27,6 +27,7 @@ import {
 import PlanAllocationFields from "./PlanAllocationFields";
 import DecimalInput from "./DecimalInput";
 import TrainerPhoto from "./TrainerPhoto";
+import { trainerTimeline } from "../services/trainerTimeline";
 import "./VoiceInputModal.css";
 import "./TrainerChat.css";
 const names = { 1: "Сніданок", 2: "Обід", 3: "Вечеря", 4: "Перекус" };
@@ -77,6 +78,25 @@ function DraftCard({
   stale,
   onRefresh,
 }) {
+  if (draft.state === "saved") {
+    const command = draft.save?.command;
+    const items = command ? command.items : draft.items.filter(item => item.nutritionStatus === "complete");
+    const notes = command ? command.notes || [] : draft.items.filter(item => item.nutritionStatus !== "complete");
+    const total = roundMacros(items.reduce((sum, item) => {
+      if (item.nutritionStatus !== "complete") return sum;
+      const value = itemMacros(item);
+      for (const key of ["cal", "p", "f", "c"]) sum[key] += value[key];
+      return sum;
+    }, { cal: 0, p: 0, f: 0, c: 0 }));
+    return <article className="trainer-draft trainer-saved" data-testid="trainer-saved-receipt">
+      <div className="trainer-draft-heading"><h3>Додано до щоденника</h3><span>{dateLabel(draft.targetDate)} · {names[draft.meal]}</span></div>
+      {items.map(item => <p key={item.itemId}>{item.name}{item.planAllocation?.letter ? ` · ${item.planAllocation.letter.toUpperCase()}` : ""}{Number.isFinite(item.portion) ? ` · ${Math.round(item.portion)}% норми` : ""}</p>)}
+      {items.length > 0 && <p>{total.cal} ккал · Б {total.p} · Ж {total.f} · В {total.c}</p>}
+      {notes.map(note => <p key={note.itemId || note.noteId}>{note.name} · нотатка</p>)}
+      {notes.length > 0 && <p>Нотатки збережено без повного розрахунку калорій.</p>}
+      <button onClick={() => onOpenDay(draft.targetDate)}>Відкрити цей день</button>
+    </article>;
+  }
   const frozen = ["saving", "unknown", "saved"].includes(draft.state);
   // The save command owns the confirmed allocation, even after the day changes.
   const allocated = frozen && Array.isArray(draft.save?.command?.items)
@@ -559,14 +579,13 @@ export default function TrainerChat({
   }
   const scrollDrafts = view.server?.drafts?.map(d=>d.draftId+':'+d.revision+':'+d.state).join('|') || '';
   const scrollMessage = view.server?.messages?.at(-1)?.id;
-  const scrollKey=[scrollMessage,scrollDrafts,view.server?.contextProposals?.length].join('/');
+  const scrollKey=[scrollMessage,scrollDrafts,view.server?.latestTurn?.turnId,view.server?.contextProposals?.length].join('/');
   useEffect(()=>{
     const area=panel.current?.querySelector('.trainer-scroll');
     if(!area)return;
-    const draftsChanged=scrollSnapshot.current.drafts!==scrollDrafts;
-    const messagesChanged=scrollSnapshot.current.message!==scrollMessage;
-    const targets=area.querySelectorAll(draftsChanged ? '.trainer-draft,.trainer-memory' : messagesChanged ? '.trainer-message' : '.trainer-memory');
-    const target=targets[targets.length-1];
+    // The last timeline item is the current conversation, even when an older
+    // draft changed or a saved receipt exists. Never target a hidden form.
+    const target=area.querySelector('.trainer-messages')?.lastElementChild;
     if(target)area.scrollTop+=target.getBoundingClientRect().top-area.getBoundingClientRect().top-12;
     else area.scrollTop=area.scrollHeight;
     scrollSnapshot.current={drafts:scrollDrafts,message:scrollMessage};
@@ -948,6 +967,24 @@ export default function TrainerChat({
       voicePreview?.status !== "failed" &&
       (view.text.trim() || photos.length);
   const feedback = trainerFeedback({localMessage:error,clientCode:view.error,turn:view.server?.latestTurn});
+  const timeline = trainerTimeline(view.server || {});
+  function draftCard(entry) {
+    const d = entry.draft;
+    const card = <DraftCard
+      draft={applyEdits(d, edits[d.draftId])}
+      catalog={previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.day?.catalog || catalog}
+      meals={previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.day?.meals || empty}
+      dayStatus={previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.status || "loading"}
+      stale={staleDay(d, previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.day)}
+      onRefresh={() => void refreshPreview(d)} dirty={!!edits[d.draftId]} disabled={busy}
+      onEdit={p => edit(d.draftId, p)} onSave={save}
+      onPhoto={itemId => { photoTarget.current = itemId; setShowAttachments(true); }}
+      onOpenDay={date => { callbacks.current.onOpenDay?.(date); void close(); }}
+    />;
+    return entry.collapsed ? <details className="trainer-older-draft" key={d.draftId}>
+      <summary>Незавершене прев’ю · {dateLabel(d.targetDate)} · {d.items.length} продуктів</summary>{card}
+    </details> : <React.Fragment key={d.draftId}>{card}</React.Fragment>;
+  }
   function choosePhoto(input) {
     const rows=(view.server?.drafts||[]).filter(d=>d.state==='ready').flatMap(d=>d.items);
     if(rows.length>1 && !rows.some(item=>item.itemId===photoTarget.current)) {
@@ -1007,8 +1044,14 @@ export default function TrainerChat({
             {["Що краще поїсти?", "Що залишилося на сьогодні?"].map(text => <button key={text} disabled={!view.server || busy || activeTurn(turn) || !!view.admission || !!view.composerConflict} onClick={() => void send(text)}>{text}</button>)}
             <button disabled={busy || !!view.admission} onClick={() => textarea.current?.focus()}>Записати їжу</button>
           </div>}
+          {timeline.historyDrafts.length > 0 && <section className="trainer-earlier-drafts" aria-label="Попередні записи й прев’ю">
+            {timeline.historyDrafts.map(draftCard)}
+          </section>}
           <div aria-live="polite" className="trainer-messages">
-            {(view.server?.messages || []).map((m) => (
+            {timeline.entries.map(entry => {
+              if (entry.kind === "draft") return draftCard(entry);
+              const m = entry.message;
+              return (
               <div
                 key={m.id}
                 className={`trainer-message ${m.role === "user" ? "from-user" : "from-trainer"}`}
@@ -1017,49 +1060,14 @@ export default function TrainerChat({
                 <p>{m.content}</p>
                 {(m.photos || []).map((photo, index) => <TrainerPhoto key={`${ownerKey}:${photo.ref}`} api={api} reference={photo.ref} number={index + 1} />)}
               </div>
-            ))}
+            ); })}
           </div>
-          {view.server?.latestTurn?.text &&
-            !(view.server.messages || []).some(
-              (m) => m.id === view.server.latestTurn.turnId + "-u" ||
-                (view.server.canonicalHistory && view.server.latestTurn.nativeInputClaimed &&
-                 [...(view.server.messages || [])].reverse().find(row => row.role === "user")?.id === m.id &&
-                 m.content === view.server.latestTurn.text),
-            ) && (
-              <div className="trainer-message from-user">
-                <span>Ви</span>
-                <p>{view.server.latestTurn.text}</p>
-              </div>
-            )}
           {view.server?.maintenanceBlocked && (
             <p className="trainer-warning">
               Тренер завершує відновлення. Нові повідомлення тимчасово
               недоступні.
             </p>
           )}
-          {(view.server?.drafts || []).map((d) => (
-            <DraftCard
-              key={d.draftId}
-              draft={applyEdits(d, edits[d.draftId])}
-              catalog={previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.day?.catalog || catalog}
-              meals={previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.day?.meals || empty}
-              dayStatus={previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.status || "loading"}
-              stale={staleDay(d, previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.day)}
-              onRefresh={() => void refreshPreview(d)}
-              dirty={!!edits[d.draftId]}
-              disabled={busy}
-              onEdit={(p) => edit(d.draftId, p)}
-              onSave={save}
-              onPhoto={(itemId) => {
-                photoTarget.current = itemId;
-                setShowAttachments(true);
-              }}
-              onOpenDay={(d) => {
-                callbacks.current.onOpenDay?.(d);
-                void close();
-              }}
-            />
-          ))}
           {(view.server?.contextProposals || [])
             .filter((p) => p.state === "proposed")
             .map((p) => (

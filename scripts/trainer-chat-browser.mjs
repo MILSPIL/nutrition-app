@@ -603,7 +603,7 @@ try {
   );
   await page.screenshot({ path: join(out, "preview-390.png") });
   await page.getByRole("button", { name: "Додати", exact: true }).click();
-  await page.getByRole("heading", { name: "Додано", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Додано до щоденника", exact: true }).waitFor();
   const confirmed = await readDay(uid, date);
   check(
     "Один підтверджений запис після Додати",
@@ -626,10 +626,7 @@ try {
   await page.getByRole("button", { name: "Додати", exact: true }).click();
   await page.waitForFunction(
     () =>
-      document.querySelectorAll(".trainer-draft h3").length === 2 &&
-      [...document.querySelectorAll(".trainer-draft h3")].every(
-        (n) => n.textContent === "Додано",
-      ),
+      document.querySelectorAll('[data-testid="trainer-saved-receipt"]').length === 2,
   );
   check(
     "Нотатка видима й не нульові калорії",
@@ -664,6 +661,22 @@ try {
     Object.keys((await readDay(uid, date)).submissionMarkers).length ===
       markers,
   );
+  for (const width of [375, 390, 1366]) {
+    await page.setViewportSize({ width, height: 844 });
+    const timeline = await page.evaluate(() => {
+      const chat = document.querySelector('.trainer-chat'), messages = chat.querySelector('.trainer-messages');
+      const saved = [...chat.querySelectorAll('[data-testid="trainer-saved-receipt"]')];
+      const newest = [...messages.querySelectorAll('.trainer-message.from-user')].at(-1);
+      const scroll = chat.querySelector('.trainer-scroll').getBoundingClientRect(), composer = chat.querySelector('.trainer-composer').getBoundingClientRect();
+      return { saved: saved.length, savedBeforeLatest: saved.every(row => !!(row.compareDocumentPosition(newest) & Node.DOCUMENT_POSITION_FOLLOWING)),
+        savedInputs: saved.reduce((n, row) => n + row.querySelectorAll('input,select,textarea').length, 0),
+        overflow: chat.scrollWidth > chat.clientWidth, leftDelta: scroll.left - composer.left, rightDelta: scroll.right - composer.right };
+    });
+    check(`Збережені записи перед новою порадою ${width}`, timeline.saved === 2 && timeline.savedBeforeLatest && timeline.savedInputs === 0);
+    check(`Межі чату й поля ${width}`, !timeline.overflow && timeline.leftDelta === 0 && timeline.rightDelta === 0);
+    evidence.timeline ||= []; evidence.timeline.push({ width, ...timeline });
+    await page.screenshot({ path: join(out, `saved-before-advice-${width}.png`) });
+  }
   mode = "fail";
   await send("Синтетична відмова провайдера");
   await page.locator(".trainer-error").first().waitFor();

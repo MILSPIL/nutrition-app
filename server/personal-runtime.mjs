@@ -19,7 +19,8 @@ export const PERSONAL_POLICY = Object.freeze({ version: 2, task: 'HERMES-PERSONA
   nativeLane: 'openai-codex', scope: PERSONAL_LIMITS.scope, turns: null, posts: null, postsPerTurn: PERSONAL_LIMITS.postsPerTurn, deadlineMs: PERSONAL_LIMITS.deadlineMs,
   cpu: 2, memoryBytes: 2147483648, swapBytes: 0, activeModels: 1, maxWaiting: 4, stt: 'groq-free-whisper-large-v3',
   desktopTransport: 'ssh-uds-token-v1', desktopRpcBytes: 16777216,
-  privateProfiles: true, canonicalHistory: true, explicitMemoryAppend: true, previewBeforeAdd: true });
+  privateProfiles: true, canonicalHistory: true, explicitMemoryAppend: true, previewBeforeAdd: true,
+  modelContext: 'single-current-snapshot-v1', nativeAutomaticCompression: false });
 export const personalPolicyHash = createHash('sha256').update(stableJSON(PERSONAL_POLICY)).digest('hex');
 export function validatePersonalManifest(value) {
   if (!exact(value, ['version','releaseId','liveEnabled','firebaseProject','origin','allowedUids','port','maxConcurrent','activationFile','policyHash','credentialNames']) ||

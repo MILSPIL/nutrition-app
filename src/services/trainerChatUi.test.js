@@ -372,6 +372,28 @@ test("C04 preview uses the freshly read catalog instead of an older page plan",a
  expect(host.textContent).not.toContain('За день: 50% → 100%');
 });
 
+test("saved note-only receipt names the note without pretending it has zero calories", async () => {
+  previewFixture();
+  const draft = server.drafts[0];
+  draft.state = 'saved'; draft.save = { command: { items: [], notes: [{ itemId: 'unknown-note', name: 'Домашня страва' }] } };
+  await render();
+  const receipt = host.querySelector('[data-testid="trainer-saved-receipt"]');
+  expect(receipt.textContent).toContain('Домашня страва · нотатка');
+  expect(receipt.textContent).toContain('без повного розрахунку калорій');
+  expect(receipt.textContent).not.toContain('0 ккал');
+});
+test("unknown save stays expanded beside a newer advice message", async () => {
+  previewFixture();
+  server.drafts[0].state = 'unknown'; server.drafts[0].turnId = 'old';
+  server.messages = [{ id: 'old-u', role: 'user', content: 'Їжа' }, { id: 'new-u', role: 'user', content: 'Порада' }];
+  server.latestTurn = { turnId: 'new', text: 'Порада', state: 'completed' };
+  await render();
+  const card = host.querySelector('[data-testid="trainer-draft"]');
+  expect(card.closest('.trainer-older-draft')).toBeNull();
+  expect(card.textContent).toContain('Запис ще не підтверджено');
+  expect(button('Перевірити й завершити').disabled).toBe(false);
+});
+
 test.each(['бобові', 'сир кисломолочний 0,2%'])(
   'C03 saved %s keeps its confirmed letter and portion after reopening',
   async (name) => {
@@ -398,10 +420,10 @@ test.each(['бобові', 'сир кисломолочний 0,2%'])(
     props.planContext = { profile: {} };
     props.dayMeals = {};
     const assertConfirmed = () => {
-      const badge = host.querySelector('.voice-plan-badge').textContent;
-      expect(badge.startsWith(letter.toUpperCase() + ' ·')).toBe(true);
-      expect(badge).toContain('100% норми');
-      expect(host.textContent).toContain('За день: 100% → 100%');
+      const receipt = host.querySelector('[data-testid="trainer-saved-receipt"]');
+      expect(receipt.textContent).toContain(name + ' · ' + letter.toUpperCase() + ' · 100% норми');
+      expect(receipt.querySelector('input,select')).toBeNull();
+      expect(receipt.textContent).not.toContain('Змінити дату або прийом');
     };
     await render();
     assertConfirmed();
@@ -423,7 +445,7 @@ test("native canonical history has no projection delete or 30-day promise", asyn
 test("native receipt avoids a duplicate optimistic user bubble", async () => {
   const text = "Синтетичне яблуко";
   server.canonicalHistory = true;
-  server.messages = [{ id: "native-user", role: "user", content: text }];
+  server.messages = [{ id: "native-user", turnId: "synthetic-latest-input", role: "user", content: text }];
   server.latestTurn = { turnId: "synthetic-latest-input", text, nativeInputClaimed: true, state: "completed" };
   await render();
   expect(host.querySelectorAll(".trainer-message.from-user")).toHaveLength(1);
@@ -464,7 +486,7 @@ test("failed transcription keeps the same local recording and retries only on re
 
 test("failed canonical message offers restoration without a duplicate message or automatic send", async () => {
   server.canonicalHistory = true;
-  server.messages = [{ id: "native-user", role: "user", content: "Повернути цей текст" }];
+  server.messages = [{ id: "native-user", turnId: "synthetic-failed-turn", role: "user", content: "Повернути цей текст" }];
   server.latestTurn = { turnId: "synthetic-failed-turn", state: "failed", error: "trainer_failed", text: "Повернути цей текст", targetDate: "2026-01-02", nativeInputClaimed: true };
   await render();
   expect(host.querySelectorAll(".from-user")).toHaveLength(1);

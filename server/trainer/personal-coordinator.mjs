@@ -5,6 +5,7 @@ import { abortable } from "./deadline.mjs";
 import { TOOLS, requireId, stableJSON } from "./limits.mjs";
 import { PERSONAL_LIMITS } from "./personal-limits.mjs";
 import { cancelNativeInput } from "./native-cancel.mjs";
+import { nativeInputText, projectPersonalModelRequest } from "./personal-model-context.mjs";
 
 const uncertain = () => Error("execution_unknown");
 const signature = value => stableJSON([value.provider, value.model, value.contextWindow, value.supportsVision]);
@@ -54,7 +55,10 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
             // A validated ready draft is already the result. Its trusted local
             // acknowledgement must not depend on exhausting the model budget.
             const local = await active.completeDraft?.(payload, record.connection);
-            const result = local ?? await active.invoke(payload, { ...options, signal: AbortSignal.any([options.signal, active.signal].filter(Boolean)) });
+            const projected = local ? null : projectPersonalModelRequest(payload, { current: outbox.binding(uid, active.inputId),
+              snapshot: active.apiText, contextWindow: record.connection.contextWindow,
+              resolve: id => { const binding = outbox.binding(uid, id), value = outbox.payload(uid, id); return { ...value, proof: binding.payloadHmac }; } });
+            const result = local ?? await active.invoke(projected, { ...options, signal: AbortSignal.any([options.signal, active.signal].filter(Boolean)) });
             await active.verify?.();
             return result;
           })();
@@ -105,7 +109,7 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
   async function execute(slot, context) {
     if (!slots.delete(slot) || closed) throw Error("turn_conflict");
     const { uid, inputId, signal, deadline } = slot;
-    let record, dispatched = false, stopping, staged = false;
+    let record, dispatched = false, stopping, staged = false, terminalObserved = false;
     const abort = () => {
       generations.set(uid, (generations.get(uid) ?? 0) + 1);
       const candidate = record ?? owners.get(uid); candidate?.owner.abort?.();
@@ -135,21 +139,24 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
       outbox.bind(uid, inputId, sessionId);
       outbox.dispatch(uid, inputId); dispatched = true;
       return await payer.withTurn({ uid, inputId, signal, deadline }, async invoke => {
-        active = { uid, inputId, owner: record.owner, invoke, tools: prepared.tools, verify: prepared.verify, completeDraft: prepared.completeDraft, signal };
+        active = { uid, inputId, owner: record.owner, invoke, tools: prepared.tools, verify: prepared.verify, completeDraft: prepared.completeDraft, apiText: prepared.apiText, signal };
         let native = await record.owner.rpc(channel, "prompt.submit", {
-          session_id: sessionId, submission_id: inputId, text: payload.text, api_text: `SCISENSE-INPUT-V1 ${inputId} ${outbox.binding(uid, inputId).payloadHmac}\n` + prepared.apiText,
+          session_id: sessionId, submission_id: inputId, text: payload.text, api_text: nativeInputText(outbox.binding(uid, inputId), payload),
           ...(prepared.attachments?.length ? { attachments: prepared.attachments } : {}),
         }, { signal, timeoutMs: Math.max(1, Math.floor(deadline - now())) });
         if (native.status === "terminal") native = await record.owner.rpc(channel, "prompt.receipt", { session_id: sessionId, admission_id: native.admission_id, include_result: true }, { signal, timeoutMs: Math.max(1, Math.floor(deadline - now())) });
         receipt(uid, inputId, record, native);
+        terminalObserved ||= native.status === "terminal";
         await prepared.onAdmission?.(native);
         while (["queued", "started"].includes(native.status)) {
           await sleep(pollMs, undefined, { signal });
           native = await record.owner.rpc(channel, "prompt.receipt", { session_id: sessionId, admission_id: native.admission_id, include_result: true },
             { signal, timeoutMs: Math.max(1, Math.floor(deadline - now())) });
           receipt(uid, inputId, record, native);
+          terminalObserved ||= native.status === "terminal";
         }
         if (native.status === "unknown") throw uncertain();
+        terminalObserved = native.status === "terminal";
         return { ...outbox.read(uid, inputId), nativeReceipt: native, result: native.result ?? null };
       });
     } catch (error) {
@@ -160,6 +167,9 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
         const cleanup = await Promise.allSettled([payer.abortTurn(), retire(uid, record)]);
         if (cleanup.some(result => result.status === "rejected")) { closed = true; throw Error("owner_shutdown_incomplete"); }
       }
+      // The payer still enforces the physical deadline. Crossing it after a
+      // durable terminal receipt is a known failure, never an uncertain turn.
+      if (terminalObserved) error.knownNativeTerminal = true;
       throw error;
     } finally {
       signal.removeEventListener("abort", abort); await stopping;
@@ -216,6 +226,11 @@ export function createPersonalCoordinator({ profiles, outbox, payer, ownerFactor
     inputForAdmission(uid, admissionId) {
       profiles.resolve(uid);
       return outbox.byAdmission(uid, admissionId);
+    },
+    displayInputForAdmission(uid, admissionId) {
+      profiles.resolve(uid);
+      const input = outbox.byAdmission(uid, admissionId);
+      return input ? { inputId: input.inputId, text: outbox.payload(uid, input.inputId).text } : undefined;
     },
     async cancelInput(uid, inputId, { signal } = {}) {
       profiles.resolve(uid);

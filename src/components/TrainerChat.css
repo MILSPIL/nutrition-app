@@ -91,6 +91,15 @@
   flex-direction: column;
   gap: 12px;
 }
+.trainer-messages > .trainer-draft { margin-top: 0; width: 100%; }
+.trainer-draft.trainer-saved { border-color: #c5e4d0; background: #f2faf4; }
+.trainer-saved p { margin: 6px 0; overflow-wrap: anywhere; }
+.trainer-saved h3 { font-size: 16px; }
+.trainer-saved .trainer-draft-heading { flex-wrap: wrap; }
+.trainer-older-draft { border: 1px solid #d7dce4; border-radius: 14px; padding: 0 12px; background: #fff; }
+.trainer-older-draft summary { display: flex; align-items: center; color: #165fae; cursor: pointer; }
+.trainer-earlier-drafts { display: grid; gap: 12px; margin-bottom: 16px; }
+.trainer-earlier-drafts .trainer-draft { margin-top: 0; }
 .trainer-message {
   border-radius: 16px;
   padding: 12px;

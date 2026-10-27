@@ -4,19 +4,28 @@ import { nativeDraftCompletion, readyDraftAckInPayload } from "./draft-completio
 import { stableJSON, TOOLS } from "./limits.mjs";
 
 const answer = value => {
-  if (value.state !== "completed" || typeof value.result?.final_response !== "string") throw Object.assign(Error("trainer_failed"), { knownNativeTerminal: ["failed", "cancelled"].includes(value.state) });
+  if (value.state !== "completed" || typeof value.result?.final_response !== "string") throw Object.assign(Error("trainer_failed"), { knownNativeTerminal: ["completed", "failed", "cancelled"].includes(value.state) });
   const text = value.result.final_response;
   // The entire answer is canonical in Native history. This is only a bounded
   // projection receipt required by the legacy draft publication transaction.
   return { text: Buffer.byteLength(text) <= 16000 ? text : "Відповідь тренера збережено в розмові." };
 };
-export function nativeMessageProjection(snapshot) {
+export function nativeMessageProjection(snapshot, inputForAdmission = () => undefined) {
+  let turnId, input;
   return (snapshot.messages || []).flatMap((message, index) => {
+    if (message.role === "user") {
+      // Native persists the durable admission ID as platform_message_id. Never
+      // infer identity from repeated words or a calendar date.
+      const admission = message.message_id ?? message.platform_message_id;
+      input = typeof admission === "string" && admission.length > 0 && admission.length <= 256 && !/[\0\r\n]/.test(admission)
+        ? inputForAdmission(admission) : undefined;
+      turnId = input?.inputId;
+    }
     if (!["user", "assistant"].includes(message.role)) return [];
     const content = typeof message.content === "string" ? message.content
       : Array.isArray(message.content) ? message.content.filter(part => part?.type === "text").map(part => part.text || "").join("\n") : "";
     if (!content.trim()) return [];
-    const id = "native-" + createHash("sha256").update(stableJSON([snapshot.session_id, message.id ?? index, message.role, content])).digest("hex");
+    const id = "native-" + createHash("sha256").update(stableJSON([snapshot.session_id, message.row_id ?? message.id ?? index, message.role, content])).digest("hex");
     let photos = [], visible = content;
     if (message.role === "assistant" && message.display_kind === "failed_turn")
       visible = "Не вдалося обробити повідомлення. Текст збережений у розмові. Перед повторним надсиланням перевірте щоденник.";
@@ -36,7 +45,8 @@ export function nativeMessageProjection(snapshot) {
         visible = visible.replace(/\n+$/, ""); photos = candidates.map(({ ref }) => ({ ref }));
       }
     }
-    return [{ id, role: message.role, content: visible, native: true, ...(photos.length ? { photos } : {}) }];
+    if (message.role === "user" && typeof input?.text === "string") visible = input.text;
+    return [{ id, role: message.role, content: visible, native: true, ...(turnId ? { turnId } : {}), ...(photos.length ? { photos } : {}) }];
   });
 }
 
@@ -112,7 +122,11 @@ export function createPersonalBackend({ uid, core, tools, store, releaseTools = 
         throw error;
       } finally { state.settled = true; state.finish(); }
     },
-    async history(owner) { if (owner !== uid) throw Error("profile_mismatch"); return nativeMessageProjection(await core.history(uid)); },
+    async history(owner) {
+      if (owner !== uid) throw Error("profile_mismatch");
+      return nativeMessageProjection(await core.history(uid), admission => core.displayInputForAdmission
+        ? core.displayInputForAdmission(uid, admission) : core.inputForAdmission?.(uid, admission));
+    },
     latest(owner, turn) {
       if (!turn || owner !== uid) return turn;
       let input; try { input = core.input(uid, turn.turnId); } catch { return turn; }

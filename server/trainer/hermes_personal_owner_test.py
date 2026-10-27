@@ -66,6 +66,12 @@ class PersonalConfigSelectionTests(unittest.TestCase):
             target.write_text(json.dumps(legacy)); target.chmod(0o600)
             publish_personal_config(target, CONNECTION)
             self.assertEqual(json.loads(target.read_text())["agent"]["max_turns"], 8)
+            self.assertEqual(json.loads(target.read_text())["compression"], {"enabled": False})
+            legacy = personal_config(CONNECTION)
+            legacy["compression"]["enabled"] = True
+            target.write_text(json.dumps(legacy)); target.chmod(0o600)
+            publish_personal_config(target, CONNECTION)
+            self.assertEqual(json.loads(target.read_text()), personal_config(CONNECTION))
             changed = {**CONNECTION, "model": "synthetic-next", "contextWindow": 256000}
             publish_personal_config(target, changed)
             self.assertEqual(json.loads(target.read_text()), personal_config(changed))

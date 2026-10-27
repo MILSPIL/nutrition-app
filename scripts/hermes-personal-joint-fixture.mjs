@@ -17,6 +17,7 @@ import { createPersonalBackend } from "../server/trainer/personal-backend.mjs";
 import { createTrainerTools } from "../server/trainer/tools.mjs";
 import { buildSnapshot } from "../server/trainer/snapshot.mjs";
 import { stableJSON } from "../server/trainer/limits.mjs";
+import { PERSONAL_LIMITS } from "../server/trainer/personal-limits.mjs";
 import { createMediaStore } from "../server/trainer/media.mjs";
 const setup = JSON.parse(readFileSync(process.argv[2])), root = setup.env.SCISENSE_FIXTURE_ROOT;
 const key = randomBytes(32), homes = ["owner", "wife"].map(uid => join(root, "joint-" + uid));
@@ -84,7 +85,7 @@ try {
   assert.equal((await core.submit("owner", randomUUID(), { text: "Другий синтетичний підсумок." }, { channel: "desktop:second" })).state, "completed");
   assert.equal(toolCalls, 2); assert.deepEqual(outbox.budget(), { turns: 2, posts: 4 }); checks++;
   stage = "web-gateway";
-  appStore = openTurnStore(join(root, "joint-app.sqlite"), { hmacKey: key });
+  appStore = openTurnStore(join(root, "joint-app.sqlite"), { hmacKey: key, runDeadlineMs: PERSONAL_LIMITS.deadlineMs });
   const reader = { readDay: async (_uid, targetDate) => ({ targetDate, revision: 1, meals: {}, notes: [] }), readPlan: async () => ({ planContext: {} }) };
   const kit = createTrainerTools({ store: appStore, index: {}, ...reader });
   const backend = createPersonalBackend({ uid: "owner", core, releaseTools: kit.release, verify: async () => {},
@@ -92,7 +93,7 @@ try {
   const mediaRoot = join(root, "app-media"); mkdirSync(mediaRoot, { mode: 0o700 });
   const media = createMediaStore(mediaRoot, { hash: appStore.hash });
   app = createTrainerGateway({ ownerUid: "owner", store: appStore, backend, ...reader,
-    readContext: (uid, signal) => core.context(uid, { signal }), queueWindowMs: 225000,
+    readContext: (uid, signal) => core.context(uid, { signal }), runDeadlineMs: PERSONAL_LIMITS.deadlineMs, queueWindowMs: 225000,
     snapshotFactory: value => buildSnapshot({ ...value, history: [], maxPayloadBytes: 512000 }),
     media, proxy: { cancel() {}, close() {} },
   });
@@ -110,6 +111,7 @@ try {
   for (let n = 0; n < 200; n++) { projected = appStore.get("owner", request.turnId); if (!["running", "queued"].includes(projected.state)) break; await new Promise(resolve => setTimeout(resolve, 50)); }
   assert.equal(projected.state, "completed"); checks++;
   const state = await (await app.handle("owner", "/state", "GET")).json();
+  assert.equal(state.messages.at(-2).turnId, request.turnId); assert.equal(state.messages.at(-1).turnId, request.turnId); checks++;
   assert.equal(state.canonicalHistory, true); assert.ok(state.messages.at(-2).content === request.text, "clean user text must exclude API-only context"); assert.equal(state.latestTurn.nativeInputClaimed, true); assert.equal(state.messages.at(-2).photos.length, 2); checks++;
   assert.ok(state.messages.every(message => !message.content.includes("SCISENSE-INPUT-V1") && !message.content.includes("SYNTHETIC-CONTEXT"))); checks++;
   assert.deepEqual(outbox.budget(), { turns: 3, posts: 6 }); assert.equal(toolCalls, 3); checks++;

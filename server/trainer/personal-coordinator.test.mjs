@@ -93,6 +93,24 @@ test("lost ACK after a proven callback recovers a known native receipt without r
   assert.equal(f.nativeCalls, 1); assert.equal(f.modelCalls.length, 1);
 });
 
+test("a deadline after durable Native terminal proof is known and cannot become an unknown input", async t => {
+  const f = fixture(t, { payerExtensions: { async withTurn(_value, execute) {
+    await execute(async () => ({ completion: {} }));
+    throw Error("trainer_timeout");
+  } } }), id = randomUUID();
+  await assert.rejects(f.core.submit("owner", id, { text: "synthetic advice" }), error => error.message === "trainer_timeout" && error.knownNativeTerminal === true);
+  assert.equal(f.outbox.read("owner", id).state, "completed");
+  assert.equal(f.nativeCalls, 1);
+});
+test("transport failure after terminal receipt cannot strand the chat as unknown", async t => {
+  const f = fixture(t, { prepare: async () => ({ apiText: 'fresh', tools: async () => ({}), onAdmission: async () => { throw Error('trainer_unavailable'); } }) }), id = randomUUID();
+  await assert.rejects(f.core.submit('owner', id, { text: 'synthetic' }), error => error.knownNativeTerminal === true);
+  assert.equal(f.outbox.read('owner', id).state, 'completed');
+  const admission = f.outbox.read('owner', id).admissionId;
+  assert.equal(f.core.displayInputForAdmission('owner', admission).text, 'synthetic');
+  assert.equal(f.core.displayInputForAdmission('wife', admission), undefined);
+});
+
 test("read failure precedes native admission and does not spend a pilot turn or POST", async t => {
   const f = fixture(t, { prepare: async () => { throw Error("day_unavailable"); } }), id = randomUUID();
   await assert.rejects(f.core.submit("owner", id, { text: "food" }), /day_unavailable/);
