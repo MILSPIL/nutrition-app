@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-21",
+  "sourceCommit": "8ea6f2e78959f289cd6b455f79dc1ff6141cce76",
+  "tlsSha256": "a8420237bf2295ee9c4fd1860c0533648099f4f59e4446f8313d3e3d03eab230",
+  "tests": {
+    "pass": 10,
+    "fail": 0
+  },
+  "independentReviewer": "tls_portability_review",
+  "finding": "close leader cancelled group SIGKILL, leaving resistant descendant alive",
+  "regressionBefore": "FAIL childAlive=true",
+  "regressionAfter": "PASS parentAlive=false childAlive=false",
+  "independentOverflowElapsedMs": 1149,
+  "independentTimeoutElapsedMs": 21068,
+  "privateKeyInFiles": false,
+  "privateKeyInArgs": false,
+  "temporaryFilesAfter": 0,
+  "sanAndCaSignatureAndKeyMatch": true,
+  "linuxPortabilityCi": "https://github.com/MILSPIL/nutrition-app/actions/runs/39611260978",
+  "linuxCleanupRegressionCi": "pending queue for integrated c2cfecf",
+  "sources": [
+    "https://raw.githubusercontent.com/openssl/openssl/openssl-3.0.13/apps/lib/apps.c",
+    "https://raw.githubusercontent.com/openssl/openssl/openssl-3.0.13/apps/req.c"
+  ]
+}

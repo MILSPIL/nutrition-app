@@ -1,0 +1,265 @@
+{
+  "date": "2026-10-22",
+  "plan": "NTZG-DEPLOY-03",
+  "goal": "objective_e45aa8ac1aa3",
+  "sourceCommit": "bad8217421d0eff859b920885d849e3e121cbf72",
+  "stage0": "passed",
+  "ci": [
+    {
+      "id": 39844327152,
+      "jobsPassed": 3
+    },
+    {
+      "id": 39844316893,
+      "jobsPassed": 3
+    }
+  ],
+  "package": {
+    "files": 162,
+    "bytes": 11360811,
+    "sha256": "3626acf4fe6556318ef061a7ca96297f788d724d03d7b0351cdbaa20287559b9",
+    "apiChecksPassed": 8,
+    "externalFetches": 0,
+    "independentContentReview": "passed",
+    "extractPermissionCheckRequired": false,
+    "installAllowed": true,
+    "installedSourceCommit": "bad8217421d0eff859b920885d849e3e121cbf72",
+    "extractPermissionCheckPassed": true
+  },
+  "stageA": {
+    "status": "passed",
+    "adminPreflight": "passed",
+    "encryptedConfigBackupsRestored": true,
+    "firebaseProjectAccess": "verified",
+    "individualDocumentsRead": 0,
+    "configurationPersistence": "per-site OLS regeneration disabled; saved and refreshed UI verified",
+    "postProvisionEncryptedConfigRestoreFiles": 11
+  },
+  "stageB": "published_with_inference_disabled; production_phone_signin_pending",
+  "stageC": "not_authorized",
+  "modelKeysRead": 0,
+  "modelCalls": 0,
+  "testBudgetSpend": 0,
+  "productAcceptance": "pending",
+  "privateInventoryPublished": false,
+  "pendingUserAction": "Verify Google sign-in from the phone; C activation requires separate approval",
+  "temporaryAccess": {
+    "stageARevokedAndAbsentVerified": true,
+    "stageBActive": false,
+    "stageBRevokedAndAbsentVerified": true,
+    "firebaseProbeTokenRemovedAndAbsenceVerified": true
+  },
+  "xcloudDraft": {
+    "noDatabaseVerified": true,
+    "deployScriptEmpty": true,
+    "finalReviewReached": true,
+    "startPressed": true,
+    "state": "provisioned",
+    "progressPercentage": 100,
+    "terminal": true,
+    "failedSteps": 0
+  },
+  "neighborHttpAfterProvision": [
+    200,
+    200,
+    200
+  ],
+  "cloudflareTransport": "Existing UI: cache bypass and Full (Strict), saved and refreshed; no permission expansion",
+  "updatedAt": "2026-10-22T21:42:49.464499+00:00",
+  "runtime": {
+    "payloadHashesVerified": 162,
+    "node": "24.22.1",
+    "loopbackOnly": true,
+    "inferenceEnabled": false,
+    "stateDirectoryEmpty": true,
+    "cpu": 1,
+    "memoryBytes": 2147483648,
+    "modelCredentialsInstalled": false
+  },
+  "tlsAndProxy": {
+    "originChainAndHostnameVerified": true,
+    "fullStrictSavedAndRefreshed": true,
+    "olsReloadCount": 1,
+    "globalConfigUnchanged": true,
+    "htmlAndApiCacheControl": "no-store",
+    "cloudflareCacheStatus": "DYNAMIC",
+    "unknownApiJsonStatus": 404,
+    "publishedIndexSha256": "54e45d54ca601bba730e656a4eab9ff33b39f9b3160f32e9cecc3a6d97c5ad09",
+    "originEncodingChecks": [
+      {
+        "encoding": "identity",
+        "hashMatchesRelease": true
+      },
+      {
+        "encoding": "gzip",
+        "hashMatchesRelease": true
+      },
+      {
+        "encoding": "br",
+        "hashMatchesRelease": true
+      }
+    ],
+    "indexMtimeOnlyFix": true,
+    "additionalOlsReloads": 0,
+    "globalCacheFlushes": 0
+  },
+  "firebase": {
+    "ntzgAuthorized": true,
+    "previousDomainsPreserved": true,
+    "rulesPublished": true,
+    "writerFenceVerified": true,
+    "endUserTokenPending": false,
+    "iamExpanded": false,
+    "rulesSourceSha256": "5754a9bc9b410eae1355550821bd48029c4512152b801953167bc8c6e7ee8130",
+    "rulesReleaseId": "cbb3e160-c0ed-4392-80f7-456e71023217",
+    "existingOwnerAuthBridgeVerified": true,
+    "productionPhoneSignInVerified": false,
+    "newWriterCreatePassed": true,
+    "newWriterUpdatePassed": true,
+    "legacyMergeHttp": 403,
+    "legacyFullSetHttp": 403,
+    "rejectedDataUnchanged": true,
+    "probeCleanupVerified": true,
+    "consecutivePassingRounds": 2,
+    "personalDocumentsRead": 0
+  },
+  "neighborHttpAfterReload": [
+    200,
+    200,
+    200
+  ],
+  "productionUrl": "https://ntzg.pp.ua",
+  "neighborHttpFinal": [
+    200,
+    200,
+    200
+  ],
+  "openOperationalIncident": {
+    "privateDetailsOnly": true,
+    "remediationConfirmed": false
+  },
+  "publicHttp": {
+    "ok": true,
+    "checkedAt": 1792705209.2681658,
+    "checks": [
+      {
+        "path": "/",
+        "status": 200,
+        "contentType": "text/html",
+        "cacheControl": "no-store",
+        "cacheStatus": "DYNAMIC",
+        "hashMatchesRelease": true
+      },
+      {
+        "path": "/index.html",
+        "status": 200,
+        "contentType": "text/html",
+        "cacheControl": "no-store",
+        "cacheStatus": "DYNAMIC",
+        "hashMatchesRelease": true
+      },
+      {
+        "path": "/asset-manifest.json",
+        "status": 200,
+        "contentType": "application/json",
+        "cacheControl": "no-store",
+        "cacheStatus": "DYNAMIC",
+        "hashMatchesRelease": true
+      },
+      {
+        "path": "/static/css/main.14955c32.css",
+        "status": 200,
+        "contentType": "text/css",
+        "cacheControl": "public, max-age=31536000, immutable",
+        "cacheStatus": "HIT",
+        "hashMatchesRelease": true
+      },
+      {
+        "path": "/static/js/main.2b3ed481.js",
+        "status": 200,
+        "contentType": "text/javascript",
+        "cacheControl": "public, max-age=31536000, immutable",
+        "cacheStatus": "HIT",
+        "hashMatchesRelease": true
+      },
+      {
+        "path": "/meal-api/health",
+        "status": 200,
+        "contentType": "application/json",
+        "cacheControl": "no-store",
+        "cacheStatus": "DYNAMIC",
+        "health": {
+          "ok": true,
+          "inferenceEnabled": false
+        }
+      },
+      {
+        "path": "/meal-api/not-found",
+        "status": 404,
+        "contentType": "application/json",
+        "cacheControl": "no-store",
+        "cacheStatus": "DYNAMIC",
+        "json404": true
+      },
+      {
+        "path": "/server/deployment.json",
+        "status": 403,
+        "contentType": "text/html",
+        "cacheControl": "private, no-cache, max-age=0",
+        "cacheStatus": "DYNAMIC"
+      },
+      {
+        "path": "/node_modules/jose/package.json",
+        "status": 403,
+        "contentType": "text/html",
+        "cacheControl": "private, no-cache, max-age=0",
+        "cacheStatus": "DYNAMIC"
+      },
+      {
+        "path": "/.env",
+        "status": 403,
+        "contentType": "text/html",
+        "cacheControl": "private, no-cache, max-age=0",
+        "cacheStatus": "DYNAMIC"
+      }
+    ],
+    "httpRedirect": {
+      "status": 301,
+      "location": "https://ntzg.pp.ua/index.html"
+    }
+  },
+  "mobileBrowser": {
+    "url": "https://ntzg.pp.ua/",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "pageErrors": 0,
+    "failedOwnResources": [],
+    "outsideRequestsBlocked": 2,
+    "modelsCalled": 0,
+    "status": 200,
+    "title": "SciSense",
+    "screen": {
+      "headings": [
+        "Трекер Харчування"
+      ],
+      "buttons": [
+        "Увійти через Google"
+      ],
+      "bodyWidth": 390,
+      "scrollWidth": 390,
+      "viewportWidth": 390,
+      "loginVisible": true
+    },
+    "ok": true,
+    "cleanupOk": true
+  },
+  "independentReviews": {
+    "authBridge": "passed: actual SDK transport, 23 rejected transports, 20 HTTP guards, storage failure cases",
+    "rulesPublication": "passed: 18 synthetic cases",
+    "rulesRecheck": "passed: 9 synthetic cases",
+    "frontendPublication": "passed: 48 synthetic cases",
+    "indexMtimeFix": "passed: 29 synthetic cases"
+  }
+}

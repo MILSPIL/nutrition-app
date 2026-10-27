@@ -1,0 +1,60 @@
+{
+  "syntheticOnly": true,
+  "paidCalls": 0,
+  "checks": [
+    "Stranger denied health data",
+    "Trainer reads accepted health details",
+    "AddTrainerModal revoke clears open details",
+    "SettingsModal reconnect and revoke clear details",
+    "Revoked trainer denied by SDK",
+    "No unexpected external traffic",
+    "No page exceptions"
+  ],
+  "layout": [
+    {
+      "width": 375,
+      "consentLeft": 0,
+      "formLeft": 0,
+      "formRight": 0,
+      "headerInset": 16,
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "consentLeft": 0,
+      "formLeft": 0,
+      "formRight": 0,
+      "headerInset": 16,
+      "overflow": false
+    },
+    {
+      "width": 1024,
+      "consentLeft": 0,
+      "formLeft": 0,
+      "formRight": 0,
+      "headerInset": 16,
+      "overflow": false
+    }
+  ],
+  "pageErrors": [],
+  "unexpectedNetwork": [],
+  "result": "pass",
+  "unitTests": 99,
+  "review": {
+    "agent": "trainer_ui_review",
+    "verdict": "done",
+    "fixed": [
+      "canonical metadata schema",
+      "timeout reconciliation with mutation lock",
+      "stale listener callbacks",
+      "raw malformed id preservation"
+    ]
+  },
+  "files": {
+    "src/components/trainer/PendingRequests.js": "c20c0f6affed72e72032074bcf8083b2f3ec16ecf11e2c70f141dd6069e934b8",
+    "src/services/useTrainerConnection.js": "bb361ec8943be95e8edb3ac564b1d323555aa2a33530dd05e06a069130d11a36",
+    "src/pages/TrainerDashboard.js": "148ff824c2f92fb0fcc3201cad1aaa6fe7a4c5e61d3436938d3a3ff545038618",
+    "src/components/trainer/ClientDetailsModal.js": "3cfc616d20703dbba186bcb5caac3c3625af5ca3cbfc378e4561ce3c2d6ff130"
+  },
+  "production": false
+}

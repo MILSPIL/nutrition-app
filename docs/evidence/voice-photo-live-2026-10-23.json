@@ -1,0 +1,142 @@
+{
+  "updatedAt": "2026-10-23T09:24:00.938929+00:00",
+  "plan": "MORNING-READY-01 / NTZG-DEPLOY-03 stage C",
+  "goal": "objective_e45aa8ac1aa3",
+  "productionUrl": "https://ntzg.pp.ua",
+  "sourceCommit": "9f2759ba3fa55ae74436865a1635893f8c6717d5",
+  "version": "1.7.0",
+  "inferenceEnabled": true,
+  "authorization": "Юрій прямо погодив розгортання, активацію моделей, один чинний ліміт $5 та конкретний тимчасовий адміністративний доступ із відкликанням після перевірки.",
+  "runtime": {
+    "node": "24.22.1",
+    "cpuCores": 1,
+    "memoryGiB": 2,
+    "isolatedServiceUser": true
+  },
+  "models": {
+    "transcription": {
+      "provider": "Groq",
+      "model": "whisper-large-v3",
+      "accountTier": "free",
+      "inferenceApiZdrVerified": true,
+      "paidFallback": false
+    },
+    "analysis": {
+      "provider": "Anthropic",
+      "model": "claude-sonnet-5-5",
+      "directApi": true
+    }
+  },
+  "ci": {
+    "runId": 39923287970,
+    "headSha": "9f2759ba3fa55ae74436865a1635893f8c6717d5",
+    "conclusion": "success",
+    "jobsPassed": 3
+  },
+  "package": {
+    "payloadFiles": 162,
+    "apiSmokeChecksPassed": 8,
+    "runtimeDependencyAuditFindings": 0,
+    "archiveSha256": "022bcf0fd300ea7aefeb7df7699885b57efe7fe36efb1a307d98bcacaac3f826"
+  },
+  "activation": {
+    "passed": true,
+    "modelCallsByHelper": 0,
+    "independentReview": "Codex activation_readiness: P1/P2 не знайдено; root повторив 55 тестів helper і 14 тестів recovery.",
+    "helperTestsPassed": 55,
+    "recoveryTestsPassed": 14,
+    "budgetReset": false,
+    "credentialStorage": "Зашифровані credentials systemd."
+  },
+  "realProbe": {
+    "syntheticOnly": true,
+    "diaryWrites": 0,
+    "freeTranscriptions": 1,
+    "paidAnalyses": 2,
+    "audioSeconds": 2.63075,
+    "transcriptAccurate": true,
+    "labelExact": true,
+    "expectedPortion": {
+      "grams": 200,
+      "protein": 6,
+      "fat": 5,
+      "carbs": 8,
+      "calories": 106
+    },
+    "voiceWithoutPhoto": "Розпізнані продукт і 200 г; запитує етикетку або бренд/жирність, не вигадує БЖВ.",
+    "steps": [
+      {
+        "step": "liveHealth",
+        "status": 200,
+        "elapsedMs": 2052
+      },
+      {
+        "step": "unauthenticated",
+        "status": 401,
+        "elapsedMs": 1595
+      },
+      {
+        "step": "foreignOrigin",
+        "status": 403,
+        "elapsedMs": 355
+      },
+      {
+        "step": "realGroq",
+        "status": 200,
+        "elapsedMs": 3193
+      },
+      {
+        "step": "realSonnetPhoto",
+        "status": 200,
+        "elapsedMs": 4512
+      },
+      {
+        "step": "realSonnetVoiceOnly",
+        "status": 200,
+        "elapsedMs": 6079
+      }
+    ]
+  },
+  "budget": {
+    "capMicros": 5000000,
+    "calls": 3,
+    "freeCalls": 1,
+    "paidCalls": 2,
+    "reservedMicros": 166108,
+    "unfinishedCalls": 0,
+    "meaning": "Консервативна зарезервована сума в журналі застосунку, фактичний рахунок провайдера не перевірений.",
+    "secondLedgerCreated": false,
+    "reset": false
+  },
+  "postCleanupPublicVerification": {
+    "allPublicFilesMatch": true,
+    "matchedPublicFiles": 28,
+    "htmlEncodingVariantsPassed": 3,
+    "categoryIconsPassed": 8,
+    "neighborSitesHttp200": 3,
+    "health": {
+      "ok": true,
+      "inferenceEnabled": true
+    },
+    "checkedAt": "2026-10-23T09:20:58.437605+00:00",
+    "modelCalls": 0
+  },
+  "cleanup": {
+    "temporaryAdminAbsent": true,
+    "temporaryAdminSecretsRemoved": 3,
+    "temporaryFirebaseTokenRemoved": true,
+    "macSleepInhibitorStopped": true,
+    "browser": "Власний popup входу закритий раніше, власні headless-профілі прибрані. Після перемикання Chrome на сторонній профіль прибирання вкладки Groq не підтверджене; чужі вкладки не змінені."
+  },
+  "uiEvidence": "docs/evidence/morning-phone-ready-2026-10-23.json; frontend-код не змінювався у sourceCommit, змінені лише погодження провайдерів і тести.",
+  "limitations": {
+    "physicalPhoneAcceptance": "Очікує проби власника",
+    "sevenDayPilot": "Не розпочатий",
+    "hermes": "Не підключений",
+    "firebaseConfigurationIncident": "Відкритий, подробиці приватні",
+    "criteria": "G01 пройдений; G02-G11 очікують перевірки та приймання",
+    "mainMerge": false,
+    "productAccepted": false
+  },
+  "privateDataPublished": false
+}

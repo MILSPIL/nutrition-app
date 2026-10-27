@@ -1,0 +1,15 @@
+{
+  "codeCommit": "c9f3ab3355e1a18987503c7009602610bd95405e",
+  "date": "2026-10-20",
+  "jest": 88,
+  "worker": 17,
+  "firestore": 17,
+  "browser": 25,
+  "fixtureOnly": true,
+  "browserSession": "d4cadadc464d4129-9z8ntzwi",
+  "cleanup_ok": true,
+  "removed": true,
+  "realApi": false,
+  "realPhone": false,
+  "production": false
+}

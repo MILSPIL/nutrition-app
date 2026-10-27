@@ -1,0 +1,59 @@
+{
+  "fixtureOnly": true,
+  "paidCalls": 0,
+  "checks": [
+    "Форма сполучення: зовнішні відступи 24/24",
+    "SDK увійшов через HTTPS Auth emulator",
+    "Server прочитав справжній WAV браузера",
+    "Server прочитав нормалізоване фото",
+    "200 г із фото дає 106 ккал",
+    "Firestore HTTPS запис перечитано після reload",
+    "Запити пройшли parser, auth, SQLite і fixture provider",
+    "Запис належить дозволеному тестовому UID",
+    "Жодного прямого HTTP, production або AI API",
+    "Немає помилок JavaScript"
+  ],
+  "errors": [],
+  "unexpectedNetwork": [],
+  "failedRoutes": [
+    {
+      "path": "/icons/category-carbs-v4.png",
+      "status": 404
+    },
+    {
+      "path": "/icons/category-dairy-v4.png",
+      "status": 404
+    },
+    {
+      "path": "/icons/category-treats-v4.png",
+      "status": 404
+    },
+    {
+      "path": "/icons/category-carbs-v4.png",
+      "status": 404
+    },
+    {
+      "path": "/icons/category-carbs-v4.png",
+      "status": 404
+    },
+    {
+      "path": "/icons/category-treats-v4.png",
+      "status": 404
+    },
+    {
+      "path": "/icons/category-dairy-v4.png",
+      "status": 404
+    },
+    {
+      "path": "/icons/category-carbs-v4.png",
+      "status": 404
+    }
+  ],
+  "browserTlsTrust": "isolated test bypass only; physical phone trust remains pending",
+  "reservedMicros": 38318,
+  "calls": 3,
+  "pairingEdges": {
+    "left": 24,
+    "right": 24
+  }
+}

@@ -1,0 +1,231 @@
+.voice-overlay {
+  position: fixed;
+  inset: 0;
+  background: #0007;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.voice-panel {
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100dvh - 32px);
+  background: #f2f2f7;
+  border-radius: 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  color: #111827;
+  outline: none;
+}
+.voice-heading {
+  padding: 18px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+}
+.voice-heading h2 {
+  font-size: 21px;
+  font-weight: 700;
+  margin: 0;
+}
+.voice-heading p,
+.voice-photos p {
+  font-size: 13px;
+  color: #586171;
+  margin: 5px 0;
+}
+.voice-body {
+  padding: 20px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.voice-lab-note {
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+.voice-body label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+}
+.voice-body input,
+.voice-body select,
+.voice-body textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  font-size: 16px;
+  padding: 10px;
+  margin: 5px 0 10px;
+  border: 1px solid #cbd0d8;
+  border-radius: 10px;
+  background: white;
+}
+.voice-body textarea {
+  min-height: 90px;
+}
+.voice-body summary {
+  cursor: pointer;
+  font-size: 13px;
+  padding: 10px 0;
+  color: #075bbd;
+}
+.voice-primary,
+.voice-secondary,
+.voice-icon,
+.voice-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+}
+.voice-primary {
+  background: #007aff;
+  color: white;
+  width: 100%;
+  border: 1px solid #007aff;
+}
+.voice-secondary {
+  background: white;
+  color: #075bbd;
+  border: 1px solid #cbd0d8;
+}
+.voice-icon {
+  color: #586171;
+  padding: 10px;
+}
+.voice-remove {
+  color: #b42318;
+  font-size: 13px;
+  padding-left: 0;
+}
+.voice-panel button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.voice-panel :focus-visible {
+  outline: 3px solid #005cc5;
+  outline-offset: 2px;
+}
+.voice-item {
+  background: white;
+  border: 1px solid #e1e5ea;
+  border-radius: 16px;
+  padding: 14px;
+  margin-top: 14px;
+  overflow-wrap: anywhere;
+}
+.voice-quantity {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.voice-macros {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 12px;
+}
+.voice-nutrition {
+  font-size: 17px;
+  font-weight: 650;
+  margin-top: 8px;
+}
+.voice-source {
+  font-size: 12px;
+  color: #586171;
+  margin: 5px 0;
+}
+.voice-error {
+  color: #a31818;
+  font-size: 14px;
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.voice-photos {
+  margin-top: 18px;
+}
+.voice-photos h3 {
+  font-weight: 650;
+}
+.voice-photo-buttons,
+.voice-retry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.voice-photo-buttons button {
+  flex: 1;
+}
+.voice-photo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.voice-photo-grid img {
+  width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+  margin-top: 12px;
+  border-radius: 10px;
+}
+.voice-photo-grid button {
+  color: #a31818;
+  min-height: 44px;
+  width: 100%;
+}
+.voice-footer {
+  position: sticky;
+  bottom: -20px;
+  background: #f2f2f7;
+  padding: 16px 0 20px;
+  margin-bottom: -20px;
+}
+.voice-recording {
+  text-align: center;
+  padding: 22px 0;
+}
+.voice-recording svg {
+  margin: 0 auto 10px;
+  color: #c32626;
+}
+.voice-recording strong {
+  display: block;
+  font-size: 20px;
+}
+.voice-recording p {
+  margin: 10px 0 20px;
+}
+.voice-recording button svg {
+  margin: 0;
+  color: white;
+}
+@media (max-width: 480px) {
+  .voice-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+  .voice-panel {
+    max-height: 100dvh;
+    border-radius: 20px 20px 0 0;
+  }
+  .voice-body {
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+}
+
+.voice-body input[hidden] {
+  display: none;
+}

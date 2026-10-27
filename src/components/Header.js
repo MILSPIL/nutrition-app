@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, X, Settings, ChevronDown, Scale, Sunrise, Sun, Sunset, Moon } from 'lucide-react';
+import { Check, X, Settings, ChevronDown, Scale, Sunrise, Sun, Sunset, Moon, Mic } from 'lucide-react';
 import { getCalorieScaleState } from '../services/nutrition';
 
 // iOS іконки для прийомів їжі
@@ -122,7 +122,9 @@ export default function Header({
   onMealSelect,
   onShowDaySelector,
   onShowMeasurements,
-  onShowSettings
+  onShowSettings,
+  onShowVoiceInput,
+  voiceDisabled = false
 }) {
   const [isEditingWeight, setIsEditingWeight] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -244,6 +246,12 @@ export default function Header({
         </div>
       </div>
 
+      <div className="mx-4 mt-4" data-testid="home-voice">
+        <button aria-label="Додати їжу голосом" onClick={onShowVoiceInput} disabled={voiceDisabled}
+          className="w-full min-h-[48px] flex items-center justify-center gap-2 px-4 py-3 bg-[#007AFF] text-white rounded-2xl text-[17px] font-semibold disabled:opacity-50">
+          <Mic size={22}/> Додати їжу голосом
+        </button>
+      </div>
       {/* Macros Card */}
       <div className="mx-4 mt-4 bg-white rounded-2xl border border-white/70 shadow-[0_10px_30px_rgba(16,24,40,0.06)] overflow-hidden">
         <div className="px-4 py-3.5">

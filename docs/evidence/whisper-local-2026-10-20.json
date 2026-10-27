@@ -1,0 +1,16 @@
+{
+  "synthetic": true,
+  "language": "uk",
+  "durationSeconds": 2.63075,
+  "elapsedMs": 2872,
+  "text": "Випив цей кефір – 200 грамів.",
+  "sourceCommit": "d1be6fde11ac6e0407606b4e42fe72d34add8037",
+  "modelSha1": "e050f7970618a659205450ad97eb95a18d69c9ee",
+  "paidCalls": 0,
+  "review": {
+    "reviewer": "Codex whisper_live_review",
+    "finding": "Missing -otxt for stdin input",
+    "resolved": true
+  },
+  "scope": "Synthetic audio on Mac only; server, real phone and paid Sonnet are pending"
+}

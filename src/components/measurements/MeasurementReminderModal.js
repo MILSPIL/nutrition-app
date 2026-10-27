@@ -17,7 +17,11 @@ export default function MeasurementReminderModal({
   const handleDismiss = () => {
     // Зберігаємо що користувач закрив нагадування
     const today = getTodayDateKey();
-    localStorage.setItem('measurementReminderDismissed', today);
+    try {
+      localStorage.setItem('measurementReminderDismissed', today);
+    } catch {
+      // Нагадування закривається й без дозволу на локальне сховище.
+    }
     onClose();
     if (onDismiss) onDismiss();
   };

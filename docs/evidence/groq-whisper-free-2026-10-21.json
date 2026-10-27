@@ -1,0 +1,144 @@
+{
+  "test_id": "GROQ-FREE-SMOKE-01",
+  "status": "passed_one_synthetic_sample",
+  "goal_id": "objective_e45aa8ac1aa3",
+  "goal_criteria": [
+    "G05",
+    "G07",
+    "G08"
+  ],
+  "goal_verdict_changed": false,
+  "scope": "One explicitly authorized synthetic Ukrainian speech-to-text request only",
+  "fixture": {
+    "reference": "На сніданок я з'їв сто п'ятдесят грамів вареної гречки, одне яйце і випив двісті мілілітрів кефіру.",
+    "voice": "macOS Lesya uk_UA",
+    "tts_words_per_minute": 165,
+    "duration_seconds": 7.2758125,
+    "sample_rate_hz": 16000,
+    "channels": 1,
+    "sample_width_bytes": 2,
+    "audio_bytes": 232904,
+    "pcm_rms": 4634.5,
+    "pcm_peak": 24604,
+    "audio_sha256": "403efd02e836ba7c8ccdf884b9d74dc9dce78f99b2359e7c9301f39dac21aa25",
+    "synthetic_only": true,
+    "expected_facts": [
+      {
+        "food": "варена гречка",
+        "amount": 150,
+        "unit": "g"
+      },
+      {
+        "food": "яйце",
+        "amount": 1,
+        "unit": "piece"
+      },
+      {
+        "food": "кефір",
+        "amount": 200,
+        "unit": "ml"
+      }
+    ],
+    "api_parameters": {
+      "model": "whisper-large-v3",
+      "language": "uk",
+      "temperature": "0",
+      "response_format": "verbose_json"
+    },
+    "prompt_supplied": false,
+    "maximum_inference_requests": 1,
+    "automatic_retries": 0,
+    "normalization_predeclared": [
+      "NFC, lowercase, ignore punctuation and apostrophe variants",
+      "sto pyatdesyat to 150, dvisti to 200, odne to 1",
+      "No food or unit synonym replacement"
+    ]
+  },
+  "result": {
+    "started_at_utc": "2026-10-21T20:50:40.378496+00:00",
+    "model": "whisper-large-v3",
+    "inference_requests": 1,
+    "automatic_retries": 0,
+    "audio_duration_seconds": 7.2758125,
+    "audio_sha256": "403efd02e836ba7c8ccdf884b9d74dc9dce78f99b2359e7c9301f39dac21aa25",
+    "language_hint": "uk",
+    "reference_prompt_sent": false,
+    "anthropic_calls": 0,
+    "server_changes": false,
+    "free_tier_basis": "User organization limits screenshot matches Groq Free; explicit authorization for one free synthetic test",
+    "billing_invoice_checked": false,
+    "http_status": 200,
+    "request_wall_seconds": 0.621916,
+    "timing_scope": "HTTPS upload, provider processing and complete response download; excludes synthesis and Keychain read",
+    "transcript": " На сніданок я з'їв 150 грамів вареної гречки, одне яйце і випив 200 мл кефіру.",
+    "provider_duration_seconds": 7.275812864,
+    "provider_language": "Ukrainian",
+    "reference": "На сніданок я з'їв сто п'ятдесят грамів вареної гречки, одне яйце і випив двісті мілілітрів кефіру.",
+    "quota_headers": {
+      "x-ratelimit-limit-requests": "2000",
+      "x-ratelimit-remaining-requests": "1999",
+      "x-ratelimit-reset-requests": "43.2s"
+    },
+    "literal_word_error": {
+      "reference_words": 16,
+      "word_edits": 4,
+      "wer_percent": 25.0
+    },
+    "number_normalized_word_error": {
+      "reference_words": 15,
+      "word_edits": 1,
+      "wer_percent": 6.667
+    },
+    "normalized_reference": "на сніданок я зїв 150 грамів вареної гречки 1 яйце і випив 200 мілілітрів кефіру",
+    "normalized_transcript": "на сніданок я зїв 150 грамів вареної гречки 1 яйце і випив 200 мл кефіру",
+    "audio_duration_over_request_wall": 11.699
+  },
+  "accuracy_review": {
+    "review_method": "Direct comparison of reference and returned transcript",
+    "food_quantity_unit_facts_passed": 3,
+    "food_quantity_unit_facts_total": 3,
+    "facts": [
+      {
+        "food": "варена гречка",
+        "amount": 150,
+        "unit": "g"
+      },
+      {
+        "food": "яйце",
+        "amount": 1,
+        "unit": "piece"
+      },
+      {
+        "food": "кефір",
+        "amount": 200,
+        "unit": "ml"
+      }
+    ],
+    "semantic_errors_observed": [],
+    "formatting_differences": [
+      "сто п’ятдесят -> 150",
+      "двісті -> 200",
+      "мілілітрів -> мл"
+    ],
+    "unit_normalization_not_applied_to_reported_wer": true
+  },
+  "billing": {
+    "expected_charge_usd": 0,
+    "basis": "Free-tier-matching owner screenshot and 2000 daily request quota in live response",
+    "independent_invoice_check": false,
+    "paid_plan_changes": false,
+    "anthropic_budget_spend_usd": 0
+  },
+  "limitations": [
+    "One clean synthetic sample, not a quality or latency distribution",
+    "Language explicitly set to uk; automatic language detection not tested",
+    "No mobile recording, background noise, photos, Sonnet or application integration tested",
+    "ZDR configuration not verified; synthetic audio contains no personal recordings",
+    "Not comparable to earlier Linux eSpeak fixtures or a server benchmark"
+  ],
+  "sources": [
+    "https://console.groq.com/docs/speech-to-text",
+    "https://console.groq.com/docs/rate-limits",
+    "https://console.groq.com/docs/your-data"
+  ]
+}

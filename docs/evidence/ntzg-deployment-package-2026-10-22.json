@@ -1,0 +1,196 @@
+{
+  "date": "2026-10-22",
+  "plan": "NTZG-DEPLOY-03",
+  "goalId": "objective_e45aa8ac1aa3",
+  "state": "reviewed_for_owner_approval_not_deployed",
+  "journalTransfer": {
+    "pr": 23,
+    "url": "https://github.com/MILSPIL/nutrition-app/pull/23",
+    "merge": "f31f061be4d8b16e97067932fcc26b43d25666c6",
+    "fromMain": "8e57aea00da4a6c11964e1829b8342d52e3299d8",
+    "files": [
+      ".agents/journal/2026-10-22-1440-codex-gpt-6-local-deployment-fixes.md"
+    ],
+    "sourceBlob": "61481bfd40183a5e8b12a5752578ca7c43ca2eb7",
+    "targetBlob": "61481bfd40183a5e8b12a5752578ca7c43ca2eb7",
+    "ci": [
+      39831565323,
+      39831881812
+    ],
+    "ciResult": "success",
+    "mainLocalClean": true
+  },
+  "sourceRelease": "f9d9447699500c1e287252b0776be92c390a3246",
+  "sourceCi": [
+    39777210587,
+    39777222470
+  ],
+  "sourceCiResult": "success",
+  "package": {
+    "file": "scisense-f9d9447-disabled.tar.gz",
+    "sha256": "ba745ca25c52d6e41aadefca84ec0a41c3eeb49891e9cf3db69bcf2509a5e7ab",
+    "bytes": 11359507,
+    "files": 163,
+    "unpackedBytes": 13117756
+  },
+  "fileManifest": {
+    "file": "PAYLOAD-SHA256SUMS",
+    "sha256": "05888103ca9973b4c8e8aa7b8d1c96f505ab242de041d21f3074aab4412abbdd"
+  },
+  "sourceFilesChecked": 32,
+  "generatedManifestChange": "releaseId only",
+  "checks": {
+    "allSourceBytesMatch": true,
+    "allArchiveEntriesMatch": true,
+    "symlinks": 0,
+    "privateCredentialFiles": 0,
+    "loopbackSmokePassed": 8,
+    "externalFetchAttempts": 0,
+    "runtimeAuditVulnerabilities": 0
+  },
+  "activation": {
+    "liveEnabled": false,
+    "allowedUids": [],
+    "approvedAt": "",
+    "realBudgetIncluded": false,
+    "credentialsIncluded": false
+  },
+  "nodeSecurity": {
+    "repositoryPin": "24.11.1",
+    "candidate": "24.22.1",
+    "source": "https://nodejs.org/en/blog/vulnerability/october-2026-security-releases",
+    "releaseSource": "https://nodejs.org/en/blog/release/v24.22.1",
+    "candidateArchives": [
+      {
+        "name": "node-v24.22.1-linux-x64.tar.xz",
+        "sha256": "6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6",
+        "bytes": 32026916,
+        "url": "https://nodejs.org/dist/v24.22.1/node-v24.22.1-linux-x64.tar.xz"
+      },
+      {
+        "name": "node-v24.22.1-linux-arm64.tar.xz",
+        "sha256": "dbabf7a1cbf947e6059ffad2c27b80041db97dea1e553b62afdee7f13fca336e",
+        "bytes": 30978868,
+        "url": "https://nodejs.org/dist/v24.22.1/node-v24.22.1-linux-arm64.tar.xz"
+      },
+      {
+        "name": "node-v24.22.1-darwin-arm64.tar.gz",
+        "sha256": "89c682593d76cd44233fa53b1563264e7de9cbb189cad169135c5b4fadfbc0a7",
+        "bytes": 53062778,
+        "url": "https://nodejs.org/dist/v24.22.1/node-v24.22.1-darwin-arm64.tar.gz"
+      }
+    ],
+    "isolatedMacCompatibility": {
+      "version": "v24.22.1",
+      "packageSmoke": 8,
+      "serverTests": 47,
+      "failed": 0,
+      "externalFetchAttempts": 0
+    },
+    "pinsUpdated": false,
+    "fullLinuxCiOnCandidate": false,
+    "newReleaseRequiredBeforeInstall": true
+  },
+  "pendingServerFacts": {
+    "architecture": null,
+    "portAvailable": null,
+    "olsVhostPath": null,
+    "backupRestoreVerified": null,
+    "adminTransportVerified": null,
+    "liveTransferRootTransport": null
+  },
+  "installAllowed": false,
+  "operations": {
+    "realKeychainReads": 0,
+    "realKeychainWrites": 0,
+    "modelCalls": 0,
+    "modelSpendingUsd": 0,
+    "msWebCalls": 0,
+    "productionWrites": 0,
+    "productPrMerges": 0
+  },
+  "independentReview": {
+    "status": "passed",
+    "confirmedFindingsFixed": [
+      "maintenance until Firestore fence probe, then atomic public symlink and sign-in",
+      "stop remote API and verify receiver before irreversible local export/fence"
+    ],
+    "reviewer": "Codex ntzg_package_review",
+    "criteria": {
+      "D01": "passed",
+      "D02": "passed",
+      "D03": "passed",
+      "D04": "passed",
+      "D05": "passed",
+      "D06": "passed",
+      "D07": "passed",
+      "D08": "passed"
+    },
+    "reviewedAt": "2026-10-22T18:56:11.396694+00:00",
+    "openFindings": 0,
+    "independentChecks": {
+      "frontendSourceFilesMatched": 89,
+      "runtimeSourceFilesMatched": 32,
+      "archiveFilesMatched": 163,
+      "loopbackChecksPassed": 8,
+      "externalFetchAttempts": 0,
+      "cleanup": true,
+      "activeReceiverRefusalConfirmed": true
+    },
+    "scope": "approval package only; not installation, activation or product acceptance"
+  },
+  "goalStatuses": {
+    "G01": "passed",
+    "G02": "pending",
+    "G03": "pending",
+    "G04": "pending",
+    "G05": "pending",
+    "G06": "pending",
+    "G07": "pending",
+    "G08": "pending",
+    "G09": "pending",
+    "G10": "pending",
+    "G11": "pending"
+  },
+  "documentation": {
+    "context7": "monthly quota exhausted; not retried",
+    "primarySources": [
+      "https://docs.openlitespeed.org/config/reverseproxy/",
+      "https://xcloud.host/docs/how-to-deploy-a-node-js-application/",
+      "https://developers.cloudflare.com/ssl/origin-configuration/origin-ca/",
+      "https://firebase.google.com/docs/auth/web/redirect-best-practices",
+      "https://platform.claude.com/docs/en/models/sonnet-5-5/overview",
+      "https://console.groq.com/docs/rate-limits",
+      "https://console.groq.com/docs/your-data"
+    ]
+  },
+  "rootDependenciesAudit": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 5,
+      "moderate": 12,
+      "high": 79,
+      "critical": 3,
+      "total": 99
+    },
+    "reachability": "pending classification in phase 0; do not assume all are dev-only",
+    "automaticFixes": false
+  },
+  "writerPublicationOrder": [
+    "maintenance docroot",
+    "publish rules",
+    "old writer denied and new writer allowed probe",
+    "atomic public symlink to build",
+    "verify hashes and cache",
+    "phone Google sign-in"
+  ],
+  "transferPreExportOrder": [
+    "confirmed root transport",
+    "stop only scisense-api.service",
+    "LoadState=loaded ActiveState=inactive",
+    "receive-check success",
+    "stop local writer",
+    "export existing ledger and permanent fence",
+    "send and reconcile receipt"
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "date": "2026-10-21",
+  "scope": "Підготовка плану; не deployment",
+  "source_sha": "ca927ffbd67b2318825a44ec9d11790a423002f0",
+  "journal_transfer": {
+    "pr": 13,
+    "url": "https://github.com/MILSPIL/nutrition-app/pull/13",
+    "merge": "0834d48d1e650f4eceb5ac55088a2596127d6e1a",
+    "ci_success": 2,
+    "files": [
+      {
+        "file": "2026-10-20-1600-codex-gpt-6-voice-photo-implementation.md",
+        "sha256": "d46d97a72472efb94aec7098ae8fedb110c99bedfbfffac054917ce5c093cf19",
+        "identical": true
+      },
+      {
+        "file": "2026-10-20-1725-codex-gpt-6-live-api-proposal.md",
+        "sha256": "d889201d2797c476e8a00776f1ef6f13847d21cf66431c38c5a907c70399f40f",
+        "identical": true
+      },
+      {
+        "file": "2026-10-20-1747-codex-gpt-6-phone-lab-preparation.md",
+        "sha256": "c70f2ae2267d0ee7115fb1d44c7d7cb67c051003b6bb01264a299315222eb56f",
+        "identical": true
+      },
+      {
+        "file": "2026-10-20-2205-codex-gpt-6-anthropic-credit-source.md",
+        "sha256": "675b08df7c868092b2d8667f5495dc7fcfa7b4e1346630fd7bf9185f61f5bc2e",
+        "identical": true
+      }
+    ]
+  },
+  "public_probe": {
+    "host": "https://ntzg.pp.ua",
+    "status": 200,
+    "api_path": "/meal-api/health",
+    "api_status": 404,
+    "api_content_type": "text/html"
+  },
+  "xcloud": {
+    "transport": "installed Keychain launcher",
+    "read_only_inventory": true,
+    "server": "MS-WEB",
+    "webserver": "OpenLiteSpeed",
+    "os": "Ubuntu 24.04.4",
+    "cpus": 4,
+    "ram_mib": 7935,
+    "monitoring_timestamp": "2026-10-20T21:03:33Z",
+    "available_ram_mib": 5406,
+    "existing_sites": 3,
+    "scisense_site_created": false,
+    "node_reported_installed": false,
+    "admin_ssh_verified": false,
+    "billing_plan": "Starter",
+    "billing_active": true,
+    "full_vps_backup_verified": false
+  },
+  "dry_runs": [
+    {
+      "type": "custom TLS",
+      "http_status": 422,
+      "reason": "certificate/private_key required",
+      "created": false
+    },
+    {
+      "type": "native xCloud TLS",
+      "http_status": 422,
+      "reason": "DNS verification failed",
+      "created": false
+    }
+  ],
+  "new_source_findings": [
+    "OLS config regeneration can remove manual reverse proxy; site toggle and backup/recheck required",
+    "OLS reload affects shared service",
+    "xCloud Node major is server-wide",
+    "site snapshots do not prove full VPS backup"
+  ],
+  "approvals": {
+    "whisper": true,
+    "sonnet": true,
+    "model": "claude-sonnet-5-5",
+    "total_cap_usd": 5,
+    "domain": true,
+    "new_server_code": false,
+    "g04_code": false,
+    "privileged_package": false
+  },
+  "paid_generations_this_preparation": 0,
+  "execution_criteria": "N10-N15 and D01-D07 pending",
+  "privacy": "Сирі API-відповіді, server IP/UUID, назви сусідів і секрети вилучено"
+}
