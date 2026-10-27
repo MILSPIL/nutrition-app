@@ -664,6 +664,11 @@ export default function TrainerChat({
       ...new Set([...(old.removeItemIds || []), ...(patch.removeItemIds || [])]),
     ];
     for (const key of removeItemIds) delete items[key];
+    // A label photo chosen for a removed product would ask about it again.
+    if (patch.removeItemIds?.length) {
+      setPhotos((old) => old.filter((p) => !patch.removeItemIds.includes(p.itemId)));
+      if (patch.removeItemIds.includes(photoTarget.current)) photoTarget.current = null;
+    }
     const next = {
       ...editRef.current,
       [id]: {
@@ -953,24 +958,26 @@ export default function TrainerChat({
       let fresh = own
         .get()
         .server.drafts.find((d) => d.draftId === draft.draftId);
-      const notes = fresh.noteId || ["saving", "unknown", "saved"].includes(fresh.state)
-        ? []
-        : fresh.items.filter((i) => i.nutritionStatus !== "complete" && i.noteSelected !== true);
-      if (notes.length) {
-        // Add is the confirmation shown above it. A direct edit, not the queue:
-        // it is not a correction and a failure leaves no unsent changes behind.
-        await own.edit(fresh, {
-          items: notes.map((i) => ({ itemId: i.itemId, noteSelected: true })),
-        });
-        if (!current(generation)) return;
-        fresh = own.get().server.drafts.find((d) => d.draftId === draft.draftId);
-      }
       let previewDay;
       if (!["saving", "unknown", "saved"].includes(fresh.state)) {
         previewDay = await api.day(fresh.targetDate);
         if (!current(generation)) return;
         setPreviewDays(previous => ({ ...previous, [fresh.targetDate]: { status: "ready", day: previewDay } }));
         if (staleDay(fresh, previewDay)) throw Error("stale_preview");
+        const notes = fresh.noteId
+          ? []
+          : fresh.items.filter((i) => i.nutritionStatus !== "complete" && i.noteSelected !== true);
+        if (notes.length) {
+          // Add is the confirmation shown above it. A direct edit, not the queue:
+          // it is not a correction and a failure leaves no unsent changes behind.
+          // The edit refreshes the preview proof, so the day is checked before it
+          // and the returned draft is used: a poll in flight may still hold the old one.
+          fresh = await own.edit(fresh, {
+            items: notes.map((i) => ({ itemId: i.itemId, noteSelected: true })),
+          });
+          if (!current(generation)) return;
+          if (staleDay(fresh, previewDay)) throw Error("stale_preview");
+        }
       }
       await own.save(fresh);
       setDayRefresh(n => n + 1);

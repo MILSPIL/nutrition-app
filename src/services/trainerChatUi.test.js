@@ -785,6 +785,40 @@ describe("1.9.7 card control", () => {
     expect(host.querySelector(".trainer-error")).toBeTruthy();
     expect(button("Додати").disabled).toBe(false);
   });
+  test("review: a day that changed after display stops «Додати» before the note confirmation", async () => {
+    cardFixture();
+    const { day } = { day: await api.day("2026-01-02") };
+    const edit = api.edit;
+    api.edit = jest.fn(async (id, body) => { const d = await edit(id, body); server.drafts[0].freshness = day.freshness; return { ...d, freshness: day.freshness }; });
+    await render();
+    day.freshness = { ...day.freshness, dayRevision: 8 };
+    await click("Додати");
+    expect(api.edit).not.toHaveBeenCalled();
+    expect(api.prepareSave).not.toHaveBeenCalled();
+    expect(host.textContent).toContain("Записи дня змінилися");
+  });
+  test("review: saving uses the draft the note confirmation returned, not an older poll", async () => {
+    cardFixture();
+    await render();
+    const before = JSON.parse(JSON.stringify(server));
+    api.state.mockImplementation(async () => JSON.parse(JSON.stringify(before)));
+    await click("Додати");
+    expect(api.edit).toHaveBeenCalledTimes(1);
+    expect(api.prepareSave).toHaveBeenCalledTimes(1);
+    expect(api.prepareSave.mock.calls[0][1]).toBe(2);
+  });
+  test("review: removing a product drops the label photo attached to it", async () => {
+    cardFixture();
+    props.photoNormalizer = jest.fn(async () => ({ type: "image/jpeg", data: "synthetic-photo", preview: "data:image/jpeg;base64,c3ludGhldGlj" }));
+    await render();
+    const photoButtons = [...host.querySelectorAll("button")].filter(b => b.textContent === "Фото етикетки цього продукту");
+    await act(async () => { Simulate.click(photoButtons[1]); });
+    await act(async () => Simulate.change(host.querySelector('input[type="file"]'), { target: { files: [new File(["photo"], "synthetic.jpg", { type: "image/jpeg" })], value: "" } }));
+    expect(host.querySelectorAll('img[alt="Фото етикетки перед надсиланням"]')).toHaveLength(1);
+    await click("Прибрати Синтетична домашня страва");
+    expect(host.querySelectorAll('img[alt="Фото етикетки перед надсиланням"]')).toHaveLength(0);
+    await settle();
+  });
   test("S3 the reason sits right above «Додати» and names the product", async () => {
     cardFixture();
     await render();
