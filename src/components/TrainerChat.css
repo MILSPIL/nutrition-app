@@ -325,6 +325,30 @@
 .trainer-turn button {
   margin: 4px;
 }
+/* The turn status sits under the user's bubble, like a messenger delivery line. */
+.trainer-messages > .trainer-turn {
+  align-self: flex-end;
+  max-width: 94%;
+  margin-top: 4px;
+  border: 0;
+  background: transparent;
+  padding: 0 4px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px 8px;
+  font-size: 13px;
+  color: #5f6670;
+}
+.trainer-messages > .trainer-turn p {
+  margin: 0;
+}
+.trainer-messages > .trainer-turn button {
+  margin: 0;
+  min-height: 44px;
+  min-width: 44px;
+}
 .trainer-chat .voice-plan select {
   font-size: 14px;
 }

@@ -577,3 +577,54 @@ test("closing a voice preview releases its local object URL", async () => {
   expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1);
   root = createRoot(host);
 });
+describe("1.9.6 chat stream", () => {
+  const prev = "turn-previous-000001", active = "turn-active-00000001";
+  test("S6 turn status is the last row of the message list, below the user's message, not in the composer", async () => {
+    server.messages = [
+      { id: prev + "-u", turnId: prev, role: "user", content: "З’їв яблуко" },
+      { id: prev + "-a", turnId: prev, role: "assistant", content: "Готово" },
+      { id: active + "-u", turnId: active, role: "user", content: "З’їв 200 г філе" },
+    ];
+    server.drafts = [{ draftId: "synthetic-saved-draft", revision: 1, state: "saved", targetDate: "2026-01-03", meal: 1, turnId: prev, items: [], save: { command: { items: [], notes: [] } } }];
+    server.currentTurn = { turnId: active, state: "running" };
+    server.latestTurn = { turnId: active, state: "running", text: "З’їв 200 г філе" };
+    await render();
+    const list = host.querySelector(".trainer-messages");
+    const status = list.lastElementChild;
+    expect(status.matches(".trainer-turn[role=status]")).toBe(true);
+    expect(status.textContent).toContain("Тренер розбирає повідомлення");
+    expect(button("Скасувати обробку")).toBeTruthy();
+    const user = [...list.querySelectorAll(".trainer-message.from-user")].at(-1);
+    expect(user.textContent).toContain("200 г філе");
+    expect(user.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(list.querySelector('[data-testid="trainer-saved-receipt"]').compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(host.querySelector("footer .trainer-turn")).toBeNull();
+  });
+  test("S6 status without the turn's message in the list is still the last row", async () => {
+    server.currentTurn = { turnId: active, state: "queued" };
+    await render();
+    const list = host.querySelector(".trainer-messages");
+    expect(list.lastElementChild.matches(".trainer-turn")).toBe(true);
+    expect(list.lastElementChild.textContent).toContain("Повідомлення отримано");
+  });
+  test("S7 trainer **bold** renders as strong; stray ** and backticks disappear; single * stays", async () => {
+    server.messages = [
+      { id: prev + "-u", turnId: prev, role: "user", content: "Скільки **лишилось**?" },
+      { id: prev + "-a", turnId: prev, role: "assistant", content: "Юра, **1385 ккал** до вечері, код `x`. Ще ** без пари і *одна* зірка." },
+    ];
+    await render();
+    const trainer = host.querySelector(".trainer-message.from-trainer");
+    expect([...trainer.querySelectorAll("strong")].map(e => e.textContent)).toEqual(["1385 ккал"]);
+    expect(trainer.textContent).not.toMatch(/\*\*|`/);
+    expect(trainer.textContent).toContain("код x.");
+    expect(trainer.textContent).toContain("*одна*");
+    expect(host.querySelector(".trainer-message.from-user").textContent).toContain("Скільки **лишилось**?");
+  });
+  test("S7 markup in trainer text stays text", async () => {
+    server.messages = [{ id: prev + "-a", turnId: prev, role: "assistant", content: "<b>x</b> **y**" }];
+    await render();
+    const trainer = host.querySelector(".trainer-message.from-trainer");
+    expect(trainer.querySelector("b")).toBeNull();
+    expect(trainer.textContent).toContain("<b>x</b>");
+  });
+});
