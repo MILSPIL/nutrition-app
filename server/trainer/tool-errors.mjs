@@ -18,7 +18,15 @@ const hints = {
   brand_is_not_exact: "This is an analogue: mark estimated and describe the assumption, or ask one question.",
   density_not_confirmed: "Do not convert g/ml without confirmed density; preserve the given unit.",
   memory_read_only: "Personal memory is read-only; do not claim it was saved.",
+  date_draft_conflict: "This date already has an unsaved draft in snapshot.draft. If its state is saving or unknown, ask the user to check that card first. Otherwise edit it: same draftId, its revision as baseRevision; keep its items and meal unless the user asks.",
+  draft_frozen: "This draft is being saved and cannot change. Do not propose; ask the user to check that card first, then send the food again.",
+  draft_too_large: "Draft data is over 16000 bytes. Propose fewer items or shorter names and assumptions, or ask the user to add the current preview first.",
+  invalid_quantity: "quantity is {value, unit}: value is a number above 0 and up to 100000, or null; unit is g, ml, portion, package or unknown.",
+  draft_already_proposed: "This draft was already proposed in this turn. Do not propose again; answer the user.",
+  invalid_food_query: "query: one food, up to 160 characters and 1-12 words; preparation from the enum.",
 };
+// Repairable codes the model may see; anything else aborts the turn instead.
+export const MODEL_TOOL_ERRORS = new Set(Object.keys(hints));
 export function safeToolFailure(error) {
   const code = error?.message;
   return typeof code === "string" && Object.hasOwn(hints, code) ? { error: code, hint: hints[code] } : { error: "tool_unavailable" };
