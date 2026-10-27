@@ -60,7 +60,8 @@ Codex gpt-6-astra/xhigh, 181 с, 3 знахідки P2, підтвердилис
 - 🟡 `savePending` не скидався на `pagehide` і при відкритті чату: після повернення з bfcache чат лишався заблокованим. Тест «leaving the page during «Додати»…» червоний до виправлення (`Expected: false`, `Received: true`); виправлено `setSavePending(false)` поруч із `setSendPending(false)`.
 - 🟡 у спеці й журналі було «виправлено `d7d89c2`»: тут виправлено, у спеці допишу з номером зеленого прогону.
 - 💭 тест захисту замороженої картки (інша вкладка): інсценування без рядка захисту в `applyEdits` дало FAIL, відкат `cmp` без різниці; очікування увімкненої «Додати» в `trainer-chat-browser.mjs`; `:not([type="checkbox"])` у CSS лишив (нешкідливо).
-- Перевірки: тести 1.9.7 18/18, React 375/375. CI 40587659215 на `b940ca8` ще йде.
+- Перевірки: тести 1.9.7 18/18, React 375/375. CI 40587659215 на `b940ca8`: success 4/4; `coach-ui-qa/evidence.json` `card375/390/1366` ok (`enabled:true`, `reasonGap:0`, `overflow:0`, «Прибрати» 102×44), знімки `card-control-375/390/1366.png`.
+- CI 40587840097 на `771adcc` (лише журнал): `hermes-resource-check` впав на зовнішньому DNS (`getaddrinfo ENOTFOUND fdc.nal.usda.gov`), перезапущено `gh run rerun --failed`. Спека з фактами CI і K17/K18: `2704d12`. Третій прохід spec-reviewer іде.
 
 ## Ризики й нотатки
 
