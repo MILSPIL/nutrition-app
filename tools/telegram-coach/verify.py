@@ -166,8 +166,18 @@ def verify(run,criterion):
             repo=Path(e['repo']); check(subprocess.run(['git','check-ignore','-q',str(run)],cwd=repo).returncode==0,'runtime not ignored')
             staged=subprocess.check_output(['git','diff','--cached','--name-only'],cwd=repo,text=True); check('.agents/runtime' not in staged,'private data staged')
         elif criterion=='C07':
-            e=json.loads((run/'reviews/recovery.json').read_text()); required={'corrupt_input','interrupt_resume','changed_source','changed_model','single_writer','atomic_output','transitive_invalidation'}
+            e=json.loads((run/'reviews/recovery.json').read_text()); required={'corrupt_input','interrupt_resume','changed_source','changed_model','single_writer','atomic_output','transitive_invalidation','same_export_reingest'}
             check(set(e['tests'])>=required and all(e['tests'][k] for k in required),'recovery not proven')
+            proof=json.loads((run/'reviews/reingest.json').read_text())
+            check(proof.get('passed') is True and proof.get('source_version')==man['source_version'],'reingest source binding mismatch')
+            check(proof.get('pipeline_sha256')==digest(Path(__file__).with_name('pipeline.py')),'reingest producer changed')
+            stable={'messages.jsonl','media.jsonl','links.jsonl','facts.jsonl','facts-asr.jsonl','transcripts/index.json','reviews/asr-reading.json'}
+            passes=proof.get('runs',[]);check(len(passes)==2,'two actual reingest runs required')
+            for attempt in passes:
+                check(attempt.get('changed_message_ids')==[] and attempt.get('invalidated_artifacts')==[],'same export invalidated content')
+                before=attempt.get('before_sha256',{});after=attempt.get('after_sha256',{})
+                check(set(before)==set(after)==stable and before==after,'reingest lost durable processing')
+                for name in stable:check(after.get(name)==digest(run/name),'reingest receipt stale: '+name)
         elif criterion=='C08':
             p=json.loads((run/'hermes/proposals.json').read_text()); check(p['target_revision'] is None and not p['applied'],'live boundary')
             for k in ['current_context_diff_status','current_capacity_status']: check(p[k]=='pending_live_read','live check falsely claimed')

@@ -62,6 +62,28 @@ class Verification(unittest.TestCase):
     def test_missing_reverse_fact_reference_is_rejected(self):
         self.reviewed_fixture();path=self.run/'reviews/content-coverage.json';data=json.loads(path.read_text());data['messages']['message1']['fact_ids']=[];path.write_text(json.dumps(data))
         self.assertIn('content reverse mapping mismatch',verify(self.run,'C04')['errors'])
+    def reingest_fixture(self):
+        (self.run/'reviews').mkdir(exist_ok=True);(self.run/'transcripts').mkdir()
+        stable=['messages.jsonl','media.jsonl','links.jsonl','facts.jsonl','facts-asr.jsonl','transcripts/index.json','reviews/asr-reading.json']
+        for name in stable:
+            if not (self.run/name).exists():(self.run/name).write_text('{}\n')
+        files={name:digest(self.run/name) for name in stable}
+        attempt={'before_sha256':files,'after_sha256':files,'changed_message_ids':[],'invalidated_artifacts':[]}
+        data={'passed':True,'source_version':'fixture-v1','pipeline_sha256':digest(Path(__file__).with_name('pipeline.py')),'runs':[attempt,attempt]}
+        (self.run/'reviews/reingest.json').write_text(json.dumps(data))
+        checks=['corrupt_input','interrupt_resume','changed_source','changed_model','single_writer','atomic_output','transitive_invalidation','same_export_reingest']
+        (self.run/'reviews/recovery.json').write_text(json.dumps({'tests':dict.fromkeys(checks,True)}))
+        self.assertTrue(verify(self.run,'C07')['passed']);return data
+    def test_reingest_receipt_rejects_changed_processing(self):
+        self.reingest_fixture();(self.run/'links.jsonl').write_text('Changed classification\n')
+        self.assertIn('reingest receipt stale: links.jsonl',verify(self.run,'C07')['errors'])
+    def test_reingest_requires_current_producer_and_two_clean_runs(self):
+        original=self.reingest_fixture();path=self.run/'reviews/reingest.json'
+        for field,value in [('pipeline_sha256','old-code'),('source_version','other-source'),('runs',original['runs'][:1])]:
+            with self.subTest(field=field):
+                data=dict(original);data[field]=value;path.write_text(json.dumps(data));self.assertFalse(verify(self.run,'C07')['passed'])
+        data=json.loads(json.dumps(original));data['runs'][1]['changed_message_ids']=['message1'];path.write_text(json.dumps(data))
+        self.assertIn('same export invalidated content',verify(self.run,'C07')['errors'])
     def retrieval_fixture(self):
         folder=self.run/'reviews/search';folder.mkdir(parents=True)
         cases={'frozen_before_search':True,'cases':[{'id':f'R{i:02}','query':f'neutral question {i}'} for i in range(1,13)]};(self.run/'retrieval-cases.json').write_text(json.dumps(cases))

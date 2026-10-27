@@ -56,7 +56,7 @@ class Pipeline(unittest.TestCase):
         self.assertIn('message3',json.loads((self.run/'source-manifest.json').read_text())['changed_message_ids'])
     def test_progress_survives_every_publish_interruption(self):
         import shutil
-        for stop in range(1,10):
+        for stop in range(1,11):
             with self.subTest(stop=stop):
                 source=self.root/('source'+str(stop));run=self.root/('run'+str(stop))
                 shutil.copytree(self.source,source);ingest(source,run)
@@ -77,4 +77,40 @@ class Pipeline(unittest.TestCase):
                 self.assertEqual(actual['state'],'processed')
                 self.assertEqual(actual['evidence'],{'review':'durable receipt'})
                 self.assertTrue(verify(run,'C01')['passed'])
+    def classified_link(self):
+        page=self.source/'messages.html';page.write_text(PAGE.replace('Done.','Context. <a href="https://example.org/guide">Guide</a>'))
+        ingest(self.source,self.run)
+        f=self.run/'links.jsonl';links=[json.loads(x) for x in f.read_text().splitlines()]
+        links[0].update(state='snapshot_catalogued',evidence={'review':'durable link receipt'})
+        f.write_text(''.join(json.dumps(x)+'\n' for x in links));return page,f
+    def test_unchanged_link_keeps_processing_and_graph(self):
+        page,f=self.classified_link();before=f.read_bytes()
+        put(self.run/'artifacts.json',[dict(id='fact',derived_from=[dict(id='message3')],stale=False)])
+        ingest(self.source,self.run)
+        self.assertEqual(json.loads(f.read_text().splitlines()[0])['evidence'],{'review':'durable link receipt'})
+        manifest=json.loads((self.run/'source-manifest.json').read_text())
+        self.assertEqual(manifest['changed_message_ids'],[]);self.assertEqual(manifest['invalidated_artifacts'],[])
+    def test_changed_link_or_context_discards_processing(self):
+        for old,new in [('example.org/guide','example.org/new'),('Context.','Changed context.'),('>Guide<','>Updated label<')]:
+            with self.subTest(change=old):
+                page,f=self.classified_link();page.write_text(page.read_text().replace(old,new));ingest(self.source,self.run)
+                link=json.loads(f.read_text().splitlines()[0]);self.assertEqual(link['state'],'pending_classification');self.assertNotIn('evidence',link)
+    def test_unrelated_message_change_keeps_link_processing(self):
+        page,f=self.classified_link();page.write_text(page.read_text().replace('Two sets','Three sets'));ingest(self.source,self.run)
+        self.assertEqual(json.loads(f.read_text().splitlines()[0])['state'],'snapshot_catalogued')
+    def test_link_processing_survives_every_publish_interruption(self):
+        from pipeline import atomic
+        for stop in range(1,11):
+            with self.subTest(stop=stop):
+                page,f=self.classified_link();page.write_text(page.read_text().replace('Two sets','Three sets'))
+                count=0
+                def fail(path,value):
+                    nonlocal count
+                    count+=1
+                    if count==stop:raise OSError('interrupted publication')
+                    return atomic(path,value)
+                with patch('pipeline.atomic',side_effect=fail):
+                    with self.assertRaises(OSError):ingest(self.source,self.run)
+                ingest(self.source,self.run)
+                link=json.loads(f.read_text().splitlines()[0]);self.assertEqual(link['state'],'snapshot_catalogued');self.assertEqual(link['evidence'],{'review':'durable link receipt'})
 if __name__=='__main__':unittest.main()

@@ -161,19 +161,23 @@ def ingest(source,run):
         prior_ready=prior_dir is not None and all((prior_dir/name).exists() for name in ['source-manifest.json','messages.jsonl','media.jsonl','links.jsonl'])
         previous_rows={m['message_id']:m for m in rows(prior_dir/'messages.jsonl')} if prior_ready else {}
         prior_media=rows(prior_dir/'media.jsonl') if prior_ready else []
+        prior_links=rows(prior_dir/'links.jsonl') if prior_ready else []
         if prior_ready and all((run/name).exists() for name in ['messages.jsonl','media.jsonl','links.jsonl']):
             coherent=False
             try:
-                live_messages=rows(run/'messages.jsonl');live_media=rows(run/'media.jsonl')
-                coherent=all(x.get('source_version')==old['source_version'] for x in live_messages+live_media)
+                live_messages=rows(run/'messages.jsonl');live_media=rows(run/'media.jsonl');live_links=rows(run/'links.jsonl')
+                coherent=all(x.get('source_version')==old['source_version'] for x in live_messages+live_media+live_links)
                 coherent=coherent and {x['message_id'] for x in live_messages}==set(previous_rows) and {x['slot_id'] for x in live_media}=={x['slot_id'] for x in prior_media}
+                coherent=coherent and all(x['payload_sha256']==previous_rows[x['message_id']]['payload_sha256'] for x in live_messages)
                 if coherent:
                     prior_media=live_media
+                    prior_links=live_links
             except (OSError,ValueError,KeyError): pass  # recover from committed generation
             if coherent:
                 # Commit durable processing receipts before replacing any live ledger.
                 # A write failure here must abort, not fall through to publication.
                 put_rows(prior_dir/'media.jsonl',prior_media)
+                put_rows(prior_dir/'links.jsonl',prior_links)
         changed=[m['message_id'] for m in messages if m['message_id'] in previous_rows and m['payload_sha256']!=previous_rows[m['message_id']]['payload_sha256']]
         def parse_date(value):
             try: return datetime.strptime(value,'%d.%m.%Y %H:%M:%S UTC%z')
@@ -196,6 +200,19 @@ def ingest(source,run):
                 if previous_row and previous_row.get('sha256')==row.get('sha256') and previous_row['source_state']==row['source_state'] and previous_row['kind']==row['kind']:
                     for k in ['state','evidence','decode','visual','transcript']:
                         if k in previous_row: row[k]=previous_row[k]
+            # URL, visible label and the entire message context must still match.
+            # Preserve occurrence order for repeated links without merging receipts.
+            prior_by_link={}
+            for row in prior_links:
+                key=(row['message_id'],row['url'],row['text'])
+                prior_by_link.setdefault(key,[]).append(row)
+            unchanged={m['message_id'] for m in messages if m['message_id'] in previous_rows and m['payload_sha256']==previous_rows[m['message_id']]['payload_sha256']}
+            for row in links:
+                key=(row['message_id'],row['url'],row['text'])
+                matches=prior_by_link.get(key,[])
+                if row['message_id'] in unchanged and matches:
+                    previous_link=matches.pop(0)
+                    row.update({k:v for k,v in previous_link.items() if k not in ('source_version','message_id','url','text')})
         invalidated=invalidate(run,changed)
         man=dict(corpus_id=corpus,source_version=version,original_path=str(source),snapshot_path=str(snapshot),
                  files=files,chat_titles=sorted(titles),authors=sorted(names),html_pages=[p.name for p in pages],
