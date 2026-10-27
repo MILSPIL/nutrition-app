@@ -13,7 +13,7 @@ test("unknown or forged errors cannot expose diagnostics or prototype properties
 });
 test("draft storage refusals carry exact repair hints for the model", () => {
   const exact = {
-    date_draft_conflict: "This date already has an unsaved draft in snapshot.draft. If its state is saving or unknown, ask the user to check that card first. Otherwise edit it: same draftId, its revision as baseRevision; keep its items and meal unless the user asks.",
+    date_draft_conflict: "This date already has an unsaved draft in snapshot.draft. If its state is saving or unknown, or it has noteId, ask the user to add or check that card first. Otherwise edit it: same draftId, its revision as baseRevision; keep its items and meal unless the user asks.",
     draft_frozen: "This draft is being saved and cannot change. Do not propose; ask the user to check that card first, then send the food again.",
     draft_too_large: "Draft data is over 16000 bytes. Propose fewer items or shorter names and assumptions, or ask the user to add the current preview first.",
     invalid_quantity: "quantity is {value, unit}: value is a number above 0 and up to 100000, or null; unit is g, ml, portion, package or unknown.",
