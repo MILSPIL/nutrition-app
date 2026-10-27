@@ -132,6 +132,11 @@ function DraftCard({
       ),
     );
   const locked = disabled || frozen || draft.blocked;
+  // A product without calories never blocks Add: saving confirms it as a note.
+  const unresolved = frozen
+      ? []
+      : draft.items.filter((i) => i.nutritionStatus !== "complete"),
+    unresolvedNames = unresolved.map((i) => `«${i.name}»`).join(", ");
   return (
     <article className="trainer-draft" data-testid="trainer-draft">
       <div className="trainer-draft-heading">
@@ -263,27 +268,10 @@ function DraftCard({
                 />
               </>
             ) : (
-              <>
-                <p>
-                  Калорійність або кількість ще невідома. Можна уточнити
-                  повідомленням.
-                </p>
-                <label className="trainer-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={item.noteSelected === true}
-                    disabled={locked}
-                    onChange={(e) =>
-                      onEdit({
-                        items: {
-                          [item.itemId]: { noteSelected: e.target.checked },
-                        },
-                      })
-                    }
-                  />
-                  Зберегти як нотатку без повного розрахунку
-                </label>
-              </>
+              <p>
+                Калорійність або кількість ще невідома. Можна уточнити
+                повідомленням.
+              </p>
             )}
             {!frozen && (
               <button
@@ -301,11 +289,6 @@ function DraftCard({
       <p className="trainer-total">
         Розраховано: {total.cal} ккал · Б {total.p} · Ж {total.f} · В {total.c}
       </p>
-      {draft.items.some((i) => i.nutritionStatus !== "complete") && (
-        <p className="trainer-warning">
-          Підсумок неповний. Нотатки не входять у суму калорій.
-        </p>
-      )}
       {dayStatus === "loading" && <p role="status">Перечитую записи за {dateLabel(draft.targetDate)}…</p>}
       {(dayStatus === "error" || stale) && !frozen && <div className="trainer-warning" role="status">
         <p>{dayStatus === "error" ? "Не вдалося прочитати цей день." : "Записи дня змінилися. Оновіть прев’ю перед додаванням."}</p>
@@ -315,6 +298,15 @@ function DraftCard({
       {frozen && draft.state !== "saved" && (
         <p role="status">
           Запис ще не підтверджено. Повтор використає ту саму спробу.
+        </p>
+      )}
+      {unresolved.length > 0 && (
+        <p className="trainer-warning trainer-add-reason">
+          {draft.noteId
+            ? `Щоб записати ${unresolvedNames}, уточніть кількість або напишіть тренеру, скільки це калорій.`
+            : unresolved.length === 1
+              ? `Без розрахунку калорій: ${unresolvedNames}. Збережеться нотаткою, у суму калорій не ввійде.`
+              : `Без розрахунку калорій: ${unresolvedNames}. Збережуться нотатками, у суму калорій не ввійдуть.`}
         </p>
       )}
       {draft.state === "saved" ? (
@@ -331,9 +323,8 @@ function DraftCard({
             disabled ||
             (!frozen && (dirty || stale || dayStatus !== "ready")) ||
             draft.blocked ||
-            draft.items.some(
-              (i) => i.nutritionStatus !== "complete" && !i.noteSelected,
-            )
+            // A note card resolves a saved note; the server cannot save it as a note again.
+            (!!draft.noteId && unresolved.length > 0)
           }
           onClick={() => onSave(draft)}
         >
@@ -959,9 +950,21 @@ export default function TrainerChat({
       setError("");
       await flushEdits();
       if (!current(generation)) return;
-      const fresh = own
+      let fresh = own
         .get()
         .server.drafts.find((d) => d.draftId === draft.draftId);
+      const notes = fresh.noteId || ["saving", "unknown", "saved"].includes(fresh.state)
+        ? []
+        : fresh.items.filter((i) => i.nutritionStatus !== "complete" && i.noteSelected !== true);
+      if (notes.length) {
+        // Add is the confirmation shown above it. A direct edit, not the queue:
+        // it is not a correction and a failure leaves no unsent changes behind.
+        await own.edit(fresh, {
+          items: notes.map((i) => ({ itemId: i.itemId, noteSelected: true })),
+        });
+        if (!current(generation)) return;
+        fresh = own.get().server.drafts.find((d) => d.draftId === draft.draftId);
+      }
       let previewDay;
       if (!["saving", "unknown", "saved"].includes(fresh.state)) {
         previewDay = await api.day(fresh.targetDate);
