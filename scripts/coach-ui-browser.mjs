@@ -225,10 +225,10 @@ try {
   await page.setViewportSize({width,height:width===1366?900:844});state=structuredClone(baselineState);edits=[];
   state.drafts=[{draftId:'synthetic-card-'+width,revision:1,state:'ready',targetDate,meal:1,items:[structuredClone(item),structuredClone(homeItem)],freshness}];
   await launcher.click();const add=page.getByRole('button',{name:'Додати',exact:true});await add.waitFor();await page.waitForFunction(()=>![...document.querySelectorAll('button')].find(b=>b.textContent==='Додати')?.disabled);
-  const card=await add.evaluate(node=>{const reason=node.previousElementSibling,box=node.closest('.trainer-draft').getBoundingClientRect(),remove=[...node.closest('.trainer-draft').querySelectorAll('button[aria-label^="Прибрати "]')];return {enabled:!node.disabled,reason:reason?.textContent||'',reasonGap:reason?node.getBoundingClientRect().top-reason.getBoundingClientRect().bottom:null,remove:remove.map(b=>{const r=b.getBoundingClientRect();return {height:r.height,left:r.left-box.left,right:box.right-r.right};}),overflow:document.documentElement.scrollWidth-innerWidth};});
+  const card=await add.evaluate(node=>{const reason=node.previousElementSibling,box=node.closest('.trainer-draft').getBoundingClientRect(),remove=[...node.closest('.trainer-draft').querySelectorAll('button[aria-label^="Прибрати "]')];return {enabled:!node.disabled,reason:reason?.textContent||'',reasonGap:reason?node.getBoundingClientRect().top-reason.getBoundingClientRect().bottom:null,remove:remove.map(b=>{const r=b.getBoundingClientRect();return {height:r.height,width:r.width,left:r.left-box.left,right:box.right-r.right};}),overflow:document.documentElement.scrollWidth-innerWidth};});
   evidence['card'+width]=card;
   check('product without calories does not block Add '+width,card.enabled&&card.reason==='Без розрахунку калорій: «Синтетична домашня страва». Збережеться нотаткою, у суму калорій не ввійде.'&&card.reasonGap>=0&&card.reasonGap<=24);
-  check('each product has a reachable remove '+width,card.remove.length===2&&card.remove.every(r=>r.height>=44&&r.left>=0&&r.right>=0)&&card.overflow===0);
+  check('each product has a reachable remove '+width,card.remove.length===2&&card.remove.every(r=>r.height>=44&&r.width>=44&&r.left>=0&&r.right>=0)&&card.overflow===0);
   await page.screenshot({path:join(out,'card-control-'+width+'.png')});
   await page.getByRole('button',{name:'Прибрати Синтетична домашня страва',exact:true}).click();
   await page.waitForFunction(()=>!document.querySelector('.trainer-draft')?.textContent.includes('Синтетична домашня страва'));

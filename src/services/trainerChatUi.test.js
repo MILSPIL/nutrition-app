@@ -708,6 +708,27 @@ describe("1.9.7 card control", () => {
     expect(body.items.some(i => i.itemId === "synthetic-home")).toBe(false);
     expect(server.drafts[0].items.map(i => i.itemId)).toEqual(["synthetic-fruit"]);
     expect(button("Додати").disabled).toBe(false);
+    expect(host.querySelector(".trainer-add-reason")).toBeNull();
+  });
+  test("S1 removals before sending go in one edit without the removed product's own changes", async () => {
+    const draft = cardFixture();
+    draft.items = [...draft.items, { ...draft.items[0], itemId: "synthetic-extra", name: "Синтетичний зайвий плід" }];
+    await render();
+    await act(async () => { Simulate.change(host.querySelector('select[aria-label="Одиниця 3"]'), { target: { value: "ml" } }); });
+    await click("Прибрати Синтетичний зайвий плід");
+    await click("Прибрати Синтетична домашня страва");
+    await settle();
+    expect(api.edit).toHaveBeenCalledTimes(1);
+    const body = api.edit.mock.calls[0][1];
+    expect([...body.removeItemIds].sort()).toEqual(["synthetic-extra", "synthetic-home"]);
+    expect(body.items).toEqual([]);
+    expect(server.drafts[0].items.map(i => i.itemId)).toEqual(["synthetic-fruit"]);
+  });
+  test("S1 a note card with several products also offers «Прибрати»", async () => {
+    const draft = cardFixture({ noteId: "synthetic-note-000000002" });
+    draft.items = [...draft.items, { ...JSON.parse(JSON.stringify(unknownItem)), itemId: "synthetic-soup", name: "Синтетичний суп" }];
+    await render();
+    expect(removeButton("Синтетичний суп")).toBeTruthy();
   });
   test("S1 the last product and a frozen card have no «Прибрати»", async () => {
     previewFixture();
@@ -753,6 +774,16 @@ describe("1.9.7 card control", () => {
     expect(api.edit.mock.invocationCallOrder[0]).toBeLessThan(api.prepareSave.mock.invocationCallOrder[0]);
     expect(api.prepareSave.mock.calls[0][1]).toBe(server.drafts[0].revision);
     expect(host.querySelector('[data-testid="trainer-saved-receipt"]').textContent).toContain("Синтетична домашня страва · нотатка");
+  });
+  test("S2 a failed note confirmation does not save and leaves «Додати» available", async () => {
+    cardFixture();
+    api.edit.mockRejectedValueOnce(Error("draft_conflict"));
+    await render();
+    await click("Додати");
+    expect(api.edit).toHaveBeenCalledTimes(1);
+    expect(api.prepareSave).not.toHaveBeenCalled();
+    expect(host.querySelector(".trainer-error")).toBeTruthy();
+    expect(button("Додати").disabled).toBe(false);
   });
   test("S3 the reason sits right above «Додати» and names the product", async () => {
     cardFixture();
