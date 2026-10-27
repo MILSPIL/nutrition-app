@@ -475,7 +475,7 @@ export default function TrainerChat({
       })
       .catch(() => {});
     const poll = setInterval(() => {
-      if (!closed) void s.refresh().catch(() => {});
+      if (!closed) void s.refresh({ background: true }).catch(() => {});
     }, 2500);
     const before = (e) => {
       if (
@@ -513,7 +513,7 @@ export default function TrainerChat({
         setError("");
         s = createSession();
         session.current = s;
-        void s.refresh().catch(() => {});
+        void s.refresh({ background: true }).catch(() => {});
       }
     };
     window.addEventListener("pageshow", pageshow);
