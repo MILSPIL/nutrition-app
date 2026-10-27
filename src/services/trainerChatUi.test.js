@@ -830,6 +830,29 @@ describe("1.9.7 card control", () => {
     expect(removeButton("Синтетичний зайвий плід").disabled).toBe(true);
     await act(async () => release());
   });
+  test("review: leaving the page during «Додати» does not keep the chat locked after it comes back", async () => {
+    cardFixture();
+    await render();
+    const day = await api.day("2026-01-02");
+    let release;
+    api.day.mockImplementationOnce(() => new Promise((ok) => { release = () => ok(day); }));
+    await click("Додати");
+    expect(host.querySelector("textarea").disabled).toBe(true);
+    await restore();
+    expect(host.querySelector("textarea").disabled).toBe(false);
+    await act(async () => release());
+  });
+  test("review: a card frozen on another device shows the server's products, not a queued removal", async () => {
+    cardFixture();
+    api.edit = jest.fn(async () => { throw Error("network_unavailable"); });
+    await render();
+    await click("Прибрати Синтетична домашня страва");
+    await settle();
+    expect(host.querySelector('[data-testid="trainer-draft"]').textContent).not.toContain("Синтетична домашня страва");
+    server.drafts[0].state = "unknown";
+    await act(async () => { await new Promise(r => setTimeout(r, 2600)); });
+    expect(host.querySelector('[data-testid="trainer-draft"]').textContent).toContain("Синтетична домашня страва");
+  }, 10000);
   test("review: a frozen card shows no reason above its button", async () => {
     cardFixture();
     server.drafts[0].state = "unknown";

@@ -462,6 +462,7 @@ export default function TrainerChat({
     releaseVoiceClip();
     setVoicePreview(null);
     setSendPending(false);
+    setSavePending(false);
     sendLock.current = false;
     const epochs = epoch;
     const generation = epochs.current;
@@ -513,6 +514,7 @@ export default function TrainerChat({
       releaseVoiceClip();
       setVoicePreview(null);
       setSendPending(false);
+      setSavePending(false);
       sendLock.current = false;
       setEdits({});
       editRef.current = {};

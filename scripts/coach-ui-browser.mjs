@@ -224,8 +224,9 @@ try {
  for(const width of [375,390,1366]){
   await page.setViewportSize({width,height:width===1366?900:844});state=structuredClone(baselineState);edits=[];
   // The card belongs to the latest turn, so the stream shows it expanded under that message.
+  // Its freshness is the day as served now (the norm revision above changed it), or Add stays off as stale.
   const cardTurn='synthetic-card-turn-'+width;state.messages.push({id:cardTurn+'-u',turnId:cardTurn,role:'user',content:'Синтетичний обід'});state.latestTurn={turnId:cardTurn,state:'completed',text:'Синтетичний обід'};
-  state.drafts=[{draftId:'synthetic-card-'+width,turnId:cardTurn,revision:1,state:'ready',targetDate,meal:1,items:[structuredClone(item),structuredClone(homeItem)],freshness}];
+  state.drafts=[{draftId:'synthetic-card-'+width,turnId:cardTurn,revision:1,state:'ready',targetDate,meal:1,items:[structuredClone(item),structuredClone(homeItem)],freshness:structuredClone(day.freshness)}];
   await launcher.click();const add=page.getByRole('button',{name:'Додати',exact:true});await add.waitFor();await page.waitForFunction(()=>![...document.querySelectorAll('button')].find(b=>b.textContent==='Додати')?.disabled);
   const card=await add.evaluate(node=>{const reason=node.previousElementSibling,box=node.closest('.trainer-draft').getBoundingClientRect(),remove=[...node.closest('.trainer-draft').querySelectorAll('button[aria-label^="Прибрати "]')];return {enabled:!node.disabled,reason:reason?.textContent||'',reasonGap:reason?node.getBoundingClientRect().top-reason.getBoundingClientRect().bottom:null,remove:remove.map(b=>{const r=b.getBoundingClientRect();return {height:r.height,width:r.width,left:r.left-box.left,right:box.right-r.right};}),overflow:document.documentElement.scrollWidth-innerWidth};});
   evidence['card'+width]=card;

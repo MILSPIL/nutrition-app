@@ -620,6 +620,12 @@ try {
   await page
     .getByText("Збережеться нотаткою, у суму калорій не ввійде.", { exact: false })
     .waitFor();
+  // Add turns on once the day is read again, not at the same moment as the reason.
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll("button")].some(
+      (b) => b.textContent === "Додати" && !b.disabled,
+    ),
+  );
   check(
     "Їжа без розрахунку не блокує Додати, причина над кнопкою",
     await page
