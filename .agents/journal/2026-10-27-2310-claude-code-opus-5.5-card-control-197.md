@@ -72,6 +72,7 @@ Codex gpt-6-astra/xhigh, 181 с, 3 знахідки P2, підтвердилис
 - 💭 справжня вузька помилка: `finally` у `save` перевіряв `alive.current`, тож старе збереження, що завершилось після повернення на сторінку, знімало блокування нового. Тест K19 червоний (`Expected: true`, `Received: false`), виправлено `current(generation)`, як у `send`.
 - 💭 час розділів і «28.10» у спеці не збігались з git: виправлено; «Наступні кроки» переписано; знімки картки тепер з «Додати» в кадрі (`scrollIntoViewIfNeeded`).
 - Перевірки: тести 1.9.7 19/19, React 376/376.
+- CI 40591369103 на `0cf501c`: `test-and-build`, `groq-free-resource-check`, `systemd-credential-check` success; `hermes-resource-check` знову `getaddrinfo ENOTFOUND fdc.nal.usda.gov` (22:09 UTC; з Mac хост відповідає). Знімок `card-control-375.png` тепер з «Додати» і поясненням у кадрі, надіслав Юрію. Гілка `codex/hermes-personal-server` без захисту, злиття ця перевірка не блокує. Четвертий короткий прохід spec-reviewer запущено; питання Юрію: злити й опублікувати зараз чи чекати DNS.
 
 ## Ризики й нотатки
 
