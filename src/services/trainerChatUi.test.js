@@ -819,6 +819,23 @@ describe("1.9.7 card control", () => {
     expect(host.querySelectorAll('img[alt="Фото етикетки перед надсиланням"]')).toHaveLength(0);
     await settle();
   });
+  test("review: «Прибрати» is off while «Додати» is saving", async () => {
+    const draft = cardFixture();
+    draft.items = [...draft.items, { ...draft.items[0], itemId: "synthetic-extra", name: "Синтетичний зайвий плід" }];
+    await render();
+    const day = await api.day("2026-01-02");
+    let release;
+    api.day.mockImplementationOnce(() => new Promise((ok) => { release = () => ok(day); }));
+    await click("Додати");
+    expect(removeButton("Синтетичний зайвий плід").disabled).toBe(true);
+    await act(async () => release());
+  });
+  test("review: a frozen card shows no reason above its button", async () => {
+    cardFixture();
+    server.drafts[0].state = "unknown";
+    await render();
+    expect(host.querySelector(".trainer-add-reason")).toBeNull();
+  });
   test("S3 the reason sits right above «Додати» and names the product", async () => {
     cardFixture();
     await render();

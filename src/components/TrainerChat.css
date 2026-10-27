@@ -204,19 +204,6 @@
   font: inherit;
   font-size: 16px;
 }
-.trainer-chat .trainer-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  font-size: 14px;
-}
-.trainer-chat input[type="checkbox"] {
-  width: 22px;
-  height: 22px;
-  flex: none;
-  accent-color: #007aff;
-}
 .trainer-macros,
 .trainer-total {
   font-weight: 600;

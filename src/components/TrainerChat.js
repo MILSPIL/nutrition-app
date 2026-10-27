@@ -59,6 +59,8 @@ function trainerText(content) {
   return parts.map((part, i) => (i % 2 ? <strong key={i}>{part}</strong> : part));
 }
 function applyEdits(d, patch = {}) {
+  // A frozen card shows what the server is saving, never unsent changes.
+  if (["saving", "unknown", "saved"].includes(d.state)) return d;
   return {
     ...d,
     ...patch,
@@ -364,6 +366,7 @@ export default function TrainerChat({
     [recordState, setRecordState] = useState("ready"),
     [voicePreview, setVoicePreview] = useState(null),
     [sendPending, setSendPending] = useState(false),
+    [savePending, setSavePending] = useState(false),
     [seconds, setSeconds] = useState(0),
     [showAttachments, setShowAttachments] = useState(false),
     [dateContext, setDateContext] = useState(() => initialTrainerDate(initialDateContext)),
@@ -951,6 +954,9 @@ export default function TrainerChat({
   async function save(draft) {
     const generation = epoch.current,
       own = session.current;
+    // The card stays locked for the whole save: a removal queued meanwhile
+    // would hit a frozen draft the server no longer edits.
+    setSavePending(true);
     try {
       setError("");
       await flushEdits();
@@ -1000,9 +1006,11 @@ export default function TrainerChat({
       });
     } catch (e) {
       if (current(generation)) catchError(e);
+    } finally {
+      if (alive.current) setSavePending(false);
     }
   }
-  const busy = view.busy || sendPending || recordState !== "ready",
+  const busy = view.busy || sendPending || savePending || recordState !== "ready",
     turn = view.server?.currentTurn,
     canSend =
       !!view.server &&
