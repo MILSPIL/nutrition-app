@@ -1,0 +1,73 @@
+{
+  "task": "NORMAL-USE-01 / chat reliability",
+  "goal": "objective_e45aa8ac1aa3",
+  "criteria": [
+    "G02",
+    "G05",
+    "G06",
+    "G07",
+    "G08",
+    "G11"
+  ],
+  "version": "1.9.5",
+  "codeSha": "16a73485a9481dafdaa92584d659ce803e61c3fd",
+  "ci": {
+    "run": 40482809890,
+    "allFourGroupsPassed": true
+  },
+  "verification": {
+    "nodeTargeted": 79,
+    "react": 344,
+    "browser": 137,
+    "nativeJointChecks": 28,
+    "widths": [
+      375,
+      390,
+      1366
+    ],
+    "edgeDeltasPx": [
+      0,
+      0
+    ],
+    "minimumTargetPx": 44,
+    "syntheticBrowserCleanupVerified": true,
+    "cleanGitExport": true
+  },
+  "production": {
+    "frontendFilesShaVerified": 37,
+    "siteStatus": 200,
+    "apiStatus": 200,
+    "realAdviceElapsedMs": [
+      4967,
+      4406
+    ],
+    "realAdviceCompleted": 2,
+    "physicalPostsPerAdvice": [
+      1,
+      1
+    ],
+    "newApiSidecarBytes": [
+      343,
+      351
+    ],
+    "newSidecarsHaveFullSnapshot": false,
+    "appPending": 0,
+    "outboxPending": 0,
+    "savedDataUnchanged": true,
+    "oldInputsResubmitted": 0,
+    "operatorCancellations": 0,
+    "model": "gpt-6.1-sol",
+    "nativeAutomaticCompression": false,
+    "cpu": 2,
+    "memoryBytes": 2147483648,
+    "swapBytes": 0,
+    "postsPerInput": 12,
+    "deadlineMs": 90000
+  },
+  "cleanup": {
+    "administratorAbsent": true,
+    "temporarySecretsDeleted": 3,
+    "offsiteEncryptedBackupVerified": true
+  },
+  "acceptance": "technical checks passed; phone and pilot acceptance pending"
+}
