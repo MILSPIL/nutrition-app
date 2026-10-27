@@ -232,7 +232,8 @@ try {
   evidence['card'+width]=card;
   check('product without calories does not block Add '+width,card.enabled&&card.reason==='Без розрахунку калорій: «Синтетична домашня страва». Збережеться нотаткою, у суму калорій не ввійде.'&&card.reasonGap>=0&&card.reasonGap<=24);
   check('each product has a reachable remove '+width,card.remove.length===2&&card.remove.every(r=>r.height>=44&&r.width>=44&&r.left>=0&&r.right>=0)&&card.overflow===0);
-  await page.screenshot({path:join(out,'card-control-'+width+'.png')});
+  // The shot shows Add with its reason, the part the owner checks by eye.
+  await add.scrollIntoViewIfNeeded();await page.screenshot({path:join(out,'card-control-'+width+'.png')});
   await page.getByRole('button',{name:'Прибрати Синтетична домашня страва',exact:true}).click();
   await page.waitForFunction(()=>!document.querySelector('.trainer-draft')?.textContent.includes('Синтетична домашня страва'));
   await page.getByText('Зберігаю зміни прев’ю…',{exact:true}).waitFor({state:'hidden'});

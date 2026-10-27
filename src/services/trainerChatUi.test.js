@@ -842,6 +842,22 @@ describe("1.9.7 card control", () => {
     expect(host.querySelector("textarea").disabled).toBe(false);
     await act(async () => release());
   });
+  test("review: an older save that ends after the page came back does not unlock a newer save", async () => {
+    const draft = cardFixture();
+    draft.items = [...draft.items, { ...draft.items[0], itemId: "synthetic-extra", name: "Синтетичний зайвий плід" }];
+    await render();
+    const day = await api.day("2026-01-02");
+    let releaseOld, releaseNew;
+    api.day.mockImplementationOnce(() => new Promise((ok) => { releaseOld = () => ok(day); }));
+    await click("Додати");
+    await restore();
+    api.day.mockImplementationOnce(() => new Promise((ok) => { releaseNew = () => ok(day); }));
+    await click("Додати");
+    expect(removeButton("Синтетичний зайвий плід").disabled).toBe(true);
+    await act(async () => releaseOld());
+    expect(removeButton("Синтетичний зайвий плід").disabled).toBe(true);
+    await act(async () => releaseNew());
+  });
   test("review: a card frozen on another device shows the server's products, not a queued removal", async () => {
     cardFixture();
     api.edit = jest.fn(async () => { throw Error("network_unavailable"); });

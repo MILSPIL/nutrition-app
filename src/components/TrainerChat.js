@@ -1009,7 +1009,8 @@ export default function TrainerChat({
     } catch (e) {
       if (current(generation)) catchError(e);
     } finally {
-      if (alive.current) setSavePending(false);
+      // A save from before the page was hidden leaves a newer save locked.
+      if (current(generation)) setSavePending(false);
     }
   }
   const busy = view.busy || sendPending || savePending || recordState !== "ready",
