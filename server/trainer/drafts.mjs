@@ -304,7 +304,8 @@ export function attachDraftStore({
     if (!r) fail("not_found", 404);
     return JSON.parse(r.value);
   };
-  const write = (cid, d) => {
+  // One unsaved draft per conversation date.
+  const assertDateFree = (cid, d) => {
     const collision = db
       .prepare(
         "SELECT id FROM drafts WHERE conversation_id=? AND target_date=? AND json_extract(value,'$.state')!='saved'",
@@ -312,6 +313,9 @@ export function attachDraftStore({
       .get(cid, d.targetDate);
     if (collision && collision.id !== d.draftId)
       fail("date_draft_conflict", 409);
+  };
+  const write = (cid, d) => {
+    assertDateFree(cid, d);
     db.prepare(
       "INSERT INTO drafts VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET target_date=excluded.target_date,revision=excluded.revision,value=excluded.value,updated=excluded.updated",
     ).run(d.draftId, cid, d.targetDate, d.revision, stableJSON(d), d.updatedAt);
@@ -370,6 +374,8 @@ export function attachDraftStore({
         if (old && admitted?.revision !== old.revision)
           fail("draft_conflict", 409);
         const next = patchDraft(old, patch, { resolve, now, turnId: id });
+        // Refuse while the model can still repair it; publish would drop it silently.
+        assertDateFree(turn.conversation_id, next);
         if (
           db
             .prepare("SELECT 1 FROM proposals WHERE turn_id=? AND draft_id=?")
