@@ -857,6 +857,7 @@ describe("1.9.7 card control", () => {
     await act(async () => releaseOld());
     expect(removeButton("Синтетичний зайвий плід").disabled).toBe(true);
     await act(async () => releaseNew());
+    expect(host.querySelector("textarea").disabled).toBe(false);
   });
   test("review: a card frozen on another device shows the server's products, not a queued removal", async () => {
     cardFixture();
