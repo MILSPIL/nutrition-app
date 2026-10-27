@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Mic, Square, Camera, Send, X, Paperclip, Image as ImageIcon } from "lucide-react";
 import { createTrainerApi, trainerError, trainerFeedback } from "../services/trainerApi";
-import { createTrainerSession } from "../services/trainerSession";
+import { createTrainerSession, NETWORK_ERRORS } from "../services/trainerSession";
 import { dateLabel, initialTrainerDate, kyivDateKey, restoredTrainerText } from "../services/trainerDates";
 import {
   createRecorder,
@@ -51,6 +51,13 @@ const statuses = {
   failed: "Обробка не вдалася",
   cancelled: "Обробку скасовано",
 };
+// Trainer replies may use **bold**; nothing else is markup. Text nodes only:
+// an unpaired ** and all backticks are dropped.
+function trainerText(content) {
+  const parts = String(content).replace(/`/g, "").split("**");
+  if (parts.length % 2 === 0) parts.splice(-2, 2, parts.at(-2) + parts.at(-1));
+  return parts.map((part, i) => (i % 2 ? <strong key={i}>{part}</strong> : part));
+}
 function applyEdits(d, patch = {}) {
   return {
     ...d,
@@ -393,6 +400,8 @@ export default function TrainerChat({
   latest.current = { view, photos, recordState, dateContext, edits };
   editRef.current = edits;
   const catchError = (e) => {
+    // The session shows a connection error itself and clears it on recovery.
+    if (NETWORK_ERRORS.has(e?.message) && session.current?.get().error === e.message) return;
     if (alive.current) setError(trainerError(e));
   };
   const metric = async (p, id) => {
@@ -475,7 +484,7 @@ export default function TrainerChat({
       })
       .catch(() => {});
     const poll = setInterval(() => {
-      if (!closed) void s.refresh().catch(() => {});
+      if (!closed) void s.refresh({ background: true }).catch(() => {});
     }, 2500);
     const before = (e) => {
       if (
@@ -513,7 +522,7 @@ export default function TrainerChat({
         setError("");
         s = createSession();
         session.current = s;
-        void s.refresh().catch(() => {});
+        void s.refresh({ background: true }).catch(() => {});
       }
     };
     window.addEventListener("pageshow", pageshow);
@@ -579,14 +588,22 @@ export default function TrainerChat({
   }
   const scrollDrafts = view.server?.drafts?.map(d=>d.draftId+':'+d.revision+':'+d.state).join('|') || '';
   const scrollMessage = view.server?.messages?.at(-1)?.id;
-  const scrollKey=[scrollMessage,scrollDrafts,view.server?.latestTurn?.turnId,view.server?.contextProposals?.length].join('/');
+  const scrollKey=[scrollMessage,scrollDrafts,view.server?.latestTurn?.turnId,view.server?.currentTurn?.state,view.server?.contextProposals?.length].join('/');
   useEffect(()=>{
     const area=panel.current?.querySelector('.trainer-scroll');
     if(!area)return;
     // The last timeline item is the current conversation, even when an older
     // draft changed or a saved receipt exists. Never target a hidden form.
-    const target=area.querySelector('.trainer-messages')?.lastElementChild;
-    if(target)area.scrollTop+=target.getBoundingClientRect().top-area.getBoundingClientRect().top-12;
+    let target=area.querySelector('.trainer-messages')?.lastElementChild,toBottom=false;
+    const box=area.getBoundingClientRect();
+    // The turn status sits under the user's message: show both when they fit,
+    // otherwise the end of a long message with the status and its buttons.
+    if(target?.classList.contains('trainer-turn')&&target.previousElementSibling){
+      if(target.getBoundingClientRect().bottom-target.previousElementSibling.getBoundingClientRect().top+24<=box.height)target=target.previousElementSibling;
+      else toBottom=true;
+    }
+    if(toBottom)area.scrollTop+=target.getBoundingClientRect().bottom-box.bottom+12;
+    else if(target)area.scrollTop+=target.getBoundingClientRect().top-box.top-12;
     else area.scrollTop=area.scrollHeight;
     scrollSnapshot.current={drafts:scrollDrafts,message:scrollMessage};
   },[scrollKey,scrollDrafts,scrollMessage]);
@@ -1057,10 +1074,36 @@ export default function TrainerChat({
                 className={`trainer-message ${m.role === "user" ? "from-user" : "from-trainer"}`}
               >
                 <span>{m.role === "user" ? "Ви" : "Тренер"}</span>
-                <p>{m.content}</p>
+                <p>{m.role === "user" ? m.content : trainerText(m.content)}</p>
                 {(m.photos || []).map((photo, index) => <TrainerPhoto key={`${ownerKey}:${photo.ref}`} api={api} reference={photo.ref} number={index + 1} />)}
               </div>
             ); })}
+            {activeTurn(turn) && (
+              <div className="trainer-turn" role="status">
+                <p>{turn.state === "unknown" ? feedback || "Завершення ще не підтверджене." : turn.cleanupPending ? "Завершую попередню обробку" : statuses[turn.state]}</p>
+                {turn.state === "unknown" && (
+                  <button
+                    onClick={() =>
+                      void session.current.recover(turn.turnId).catch(catchError)
+                    }
+                    disabled={busy}
+                  >
+                    Перевірити результат
+                  </button>
+                )}
+                {turn.state === "unknown" ? <button
+                  onClick={() => turn.text ? void returnMessage(turn) : void session.current.cancel(turn.turnId).catch(catchError)}
+                  disabled={busy || turn.expired}
+                >{turn.text ? "Зупинити й повернути текст" : "Скасувати обробку"}</button> : <button
+                  onClick={() =>
+                    void session.current.cancel(turn.turnId).catch(catchError)
+                  }
+                  disabled={busy || turn.expired}
+                >
+                  Скасувати обробку
+                </button>}
+              </div>
+            )}
           </div>
           {view.server?.maintenanceBlocked && (
             <p className="trainer-warning">
@@ -1162,32 +1205,6 @@ export default function TrainerChat({
           )}
         </div>
         <footer className="trainer-composer">
-          {activeTurn(turn) && (
-            <div className="trainer-turn" role="status">
-              <p>{turn.state === "unknown" ? feedback || "Завершення ще не підтверджене." : turn.cleanupPending ? "Завершую попередню обробку" : statuses[turn.state]}</p>
-              {turn.state === "unknown" && (
-                <button
-                  onClick={() =>
-                    void session.current.recover(turn.turnId).catch(catchError)
-                  }
-                  disabled={busy}
-                >
-                  Перевірити результат
-                </button>
-              )}
-              {turn.state === "unknown" ? <button
-                onClick={() => turn.text ? void returnMessage(turn) : void session.current.cancel(turn.turnId).catch(catchError)}
-                disabled={busy || turn.expired}
-              >{turn.text ? "Зупинити й повернути текст" : "Скасувати обробку"}</button> : <button
-                onClick={() =>
-                  void session.current.cancel(turn.turnId).catch(catchError)
-                }
-                disabled={busy || turn.expired}
-              >
-                Скасувати обробку
-              </button>}
-            </div>
-          )}
           {error && Object.keys(edits).length > 0 && (
             <button
               disabled={busy}

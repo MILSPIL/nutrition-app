@@ -1,14 +1,20 @@
 import { newId } from "./mealItems";
+const QUIET_MS = 10000;
+export const NETWORK_ERRORS = new Set(["network_unavailable", "client_timeout"]);
 // One lifetime per authenticated owner/open panel. No chat content in browser storage.
 export function createTrainerSession({
   api,
   commit,
   onChange = () => {},
   onSaved = () => {},
+  now = Date.now,
 }) {
   let closed = false,
     writing = null,
     polling = null,
+    quietSince = null,
+    seriesFloor = null,
+    lastTick = null,
     version = 0,
     mutation = false,
     composerTimer,
@@ -68,12 +74,26 @@ export function createTrainerSession({
     if (!closed && e.message !== "context_changed")
       emit({ error: e.message || "trainer_unavailable" });
   };
-  async function refresh() {
+  // Background polls stay quiet through short network gaps: one failed poll after
+  // a phone switch is normal. Shown after 10 s without a connection, cleared on recovery.
+  async function refresh({ background = false } = {}) {
+    if (background) {
+      const tick = now();
+      // A frozen tab: a new series starts now, also for a request still in flight.
+      if (lastTick !== null && tick - lastTick > QUIET_MS) {
+        quietSince = null;
+        seriesFloor = tick;
+      }
+      lastTick = tick;
+    }
     if (polling) return polling;
     if (mutation) return state.server;
-    const v = version;
+    const v = version,
+      started = now();
     polling = call((s) => api.state(s))
       .then((server) => {
+        quietSince = null;
+        if (background && NETWORK_ERRORS.has(state.error)) emit({ error: "" });
         if (v !== version) return state.server;
         const changed =
           state.server && state.server.conversationId !== server.conversationId;
@@ -104,6 +124,12 @@ export function createTrainerSession({
         return server;
       })
       .catch((e) => {
+        if (background && NETWORK_ERRORS.has(e.message)) {
+          quietSince ??= Math.max(started, seriesFloor ?? started);
+          if (now() - quietSince >= QUIET_MS) fault(Error("network_unavailable"));
+          throw e;
+        }
+        if (background) quietSince = null;
         fault(e);
         throw e;
       })

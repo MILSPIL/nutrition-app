@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { posix } from "node:path";
 import { nativeDraftCompletion, readyDraftAckInPayload } from "./draft-completion.mjs";
 import { stableJSON, TOOLS } from "./limits.mjs";
+import { MODEL_TOOL_ERRORS, safeToolFailure } from "./tool-errors.mjs";
 
 const answer = value => {
   if (value.state !== "completed" || typeof value.result?.final_response !== "string") throw Object.assign(Error("trainer_failed"), { knownNativeTerminal: ["completed", "failed", "cancelled"].includes(value.state) });
@@ -100,7 +101,11 @@ export function createPersonalBackend({ uid, core, tools, store, releaseTools = 
                 // A later tool failure invalidates the shortcut; user/model text
                 // cannot manufacture this acknowledgement.
                 readyAck = undefined;
-                const result = await tools[name](parameters, { ...context, signal });
+                let result;
+                // The private process pipe turns unknown errors into trainer_unavailable;
+                // a repairable code must reach the model as a result with its hint.
+                try { result = await tools[name](parameters, { ...context, signal }); }
+                catch (error) { if (MODEL_TOOL_ERRORS.has(error?.message)) return safeToolFailure(error); throw error; }
                 if (name === "propose_food_draft" && result?.state === "ready" && result.saved === false && result.incomplete === false) readyAck = structuredClone(result);
                 return result;
               },

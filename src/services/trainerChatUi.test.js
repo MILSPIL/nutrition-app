@@ -577,3 +577,92 @@ test("closing a voice preview releases its local object URL", async () => {
   expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1);
   root = createRoot(host);
 });
+describe("1.9.6 chat stream", () => {
+  const prev = "turn-previous-000001", active = "turn-active-00000001";
+  test("S6 turn status is the last row of the message list, below the user's message, not in the composer", async () => {
+    server.messages = [
+      { id: prev + "-u", turnId: prev, role: "user", content: "З’їв яблуко" },
+      { id: prev + "-a", turnId: prev, role: "assistant", content: "Готово" },
+      { id: active + "-u", turnId: active, role: "user", content: "З’їв 200 г філе" },
+    ];
+    server.drafts = [{ draftId: "synthetic-saved-draft", revision: 1, state: "saved", targetDate: "2026-01-03", meal: 1, turnId: prev, items: [], save: { command: { items: [], notes: [] } } }];
+    server.currentTurn = { turnId: active, state: "running" };
+    server.latestTurn = { turnId: active, state: "running", text: "З’їв 200 г філе" };
+    await render();
+    const list = host.querySelector(".trainer-messages");
+    const status = list.lastElementChild;
+    expect(status.matches(".trainer-turn[role=status]")).toBe(true);
+    expect(status.textContent).toContain("Тренер розбирає повідомлення");
+    expect(button("Скасувати обробку")).toBeTruthy();
+    const user = [...list.querySelectorAll(".trainer-message.from-user")].at(-1);
+    expect(user.textContent).toContain("200 г філе");
+    expect(user.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(list.querySelector('[data-testid="trainer-saved-receipt"]').compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(host.querySelector("footer .trainer-turn")).toBeNull();
+  });
+  test.each([
+    ["a short message stays fully in view with the status under it", 200, (message, status) => message.top === 12 && status.bottom <= 600],
+    ["a long message scrolls to its end so the status and its buttons stay in view", 890, (message, status) => status.top >= 0 && status.bottom <= 600 && message.bottom > 0],
+  ])("S6 %s", async (_name, height, visible) => {
+    // Layout mock: content moves up as the chat scrolls; the scroll area is 600 px high.
+    const area = () => host.querySelector(".trainer-scroll");
+    const rect = (top, bottom) => ({ top, bottom, height: bottom - top, left: 0, right: 390, width: 390, x: 0, y: top, toJSON() {} });
+    const layout = jest.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function () {
+      const y = area()?.scrollTop || 0;
+      if (this.classList.contains("trainer-scroll")) return rect(0, 600);
+      if (this.classList.contains("trainer-turn")) return rect(310 + height - y, 390 + height - y);
+      if (this.nextElementSibling?.classList.contains("trainer-turn")) return rect(300 - y, 300 + height - y);
+      return rect(0, 0);
+    });
+    try {
+      server.messages = [{ id: active + "-u", turnId: active, role: "user", content: "Синтетичний список їжі" }];
+      server.currentTurn = { turnId: active, state: "running" };
+      server.latestTurn = { turnId: active, state: "running" };
+      await render();
+      const status = host.querySelector(".trainer-messages > .trainer-turn");
+      expect(visible(status.previousElementSibling.getBoundingClientRect(), status.getBoundingClientRect())).toBe(true);
+    } finally { layout.mockRestore(); }
+  });
+  test("S6 status without the turn's message in the list is still the last row", async () => {
+    server.currentTurn = { turnId: active, state: "queued" };
+    await render();
+    const list = host.querySelector(".trainer-messages");
+    expect(list.lastElementChild.matches(".trainer-turn")).toBe(true);
+    expect(list.lastElementChild.textContent).toContain("Повідомлення отримано");
+  });
+  test("S7 trainer **bold** renders as strong; stray ** and backticks disappear; single * stays", async () => {
+    server.messages = [
+      { id: prev + "-u", turnId: prev, role: "user", content: "Скільки **лишилось**?" },
+      { id: prev + "-a", turnId: prev, role: "assistant", content: "Юра, **1385 ккал** до вечері, код `x`. Ще ** без пари і *одна* зірка." },
+    ];
+    await render();
+    const trainer = host.querySelector(".trainer-message.from-trainer");
+    expect([...trainer.querySelectorAll("strong")].map(e => e.textContent)).toEqual(["1385 ккал"]);
+    expect(trainer.textContent).not.toMatch(/\*\*|`/);
+    expect(trainer.textContent).toContain("код x.");
+    expect(trainer.textContent).toContain("*одна*");
+    expect(host.querySelector(".trainer-message.from-user").textContent).toContain("Скільки **лишилось**?");
+  });
+  test("S5 a connection error from a failed action clears itself once background checks reach the app", async () => {
+    jest.useFakeTimers();
+    try {
+      server.currentTurn = { turnId: active, state: "running" };
+      server.latestTurn = { turnId: active, state: "running" };
+      api.cancel = jest.fn(async () => { throw Error("network_unavailable"); });
+      await render();
+      await click("Скасувати обробку");
+      expect(host.querySelector(".trainer-error")?.textContent).toContain("Не вдалося зв’язатися");
+      const polls = api.state.mock.calls.length;
+      await act(async () => { jest.advanceTimersByTime(2500); });
+      expect(api.state.mock.calls.length).toBeGreaterThan(polls);
+      expect(host.querySelector(".trainer-error")).toBeNull();
+    } finally { jest.useRealTimers(); }
+  });
+  test("S7 markup in trainer text stays text", async () => {
+    server.messages = [{ id: prev + "-a", turnId: prev, role: "assistant", content: "<b>x</b> **y**" }];
+    await render();
+    const trainer = host.querySelector(".trainer-message.from-trainer");
+    expect(trainer.querySelector("b")).toBeNull();
+    expect(trainer.textContent).toContain("<b>x</b>");
+  });
+});

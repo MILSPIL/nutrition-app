@@ -5,7 +5,7 @@ import { mkdtempSync, realpathSync, chmodSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openTurnStore } from "./turn-store.mjs";
-import { createTrainerTools, trainerToolSchemas } from "./tools.mjs";
+import { createTrainerTools, trainerToolSchemas, TRAINER_POLICY } from "./tools.mjs";
 import { createTrainerGateway } from "./gateway.mjs";
 import { TOOLS } from "./limits.mjs";
 import { buildPlanCatalog } from "../../src/services/planCatalog.js";
@@ -277,4 +277,15 @@ test("H05 unknown nutrition requires note confirmation without a guessed family"
   assert.equal(draft.items[0].nutritionStatus, "unknown");
   assert.equal(Object.hasOwn(draft.items[0], "planMatch"), false);
   await assert.rejects(commandFromDraft(draft), /note_confirmation_required/);
+});
+test("policy appends same-date food to the open draft and keeps replies plain without codes", () => {
+  const [first] = TRAINER_POLICY.split("\n");
+  assert.ok(first.endsWith(" Plain text, **bold** only; no codes/tool names."));
+  assert.ok(TRAINER_POLICY.includes("Old drafts: not advice topic; new food on a draft date: append to it."));
+  assert.ok(!TRAINER_POLICY.includes("Old unsaved drafts do not change the topic unless the user asks."));
+});
+test("policy fits the coach capacity budget", () => {
+  // CI capacity probe (hermes-gateway-test --capacity-probe) keeps the latest history pair
+  // within 32000 bytes; at 1425 policy bytes it had 96 bytes of slack.
+  assert.ok(Buffer.byteLength(TRAINER_POLICY) <= 1500);
 });

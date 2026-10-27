@@ -241,3 +241,58 @@ test('late 404 after media TTL cannot restore or resend expired pixels',async()=
  const wait=later();f.api.turn.mockImplementationOnce(()=>wait.promise);const checking=f.session.checkAdmission(true);const rejection=expect(checking).rejects.toThrow('media_reattach_required');jest.advanceTimersByTime(300001);wait.resolve(Promise.reject(Object.assign(Error('not_found'),{status:404})));await rejection;expect(f.session.get().admission.input.images).toEqual([]);expect(f.api.send).toHaveBeenCalledTimes(1);
  }finally{f.session.close();jest.useRealTimers();}
 });
+describe("S5 background connection checks", () => {
+  const server = () => ({ conversationId: "synthetic-conversation", revision: 0, composer: { text: "", revision: 0 }, messages: [], drafts: [], currentTurn: null });
+  const session = (state, clock) => createTrainerSession({ api: { state: jest.fn(state) }, commit: jest.fn(), now: () => clock.at });
+  const background = (s) => s.refresh({ background: true }).catch(() => {});
+  test("failures every 2.5 s stay quiet below 10 s, show at 10 s and clear on recovery", async () => {
+    const clock = { at: 0 }; let online = false;
+    const s = session(async () => { if (!online) throw Error("network_unavailable"); return server(); }, clock);
+    const seen = [];
+    for (const at of [0, 2500, 5000, 7500, 10000]) { clock.at = at; await background(s); seen.push(s.get().error); }
+    expect(seen).toEqual(["", "", "", "", "network_unavailable"]);
+    online = true; clock.at = 12500; await background(s);
+    expect(s.get().error).toBe("");
+    s.close();
+  });
+  test("a frozen tab gap starts a new quiet series", async () => {
+    const clock = { at: 0 };
+    const s = session(async () => { throw Error("network_unavailable"); }, clock);
+    await background(s); clock.at = 11000; await background(s);
+    expect(s.get().error).toBe("");
+    s.close();
+  });
+  test("a request still in flight across a frozen tab gap starts the quiet series at the resume", async () => {
+    const clock = { at: 0 }; let fail;
+    const s = session(() => new Promise((_resolve, reject) => { fail = reject; }), clock);
+    const first = background(s);
+    clock.at = 11000; const joined = background(s);
+    clock.at = 15000; fail(Error("client_timeout")); await first; await joined;
+    expect(s.get().error).toBe("");
+    s.close();
+  });
+  test("a 15 s request timeout is shown on its first failure", async () => {
+    const clock = { at: 0 };
+    const s = session(async () => { clock.at += 15000; throw Error("client_timeout"); }, clock);
+    await background(s);
+    expect(s.get().error).toBe("network_unavailable");
+    s.close();
+  });
+  test("a failed refresh started by the app or user is reported at once", async () => {
+    const s = session(async () => { throw Error("network_unavailable"); }, { at: 0 });
+    await s.refresh().catch(() => {});
+    expect(s.get().error).toBe("network_unavailable");
+    s.close();
+  });
+  test("background recovery clears any connection error but keeps other errors", async () => {
+    const clock = { at: 0 }; let failure = Error("network_unavailable");
+    const s = session(async () => { if (failure) throw failure; return server(); }, clock);
+    await s.refresh().catch(() => {});
+    failure = null; clock.at = 2500; await background(s);
+    expect(s.get().error).toBe("");
+    failure = Error("draft_conflict"); await s.refresh().catch(() => {});
+    failure = null; clock.at = 5000; await background(s);
+    expect(s.get().error).toBe("draft_conflict");
+    s.close();
+  });
+});
