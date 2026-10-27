@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Mic, Square, Camera, Send, X, Paperclip, Image as ImageIcon } from "lucide-react";
 import { createTrainerApi, trainerError, trainerFeedback } from "../services/trainerApi";
-import { createTrainerSession } from "../services/trainerSession";
+import { createTrainerSession, NETWORK_ERRORS } from "../services/trainerSession";
 import { dateLabel, initialTrainerDate, kyivDateKey, restoredTrainerText } from "../services/trainerDates";
 import {
   createRecorder,
@@ -400,6 +400,8 @@ export default function TrainerChat({
   latest.current = { view, photos, recordState, dateContext, edits };
   editRef.current = edits;
   const catchError = (e) => {
+    // The session shows a connection error itself and clears it on recovery.
+    if (NETWORK_ERRORS.has(e?.message) && session.current?.get().error === e.message) return;
     if (alive.current) setError(trainerError(e));
   };
   const metric = async (p, id) => {
@@ -592,10 +594,16 @@ export default function TrainerChat({
     if(!area)return;
     // The last timeline item is the current conversation, even when an older
     // draft changed or a saved receipt exists. Never target a hidden form.
-    let target=area.querySelector('.trainer-messages')?.lastElementChild;
-    // The turn status sits under the user's message; keep that message in view too.
-    if(target?.classList.contains('trainer-turn')&&target.previousElementSibling)target=target.previousElementSibling;
-    if(target)area.scrollTop+=target.getBoundingClientRect().top-area.getBoundingClientRect().top-12;
+    let target=area.querySelector('.trainer-messages')?.lastElementChild,toBottom=false;
+    const box=area.getBoundingClientRect();
+    // The turn status sits under the user's message: show both when they fit,
+    // otherwise the end of a long message with the status and its buttons.
+    if(target?.classList.contains('trainer-turn')&&target.previousElementSibling){
+      if(target.getBoundingClientRect().bottom-target.previousElementSibling.getBoundingClientRect().top+24<=box.height)target=target.previousElementSibling;
+      else toBottom=true;
+    }
+    if(toBottom)area.scrollTop+=target.getBoundingClientRect().bottom-box.bottom+12;
+    else if(target)area.scrollTop+=target.getBoundingClientRect().top-box.top-12;
     else area.scrollTop=area.scrollHeight;
     scrollSnapshot.current={drafts:scrollDrafts,message:scrollMessage};
   },[scrollKey,scrollDrafts,scrollMessage]);

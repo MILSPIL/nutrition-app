@@ -376,6 +376,15 @@ export function attachDraftStore({
         const next = patchDraft(old, patch, { resolve, now, turnId: id });
         // Refuse while the model can still repair it; publish would drop it silently.
         assertDateFree(turn.conversation_id, next);
+        // A note card saves exactly one item; a second one would only fail at "Додати".
+        if (next.noteId && next.items.length > 1) fail("note_draft_single", 409);
+        // Proposals of this turn are not in drafts yet; publish keeps only one per date.
+        if (
+          db
+            .prepare("SELECT 1 FROM proposals WHERE turn_id=? AND draft_id!=? AND json_extract(value,'$.targetDate')=?")
+            .get(id, next.draftId, next.targetDate)
+        )
+          fail("date_draft_in_turn", 409);
         if (
           db
             .prepare("SELECT 1 FROM proposals WHERE turn_id=? AND draft_id=?")

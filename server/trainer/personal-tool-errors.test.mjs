@@ -11,7 +11,8 @@ const CODES = ["invalid_food_proposal", "invalid_food_source", "food_source_not_
   "date_change_requires_confirmation", "consumption_unconfirmed", "label_evidence_missing",
   "estimate_reason_required", "assumptions_required", "invalid_portion_origin", "brand_is_not_exact",
   "density_not_confirmed", "memory_read_only",
-  "date_draft_conflict", "draft_frozen", "draft_too_large", "invalid_quantity", "draft_already_proposed", "invalid_food_query"];
+  "date_draft_conflict", "draft_frozen", "draft_too_large", "invalid_quantity", "draft_already_proposed", "invalid_food_query",
+  "note_draft_single", "date_draft_in_turn"];
 
 async function toolOutcome(failure) {
   let outcome;

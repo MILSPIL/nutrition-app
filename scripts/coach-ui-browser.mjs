@@ -177,6 +177,12 @@ try {
  await page.waitForFunction(()=>document.querySelector('#trainer-message')?.value==='23.10.2026 з’їв синтетичне яблуко');
  check('unknown stops once and restores editable text without resend',cancels===1&&calls===beforeRecovery&&await page.locator('#trainer-message').inputValue()==='23.10.2026 з’їв синтетичне яблуко');
  await page.locator('#trainer-message').fill('');await page.getByRole('button',{name:'Закрити чат',exact:true}).click();
+ state=structuredClone(baselineState);const longText=Array(80).fill('Синтетичний довгий список їжі').join(', ');state.messages.push({id:'synthetic-long-u',turnId:'synthetic-long',role:'user',content:longText});
+ state.currentTurn=state.latestTurn={turnId:'synthetic-long',state:'running',sentAt:'2026-10-24T12:00:00Z',targetDate:'2026-10-24'};
+ await launcher.click();await page.getByText('Тренер розбирає повідомлення',{exact:true}).waitFor();
+ check('long message keeps the running status and its stop in view',await page.getByRole('button',{name:'Скасувати обробку',exact:true}).evaluate(node=>{const r=node.getBoundingClientRect(),v=document.querySelector('.trainer-scroll').getBoundingClientRect(),m=node.closest('.trainer-turn').previousElementSibling.getBoundingClientRect();return m.height>v.height&&r.top>=v.top&&r.bottom<=v.bottom;}));
+ await page.screenshot({path:join(out,'running-long-390.png')});
+ await page.getByRole('button',{name:'Закрити чат',exact:true}).click();
  state=structuredClone(baselineState);deferReply=true;
  await launcher.click();await page.locator('#trainer-message:not(:disabled)').waitFor();await page.locator('#trainer-message').fill('Синтетичне запитання тренеру');
  await page.getByRole('button',{name:'Надіслати повідомлення',exact:true}).click();await page.getByText('Тренер розбирає повідомлення',{exact:true}).waitFor();

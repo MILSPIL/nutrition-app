@@ -19,9 +19,11 @@ test("draft storage refusals carry exact repair hints for the model", () => {
     invalid_quantity: "quantity is {value, unit}: value is a number above 0 and up to 100000, or null; unit is g, ml, portion, package or unknown.",
     draft_already_proposed: "This draft was already proposed in this turn. Do not propose again; answer the user.",
     invalid_food_query: "query: one food, up to 160 characters and 1-12 words; preparation from the enum.",
+    date_draft_in_turn: "This turn already proposed another draft for this date; a date gets one draft per turn. Do not propose again now; tell the user which food is not in the card yet and ask them to send it in the next message.",
+    note_draft_single: "This draft has noteId: it holds exactly one item. Do not add food to it; ask the user to add or fix that card first, then send the food again.",
   };
   for (const [code, hint] of Object.entries(exact))
     assert.deepEqual(safeToolFailure(Object.assign(Error(code), { status: 409 })), { error: code, hint });
-  assert.equal(MODEL_TOOL_ERRORS.size, 23);
+  assert.equal(MODEL_TOOL_ERRORS.size, 25);
   for (const code of MODEL_TOOL_ERRORS) assert.equal(safeToolFailure(Error(code)).error, code);
 });

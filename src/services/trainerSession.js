@@ -1,6 +1,6 @@
 import { newId } from "./mealItems";
 const QUIET_MS = 10000;
-const NETWORK_ERRORS = new Set(["network_unavailable", "client_timeout"]);
+export const NETWORK_ERRORS = new Set(["network_unavailable", "client_timeout"]);
 // One lifetime per authenticated owner/open panel. No chat content in browser storage.
 export function createTrainerSession({
   api,
@@ -13,6 +13,7 @@ export function createTrainerSession({
     writing = null,
     polling = null,
     quietSince = null,
+    seriesFloor = null,
     lastTick = null,
     version = 0,
     mutation = false,
@@ -78,7 +79,11 @@ export function createTrainerSession({
   async function refresh({ background = false } = {}) {
     if (background) {
       const tick = now();
-      if (lastTick !== null && tick - lastTick > QUIET_MS) quietSince = null;
+      // A frozen tab: a new series starts now, also for a request still in flight.
+      if (lastTick !== null && tick - lastTick > QUIET_MS) {
+        quietSince = null;
+        seriesFloor = tick;
+      }
       lastTick = tick;
     }
     if (polling) return polling;
@@ -120,7 +125,7 @@ export function createTrainerSession({
       })
       .catch((e) => {
         if (background && NETWORK_ERRORS.has(e.message)) {
-          quietSince ??= started;
+          quietSince ??= Math.max(started, seriesFloor ?? started);
           if (now() - quietSince >= QUIET_MS) fault(Error("network_unavailable"));
           throw e;
         }

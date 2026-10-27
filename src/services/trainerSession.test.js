@@ -262,6 +262,15 @@ describe("S5 background connection checks", () => {
     expect(s.get().error).toBe("");
     s.close();
   });
+  test("a request still in flight across a frozen tab gap starts the quiet series at the resume", async () => {
+    const clock = { at: 0 }; let fail;
+    const s = session(() => new Promise((_resolve, reject) => { fail = reject; }), clock);
+    const first = background(s);
+    clock.at = 11000; const joined = background(s);
+    clock.at = 15000; fail(Error("client_timeout")); await first; await joined;
+    expect(s.get().error).toBe("");
+    s.close();
+  });
   test("a 15 s request timeout is shown on its first failure", async () => {
     const clock = { at: 0 };
     const s = session(async () => { clock.at += 15000; throw Error("client_timeout"); }, clock);
