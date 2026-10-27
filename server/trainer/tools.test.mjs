@@ -280,7 +280,12 @@ test("H05 unknown nutrition requires note confirmation without a guessed family"
 });
 test("policy appends same-date food to the open draft and keeps replies plain without codes", () => {
   const [first] = TRAINER_POLICY.split("\n");
-  assert.ok(first.endsWith(" Plain text; only **bold** allowed. Never show tool names or error codes. On a tool error with a hint: fix and retry; otherwise say in plain words what did not work."));
-  assert.ok(TRAINER_POLICY.includes("Old unsaved drafts do not change the topic of advice. New eaten food for a date that already has an unsaved draft: edit that draft (its draftId, revision as baseRevision), keep its items and meal unless the user asks; a noteId draft takes no other food. All food for one date goes into one proposal per turn."));
+  assert.ok(first.endsWith(" Plain text, **bold** only; no codes/tool names."));
+  assert.ok(TRAINER_POLICY.includes("Old drafts: not advice topic; new food on a draft date: append to it."));
   assert.ok(!TRAINER_POLICY.includes("Old unsaved drafts do not change the topic unless the user asks."));
+});
+test("policy fits the coach capacity budget", () => {
+  // CI capacity probe (hermes-gateway-test --capacity-probe) keeps the latest history pair
+  // within 32000 bytes; at 1425 policy bytes it had 96 bytes of slack.
+  assert.ok(Buffer.byteLength(TRAINER_POLICY) <= 1500);
 });
