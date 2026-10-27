@@ -1,0 +1,53 @@
+{
+  "task": "CHAT-FIX-196 / trainer repair hints, single draft per date, quiet connection errors",
+  "goal": "objective_e45aa8ac1aa3",
+  "criteria": [
+    "G02",
+    "G07",
+    "G08"
+  ],
+  "version": "1.9.6",
+  "pullRequest": 49,
+  "codeSha": "576d7d1e62b32173f31cf541b89ef048a6f8e75a",
+  "testedTreeSha": "9bd7145dbb53603aaa7178e8d6f7438534bdb1fa",
+  "ci": {
+    "prHeadRun": "beb209b5225cd7a85e2a8517d8eeda3c13928500",
+    "releaseRun": 40574698140,
+    "allFourGroupsPassed": true
+  },
+  "verification": {
+    "react": 357,
+    "serverTests": 405,
+    "serverFailuresEqualToBaseMac": 9,
+    "modelToolErrorCodes": 25,
+    "policyBytesMax": 1500,
+    "independentReview": [
+      "codex-review: 4 P2 confirmed and fixed",
+      "spec-reviewer: second pass 0 blocking, 0 must-fix"
+    ],
+    "cleanGitExport": true,
+    "pinnedNode": "24.22.1"
+  },
+  "production": {
+    "backendFilesChanged": 4,
+    "pythonAdaptersChanged": 0,
+    "policyHashUnchanged": true,
+    "frontendFilesShaVerified": 37,
+    "siteStatus": 200,
+    "apiStatus": 200,
+    "historyAndSavedDataUnchanged": true,
+    "accountingUnchanged": true,
+    "nonTerminalWorkBeforeCutover": 0,
+    "modelCalls": 0,
+    "cpu": 2,
+    "memoryBytes": 2147483648
+  },
+  "cleanup": {
+    "administratorAbsent": true,
+    "sshRejectedAfterRevoke": true,
+    "temporarySecretsDeleted": 3,
+    "offsiteEncryptedBackupVerified": true,
+    "uploadedArchiveRemoved": true
+  },
+  "acceptance": "technical checks passed; phone check (K13) and pilot pending"
+}
