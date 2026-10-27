@@ -666,3 +666,105 @@ describe("1.9.6 chat stream", () => {
     expect(trainer.textContent).toContain("<b>x</b>");
   });
 });
+
+describe("1.9.7 card control", () => {
+  const unknownItem = { itemId: "synthetic-home", name: "Синтетична домашня страва", quantity: { value: null, unit: "unknown" }, nutritionBasis: { value: null, unit: "unknown" }, nutrients: { p: null, f: null, c: null, cal: null }, source: { kind: "unknown" }, estimated: false, nutritionStatus: "unknown" };
+  const settle = () => act(async () => { await new Promise(r => setTimeout(r, 750)); });
+  function cardFixture({ noteId } = {}) {
+    previewFixture();
+    const draft = server.drafts[0];
+    draft.items = [...draft.items, JSON.parse(JSON.stringify(unknownItem))];
+    if (noteId) { draft.noteId = noteId; draft.items = [JSON.parse(JSON.stringify(unknownItem))]; }
+    api.edit = jest.fn(async (id, body) => {
+      const d = server.drafts.find(x => x.draftId === id);
+      if (body.baseRevision !== d.revision) throw Error("draft_conflict");
+      const removed = body.removeItemIds || [];
+      if (body.items.some(i => removed.includes(i.itemId))) throw Error("invalid_request");
+      d.items = d.items.filter(i => !removed.includes(i.itemId)).map(i => ({ ...i, ...body.items.find(x => x.itemId === i.itemId) }));
+      d.revision++;
+      return JSON.parse(JSON.stringify(d));
+    });
+    api.prepareSave = jest.fn(async (id, revision) => {
+      const d = server.drafts.find(x => x.draftId === id);
+      if (revision !== d.revision) throw Error("draft_conflict");
+      if (d.items.some(i => i.nutritionStatus !== "complete" && i.noteSelected !== true)) throw Error("note_confirmation_required");
+      Object.assign(d, { state: "saved", save: { command: { items: d.items.filter(i => i.nutritionStatus === "complete"), notes: d.items.filter(i => i.nutritionStatus !== "complete") } } });
+      return JSON.parse(JSON.stringify(d));
+    });
+    api.receipt = jest.fn(async (id) => JSON.parse(JSON.stringify(server.drafts.find(x => x.draftId === id))));
+    return draft;
+  }
+  const removeButton = (name) => host.querySelector(`button[aria-label="Прибрати ${name}"]`);
+  test("S1 «Прибрати» takes a product out of the card and sends only its removal", async () => {
+    cardFixture();
+    await render();
+    expect(removeButton("Синтетична домашня страва")?.textContent).toBe("Прибрати");
+    await click("Прибрати Синтетична домашня страва");
+    expect(host.querySelector('[data-testid="trainer-draft"]').textContent).not.toContain("Синтетична домашня страва");
+    await settle();
+    expect(api.edit).toHaveBeenCalledTimes(1);
+    const body = api.edit.mock.calls[0][1];
+    expect(body.removeItemIds).toEqual(["synthetic-home"]);
+    expect(body.items.some(i => i.itemId === "synthetic-home")).toBe(false);
+    expect(server.drafts[0].items.map(i => i.itemId)).toEqual(["synthetic-fruit"]);
+    expect(button("Додати").disabled).toBe(false);
+  });
+  test("S1 the last product and a frozen card have no «Прибрати»", async () => {
+    previewFixture();
+    await render();
+    expect(removeButton("Синтетичний плід")).toBeNull();
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    cardFixture();
+    server.drafts[0].state = "unknown";
+    await render();
+    expect(host.querySelector('button[aria-label^="Прибрати "]')).toBeNull();
+  });
+  test("S1 «Прибрати» is off while the card is locked", async () => {
+    cardFixture();
+    server.drafts[0].blocked = true;
+    await render();
+    expect(removeButton("Синтетична домашня страва")?.disabled).toBe(true);
+  });
+  test("S2 «Додати» waits while a removal is still queued", async () => {
+    const draft = cardFixture();
+    draft.items = [...draft.items, { ...draft.items[0], itemId: "synthetic-extra", name: "Синтетичний зайвий плід" }];
+    await render();
+    await click("Прибрати Синтетичний зайвий плід");
+    expect(button("Додати").disabled).toBe(true);
+    expect(host.textContent).toContain("Зберігаю зміни прев’ю…");
+    await settle();
+  });
+  test("S3 several products without calories use the plural", async () => {
+    const draft = cardFixture();
+    draft.items = [...draft.items, { ...JSON.parse(JSON.stringify(unknownItem)), itemId: "synthetic-soup", name: "Синтетичний суп" }];
+    await render();
+    expect(button("Додати").previousElementSibling.textContent).toBe("Без розрахунку калорій: «Синтетична домашня страва», «Синтетичний суп». Збережуться нотатками, у суму калорій не ввійдуть.");
+  });
+  test("S2 «Додати» saves a product without calories as a note instead of blocking", async () => {
+    cardFixture();
+    await render();
+    expect(button("Додати").disabled).toBe(false);
+    expect(host.textContent).not.toContain("Зберегти як нотатку без повного розрахунку");
+    await click("Додати");
+    expect(api.edit).toHaveBeenCalledTimes(1);
+    expect(api.edit.mock.calls[0][1].items).toEqual([{ itemId: "synthetic-home", noteSelected: true }]);
+    expect(api.prepareSave).toHaveBeenCalledTimes(1);
+    expect(api.edit.mock.invocationCallOrder[0]).toBeLessThan(api.prepareSave.mock.invocationCallOrder[0]);
+    expect(api.prepareSave.mock.calls[0][1]).toBe(server.drafts[0].revision);
+    expect(host.querySelector('[data-testid="trainer-saved-receipt"]').textContent).toContain("Синтетична домашня страва · нотатка");
+  });
+  test("S3 the reason sits right above «Додати» and names the product", async () => {
+    cardFixture();
+    await render();
+    const add = button("Додати");
+    expect(add.previousElementSibling.textContent).toBe("Без розрахунку калорій: «Синтетична домашня страва». Збережеться нотаткою, у суму калорій не ввійде.");
+  });
+  test("S3 a note card without quantity keeps «Додати» off and says what to do", async () => {
+    cardFixture({ noteId: "synthetic-note-000000001" });
+    await render();
+    const add = button("Додати");
+    expect(add.disabled).toBe(true);
+    expect(add.previousElementSibling.textContent).toBe("Щоб записати «Синтетична домашня страва», уточніть кількість або напишіть тренеру, скільки це калорій.");
+  });
+});
