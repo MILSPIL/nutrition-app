@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Utensils, TrendingDown, TrendingUp, Minus, Ruler, ChevronDown, ChevronLeft, Calendar } from 'lucide-react';
 import { doc, getDoc, collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { calculateMealsMacros } from '../../services/nutrition';
+import { itemMacros,quantityText,sourceText } from '../../services/mealItems';
 import { db } from '../../firebase';
 import {
   calculateMeasurementDiff,
@@ -400,17 +402,7 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
                   });
 
                   // Підрахунок макросів прийому
-                  let mealMacros = { p: 0, f: 0, c: 0, cal: 0 };
-                  allProducts.forEach(product => {
-                    const multiplier = (product.weight || 100) / 100;
-                    mealMacros.p += (product.p || 0) * multiplier;
-                    mealMacros.f += (product.f || 0) * multiplier;
-                    mealMacros.c += (product.c || 0) * multiplier;
-                  });
-                  mealMacros.p = Math.round(mealMacros.p * 10) / 10;
-                  mealMacros.f = Math.round(mealMacros.f * 10) / 10;
-                  mealMacros.c = Math.round(mealMacros.c * 10) / 10;
-                  mealMacros.cal = Math.round(mealMacros.p * 4 + mealMacros.c * 4 + mealMacros.f * 9);
+                  const mealMacros = calculateMealsMacros({[mealNum]:mealData});
 
                   return (
                     <div key={mealNum} className="bg-white rounded-2xl overflow-hidden">
@@ -429,8 +421,7 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
                         ) : (
                           <div className="space-y-2">
                             {allProducts.map((product, idx) => {
-                              const multiplier = (product.weight || 100) / 100;
-                              const productP = Math.round((product.p || 0) * multiplier * 10) / 10;
+                              const productP = Math.round(itemMacros(product).p * 10) / 10;
 
                               return (
                                 <div key={`${product.letter}-${idx}`} className="flex items-center justify-between py-1 border-b border-[#C6C6C8]/30 last:border-0">
@@ -441,7 +432,7 @@ export default function ClientDetailsModal({ isOpen, onClose, client, todayMeals
                                     <span className="text-[15px] text-black">{product.name}</span>
                                   </div>
                                   <div className="text-[13px] text-[#8E8E93]">
-                                    {product.weight}г · {productP}б
+                                    {quantityText(product)} · {productP}б · {Math.round(itemMacros(product).cal)} ккал · {sourceText(product)}
                                   </div>
                                 </div>
                               );

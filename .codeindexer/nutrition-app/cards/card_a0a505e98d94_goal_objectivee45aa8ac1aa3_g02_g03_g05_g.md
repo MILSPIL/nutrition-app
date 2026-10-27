@@ -10,18 +10,18 @@ status: open
 importance: high
 review_required: true
 acceptance: "[{\"reviewer_rubric\":\"G02/G03/G05/G07/G08/G11: усі V01–V09 на одному SHA, прямий запис мікрофона, фото упаковки в тій самій чернетці, одне підтвердження і перечитаний прийом. Джерела/основа/одиниці, повтор/конфлікт/збій перевірені; реальний дозволений API й телефон обов’язкові; продукт приймає Юрій.\"}]"
-evidence: docs/PRODUCT-GOAL.md; docs/superpowers/specs/2026-10-20-voice-photo.md; прямі рішення Юрія 2026-10-20.
+evidence: "Актуально 2026-10-20: voice/photo c9f3ab3 (88 Jest/17 Worker/17 Firestore/25 browser/build), phone-lab 9f30193, Sonnet f61e1ef, Whisper+budget b8f7351 (27 Worker/8 Node/build/dry-run). Незалежні Codex/Claude findings виправлені. Synthetic UA 2.63s правильно розпізнано за 2872ms на Mac, не доказ Ubuntu/телефона. Whisper+Sonnet5.5/$5 погоджені, кредит підтверджено, paid0/livefalse. Ціль https://ntzg.pp.ua на MS-WEB, 4cores/8GB, Node/site ще немає. Спільний xCloud Keychain MCP Codex/Claude встановлено й живцем перевірено: 5 tools, servers.index MS-WEB, 8 adapter tests, independent K01–K05 PASS. Попередня відмова 403 замінена validation422 custom SSL certificate/key у dry-run; створення не виконувалось. Серверне доповнення N01–N05 PASS, новий код/G04/Origin TLS/release/realSonnet/physicalphone/pilot pending. PR8 draft; журнали PR10b6c0579 і PR11eaca56c у main, код не merged. Канон PROJECT-INFO.md, journal2322/journal2339, docs/evidence/whisper-local-2026-10-20.json, docs/superpowers/plans/2026-10-20-ntzg-whisper-addendum.md. Картка і Gxx лишаються відкриті.\n2026-10-21: PR13 0834d48d переніс решту 4 журналів у main byte-identical, CI2/2. Поточний план docs/superpowers/plans/2026-10-21-scisense-server-rollout.md до погодження server adapter+G04+Linux package. Native TLS dry-run422 DNS-check; OLS shared reload/regeneration і global Node враховані; admin/backup/Origin TLS/real API/phone pending. Справжній transfer бюджету лише після окремого production-пакета; нових витрат0."
 valid_from: "2026-10-20T08:28:38.202240+00:00"
 created_at: "2026-10-20T08:28:38.202240+00:00"
-updated_at: "2026-10-20T09:46:02.974163+00:00"
+updated_at: "2026-10-20T21:35:06.550511+00:00"
 author: Codex
-content_hash: "sha256:cd088993bda28c0efb2957e52b3c5f0bc42d385d52a2e2f964f0f08803dd033d"
+content_hash: "sha256:619757967ccb3867f7a3a82c20ad04cd4232a6b7709305d360ea4658965917ee"
 ---
 
 Goal objective_e45aa8ac1aa3; критерії G02, G03, G05, G07, G08, G11.
 
 Перший пріоритет Юрія 2026-10-20: мікрофон на головному екрані записує голос у додатку; після голосу фото назви/етикетки упаковки уточнює той самий продукт. API готує назву, спожиту кількість, ккал/БЖВ і джерело. Коротке прев’ю й одна «Додати» з підтвердженим збереженням. Сценарій «цей кефір, 200 грамів» має пройти без ручного пошуку і введення БЖВ; фото в цьому ж першому етапі.
 
-Канон: docs/superpowers/specs/2026-10-20-voice-photo.md та план з тим самим ім’ям. Продуктові рішення підтверджені, технічний план ще до погодження. Після погодження створити нову гілку від актуального main, цільово використати текстовий парсер/прев’ю з nutrition-app-scale (feat/voice-input), не зливати стару гілку цілком. Наявні 40 тестів не доводять аудіо/фото. Перевірити sources/units, missing≠zero, race/повтори, server auth/квоти/бюджет, атомарний запис та сумісність ручного введення.
+Канон: docs/superpowers/specs/2026-10-20-voice-photo.md та план з тим самим ім’ям. Продуктові рішення, технічний план і пороги пілоту явно погоджені Юрієм 2026-10-20. Реалізація в codex/voice-photo-entry від main 3a7034e, цільово використати текстовий парсер/прев’ю з nutrition-app-scale (feat/voice-input), не зливати стару гілку цілком. Наявні 40 тестів не доводять аудіо/фото. Перевірити sources/units, missing≠zero, race/повтори, server auth/квоти/бюджет, атомарний запис та сумісність ручного введення.
 
 Приймання: V01–V09, реальний телефон та окремо дозволений API E2E, незалежне рев’ю і перечитане сховище на одному SHA. До G04 тільки ізольовані тестові дані. Production/платні API окремо. Картка й G05/G11 не закриваються за одним mock/зеленим unit-suite.

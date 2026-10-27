@@ -1,0 +1,51 @@
+{
+  "date": "2026-10-20",
+  "kind": "offline_proposal_validation",
+  "baseSha": "58e5c70c4c1d9679c1513b3e1cb8170ad58fa626",
+  "implementationChanged": false,
+  "liveEnabled": false,
+  "providerCalls": 0,
+  "sourceFunction": "workers/meal-parser/src/index.js:reservation",
+  "candidate": "A",
+  "units": "USD microdollars",
+  "reservationPerCall": {
+    "transcribe": 30000,
+    "analyzeNoPhoto": 6848,
+    "analyzeOnePhoto": 7848,
+    "analyzeTwoPhotos": 8848
+  },
+  "counts": {
+    "transcribe": 10,
+    "analyzeNoPhoto": 10,
+    "analyzeOnePhoto": 5,
+    "analyzeTwoPhotos": 5
+  },
+  "totalReservedMicros": 451960,
+  "anthropicReservedMicros": 151960,
+  "openaiReservedMicros": 300000,
+  "proposedLimitMicros": 1000000,
+  "schemaAndPromptUtf8Bytes": 3473,
+  "unapprovedPricingRejected": true,
+  "disabledProviderInvocationRejected": true,
+  "existingTests": {
+    "command": "node --test test/api.test.js test/budget.test.js",
+    "cwd": "workers/meal-parser",
+    "passed": 16,
+    "failed": 0
+  },
+  "notVerified": [
+    "personal credit balance and organization",
+    "project API keys",
+    "real model responses",
+    "phone HTTPS channel and owner certificate trust",
+    "private pilot G04/G09",
+    "production"
+  ],
+  "review": {
+    "reviewer": "Codex api_approval_review",
+    "verdict": "approval_package_ready",
+    "p2Found": 1,
+    "p2Fixed": 1,
+    "liveReady": false
+  }
+}

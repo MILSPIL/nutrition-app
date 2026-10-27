@@ -1,0 +1,26 @@
+{
+  "agent_test_browser": true,
+  "session": "dd6713ad1fa14e96-aaukizbk",
+  "root": "/private/tmp/agent-test-browser-501/dd6713ad1fa14e96-aaukizbk",
+  "exit_code": 0,
+  "cleanup_ok": true,
+  "removed": true,
+  "tracked_pids": [
+    99491,
+    99498,
+    99517,
+    99518,
+    99752,
+    99826,
+    99968,
+    102,
+    112,
+    113,
+    114,
+    115,
+    124,
+    126,
+    127,
+    272
+  ]
+}

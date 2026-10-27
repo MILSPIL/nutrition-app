@@ -1,0 +1,33 @@
+{
+  "checkedAt": "2026-10-20T22:15:10+03:00",
+  "model": "claude-sonnet-5-5",
+  "keychainPresent": true,
+  "modelsReadStatus": 200,
+  "imageInputSupported": true,
+  "structuredOutputsSupported": true,
+  "inferenceCalls": 0,
+  "tests": 25,
+  "workerDryRun": "passed",
+  "baselineReserveMicros": 3039200,
+  "proposedCapMicros": 5000000,
+  "budgetApproved": false,
+  "liveEnabled": false,
+  "workspace": "Default (owner reported)",
+  "creditBalanceVerified": false,
+  "rootTests": 88,
+  "rootBuild": "passed",
+  "independentReview": {
+    "agent": "Codex sonnet_preparation_review",
+    "criteria": [
+      "S01",
+      "S02",
+      "S03",
+      "S04",
+      "S05"
+    ],
+    "verdict": "passed",
+    "confirmedFindings": 0,
+    "scope": "local_adapter_and_proposal_only"
+  },
+  "codeCommit": "f61e1ef"
+}
