@@ -159,6 +159,22 @@
   margin: 0;
   font-size: 17px;
 }
+.trainer-food-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.trainer-food-head h4 {
+  flex: 1;
+  min-width: 0;
+  padding-top: 11px;
+}
+.trainer-chat .trainer-remove {
+  flex: none;
+  min-width: 44px;
+  color: #a1331f;
+}
 .trainer-source,
 .trainer-hint {
   font-size: 13px;

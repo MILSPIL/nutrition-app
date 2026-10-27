@@ -62,7 +62,7 @@ function applyEdits(d, patch = {}) {
   return {
     ...d,
     ...patch,
-    items: d.items.map((i) => {
+    items: d.items.filter((i) => !patch.removeItemIds?.includes(i.itemId)).map((i) => {
       const next = { ...i, ...patch.items?.[i.itemId] };
       return {
         ...next,
@@ -172,7 +172,19 @@ function DraftCard({
         const item = byId.get(raw.itemId) || raw;
         return (
           <div className="trainer-food" key={item.itemId}>
-            <h4>{item.name}</h4>
+            <div className="trainer-food-head">
+              <h4>{item.name}</h4>
+              {!frozen && draft.items.length > 1 && (
+                <button
+                  className="trainer-remove"
+                  aria-label={`Прибрати ${item.name}`}
+                  disabled={locked}
+                  onClick={() => onEdit({ removeItemIds: [item.itemId] })}
+                >
+                  Прибрати
+                </button>
+              )}
+            </div>
             <p className="trainer-source">
               {sourceText(item)}
               {item.estimated ? " · Приблизна оцінка" : ""}
@@ -655,6 +667,12 @@ export default function TrainerChat({
       items = { ...old.items };
     for (const [key, fields] of Object.entries(patch.items || {}))
       items[key] = { ...items[key], ...fields };
+    // Unsent changes of a removed product are dropped: the server refuses
+    // changes to an item it has just removed.
+    const removeItemIds = [
+      ...new Set([...(old.removeItemIds || []), ...(patch.removeItemIds || [])]),
+    ];
+    for (const key of removeItemIds) delete items[key];
     const next = {
       ...editRef.current,
       [id]: {
@@ -665,6 +683,7 @@ export default function TrainerChat({
         ...old,
         ...patch,
         items,
+        ...(removeItemIds.length ? { removeItemIds } : {}),
       },
     };
     editRef.current = next;
