@@ -9,60 +9,11 @@ import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { DatabaseSync } from "node:sqlite";
 import { openTurnStore } from "./turn-store.mjs";
-import { createTrainerGateway } from "./gateway.mjs";
-import { createPersonalBackend } from "./personal-backend.mjs";
-import { personalQueue } from "./personal-queue.mjs";
-import { buildSnapshot } from "./snapshot.mjs";
-import { openProblemJournal, turnProblemRecorder } from "./problem-journal.mjs";
+import { turnProblemRecorder } from "./problem-journal.mjs";
+import { RELEASE, START, ids, throwing, fixture, answer, turnRows } from "./problem-journal-fixture-test.mjs";
 import { provisionPersonalRuntime, createPersonalRuntime } from "./personal-runtime.mjs";
 import { createPersonalPayer, safePayerDiagnostic } from "./personal-payer.mjs";
 
-const RELEASE = "b".repeat(40), START = Date.parse("2026-10-24T10:00:00Z");
-const ids = n => Array.from({ length: n }, (_, i) => "00000000-0000-4000-8000-" + String(i + 1).padStart(12, "0"));
-const throwing = { record() { throw Error("synthetic_journal_fault"); } };
-
-// Тестова фабрика як у personal-gateway.test.mjs; `script` грає роль Native.
-function fixture(t, { script, journal: provided, maxWaiting = 4, tools = {}, nativeStatus = { state: "completed" } } = {}) {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), "problem-sources-"))); chmodSync(dir, 0o700);
-  let clock = START;
-  const journal = provided === undefined ? openProblemJournal(join(dir, "problems.sqlite"), { release: RELEASE, now: () => clock }) : provided;
-  const onTransition = journal === throwing ? () => throwing.record() : turnProblemRecorder(journal);
-  const storeFile = join(dir, "turns.sqlite"), hmacKey = randomBytes(32);
-  const store = openTurnStore(storeFile, { hmacKey, now: () => clock, onTransition });
-  const queue = personalQueue({ maxWaiting }), inputs = new Map(), sessionId = "11111111-1111-4111-8111-111111111111";
-  let admitted = 0;
-  const core = { enqueue(_uid, id, body) { inputs.set(id, { body, admitted: false }); },
-    schedule(uid, id, callback, { signal }) { return queue.run(uid, async signal => callback({ signal, deadline: clock + 45000,
-      execute: async value => {
-        try {
-        const native = { admission_id: "22222222-2222-4222-8222-" + String(++admitted).padStart(12, "0"), ref: { session_id: sessionId } };
-        const prepared = await value.prepare({ signal, sessionId });
-        const admit = async () => { inputs.get(id).admitted = true; await prepared.onAdmission(native); };
-        const call = (name, args) => prepared.tools(name, args, { signal, nativeBinding: { admissionId: native.admission_id, sessionId } });
-        return await script({ admit, call, signal, verify: () => prepared.verify() });
-        } finally { inputs.get(id).finished = true; }
-      } }), { signal }); },
-    async history() { return { session_id: sessionId, messages: [] }; },
-    input(_uid, id) { const value = inputs.get(id); return { state: value?.finished && value.admitted ? "completed" : value?.admitted ? "admitted" : "queued", generation: value?.admitted ? 1 : null }; },
-    async status() { return nativeStatus; },
-    async cancelInput() { return { stopped: true }; },
-  };
-  const backend = createPersonalBackend({ uid: "owner", core, tools, problems: journal, stageAttachments: async () => [] });
-  const g = createTrainerGateway({ ownerUid: "owner", store, backend, now: () => clock, queueWindowMs: 225000, problems: journal,
-    snapshotFactory: value => buildSnapshot({ ...value, history: [], maxPayloadBytes: 512000 }),
-    media: { describe: () => [], stage() {}, load: () => [], remove() {}, sweep: () => ({ faults: 0 }) }, proxy: { cancel() {}, close() {} },
-    readContext: async () => ({ text: "synthetic", revision: 1 }), readDay: async (_uid, targetDate) => ({ targetDate, revision: 0, meals: {}, notes: [] }), readPlan: async () => ({ planContext: {} }),
-  });
-  let closed = false;
-  const close = async () => { if (closed) return; closed = true; await g.close(); await queue.close(); store.close(); };
-  t.after(async () => { await close(); journal?.close?.(); rmSync(dir, { recursive: true, force: true }); });
-  const post = id => g.handle("owner", "/turns", "POST", { turnId: id, baseRevision: store.conversation("owner").revision, text: "Синтетичне повідомлення", dateContext: { mode: "default" } });
-  return { g, store, post, queue, journal, dir, storeFile, hmacKey, close, tick(ms) { clock += ms; },
-    rows: () => journal.rows("2000-01-01").map(r => [r.category, r.code, r.tool, r.count]),
-    async settle(id) { for (let n = 0; n < 200; n++) { const row = store.get("owner", id); if (!["running", "queued"].includes(row.state)) return row; await sleep(2); } throw Error("fixture_timeout"); } };
-}
-const answer = text => ({ state: "completed", result: { final_response: text } });
-const turnRows = rows => rows.filter(([category]) => category.startsWith("turn_") && category !== "turn_cause");
 
 test("K3 старт-відновлення: running → turn_unknown execution_unknown, queued → turn_failed interrupted_before_start", async t => {
   const [a, b] = ids(2);
@@ -240,4 +191,48 @@ test("K5 (а) хід побайтово той самий з робочим жу
   const good = await scenario(t, undefined), bad = await scenario(t, throwing);
   assert.ok(good.rows.length >= 3);
   assert.deepEqual(bad.out, good.out);
+});
+
+test("K3 turn_cause: збій після старту дає turn_unknown execution_unknown плюс turn_cause зі справжнім кодом", async t => {
+  const [a, b] = ids(2);
+  let step = 0;
+  const f = fixture(t, { nativeStatus: { state: "failed" }, script: async ({ admit }) => { if (step++ === 0) { await admit(); throw Error("trainer_timeout"); } throw Error("synthetic_unlisted_fault"); } });
+  await f.post(a); assert.equal((await f.settle(a)).state, "unknown");
+  await f.g.handle("owner", `/turns/${a}/recover`, "POST", {});
+  await f.post(b); await f.settle(b);
+  assert.deepEqual(f.rows().filter(([category]) => category === "turn_cause"), [
+    ["turn_cause", "other", "", 1],
+    ["turn_cause", "trainer_timeout", "", 1],
+  ]);
+  assert.deepEqual(turnRows(f.rows()).filter(([category]) => category === "turn_unknown"), [["turn_unknown", "execution_unknown", "", 1]]);
+});
+
+const item = (source, extra = {}) => ({ itemId: randomUUID(), name: "synthetic", quantity: { value: 1, unit: "portion" }, preparation: "unknown", source, ...extra });
+test("K3 food_*: лише успішний propose_food_draft і лише нові позиції (з name)", async t => {
+  const [a] = ids(1);
+  let fail = false;
+  const f = fixture(t, {
+    tools: { propose_food_draft: async () => { if (fail) throw Error("invalid_food_proposal"); return { state: "ready", saved: false, incomplete: true }; } },
+    script: async ({ admit, call }) => {
+      await admit();
+      await call("propose_food_draft", { baseRevision: 0, dayRef: "today", meal: 1, removeItemIds: [randomUUID()], items: [
+        item({ kind: "estimate", estimateReason: "no_matching_source", assumptions: ["a"] }),
+        item({ kind: "estimate", estimateReason: "recipe_estimate", assumptions: ["a"], portionOrigin: { kind: "estimate", assumption: "a" } }),
+        item({ kind: "unknown" }),
+        item({ kind: "database", recordId: "r", portionOrigin: { kind: "estimate", assumption: "a" } }),
+        item({ kind: "database", recordId: "r", portionOrigin: { kind: "user" } }),
+        { itemId: randomUUID(), quantity: { value: 2, unit: "g" } },
+      ] });
+      fail = true;
+      await call("propose_food_draft", { baseRevision: 0, dayRef: "today", meal: 1, items: [item({ kind: "unknown" })] });
+      return answer("ok");
+    } });
+  await f.post(a); assert.equal((await f.settle(a)).state, "completed");
+  assert.deepEqual(f.rows().filter(([category]) => category.startsWith("food_")), [
+    ["food_estimate", "no_matching_source", "propose_food_draft", 1],
+    ["food_estimate", "recipe_estimate", "propose_food_draft", 1],
+    ["food_portion_estimate", "estimate", "propose_food_draft", 2],
+    ["food_total", "item", "propose_food_draft", 5],
+    ["food_unknown", "unknown", "propose_food_draft", 1],
+  ]);
 });

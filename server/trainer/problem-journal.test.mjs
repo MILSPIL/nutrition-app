@@ -8,6 +8,7 @@ import { DatabaseSync } from "node:sqlite";
 import { KNOWN_CODES, openProblemJournal, kyivDay } from "./problem-journal.mjs";
 import { MODEL_TOOL_ERRORS } from "./tool-errors.mjs";
 import { PAYER_DIAGNOSTIC_CODES } from "./personal-payer.mjs";
+import { fixture, ids, answer } from "./problem-journal-fixture-test.mjs";
 
 const RELEASE = "a".repeat(40);
 // 2026-03-10 12:00 за Києвом (UTC+2), середина доби.
@@ -199,4 +200,30 @@ test("K2 приватність: маркери не потрапляють у �
   journal.close();
   assertNoMarkers(root);
   rmSync(root, { recursive: true });
+});
+
+test("K2 приватність справжнім шляхом: error.message у fail(), turn_cause, tool_error, estimateReason, причина cancel(), uid, назва позиції", async t => {
+  const [a, b] = ids(2);
+  let step = 0;
+  const f = fixture(t, { uid: "uid_private_marker", nativeStatus: { state: "failed" },
+    tools: { propose_food_draft: async () => ({ state: "ready", saved: false, incomplete: true }), read_plan: async () => { throw Error("private_marker_vivsianka"); } },
+    script: async ({ admit, call }) => {
+      await admit();
+      if (step++ === 0) {
+        await call("propose_food_draft", { baseRevision: 0, dayRef: "today", meal: 1, items: [{ itemId: "33333333-3333-4333-8333-333333333333", name: "vivsianka_200_g",
+          quantity: { value: 200, unit: "g" }, preparation: "cooked", source: { kind: "estimate", estimateReason: "private_marker_vivsianka", assumptions: ["vivsianka_200_g"] } }] });
+        await call("read_plan", {}).catch(() => {});
+        return answer("vivsianka_200_g private_marker_vivsianka");
+      }
+      throw Error("private_marker_vivsianka");
+    } });
+  await f.post(a, "vivsianka_200_g uid_private_marker"); assert.equal((await f.settle(a)).state, "completed");
+  await f.post(b, "private_marker_vivsianka"); assert.equal((await f.settle(b)).state, "unknown");
+  f.store.fail(b, "private_marker_vivsianka");
+  f.store.cancel("uid_private_marker", b, "private_marker_vivsianka");
+  const categories = new Set(f.rows().map(([category]) => category));
+  for (const category of ["food_estimate", "food_total", "tool_error", "turn_cause", "turn_unknown", "turn_failed"]) assert.ok(categories.has(category), category);
+  assertNoMarkers(f.dir);
+  f.journal.close();
+  assertNoMarkers(f.dir);
 });

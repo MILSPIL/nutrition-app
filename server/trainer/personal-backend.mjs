@@ -56,6 +56,19 @@ export function nativeMessageProjection(snapshot, inputForAdmission = () => unde
 export function createPersonalBackend({ uid, core, tools, store, releaseTools = () => {}, stageAttachments, verify = async () => {}, problems }) {
   // COACH-PROBLEMS-01 S2: лише код і назва інструмента; збій журналу не змінює хід.
   const problem = (...args) => { try { problems?.record(...args); } catch { /* journal is best effort */ } };
+  // Successful proposal: only new items (with name); edits and removals are not counted.
+  const foodProblems = (name, parameters) => {
+    try {
+      for (const item of Array.isArray(parameters?.items) ? parameters.items : []) {
+        if (!item || typeof item !== "object" || !Object.hasOwn(item, "name")) continue;
+        const source = item.source && typeof item.source === "object" ? item.source : {};
+        problem("food_total", "item", name);
+        if (source.kind === "estimate") problem("food_estimate", source.estimateReason, name);
+        else if (source.kind === "unknown") problem("food_unknown", "unknown", name);
+        if (source.portionOrigin?.kind === "estimate") problem("food_portion_estimate", "estimate", name);
+      }
+    } catch { /* journal is best effort */ }
+  };
   const execution = new Map(), transports = new Map();
   const backend = {
     canonicalHistory: true,
@@ -108,6 +121,7 @@ export function createPersonalBackend({ uid, core, tools, store, releaseTools = 
                 // a repairable code must reach the model as a result with its hint.
                 try { result = await tools[name](parameters, { ...context, signal }); }
                 catch (error) { problem("tool_error", error?.message, name); if (MODEL_TOOL_ERRORS.has(error?.message)) return safeToolFailure(error); throw error; }
+                if (name === "propose_food_draft") foodProblems(name, parameters);
                 if (name === "propose_food_draft" && result?.state === "ready" && result.saved === false && result.incomplete === false) readyAck = structuredClone(result);
                 return result;
               },
