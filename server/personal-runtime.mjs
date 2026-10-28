@@ -2,6 +2,7 @@ import { openSync, readFileSync, fstatSync, closeSync, constants, realpathSync, 
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { createMealApi } from './api.mjs';
+import { createOpsProblems } from './ops-problems.mjs';
 import { openFreeSttLedger } from './free-stt-ledger.mjs';
 import { createPersonalRuntime } from './trainer/personal-runtime.mjs';
 import { createPersonalDesktopEndpoint } from './trainer/personal-desktop-endpoint.mjs';
@@ -27,7 +28,7 @@ export function validatePersonalManifest(value) {
       value.version !== 3 || value.firebaseProject !== 'nutrition-tracker-ua' || value.origin !== 'https://ntzg.pp.ua' || typeof value.liveEnabled !== 'boolean' ||
       !Array.isArray(value.allowedUids) || value.allowedUids.length > 2 || value.allowedUids.some(item => !uid(item)) || new Set(value.allowedUids).size !== value.allowedUids.length ||
       !Number.isInteger(value.port) || value.port < 1024 || value.port > 65535 || value.maxConcurrent !== 2 || value.activationFile !== '/etc/scisense/personal-activation.json' ||
-      value.policyHash !== personalPolicyHash || JSON.stringify(value.credentialNames) !== '["groq","personal-state","desktop-y","desktop-w"]' ||
+      value.policyHash !== personalPolicyHash || !['["groq","personal-state","desktop-y","desktop-w"]','["groq","personal-state","desktop-y","desktop-w","ops-reader"]'].includes(JSON.stringify(value.credentialNames)) ||
       value.liveEnabled && (!/^[a-f0-9]{40}$/.test(value.releaseId || '') || !value.allowedUids.length)) fail();
   return value;
 }
@@ -72,7 +73,7 @@ export async function createPersonalServerRuntime(manifest, { fetcher = fetch, c
   const env = { FIREBASE_PROJECT: manifest.firebaseProject, ALLOWED_ORIGINS: manifest.origin, ALLOWED_UIDS: manifest.allowedUids.join(',') || 'disabled',
     LIVE_ENABLED: 'false', TRAINER_ENABLED: 'false', INFERENCE_MODE: 'stt_only', TRANSCRIBE_PROVIDER: 'groq', TRANSCRIBE_MODEL: 'whisper-large-v3',
     GROQ_ACCOUNT_TIER: 'free', GROQ_FREE_LIMITS: 'true' };
-  let trainer, ledger, api, closing; const endpoints = [];
+  let trainer, ledger, api, closing, ops = null; const endpoints = [];
   const close = () => closing ??= (async () => {
     env.LIVE_ENABLED='false';env.TRAINER_ENABLED='false';delete env.GROQ_API_KEY;
     // Close all ingress before waiting for any admitted model turn to drain.
@@ -94,7 +95,7 @@ export async function createPersonalServerRuntime(manifest, { fetcher = fetch, c
         const secret=groq.toString('utf8').trim();if(!/^gsk_[A-Za-z0-9_-]{16,}$/.test(secret) || state.length!==32) fail();
         const spawnRole = role => createSystemdProcess({socketPath:'/run/scisense-broker/'+role+'.sock',role,brokerGid:active.brokerGid});
         trainer=await createTrainer({ registry:active.registry, platformKey:state, root:'/var/lib/scisense/personal-v1', ephemeralRoot:'/run/scisense/personal-media',
-          index:'/opt/scisense/personal/data/foods-v1-reviewed.sqlite', project:manifest.firebaseProject, firebaseApiKey:active.firebaseApiKey, dataProfiles:active.dataProfiles,
+          index:'/opt/scisense/personal/data/foods-v1-reviewed.sqlite', project:manifest.firebaseProject, releaseId:manifest.releaseId, firebaseApiKey:active.firebaseApiKey, dataProfiles:active.dataProfiles,
           onFatal:()=>{env.LIVE_ENABLED='false';env.TRAINER_ENABLED='false';try{onFatal();}finally{void close().catch(()=>{});}},
           spawnOwner:profile=>spawnRole(active.lanes[profile.uid]),spawnPayer:()=>spawnRole('payer'),fetcher });
         for(const profile of active.registry.profiles){
@@ -105,6 +106,13 @@ export async function createPersonalServerRuntime(manifest, { fetcher = fetch, c
             endpoints.push(createDesktopEndpoint({runtime:trainer,uid:profile.uid,token:desktopToken,socketPath:profile.socket,socketGid:active.desktopGids[role]}));
           } finally {desktopToken?.fill(0);}
         }
+        // S4: only sha256 is kept; a missing or malformed key leaves the route at 401.
+        let opsHash=null, opsKey;
+        if (manifest.credentialNames.includes('ops-reader')) {
+          try { opsKey=readCredential('ops-reader'); if(Buffer.isBuffer(opsKey)&&/^[A-Za-z0-9_-]{43,128}$/.test(opsKey.toString()))opsHash=createHash('sha256').update(opsKey).digest(); }
+          catch { opsHash=null; } finally { opsKey?.fill(0); }
+        }
+        ops=createOpsProblems({problems:trainer.problems??{rows:()=>[],status:()=>({ok:false,writeErrors:0})},tokenHash:opsHash,releaseId:manifest.releaseId});
         Object.assign(env,{GROQ_API_KEY:secret,GROQ_FREE_APPROVED_AT:active.sttApprovedAt,PILOT_BUDGET:ledger.binding,LIVE_ENABLED:'true',TRAINER_ENABLED:'true'});
       } finally {groq?.fill(0);state?.fill(0);}
     }
@@ -112,7 +120,7 @@ export async function createPersonalServerRuntime(manifest, { fetcher = fetch, c
       if(kind!=='transcribe')throw Object.assign(Error('live_disabled'),{status:503});
       return callProvider(kind,payload,settings,fetcher,{...context,timeoutMs:45000});
     };
-    api=createApi({env,provider,trainer,maxConcurrent:manifest.maxConcurrent});
+    api=createApi({env,provider,trainer,maxConcurrent:manifest.maxConcurrent,ops});
     return Object.freeze({async listen(){
       try {for(const endpoint of endpoints)await endpoint.listen();return await api.listen(manifest.port);}
       catch {await close().catch(()=>{});throw Error('server_start_refused');}

@@ -23,6 +23,7 @@ import { openFoodIndex } from "./food-lookup.mjs";
 import { buildSnapshot } from "./snapshot.mjs";
 import { stableJSON } from "./limits.mjs";
 import { PERSONAL_LIMITS } from "./personal-limits.mjs";
+import { openProblemJournal, disabledProblemJournal, turnProblemRecorder } from "./problem-journal.mjs";
 
 const fail = () => { throw Error("personal_runtime_invalid"); };
 const response = value => Response.json(value, { headers: { "Cache-Control": "no-store" } });
@@ -112,8 +113,8 @@ export function provisionPersonalRuntime({ registry, platformKey, root, index, e
 
 export async function createPersonalRuntime({ registry, platformKey, root, ephemeralRoot, index: indexPath,
   indexSha256 = "a8e60fe05956869df3bc9d04371994c5ff8adf0d6014e474457f52191b591ad8",
-  project, firebaseApiKey, dataProfiles, spawnOwner, spawnPayer, fetcher = fetch, verifyToken,
-  readerFactory = createFirestoreReader, indexFactory = openFoodIndex, onEvent = () => {}, onFatal = () => {} }) {
+  project, firebaseApiKey, dataProfiles, spawnOwner, spawnPayer, fetcher = fetch, verifyToken, releaseId,
+  readerFactory = createFirestoreReader, indexFactory = openFoodIndex, payerFactory = createPersonalPayer, gatewayFactory = createTrainerGateway, onEvent = () => {}, onFatal = () => {} }) {
   keyValid(platformKey);
   if (typeof spawnOwner !== "function" || typeof spawnPayer !== "function") fail();
   const profiles = personalProfiles(registry), paths = personalRuntimePaths(root, profiles, indexPath, { ephemeralRoot });
@@ -124,6 +125,10 @@ export async function createPersonalRuntime({ registry, platformKey, root, ephem
   const keys = [], accounts = new Map(), desktop = new Map();
   const key = name => { const value = derive(platformKey, name); keys.push(value); return value; };
   let outbox, credentials, sessions, payer, core, index, sweeper, closing, ready = false;
+  // COACH-PROBLEMS-01 S1: знеособлений журнал. Не відкрився: служба працює без нього.
+  let problems;
+  try { problems = openProblemJournal(join(paths.root, "problems.sqlite"), { release: releaseId }); }
+  catch { problems = disabledProblemJournal(); }
   const close = () => closing ??= (async () => {
     let failed = false;
     const wait = async fn => { try { await fn(); } catch { failed = true; } };
@@ -133,6 +138,8 @@ export async function createPersonalRuntime({ registry, platformKey, root, ephem
     for (const account of accounts.values()) await wait(() => account.store.close());
     for (const resource of [credentials, outbox, index]) await wait(() => resource?.close());
     sweeper?.close();
+    // After gateway.close(): its shutdown cancellations are already recorded.
+    await wait(() => problems.close());
     for (const value of keys) value.fill(0);
     if (failed) throw Error("personal_shutdown_incomplete");
   })();
@@ -150,14 +157,17 @@ export async function createPersonalRuntime({ registry, platformKey, root, ephem
       storeFor: uid => openPersonalCredentials(paths.account(uid).session, { key: firebaseKeys.get(uid), fundingOwnerUid: uid, purpose: "firebase-session" }) });
     index = indexFactory(paths.index, indexSha256);
     for (const { uid } of entries) {
-      const p = paths.account(uid), store = openTurnStore(p.turns, { hmacKey: key("turns:" + uid), runDeadlineMs: PERSONAL_LIMITS.deadlineMs });
+      const p = paths.account(uid), store = openTurnStore(p.turns, { hmacKey: key("turns:" + uid), runDeadlineMs: PERSONAL_LIMITS.deadlineMs, onTransition: turnProblemRecorder(problems) });
       const account = { store }; accounts.set(uid, account);
       account.reader = readerFactory({ project, ownerUid: uid, profileId: dataProfiles[uid], fetcher, getOwnerToken: (uid, signal) => sessions.getToken(uid, signal) });
       account.kit = createTrainerTools({ store, index, ...account.reader, memoryWriteEnabled: true, contextUpdateMode: "append" });
       account.media = createMediaStore(p.media, { hash: store.hash });
     }
-    payer = createPersonalPayer({ credentials, spawnWorker: spawnPayer, reservePost: (uid, inputId, proof) => outbox.reservePost(uid, inputId, proof),
-      onDiagnostic: value => privateWrite(join(paths.root, "last-payer-failure.json"), JSON.stringify(value)) });
+    payer = payerFactory({ credentials, spawnWorker: spawnPayer, reservePost: (uid, inputId, proof) => outbox.reservePost(uid, inputId, proof),
+      onDiagnostic: value => {
+        try { problems.record("payer_failure", value?.code); } catch { /* journal is best effort */ }
+        privateWrite(join(paths.root, "last-payer-failure.json"), JSON.stringify(value));
+      } });
     core = createPersonalCoordinator({ profiles, outbox, payer, onEvent(uid, channel, event) {
       try { onEvent(uid, channel, event); } catch {}
       try { desktop.get(uid + ":" + channel)?.notify(event); } catch {}
@@ -165,8 +175,8 @@ export async function createPersonalRuntime({ registry, platformKey, root, ephem
       ownerFactory: (profile, hooks) => createPersonalProcess({ ...hooks, toolSchemas: accounts.get(profile.uid).kit.schemas, spawnWorker: () => spawnOwner(profile) }) });
     for (const { uid } of entries) {
       const account = accounts.get(uid), context = createPersonalContext(uid, core);
-      account.backend = createPersonalBackend({ uid, core, store: account.store, tools: account.kit.tools, releaseTools: account.kit.release });
-      account.gateway = createTrainerGateway({ ownerUid: uid, store: account.store, media: account.media, backend: account.backend,
+      account.backend = createPersonalBackend({ uid, core, store: account.store, tools: account.kit.tools, releaseTools: account.kit.release, problems });
+      account.gateway = gatewayFactory({ ownerUid: uid, store: account.store, problems, media: account.media, backend: account.backend,
         proxy: { cancel() {}, close() {} }, ...account.reader, releaseTools: account.kit.release,
         authorizeTurn: (uid, signal) => sessions.getToken(uid, signal),
         readContext: (_uid, signal) => context.read(signal), contextStore: context, memoryWriteEnabled: true,
@@ -179,6 +189,7 @@ export async function createPersonalRuntime({ registry, platformKey, root, ephem
     if (sweeper?.faulted) fail();
     ready = true;
     return Object.freeze({
+      problems: Object.freeze({ rows: since => problems.rows(since), status: () => problems.status() }),
       accepts(uid) { try { profiles.resolve(uid); return !closing; } catch { return false; } },
       openDesktop(uid, channel, notify) {
         profiles.resolve(uid);

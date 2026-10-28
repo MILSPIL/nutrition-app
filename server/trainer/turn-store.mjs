@@ -18,7 +18,7 @@ const safeError = (value) =>
   /^[a-z_]{1,60}$/.test(value || "") ? value : "trainer_failed";
 export function openTurnStore(
   file,
-  { hmacKey, now = Date.now, recover = true, runDeadlineMs = LIMITS.deadlineMs } = {},
+  { hmacKey, now = Date.now, recover = true, runDeadlineMs = LIMITS.deadlineMs, onTransition = () => {} } = {},
 ) {
   if (!Buffer.isBuffer(hmacKey) || hmacKey.length < 32)
     fail("trainer_config", 503);
@@ -57,6 +57,12 @@ export function openTurnStore(
     if (s.ino !== identity.ino || s.dev !== identity.dev)
       fail("trainer_replaced", 503);
   };
+  // COACH-PROBLEMS-01 S2 (а): лише стан і код, після коміту, без впливу на хід.
+  const notify = (transitions) => {
+    for (const value of transitions) {
+      try { onTransition(value); } catch { /* journal must never change a turn */ }
+    }
+  };
   const tx = (fn) => {
     check();
     db.exec("BEGIN IMMEDIATE");
@@ -72,6 +78,7 @@ export function openTurnStore(
       inTransaction = false;
     }
   };
+  const recovered = [];
   try {
     db.exec(`PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON; PRAGMA secure_delete=ON;
    CREATE TABLE IF NOT EXISTS trainer_meta(version INTEGER NOT NULL);
@@ -119,6 +126,8 @@ export function openTurnStore(
       );
       claimed = true;
       if (recover) {
+        for (const _ of db.prepare("SELECT id FROM turns WHERE state='running'").all())
+          recovered.push({ state: "unknown", code: "execution_unknown" });
         db.prepare(
           "UPDATE turns SET state='unknown',error='execution_unknown' WHERE state='running'",
         ).run();
@@ -132,6 +141,7 @@ export function openTurnStore(
             error,
             row.id,
           );
+          recovered.push({ state: "failed", code: error });
           db.prepare(
             "INSERT OR IGNORE INTO cleanup_jobs VALUES(?,NULL,?,0)",
           ).run(row.id, now());
@@ -142,6 +152,7 @@ export function openTurnStore(
     db.close();
     throw e;
   }
+  notify(recovered);
   const conversation = (uid, id) => {
     check();
     if (retention?.closed(id)) fail("conversation_gone", 410);
@@ -623,24 +634,31 @@ export function openTurnStore(
       });
     },
     fail(id, code, { unknown = false } = {}) {
-      return tx(() => {
+      const transitions = [];
+      const value = tx(() => {
         const row = internal(id);
         if (!["queued", "running", "unknown"].includes(row.state))
           return view(row);
+        const state = unknown ? "unknown" : "failed";
         db.prepare("UPDATE turns SET state=?,error=? WHERE id=?").run(
-          unknown ? "unknown" : "failed",
+          state,
           safeError(code),
           id,
         );
+        if (row.state !== state) transitions.push({ state, code: safeError(code) });
         if (!unknown) job(row);
         return view(internal(id));
       });
+      notify(transitions);
+      return value;
     },
-    cancel(uid, id) {
-      return tx(() => {
+    cancel(uid, id, reason = "other") {
+      const transitions = [];
+      const value = tx(() => {
         const row = own(uid, id);
         if (["completed", "cancelled", "failed"].includes(row.state))
           return view(row);
+        transitions.push({ state: "cancelled", code: reason });
         db.prepare(
           "UPDATE turns SET state='cancelled',error=NULL WHERE id=?",
         ).run(id);
@@ -652,6 +670,8 @@ export function openTurnStore(
           ? { turnId: id, state: "cancelled", expired: true }
           : view(internal(id));
       });
+      notify(transitions);
+      return value;
     },
     cleanupJobs() {
       check();

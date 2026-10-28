@@ -1,10 +1,11 @@
 import { createInternalProcess } from "./internal-process.mjs";
 import { PERSONAL_LIMITS } from "./personal-limits.mjs";
 
+export const PAYER_DIAGNOSTIC_CODES = Object.freeze(["trainer_unavailable", "trainer_timeout", "trainer_quota", "connection_auth_required", "connection_model_changed", "model_payload_invalid"]);
+const payerCodes = new Set(PAYER_DIAGNOSTIC_CODES);
 export function safePayerDiagnostic(message) {
-  const codes = new Set(["trainer_unavailable", "trainer_timeout", "trainer_quota", "connection_auth_required", "connection_model_changed", "model_payload_invalid"]);
   const bools = ["sse", "finished", "abandoned", "failed", "hasModels", "modelMatches", "terminalSeen", "terminalModelSeen"];
-  if (!message || !codes.has(message.code) || !["resolver", "sdk", "completion", "proof"].includes(message.stage) ||
+  if (!message || !payerCodes.has(message.code) || !["resolver", "sdk", "completion", "proof"].includes(message.stage) ||
       !Number.isInteger(message.posts) || message.posts < 0 || message.posts > PERSONAL_LIMITS.postsPerTurn || !Array.isArray(message.responses) || message.responses.length > PERSONAL_LIMITS.postsPerTurn) throw Error("invalid_request");
   return { code: message.code, stage: message.stage, posts: message.posts, responses: message.responses.map(p => {
     if (!p || ![true, false, null].includes(p.success) || p.status !== null && (!Number.isInteger(p.status) || p.status < 100 || p.status > 599) || bools.some(k => typeof p[k] !== "boolean")) throw Error("invalid_request");

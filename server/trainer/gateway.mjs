@@ -48,6 +48,7 @@ export function createTrainerGateway({
   snapshotFactory = buildSnapshot,
   queueWindowMs = LIMITS.deadlineMs,
   authorizeTurn = async () => {},
+  problems = null,
 }) {
   if (typeof ownerUid !== "string" || !ownerUid || ownerUid.length > 128)
     fail("trainer_config", 503);
@@ -160,7 +161,9 @@ export function createTrainerGateway({
       store.complete(id, turn.generation, result);
     } catch (error) {
       const state = store.internal(id).state;
-      if (!["cancelled", "completed", "failed", "unknown"].includes(state))
+      if (!["cancelled", "completed", "failed", "unknown"].includes(state)) {
+        // COACH-PROBLEMS-01 S2 (д): the real cause, else lost in execution_unknown.
+        try { problems?.record("turn_cause", error?.message); } catch { /* journal is best effort */ }
         store.fail(
           id,
           !entered || error?.definitelyNotExecuted || error?.knownNativeTerminal || ["stale_snapshot","day_unavailable"].includes(error?.message)
@@ -168,6 +171,7 @@ export function createTrainerGateway({
             : "execution_unknown",
           { unknown: entered && !error?.definitelyNotExecuted && !error?.knownNativeTerminal && !["stale_snapshot","day_unavailable"].includes(error?.message) },
         );
+      }
     } finally {
       clearTimeout(timer);
       // The shared scheduler slot covers real native shutdown, not merely
@@ -200,7 +204,7 @@ export function createTrainerGateway({
         const proof = await boundedOperation(() =>
           backend.stop(store.internal(expired.id)),
         ).catch(() => null);
-        if (proof?.stopped === true) store.cancel(expired.owner, expired.id);
+        if (proof?.stopped === true) store.cancel(expired.owner, expired.id, "expired");
       }
       await cleanup();
       maintenanceFault = media.sweep().faults > 0;
@@ -398,7 +402,7 @@ export function createTrainerGateway({
         store.get(uid, turnId);
         if (method === "GET" && !match[2]) return reply(store.get(uid, turnId));
         if (method === "POST" && match[2] === "/cancel") {
-          const value = store.cancel(uid, turnId);
+          const value = store.cancel(uid, turnId, "user_cancel");
           proxy.cancel(turnId);
           controllers.get(turnId)?.abort();
           const stopped = await boundedOperation(signal =>
@@ -425,7 +429,7 @@ export function createTrainerGateway({
             }
             else if (["failed", "not_executed"].includes(result?.state))
               store.fail(turnId, "trainer_failed");
-            else if (result?.state === "cancelled") store.cancel(uid, turnId);
+            else if (result?.state === "cancelled") store.cancel(uid, turnId, "native_cancelled");
           }
           await cleanup();
           return reply(store.get(uid, turnId));
@@ -441,7 +445,7 @@ export function createTrainerGateway({
       clearInterval(timer);
       for (const id of running.keys()) {
         const t = store.internal(id);
-        store.cancel(t.owner, id);
+        store.cancel(t.owner, id, "shutdown");
         proxy.cancel(id);
         controllers.get(id)?.abort();
         await boundedOperation(() => backend.stop(t)).catch(() => null);
