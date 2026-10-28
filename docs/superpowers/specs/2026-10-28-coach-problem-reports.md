@@ -124,7 +124,7 @@
 
 ### S7. Щоденний запуск на Mac
 
-- `launchd` (`~/Library/LaunchAgents/com.milspil.scisense-problems.plist`, мітка як у наявних агентів), щодня о 09:20 за Києвом, команда `/opt/homebrew/bin/python3.14 <хаб>/bin/scisense-problems/pull.py --apply`, вивід у `~/Library/Logs/scisense-problems.log` (без ключа і без тіла відповіді, лише підсумок: скільки рядків, скільки карток створено чи оновлено, код виходу). Mac спав о 09:20: launchd запускає після пробудження, це прийнято.
+- `launchd` (`~/Library/LaunchAgents/com.milspil.scisense-problems.plist`, мітка як у наявних агентів), щодня о 09:20 за Києвом, команда `/opt/homebrew/bin/python3.14 <хаб>/bin/scisense-problems/pull.py --apply`, вивід у `~/Library/Logs/scisense-problems.log` (stdout і stderr): друк `--apply` за S5 (знеособлені згруповані рядки, план, «створено/оновлено/без змін»), без ключа і без сирого тіла відповіді; останній рядок завжди `підсумок: рядків=<N> exit=<код>`, і при будь-якій помилці теж. Mac спав о 09:20: launchd запускає після пробудження, це прийнято.
 - Дозвіл на Keychain дається один раз (як `scisense-groq` під launchd у tg-control).
 
 ### S8. Версія 1.9.8
@@ -185,7 +185,7 @@ PR у `codex/hermes-personal-server`, squash. Публікація сервер�
   - контрольна дія: Юрій скасовує один хід тренера з телефона; наступний `--dry-run` показує рядок `turn_cancelled user_cancel` (доказ, що журнал реально пише);
   - хід тренера з телефона працює (Юрій).
 - K9. Після першого `--apply`: `pull.py --list` показує лише картки, чий текст проходить фільтр S5, у фазі S5а; повторний `--apply` того ж дня друкує «створено 0».
-- K10. `launchctl list | grep com.milspil.scisense-problems` → рядок є; після першого запланового прогону останній рядок `~/Library/Logs/scisense-problems.log` з кодом 0.
+- K10. `launchctl list | grep com.milspil.scisense-problems` → рядок є; після першого запланового прогону останній рядок `~/Library/Logs/scisense-problems.log` має вигляд `підсумок: рядків=<N> exit=0`.
 
 ### Червоне до коду (2026-10-28, до будь-якої реалізації)
 
