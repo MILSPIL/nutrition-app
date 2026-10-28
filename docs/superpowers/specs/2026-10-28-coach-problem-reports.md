@@ -52,7 +52,7 @@
 | `payer_failure` | `onDiagnostic` отримав діагностику платника | `code` з `safePayerDiagnostic` | `''` | Збій зв'язку з моделлю |
 | `food_estimate` | успішний `propose_food_draft`; нова позиція з `source.kind` `estimate` | `estimateReason` | `propose_food_draft` | (лише зведена картка S6) |
 | `food_unknown` | те саме; нова позиція з `source.kind` `unknown` | `unknown` | `propose_food_draft` | (лише S6) |
-| `food_portion_estimate` | те саме; нова позиція з `source.portionOrigin.kind` `estimate` (незалежно від `source.kind`) | `estimate` | `propose_food_draft` | (лише S6) |
+| `food_portion_estimate` | те саме; нова позиція, у якої в НОРМАЛІЗОВАНОМУ результаті (`assumptions` відповіді `propose_food_draft`, `tools.mjs` `modelDraftAck`) `portionOrigin.kind` = `estimate` (незалежно від `source.kind`). Не з параметрів моделі: `food-resolver.mjs:196-202` переписує `portionOrigin` за текстом користувача і завжди ставить `estimated` для оцінки, тож позиція з оціненою вагою завжди є в `assumptions` (знахідка Codex 2026-10-29) | `estimate` | `propose_food_draft` | (лише S6) |
 | `food_total` | те саме; кожна нова позиція | `item` | `propose_food_draft` | (лише S6) |
 
 - Причина скасування (повний перелік): `user_cancel` (користувач, `gateway.mjs:401`), `expired` (ретеншн завислого ходу, `:203`), `native_cancelled` (recover за статусом native, `:428`), `shutdown` (`close()` гейтвея при зупинці служби, `:444`). `cancel()` отримує причину параметром; виклик без причини записується як `other`.

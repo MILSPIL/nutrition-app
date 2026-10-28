@@ -12,6 +12,7 @@ import { openTurnStore } from "./turn-store.mjs";
 import { turnProblemRecorder } from "./problem-journal.mjs";
 import { RELEASE, START, ids, throwing, fixture, answer, turnRows } from "./problem-journal-fixture-test.mjs";
 import { provisionPersonalRuntime, createPersonalRuntime } from "./personal-runtime.mjs";
+import { createTrainerGateway } from "./gateway.mjs";
 import { createPersonalPayer, safePayerDiagnostic } from "./personal-payer.mjs";
 
 
@@ -117,7 +118,7 @@ test("K3 tool_error: ремонтна і неремонтна помилка з 
 });
 
 // Проводка createPersonalRuntime: як personal-runtime.test.mjs.
-function runtimeFixture(t, { releaseId = RELEASE } = {}) {
+function runtimeFixture(t, { releaseId = RELEASE, gatewayFactory } = {}) {
   const base = realpathSync(mkdtempSync(join(tmpdir(), "problem-runtime-"))); chmodSync(base, 0o700);
   const root = join(base, "state"), platformKey = randomBytes(32);
   const registry = { version: 1, fundingOwner: "owner", profiles: ["owner", "wife"].map(uid => ({ uid, profileId: "native-" + uid, home: join(base, uid), socket: join(base, "run-" + uid, "native.sock"), canonicalTitle: "Bot Chat" })) };
@@ -126,7 +127,7 @@ function runtimeFixture(t, { releaseId = RELEASE } = {}) {
     dataProfiles: { owner: "firestore-a", wife: "firestore-b" }, verifyToken: async () => "owner", fetcher: async () => { throw Error("unexpected_fetch"); },
     spawnOwner: () => { throw Error("unexpected-native"); }, spawnPayer: () => { throw Error("unexpected-payer"); }, indexFactory: () => ({ close() {} }),
     readerFactory: () => ({ readDay: async () => ({}), readPlan: async () => ({}) }),
-    payerFactory: options => { payerOptions = options; return createPersonalPayer(options); } };
+    payerFactory: options => { payerOptions = options; return createPersonalPayer(options); }, ...(gatewayFactory ? { gatewayFactory } : {}) };
   provisionPersonalRuntime(config);
   t.after(async () => { await runtime?.close().catch(() => {}); platformKey.fill(0); rmSync(base, { recursive: true, force: true }); });
   return { root, config, get payerOptions() { return payerOptions; }, async open() { runtime = await createPersonalRuntime(config); return runtime; } };
@@ -144,6 +145,21 @@ test("K3 payer_failure: onDiagnostic з проводки createPersonalRuntime �
   const db = new DatabaseSync(join(f.root, "problems.sqlite"), { readOnly: true });
   assert.deepEqual(db.prepare("SELECT category,code,count FROM problems").all().map(r => ({ ...r })), [{ category: "payer_failure", code: "trainer_quota", count: 2 }]);
   db.close();
+});
+
+test("K3 порядок закриття: запис під час gateway.close() (shutdown) потрапляє у файл журналу", async t => {
+  const f = runtimeFixture(t, { gatewayFactory: options => {
+    const gateway = createTrainerGateway(options);
+    // Імітує скасування ходу в роботі під час зупинки служби.
+    return { ...gateway, async close() { options.problems.record("turn_cancelled", "shutdown"); return gateway.close(); } };
+  } });
+  const runtime = await f.open();
+  await runtime.close();
+  const db = new DatabaseSync(join(f.root, "problems.sqlite"), { readOnly: true });
+  const rows = db.prepare("SELECT category,code,count FROM problems ORDER BY code").all().map(r => ({ ...r }));
+  db.close();
+  // Два профілі (owner, wife): по одному запису на гейтвей.
+  assert.deepEqual(rows, [{ category: "turn_cancelled", code: "shutdown", count: 2 }]);
 });
 
 test("K5 (б) журнал не відкривається на старті: служба стартує, journal.ok=false", async t => {

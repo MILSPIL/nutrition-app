@@ -114,7 +114,7 @@ export function provisionPersonalRuntime({ registry, platformKey, root, index, e
 export async function createPersonalRuntime({ registry, platformKey, root, ephemeralRoot, index: indexPath,
   indexSha256 = "a8e60fe05956869df3bc9d04371994c5ff8adf0d6014e474457f52191b591ad8",
   project, firebaseApiKey, dataProfiles, spawnOwner, spawnPayer, fetcher = fetch, verifyToken, releaseId,
-  readerFactory = createFirestoreReader, indexFactory = openFoodIndex, payerFactory = createPersonalPayer, onEvent = () => {}, onFatal = () => {} }) {
+  readerFactory = createFirestoreReader, indexFactory = openFoodIndex, payerFactory = createPersonalPayer, gatewayFactory = createTrainerGateway, onEvent = () => {}, onFatal = () => {} }) {
   keyValid(platformKey);
   if (typeof spawnOwner !== "function" || typeof spawnPayer !== "function") fail();
   const profiles = personalProfiles(registry), paths = personalRuntimePaths(root, profiles, indexPath, { ephemeralRoot });
@@ -176,7 +176,7 @@ export async function createPersonalRuntime({ registry, platformKey, root, ephem
     for (const { uid } of entries) {
       const account = accounts.get(uid), context = createPersonalContext(uid, core);
       account.backend = createPersonalBackend({ uid, core, store: account.store, tools: account.kit.tools, releaseTools: account.kit.release, problems });
-      account.gateway = createTrainerGateway({ ownerUid: uid, store: account.store, problems, media: account.media, backend: account.backend,
+      account.gateway = gatewayFactory({ ownerUid: uid, store: account.store, problems, media: account.media, backend: account.backend,
         proxy: { cancel() {}, close() {} }, ...account.reader, releaseTools: account.kit.release,
         authorizeTurn: (uid, signal) => sessions.getToken(uid, signal),
         readContext: (_uid, signal) => context.read(signal), contextStore: context, memoryWriteEnabled: true,
