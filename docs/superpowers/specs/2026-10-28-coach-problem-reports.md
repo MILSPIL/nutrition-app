@@ -198,6 +198,12 @@ PR у `codex/hermes-personal-server`, squash. Публікація сервер�
 - K7, інваріант: `git diff --stat` за шляхами K7 порожній (PASS). Інсценування: на копії `TRAINER_POLICY` «one question max» → «TWO questions max», той самий `git diff --stat` → `server/trainer/tools.mjs | 2 +-` (FAIL, перевірка здатна впасти); файл відновлено, diff знову порожній. Тестові команди K7 прогонити на фазі реалізації після `npm ci`; у цій копії `node_modules` немає.
 - K9, K10: перевіряють результат після публікації і першого прогону; до коду автокарток і агента launchd немає (`launchctl list | grep com.milspil.scisense-problems` порожній).
 
+Під час реалізації (2026-10-28, хмарна сесія, крок 1):
+
+- K1, K2 до модуля: `node --test server/trainer/problem-journal.test.mjs` → `ERR_MODULE_NOT_FOUND ... problem-journal.mjs`, tests 1, fail 1 (FAIL, очікувано).
+- K1 повнота: перша версія модуля без власного коду `problem_journal_invalid` → тест повноти `actual: [ 'problem_journal_invalid' ], expected: []` (FAIL); перелік перегенеровано, 8/8.
+- K2 інсценування: у `safeCode` фільтр `known.has(code)` тимчасово замінено на `true` → `node --test --test-name-pattern=K2 ...` exit 1, `AssertionError [ERR_ASSERTION]: problems.sqlite-wal містить private_marker_vivsianka` (FAIL, тест здатний упасти). Фільтр повернуто, `cmp` з копією без різниці, K2 знову pass 1, fail 0.
+
 ## Проба специфікації
 
 - Проба 1 (2026-10-28, свіжий агент з доступом до коду на читання): 39 місць, 19 «міняє план», 20 косметика. Закрито правками цієї редакції: тиха поломка журналу (`journal` у S3, `ap-journal-broken`, контрольна дія K8); збій відкриття (S1, K5б); причини скасування (S2); точки запису (S2); облік переходів; повний шлях помилок інструментів; «нова позиція» замість «кожна позиція»; ліміт і місце маршруту (S3, K4); `credentialNames` (S4); Python 3.14 (S5, S7); дедуп з `expired`, видаленими і накопиченням релізів (правила 1-5, `ap-mute`); шаблон S6; тип і `host_need` карток; окрема фаза S5а; K2 з маркерами з малих літер і `KNOWN_CODES`; K3 справжнім шляхом. Косметика закрита частково (формати часу, `''`, `since`, `--list`, мітка launchd, `policyHash`, `tool-errors.mjs` у K7, дата 1.9.8).
