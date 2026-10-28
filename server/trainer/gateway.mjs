@@ -200,7 +200,7 @@ export function createTrainerGateway({
         const proof = await boundedOperation(() =>
           backend.stop(store.internal(expired.id)),
         ).catch(() => null);
-        if (proof?.stopped === true) store.cancel(expired.owner, expired.id);
+        if (proof?.stopped === true) store.cancel(expired.owner, expired.id, "expired");
       }
       await cleanup();
       maintenanceFault = media.sweep().faults > 0;
@@ -398,7 +398,7 @@ export function createTrainerGateway({
         store.get(uid, turnId);
         if (method === "GET" && !match[2]) return reply(store.get(uid, turnId));
         if (method === "POST" && match[2] === "/cancel") {
-          const value = store.cancel(uid, turnId);
+          const value = store.cancel(uid, turnId, "user_cancel");
           proxy.cancel(turnId);
           controllers.get(turnId)?.abort();
           const stopped = await boundedOperation(signal =>
@@ -425,7 +425,7 @@ export function createTrainerGateway({
             }
             else if (["failed", "not_executed"].includes(result?.state))
               store.fail(turnId, "trainer_failed");
-            else if (result?.state === "cancelled") store.cancel(uid, turnId);
+            else if (result?.state === "cancelled") store.cancel(uid, turnId, "native_cancelled");
           }
           await cleanup();
           return reply(store.get(uid, turnId));
@@ -441,7 +441,7 @@ export function createTrainerGateway({
       clearInterval(timer);
       for (const id of running.keys()) {
         const t = store.internal(id);
-        store.cancel(t.owner, id);
+        store.cancel(t.owner, id, "shutdown");
         proxy.cancel(id);
         controllers.get(id)?.abort();
         await boundedOperation(() => backend.stop(t)).catch(() => null);

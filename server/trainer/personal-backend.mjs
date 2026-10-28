@@ -53,7 +53,9 @@ export function nativeMessageProjection(snapshot, inputForAdmission = () => unde
 
 // Per-account adapter. Shared coordinator owns processes/queue; this adapter
 // owns only this account's app leases, drafts and temporary media references.
-export function createPersonalBackend({ uid, core, tools, store, releaseTools = () => {}, stageAttachments, verify = async () => {} }) {
+export function createPersonalBackend({ uid, core, tools, store, releaseTools = () => {}, stageAttachments, verify = async () => {}, problems }) {
+  // COACH-PROBLEMS-01 S2: лише код і назва інструмента; збій журналу не змінює хід.
+  const problem = (...args) => { try { problems?.record(...args); } catch { /* journal is best effort */ } };
   const execution = new Map(), transports = new Map();
   const backend = {
     canonicalHistory: true,
@@ -105,7 +107,7 @@ export function createPersonalBackend({ uid, core, tools, store, releaseTools = 
                 // The private process pipe turns unknown errors into trainer_unavailable;
                 // a repairable code must reach the model as a result with its hint.
                 try { result = await tools[name](parameters, { ...context, signal }); }
-                catch (error) { if (MODEL_TOOL_ERRORS.has(error?.message)) return safeToolFailure(error); throw error; }
+                catch (error) { problem("tool_error", error?.message, name); if (MODEL_TOOL_ERRORS.has(error?.message)) return safeToolFailure(error); throw error; }
                 if (name === "propose_food_draft" && result?.state === "ready" && result.saved === false && result.incomplete === false) readyAck = structuredClone(result);
                 return result;
               },

@@ -119,3 +119,9 @@ export function openProblemJournal(file, { release, now = Date.now, maxRows = 50
     close() { if (!closed) { closed = true; db.close(); } },
   });
 }
+
+// Перехід ходу (S2 а) → категорія журналу. Лише стан і код, без id ходу.
+const turnCategories = { failed: "turn_failed", unknown: "turn_unknown", cancelled: "turn_cancelled" };
+export const turnProblemRecorder = journal => ({ state, code }) => {
+  if (Object.hasOwn(turnCategories, state)) journal.record(turnCategories[state], code);
+};

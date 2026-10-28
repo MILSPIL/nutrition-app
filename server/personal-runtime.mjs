@@ -94,7 +94,7 @@ export async function createPersonalServerRuntime(manifest, { fetcher = fetch, c
         const secret=groq.toString('utf8').trim();if(!/^gsk_[A-Za-z0-9_-]{16,}$/.test(secret) || state.length!==32) fail();
         const spawnRole = role => createSystemdProcess({socketPath:'/run/scisense-broker/'+role+'.sock',role,brokerGid:active.brokerGid});
         trainer=await createTrainer({ registry:active.registry, platformKey:state, root:'/var/lib/scisense/personal-v1', ephemeralRoot:'/run/scisense/personal-media',
-          index:'/opt/scisense/personal/data/foods-v1-reviewed.sqlite', project:manifest.firebaseProject, firebaseApiKey:active.firebaseApiKey, dataProfiles:active.dataProfiles,
+          index:'/opt/scisense/personal/data/foods-v1-reviewed.sqlite', project:manifest.firebaseProject, releaseId:manifest.releaseId, firebaseApiKey:active.firebaseApiKey, dataProfiles:active.dataProfiles,
           onFatal:()=>{env.LIVE_ENABLED='false';env.TRAINER_ENABLED='false';try{onFatal();}finally{void close().catch(()=>{});}},
           spawnOwner:profile=>spawnRole(active.lanes[profile.uid]),spawnPayer:()=>spawnRole('payer'),fetcher });
         for(const profile of active.registry.profiles){
