@@ -1,0 +1,53 @@
+{
+  "task": "CARD-CONTROL-197 / remove a product from the food card, Add not blocked by an uncounted product, reason above Add",
+  "goal": "objective_e45aa8ac1aa3",
+  "criteria": [
+    "G02",
+    "G07",
+    "G08"
+  ],
+  "version": "1.9.7",
+  "pullRequest": 50,
+  "codeSha": "36a994f52c9c7d842a70885e66de2a66e7bd5c56",
+  "testedTreeSha": "9241c5fb4ad37a1f73ba6fb387c772faf0f2f079",
+  "ci": {
+    "prHead": "259fdee4231c2a892ea1ad5b348ae3a747b8cb36",
+    "prHeadRun": 40593909878,
+    "prHeadNote": "3 of 4; hermes-resource-check failed on external DNS (getaddrinfo ENOTFOUND fdc.nal.usda.gov)",
+    "releaseRun": 40656499201,
+    "allFourGroupsPassed": true
+  },
+  "verification": {
+    "unitCardControl": 19,
+    "react": 376,
+    "serverContract": 3,
+    "serverCodeChangedSince576d7d1": false,
+    "browserCardWidths": [375, 390, 1366],
+    "independentReview": [
+      "codex-review: 3 P2 confirmed and fixed",
+      "spec-reviewer: fifth pass done"
+    ],
+    "cleanGitExport": true,
+    "pinnedNode": "24.22.1"
+  },
+  "production": {
+    "scope": "site only",
+    "frontendFilesShaVerified": 37,
+    "mainBundle": "static/js/main.37fb4263.js",
+    "backendRelease": "576d7d1e62b32173f31cf541b89ef048a6f8e75a",
+    "backendFilesChanged": 0,
+    "apiRestarted": false,
+    "apiPidUnchanged": true,
+    "siteStatus": 200,
+    "apiStatus": 200,
+    "modelCalls": 0,
+    "accessWindowUtc": "2026-10-28T08:31:57Z/2026-10-28T08:34:00Z"
+  },
+  "cleanup": {
+    "administratorAbsent": true,
+    "sshRejectedAfterRevoke": true,
+    "temporarySecretsDeleted": 3,
+    "uploadedArchiveRemoved": true
+  },
+  "acceptance": "technical checks passed; phone check (K10) pending"
+}
