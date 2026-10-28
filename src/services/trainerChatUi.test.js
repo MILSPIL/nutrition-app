@@ -666,3 +666,227 @@ describe("1.9.6 chat stream", () => {
     expect(trainer.textContent).toContain("<b>x</b>");
   });
 });
+
+describe("1.9.7 card control", () => {
+  const unknownItem = { itemId: "synthetic-home", name: "Синтетична домашня страва", quantity: { value: null, unit: "unknown" }, nutritionBasis: { value: null, unit: "unknown" }, nutrients: { p: null, f: null, c: null, cal: null }, source: { kind: "unknown" }, estimated: false, nutritionStatus: "unknown" };
+  const settle = () => act(async () => { await new Promise(r => setTimeout(r, 750)); });
+  function cardFixture({ noteId } = {}) {
+    previewFixture();
+    const draft = server.drafts[0];
+    draft.items = [...draft.items, JSON.parse(JSON.stringify(unknownItem))];
+    if (noteId) { draft.noteId = noteId; draft.items = [JSON.parse(JSON.stringify(unknownItem))]; }
+    api.edit = jest.fn(async (id, body) => {
+      const d = server.drafts.find(x => x.draftId === id);
+      if (body.baseRevision !== d.revision) throw Error("draft_conflict");
+      const removed = body.removeItemIds || [];
+      if (body.items.some(i => removed.includes(i.itemId))) throw Error("invalid_request");
+      d.items = d.items.filter(i => !removed.includes(i.itemId)).map(i => ({ ...i, ...body.items.find(x => x.itemId === i.itemId) }));
+      d.revision++;
+      return JSON.parse(JSON.stringify(d));
+    });
+    api.prepareSave = jest.fn(async (id, revision) => {
+      const d = server.drafts.find(x => x.draftId === id);
+      if (revision !== d.revision) throw Error("draft_conflict");
+      if (d.items.some(i => i.nutritionStatus !== "complete" && i.noteSelected !== true)) throw Error("note_confirmation_required");
+      Object.assign(d, { state: "saved", save: { command: { items: d.items.filter(i => i.nutritionStatus === "complete"), notes: d.items.filter(i => i.nutritionStatus !== "complete") } } });
+      return JSON.parse(JSON.stringify(d));
+    });
+    api.receipt = jest.fn(async (id) => JSON.parse(JSON.stringify(server.drafts.find(x => x.draftId === id))));
+    return draft;
+  }
+  const removeButton = (name) => host.querySelector(`button[aria-label="Прибрати ${name}"]`);
+  test("S1 «Прибрати» takes a product out of the card and sends only its removal", async () => {
+    cardFixture();
+    await render();
+    expect(removeButton("Синтетична домашня страва")?.textContent).toBe("Прибрати");
+    await click("Прибрати Синтетична домашня страва");
+    expect(host.querySelector('[data-testid="trainer-draft"]').textContent).not.toContain("Синтетична домашня страва");
+    await settle();
+    expect(api.edit).toHaveBeenCalledTimes(1);
+    const body = api.edit.mock.calls[0][1];
+    expect(body.removeItemIds).toEqual(["synthetic-home"]);
+    expect(body.items.some(i => i.itemId === "synthetic-home")).toBe(false);
+    expect(server.drafts[0].items.map(i => i.itemId)).toEqual(["synthetic-fruit"]);
+    expect(button("Додати").disabled).toBe(false);
+    expect(host.querySelector(".trainer-add-reason")).toBeNull();
+  });
+  test("S1 removals before sending go in one edit without the removed product's own changes", async () => {
+    const draft = cardFixture();
+    draft.items = [...draft.items, { ...draft.items[0], itemId: "synthetic-extra", name: "Синтетичний зайвий плід" }];
+    await render();
+    await act(async () => { Simulate.change(host.querySelector('select[aria-label="Одиниця 3"]'), { target: { value: "ml" } }); });
+    await click("Прибрати Синтетичний зайвий плід");
+    await click("Прибрати Синтетична домашня страва");
+    await settle();
+    expect(api.edit).toHaveBeenCalledTimes(1);
+    const body = api.edit.mock.calls[0][1];
+    expect([...body.removeItemIds].sort()).toEqual(["synthetic-extra", "synthetic-home"]);
+    expect(body.items).toEqual([]);
+    expect(server.drafts[0].items.map(i => i.itemId)).toEqual(["synthetic-fruit"]);
+  });
+  test("S1 a note card with several products also offers «Прибрати»", async () => {
+    const draft = cardFixture({ noteId: "synthetic-note-000000002" });
+    draft.items = [...draft.items, { ...JSON.parse(JSON.stringify(unknownItem)), itemId: "synthetic-soup", name: "Синтетичний суп" }];
+    await render();
+    expect(removeButton("Синтетичний суп")).toBeTruthy();
+  });
+  test("S1 the last product and a frozen card have no «Прибрати»", async () => {
+    previewFixture();
+    await render();
+    expect(removeButton("Синтетичний плід")).toBeNull();
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    cardFixture();
+    server.drafts[0].state = "unknown";
+    await render();
+    expect(host.querySelector('button[aria-label^="Прибрати "]')).toBeNull();
+  });
+  test("S1 «Прибрати» is off while the card is locked", async () => {
+    cardFixture();
+    server.drafts[0].blocked = true;
+    await render();
+    expect(removeButton("Синтетична домашня страва")?.disabled).toBe(true);
+  });
+  test("S2 «Додати» waits while a removal is still queued", async () => {
+    const draft = cardFixture();
+    draft.items = [...draft.items, { ...draft.items[0], itemId: "synthetic-extra", name: "Синтетичний зайвий плід" }];
+    await render();
+    await click("Прибрати Синтетичний зайвий плід");
+    expect(button("Додати").disabled).toBe(true);
+    expect(host.textContent).toContain("Зберігаю зміни прев’ю…");
+    await settle();
+  });
+  test("S3 several products without calories use the plural", async () => {
+    const draft = cardFixture();
+    draft.items = [...draft.items, { ...JSON.parse(JSON.stringify(unknownItem)), itemId: "synthetic-soup", name: "Синтетичний суп" }];
+    await render();
+    expect(button("Додати").previousElementSibling.textContent).toBe("Без розрахунку калорій: «Синтетична домашня страва», «Синтетичний суп». Збережуться нотатками, у суму калорій не ввійдуть.");
+  });
+  test("S2 «Додати» saves a product without calories as a note instead of blocking", async () => {
+    cardFixture();
+    await render();
+    expect(button("Додати").disabled).toBe(false);
+    expect(host.textContent).not.toContain("Зберегти як нотатку без повного розрахунку");
+    await click("Додати");
+    expect(api.edit).toHaveBeenCalledTimes(1);
+    expect(api.edit.mock.calls[0][1].items).toEqual([{ itemId: "synthetic-home", noteSelected: true }]);
+    expect(api.prepareSave).toHaveBeenCalledTimes(1);
+    expect(api.edit.mock.invocationCallOrder[0]).toBeLessThan(api.prepareSave.mock.invocationCallOrder[0]);
+    expect(api.prepareSave.mock.calls[0][1]).toBe(server.drafts[0].revision);
+    expect(host.querySelector('[data-testid="trainer-saved-receipt"]').textContent).toContain("Синтетична домашня страва · нотатка");
+  });
+  test("S2 a failed note confirmation does not save and leaves «Додати» available", async () => {
+    cardFixture();
+    api.edit.mockRejectedValueOnce(Error("draft_conflict"));
+    await render();
+    await click("Додати");
+    expect(api.edit).toHaveBeenCalledTimes(1);
+    expect(api.prepareSave).not.toHaveBeenCalled();
+    expect(host.querySelector(".trainer-error")).toBeTruthy();
+    expect(button("Додати").disabled).toBe(false);
+  });
+  test("review: a day that changed after display stops «Додати» before the note confirmation", async () => {
+    cardFixture();
+    const { day } = { day: await api.day("2026-01-02") };
+    const edit = api.edit;
+    api.edit = jest.fn(async (id, body) => { const d = await edit(id, body); server.drafts[0].freshness = day.freshness; return { ...d, freshness: day.freshness }; });
+    await render();
+    day.freshness = { ...day.freshness, dayRevision: 8 };
+    await click("Додати");
+    expect(api.edit).not.toHaveBeenCalled();
+    expect(api.prepareSave).not.toHaveBeenCalled();
+    expect(host.textContent).toContain("Записи дня змінилися");
+  });
+  test("review: saving uses the draft the note confirmation returned, not an older poll", async () => {
+    cardFixture();
+    await render();
+    const before = JSON.parse(JSON.stringify(server));
+    api.state.mockImplementation(async () => JSON.parse(JSON.stringify(before)));
+    await click("Додати");
+    expect(api.edit).toHaveBeenCalledTimes(1);
+    expect(api.prepareSave).toHaveBeenCalledTimes(1);
+    expect(api.prepareSave.mock.calls[0][1]).toBe(2);
+  });
+  test("review: removing a product drops the label photo attached to it", async () => {
+    cardFixture();
+    props.photoNormalizer = jest.fn(async () => ({ type: "image/jpeg", data: "synthetic-photo", preview: "data:image/jpeg;base64,c3ludGhldGlj" }));
+    await render();
+    const photoButtons = [...host.querySelectorAll("button")].filter(b => b.textContent === "Фото етикетки цього продукту");
+    await act(async () => { Simulate.click(photoButtons[1]); });
+    await act(async () => Simulate.change(host.querySelector('input[type="file"]'), { target: { files: [new File(["photo"], "synthetic.jpg", { type: "image/jpeg" })], value: "" } }));
+    expect(host.querySelectorAll('img[alt="Фото етикетки перед надсиланням"]')).toHaveLength(1);
+    await click("Прибрати Синтетична домашня страва");
+    expect(host.querySelectorAll('img[alt="Фото етикетки перед надсиланням"]')).toHaveLength(0);
+    await settle();
+  });
+  test("review: «Прибрати» is off while «Додати» is saving", async () => {
+    const draft = cardFixture();
+    draft.items = [...draft.items, { ...draft.items[0], itemId: "synthetic-extra", name: "Синтетичний зайвий плід" }];
+    await render();
+    const day = await api.day("2026-01-02");
+    let release;
+    api.day.mockImplementationOnce(() => new Promise((ok) => { release = () => ok(day); }));
+    await click("Додати");
+    expect(removeButton("Синтетичний зайвий плід").disabled).toBe(true);
+    await act(async () => release());
+  });
+  test("review: leaving the page during «Додати» does not keep the chat locked after it comes back", async () => {
+    cardFixture();
+    await render();
+    const day = await api.day("2026-01-02");
+    let release;
+    api.day.mockImplementationOnce(() => new Promise((ok) => { release = () => ok(day); }));
+    await click("Додати");
+    expect(host.querySelector("textarea").disabled).toBe(true);
+    await restore();
+    expect(host.querySelector("textarea").disabled).toBe(false);
+    await act(async () => release());
+  });
+  test("review: an older save that ends after the page came back does not unlock a newer save", async () => {
+    const draft = cardFixture();
+    draft.items = [...draft.items, { ...draft.items[0], itemId: "synthetic-extra", name: "Синтетичний зайвий плід" }];
+    await render();
+    const day = await api.day("2026-01-02");
+    let releaseOld, releaseNew;
+    api.day.mockImplementationOnce(() => new Promise((ok) => { releaseOld = () => ok(day); }));
+    await click("Додати");
+    await restore();
+    api.day.mockImplementationOnce(() => new Promise((ok) => { releaseNew = () => ok(day); }));
+    await click("Додати");
+    expect(removeButton("Синтетичний зайвий плід").disabled).toBe(true);
+    await act(async () => releaseOld());
+    expect(removeButton("Синтетичний зайвий плід").disabled).toBe(true);
+    await act(async () => releaseNew());
+    expect(host.querySelector("textarea").disabled).toBe(false);
+  });
+  test("review: a card frozen on another device shows the server's products, not a queued removal", async () => {
+    cardFixture();
+    api.edit = jest.fn(async () => { throw Error("network_unavailable"); });
+    await render();
+    await click("Прибрати Синтетична домашня страва");
+    await settle();
+    expect(host.querySelector('[data-testid="trainer-draft"]').textContent).not.toContain("Синтетична домашня страва");
+    server.drafts[0].state = "unknown";
+    await act(async () => { await new Promise(r => setTimeout(r, 2600)); });
+    expect(host.querySelector('[data-testid="trainer-draft"]').textContent).toContain("Синтетична домашня страва");
+  }, 10000);
+  test("review: a frozen card shows no reason above its button", async () => {
+    cardFixture();
+    server.drafts[0].state = "unknown";
+    await render();
+    expect(host.querySelector(".trainer-add-reason")).toBeNull();
+  });
+  test("S3 the reason sits right above «Додати» and names the product", async () => {
+    cardFixture();
+    await render();
+    const add = button("Додати");
+    expect(add.previousElementSibling.textContent).toBe("Без розрахунку калорій: «Синтетична домашня страва». Збережеться нотаткою, у суму калорій не ввійде.");
+  });
+  test("S3 a note card without quantity keeps «Додати» off and says what to do", async () => {
+    cardFixture({ noteId: "synthetic-note-000000001" });
+    await render();
+    const add = button("Додати");
+    expect(add.disabled).toBe(true);
+    expect(add.previousElementSibling.textContent).toBe("Щоб записати «Синтетична домашня страва», уточніть кількість або напишіть тренеру, скільки це калорій.");
+  });
+});

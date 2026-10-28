@@ -22,7 +22,7 @@ afterEach(async () => {
 
 test('показує одну людську версію та поточні новини', async () => {
   await render();
-  expect(APP_VERSION).toBe('1.9.6');
+  expect(APP_VERSION).toBe('1.9.7');
   expect(require('../../package.json').version).toBe(APP_VERSION);
   expect(container.textContent).toContain(`Версія ${APP_VERSION}`);
   expect(container.textContent).toContain(`Що нового у v${APP_VERSION}`);
@@ -69,7 +69,7 @@ test('навіть SHA у build environment не стає видимою вер�
   process.env.REACT_APP_VERSION = 'bad8217421d0eff859b920885d849e3e121cbf72';
   try {
     jest.isolateModules(() => {
-      expect(require('./WelcomeModal').APP_VERSION).toBe('1.9.6');
+      expect(require('./WelcomeModal').APP_VERSION).toBe('1.9.7');
     });
   } finally {
     if (previous === undefined) delete process.env.REACT_APP_VERSION;

@@ -15,7 +15,7 @@ const build=resolve('tmp/coach-ui-build'),out=resolve('tmp/coach-ui-qa');mkdirSy
 const evidence={syntheticOnly:true,realBuiltUI:true,mockedTrainerAPI:true,widths:[],checks:[],consoleErrors:[],iconRequests:[],textAudits:[]};
 const check=(name,ok)=>{assert.ok(ok,name);evidence.checks.push(name);};
 let state={conversationId:'synthetic-coach',revision:0,composer:{text:'',revision:0},messages:[],drafts:[],contextProposals:[],currentTurn:null};
-let calls=0,sttCalls=0,lastInput=null,iconBodies=0,photoDeleted=false,photoReads=0,photoDeletes=0,cancels=0,deferReply=false;
+let calls=0,sttCalls=0,lastInput=null,edits=[],iconBodies=0,photoDeleted=false,photoReads=0,photoDeletes=0,cancels=0,deferReply=false;
 const photoFixture={type:'image/webp',data:readFileSync(join(build,'static/media',readdirSync(join(build,'static/media')).find(name=>name.startsWith('category-')&&name.endsWith('.webp')))).toString('base64')};
 const catalog=buildPlanCatalog({profile:{}}),ref=catalog.references.find(r=>r.name==='фрукти та ягоди');
 const item={itemId:'synthetic-fruit',name:'Синтетичний плід',quantity:{value:200,unit:'g'},nutritionBasis:{value:100,unit:'g'},nutrients:{p:1,f:2,c:3,cal:60},source:{kind:'estimate',estimateReason:'no_matching_source',portionOrigin:{kind:'estimate',assumption:'Припускаємо середній розмір, приблизно 200 г.'}},estimated:true,nutritionStatus:'complete',planMatch:{referenceId:ref.refId,consumedState:'as_sold',certainty:'matched'}};
@@ -54,6 +54,11 @@ const server=createServer(async(req,res)=>{try{
    result={turnId:body.turnId,state:'completed'};
   }
   else if(path.startsWith('/days/'))result=day;
+  else if(/^\/drafts\/[^/]+$/.test(path)&&req.method==='PUT'){
+   const d=state.drafts.find(x=>x.draftId===path.split('/')[2]);assert.equal(body.baseRevision,d.revision);edits.push(body);
+   const removed=body.removeItemIds||[];assert.ok(!body.items.some(i=>removed.includes(i.itemId)));
+   d.items=d.items.filter(i=>!removed.includes(i.itemId)).map(i=>({...i,...body.items.find(x=>x.itemId===i.itemId)}));d.revision++;result=d;
+  }
   else if(path.endsWith('/refresh')){state.drafts[0].revision++;state.drafts[0].freshness=day.freshness;result=state.drafts[0];}
   else throw Error('unexpected_synthetic_route');
   return res.end(JSON.stringify(result));
@@ -198,6 +203,44 @@ try {
  check('reopen stays at latest answer after collapsed older draft',await page.getByText('Синтетична відповідь готова.',{exact:true}).evaluate(node=>{const r=node.getBoundingClientRect(),a=document.querySelector('.trainer-scroll').getBoundingClientRect();return r.top>=a.top&&r.bottom<=a.bottom;})&&await page.locator('.trainer-older-draft:not([open])').count()===1);
  await page.screenshot({path:join(out,'reopen-after-old-draft-390.png')});
  await page.getByRole('button',{name:'Закрити чат',exact:true}).click();state=structuredClone(baselineState);
+ // 1.9.6 K10b: the turn status sits under the message and trainer bold renders, at both edge widths.
+ for(const width of [375,1366]){
+  await page.setViewportSize({width,height:width===1366?900:844});state=structuredClone(baselineState);
+  state.messages.push({id:'synthetic-status-u-'+width,turnId:'synthetic-status-'+width,role:'user',content:'Синтетичне коротке питання'});
+  state.currentTurn=state.latestTurn={turnId:'synthetic-status-'+width,state:'running',sentAt:'2026-10-24T12:00:00Z',targetDate:'2026-10-24'};
+  await launcher.click();await page.getByText('Тренер розбирає повідомлення',{exact:true}).waitFor();
+  const placed=await page.locator('.trainer-turn').evaluate(node=>{const r=node.getBoundingClientRect(),m=node.parentElement.getBoundingClientRect(),v=document.querySelector('.trainer-scroll').getBoundingClientRect();return {last:node.parentElement.matches('.trainer-messages')&&node===node.parentElement.lastElementChild,footer:!!node.closest('footer'),status:[r.top,r.bottom],messages:[m.top,m.bottom],scroll:[v.top,v.bottom]};});
+  evidence['status'+width]=placed;
+  check('running status is the last stream row in view '+width,placed.last&&!placed.footer&&placed.status[0]>=placed.messages[0]&&placed.status[1]<=placed.messages[1]&&placed.status[0]>=placed.scroll[0]&&placed.status[1]<=placed.scroll[1]);
+  await page.screenshot({path:join(out,'running-'+width+'.png')});
+  state.latestTurn={...state.currentTurn,state:'completed'};state.currentTurn=null;state.messages.push({id:'synthetic-bold-'+width,role:'assistant',content:'Залишилось **1385 ккал** на сьогодні.'});
+  await page.locator('.trainer-message.from-trainer strong').first().waitFor();
+  const bold=await page.locator('.trainer-message.from-trainer').last().evaluate(n=>({strong:[...n.querySelectorAll('strong')].map(s=>s.textContent),stars:n.textContent.includes('**')}));
+  evidence['bold'+width]=bold;check('trainer bold renders as strong '+width,bold.strong.join('|')==='1385 ккал'&&!bold.stars);
+  await page.getByRole('button',{name:'Закрити чат',exact:true}).click();
+ }
+ // 1.9.7: a product without calories never blocks Add, and any product but the last can be removed.
+ const homeItem={itemId:'synthetic-home',name:'Синтетична домашня страва',quantity:{value:null,unit:'unknown'},nutritionBasis:{value:null,unit:'unknown'},nutrients:{p:null,f:null,c:null,cal:null},source:{kind:'unknown'},estimated:false,nutritionStatus:'unknown'};
+ for(const width of [375,390,1366]){
+  await page.setViewportSize({width,height:width===1366?900:844});state=structuredClone(baselineState);edits=[];
+  // The card belongs to the latest turn, so the stream shows it expanded under that message.
+  // Its freshness is the day as served now (the norm revision above changed it), or Add stays off as stale.
+  const cardTurn='synthetic-card-turn-'+width;state.messages.push({id:cardTurn+'-u',turnId:cardTurn,role:'user',content:'Синтетичний обід'});state.latestTurn={turnId:cardTurn,state:'completed',text:'Синтетичний обід'};
+  state.drafts=[{draftId:'synthetic-card-'+width,turnId:cardTurn,revision:1,state:'ready',targetDate,meal:1,items:[structuredClone(item),structuredClone(homeItem)],freshness:structuredClone(day.freshness)}];
+  await launcher.click();const add=page.getByRole('button',{name:'Додати',exact:true});await add.waitFor();await page.waitForFunction(()=>![...document.querySelectorAll('button')].find(b=>b.textContent==='Додати')?.disabled);
+  const card=await add.evaluate(node=>{const reason=node.previousElementSibling,box=node.closest('.trainer-draft').getBoundingClientRect(),remove=[...node.closest('.trainer-draft').querySelectorAll('button[aria-label^="Прибрати "]')];return {enabled:!node.disabled,reason:reason?.textContent||'',reasonGap:reason?node.getBoundingClientRect().top-reason.getBoundingClientRect().bottom:null,remove:remove.map(b=>{const r=b.getBoundingClientRect();return {height:r.height,width:r.width,left:r.left-box.left,right:box.right-r.right};}),overflow:document.documentElement.scrollWidth-innerWidth};});
+  evidence['card'+width]=card;
+  check('product without calories does not block Add '+width,card.enabled&&card.reason==='Без розрахунку калорій: «Синтетична домашня страва». Збережеться нотаткою, у суму калорій не ввійде.'&&card.reasonGap>=0&&card.reasonGap<=24);
+  check('each product has a reachable remove '+width,card.remove.length===2&&card.remove.every(r=>r.height>=44&&r.width>=44&&r.left>=0&&r.right>=0)&&card.overflow===0);
+  // The shot shows Add with its reason, the part the owner checks by eye.
+  await add.scrollIntoViewIfNeeded();await page.screenshot({path:join(out,'card-control-'+width+'.png')});
+  await page.getByRole('button',{name:'Прибрати Синтетична домашня страва',exact:true}).click();
+  await page.waitForFunction(()=>!document.querySelector('.trainer-draft')?.textContent.includes('Синтетична домашня страва'));
+  await page.getByText('Зберігаю зміни прев’ю…',{exact:true}).waitFor({state:'hidden'});
+  check('remove sends one removal and keeps the other product '+width,edits.length===1&&JSON.stringify(edits[0].removeItemIds)==='["synthetic-home"]'&&state.drafts[0].items.map(i=>i.itemId).join()==='synthetic-fruit'&&await page.locator('.trainer-draft button[aria-label^="Прибрати "]').count()===0);
+  await page.getByRole('button',{name:'Закрити чат',exact:true}).click();
+ }
+ await page.setViewportSize({width:390,height:844});state=structuredClone(baselineState);
  const icons=await page.locator('img[src*="category-"]').evaluateAll(nodes=>nodes.map(n=>({src:n.src,naturalWidth:n.naturalWidth,box:n.getBoundingClientRect().width})));
  check('versioned icons exact visual box',icons.length>=3&&icons.every(x=>x.src.includes('/static/media/')&&x.src.endsWith('.webp')&&x.naturalWidth===192&&x.box<=44));
  evidence.icons=icons;

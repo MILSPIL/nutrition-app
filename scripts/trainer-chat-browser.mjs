@@ -618,11 +618,24 @@ try {
   mode = "unknown";
   await send("З’їв ще домашню страву невідомого складу");
   await page
-    .getByLabel("Зберегти як нотатку без повного розрахунку", { exact: true })
-    .check();
-  await page
-    .getByText("Зберігаю зміни прев’ю…", { exact: true })
-    .waitFor({ state: "hidden" });
+    .getByText("Збережеться нотаткою, у суму калорій не ввійде.", { exact: false })
+    .waitFor();
+  // Add turns on once the day is read again, not at the same moment as the reason.
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll("button")].some(
+      (b) => b.textContent === "Додати" && !b.disabled,
+    ),
+  );
+  check(
+    "Їжа без розрахунку не блокує Додати, причина над кнопкою",
+    await page
+      .getByRole("button", { name: "Додати", exact: true })
+      .evaluate(
+        (b) =>
+          !b.disabled &&
+          b.previousElementSibling?.textContent.startsWith("Без розрахунку калорій: «"),
+      ),
+  );
   await page.getByRole("button", { name: "Додати", exact: true }).click();
   await page.waitForFunction(
     () =>

@@ -59,10 +59,12 @@ function trainerText(content) {
   return parts.map((part, i) => (i % 2 ? <strong key={i}>{part}</strong> : part));
 }
 function applyEdits(d, patch = {}) {
+  // A frozen card shows what the server is saving, never unsent changes.
+  if (["saving", "unknown", "saved"].includes(d.state)) return d;
   return {
     ...d,
     ...patch,
-    items: d.items.map((i) => {
+    items: d.items.filter((i) => !patch.removeItemIds?.includes(i.itemId)).map((i) => {
       const next = { ...i, ...patch.items?.[i.itemId] };
       return {
         ...next,
@@ -132,6 +134,11 @@ function DraftCard({
       ),
     );
   const locked = disabled || frozen || draft.blocked;
+  // A product without calories never blocks Add: saving confirms it as a note.
+  const unresolved = frozen
+      ? []
+      : draft.items.filter((i) => i.nutritionStatus !== "complete"),
+    unresolvedNames = unresolved.map((i) => `«${i.name}»`).join(", ");
   return (
     <article className="trainer-draft" data-testid="trainer-draft">
       <div className="trainer-draft-heading">
@@ -172,7 +179,19 @@ function DraftCard({
         const item = byId.get(raw.itemId) || raw;
         return (
           <div className="trainer-food" key={item.itemId}>
-            <h4>{item.name}</h4>
+            <div className="trainer-food-head">
+              <h4>{item.name}</h4>
+              {!frozen && draft.items.length > 1 && (
+                <button
+                  className="trainer-remove"
+                  aria-label={`Прибрати ${item.name}`}
+                  disabled={locked}
+                  onClick={() => onEdit({ removeItemIds: [item.itemId] })}
+                >
+                  Прибрати
+                </button>
+              )}
+            </div>
             <p className="trainer-source">
               {sourceText(item)}
               {item.estimated ? " · Приблизна оцінка" : ""}
@@ -251,27 +270,10 @@ function DraftCard({
                 />
               </>
             ) : (
-              <>
-                <p>
-                  Калорійність або кількість ще невідома. Можна уточнити
-                  повідомленням.
-                </p>
-                <label className="trainer-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={item.noteSelected === true}
-                    disabled={locked}
-                    onChange={(e) =>
-                      onEdit({
-                        items: {
-                          [item.itemId]: { noteSelected: e.target.checked },
-                        },
-                      })
-                    }
-                  />
-                  Зберегти як нотатку без повного розрахунку
-                </label>
-              </>
+              <p>
+                Калорійність або кількість ще невідома. Можна уточнити
+                повідомленням.
+              </p>
             )}
             {!frozen && (
               <button
@@ -289,11 +291,6 @@ function DraftCard({
       <p className="trainer-total">
         Розраховано: {total.cal} ккал · Б {total.p} · Ж {total.f} · В {total.c}
       </p>
-      {draft.items.some((i) => i.nutritionStatus !== "complete") && (
-        <p className="trainer-warning">
-          Підсумок неповний. Нотатки не входять у суму калорій.
-        </p>
-      )}
       {dayStatus === "loading" && <p role="status">Перечитую записи за {dateLabel(draft.targetDate)}…</p>}
       {(dayStatus === "error" || stale) && !frozen && <div className="trainer-warning" role="status">
         <p>{dayStatus === "error" ? "Не вдалося прочитати цей день." : "Записи дня змінилися. Оновіть прев’ю перед додаванням."}</p>
@@ -303,6 +300,15 @@ function DraftCard({
       {frozen && draft.state !== "saved" && (
         <p role="status">
           Запис ще не підтверджено. Повтор використає ту саму спробу.
+        </p>
+      )}
+      {unresolved.length > 0 && (
+        <p className="trainer-warning trainer-add-reason">
+          {draft.noteId
+            ? `Щоб записати ${unresolvedNames}, уточніть кількість або напишіть тренеру, скільки це калорій.`
+            : unresolved.length === 1
+              ? `Без розрахунку калорій: ${unresolvedNames}. Збережеться нотаткою, у суму калорій не ввійде.`
+              : `Без розрахунку калорій: ${unresolvedNames}. Збережуться нотатками, у суму калорій не ввійдуть.`}
         </p>
       )}
       {draft.state === "saved" ? (
@@ -319,9 +325,8 @@ function DraftCard({
             disabled ||
             (!frozen && (dirty || stale || dayStatus !== "ready")) ||
             draft.blocked ||
-            draft.items.some(
-              (i) => i.nutritionStatus !== "complete" && !i.noteSelected,
-            )
+            // A note card resolves a saved note; the server cannot save it as a note again.
+            (!!draft.noteId && unresolved.length > 0)
           }
           onClick={() => onSave(draft)}
         >
@@ -361,6 +366,7 @@ export default function TrainerChat({
     [recordState, setRecordState] = useState("ready"),
     [voicePreview, setVoicePreview] = useState(null),
     [sendPending, setSendPending] = useState(false),
+    [savePending, setSavePending] = useState(false),
     [seconds, setSeconds] = useState(0),
     [showAttachments, setShowAttachments] = useState(false),
     [dateContext, setDateContext] = useState(() => initialTrainerDate(initialDateContext)),
@@ -456,6 +462,7 @@ export default function TrainerChat({
     releaseVoiceClip();
     setVoicePreview(null);
     setSendPending(false);
+    setSavePending(false);
     sendLock.current = false;
     const epochs = epoch;
     const generation = epochs.current;
@@ -507,6 +514,7 @@ export default function TrainerChat({
       releaseVoiceClip();
       setVoicePreview(null);
       setSendPending(false);
+      setSavePending(false);
       sendLock.current = false;
       setEdits({});
       editRef.current = {};
@@ -655,6 +663,17 @@ export default function TrainerChat({
       items = { ...old.items };
     for (const [key, fields] of Object.entries(patch.items || {}))
       items[key] = { ...items[key], ...fields };
+    // Unsent changes of a removed product are dropped: the server refuses
+    // changes to an item it has just removed.
+    const removeItemIds = [
+      ...new Set([...(old.removeItemIds || []), ...(patch.removeItemIds || [])]),
+    ];
+    for (const key of removeItemIds) delete items[key];
+    // A label photo chosen for a removed product would ask about it again.
+    if (patch.removeItemIds?.length) {
+      setPhotos((old) => old.filter((p) => !patch.removeItemIds.includes(p.itemId)));
+      if (patch.removeItemIds.includes(photoTarget.current)) photoTarget.current = null;
+    }
     const next = {
       ...editRef.current,
       [id]: {
@@ -665,6 +684,7 @@ export default function TrainerChat({
         ...old,
         ...patch,
         items,
+        ...(removeItemIds.length ? { removeItemIds } : {}),
       },
     };
     editRef.current = next;
@@ -936,11 +956,14 @@ export default function TrainerChat({
   async function save(draft) {
     const generation = epoch.current,
       own = session.current;
+    // The card stays locked for the whole save: a removal queued meanwhile
+    // would hit a frozen draft the server no longer edits.
+    setSavePending(true);
     try {
       setError("");
       await flushEdits();
       if (!current(generation)) return;
-      const fresh = own
+      let fresh = own
         .get()
         .server.drafts.find((d) => d.draftId === draft.draftId);
       let previewDay;
@@ -949,6 +972,20 @@ export default function TrainerChat({
         if (!current(generation)) return;
         setPreviewDays(previous => ({ ...previous, [fresh.targetDate]: { status: "ready", day: previewDay } }));
         if (staleDay(fresh, previewDay)) throw Error("stale_preview");
+        const notes = fresh.noteId
+          ? []
+          : fresh.items.filter((i) => i.nutritionStatus !== "complete" && i.noteSelected !== true);
+        if (notes.length) {
+          // Add is the confirmation shown above it. A direct edit, not the queue:
+          // it is not a correction and a failure leaves no unsent changes behind.
+          // The edit refreshes the preview proof, so the day is checked before it
+          // and the returned draft is used: a poll in flight may still hold the old one.
+          fresh = await own.edit(fresh, {
+            items: notes.map((i) => ({ itemId: i.itemId, noteSelected: true })),
+          });
+          if (!current(generation)) return;
+          if (staleDay(fresh, previewDay)) throw Error("stale_preview");
+        }
       }
       await own.save(fresh);
       setDayRefresh(n => n + 1);
@@ -971,9 +1008,12 @@ export default function TrainerChat({
       });
     } catch (e) {
       if (current(generation)) catchError(e);
+    } finally {
+      // A save from before the page was hidden leaves a newer save locked.
+      if (current(generation)) setSavePending(false);
     }
   }
-  const busy = view.busy || sendPending || recordState !== "ready",
+  const busy = view.busy || sendPending || savePending || recordState !== "ready",
     turn = view.server?.currentTurn,
     canSend =
       !!view.server &&
