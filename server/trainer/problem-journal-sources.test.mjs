@@ -231,8 +231,28 @@ test("K3 food_*: лише успішний propose_food_draft і лише нов
   assert.deepEqual(f.rows().filter(([category]) => category.startsWith("food_")), [
     ["food_estimate", "no_matching_source", "propose_food_draft", 1],
     ["food_estimate", "recipe_estimate", "propose_food_draft", 1],
-    ["food_portion_estimate", "estimate", "propose_food_draft", 2],
     ["food_total", "item", "propose_food_draft", 5],
     ["food_unknown", "unknown", "propose_food_draft", 1],
   ]);
+});
+
+test("K3 food_portion_estimate за нормалізованим результатом, не за параметрами моделі", async t => {
+  const [a] = ids(1);
+  // Модель не дала portionOrigin, сервер оцінив вагу сам; модель написала estimate, а сервер знайшов масу в тексті (user).
+  // Несиметрично: за параметрами вийшло б 1, за нормалізованим результатом 2.
+  const serverEstimated = [item({ kind: "database", recordId: "r" }), item({ kind: "database", recordId: "r" })];
+  const userStated = item({ kind: "database", recordId: "r", portionOrigin: { kind: "estimate", assumption: "a" } });
+  const f = fixture(t, {
+    tools: { propose_food_draft: async () => ({ state: "ready", saved: false, incomplete: false, assumptions: [
+      ...serverEstimated.map(({ itemId }) => ({ itemId, portionOrigin: { kind: "estimate", assumption: "s" } })),
+      { itemId: userStated.itemId, portionOrigin: { kind: "user" } },
+      { itemId: randomUUID(), portionOrigin: { kind: "estimate", assumption: "s" } },
+    ] }) },
+    script: async ({ admit, call }) => {
+      await admit();
+      await call("propose_food_draft", { baseRevision: 0, dayRef: "today", meal: 1, items: [...serverEstimated, userStated] });
+      return answer("ok");
+    } });
+  await f.post(a); assert.equal((await f.settle(a)).state, "completed");
+  assert.deepEqual(f.rows().filter(([category]) => category === "food_portion_estimate"), [["food_portion_estimate", "estimate", "propose_food_draft", 2]]);
 });

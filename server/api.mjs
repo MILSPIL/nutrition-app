@@ -68,7 +68,10 @@ export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, 
     // COACH-PROBLEMS-01 S3: before Origin, closing and user slots; reading takes no slot.
     if (ops && route === '/meal-api/ops/problems') {
       if (closing) return send(res, 503, { ok: false, inferenceEnabled: env.LIVE_ENABLED === 'true' });
-      const result = ops.handle({ method: req.method, url: req.url, rawHeaders: req.rawHeaders });
+      let result;
+      // Any failure here must not reach the async request handler as an unhandled rejection.
+      try { result = ops.handle({ method: req.method, url: req.url, rawHeaders: req.rawHeaders }); }
+      catch { result = { status: 500, body: { error: 'internal' } }; }
       if (result.status !== 200) res.shouldKeepAlive = false;
       return send(res, result.status, result.body);
     }

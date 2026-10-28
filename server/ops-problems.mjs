@@ -36,7 +36,11 @@ export function createOpsProblems({ problems, tokenHash = null, releaseId, now =
         since = value < floor ? floor : value;
       }
       const { ok, writeErrors } = problems.status();
-      const rows = problems.rows(since).map(({ day, release, category, code, tool, count, firstAt, lastAt }) => ({ day, release, category, code, tool, count, firstAt, lastAt }));
+      // A read failure (corrupt or locked SQLite) is reported as a broken journal, never thrown:
+      // the API process has no restart and must keep serving the coach.
+      let rows;
+      try { rows = problems.rows(since).map(({ day, release, category, code, tool, count, firstAt, lastAt }) => ({ day, release, category, code, tool, count, firstAt, lastAt })); }
+      catch { return { status: 200, body: { version: 1, releaseId, generatedAt: minuteStamp(at), journal: { ok: false, writeErrors }, rows: [] } }; }
       return { status: 200, body: { version: 1, releaseId, generatedAt: minuteStamp(at), journal: { ok, writeErrors }, rows } };
     },
   });

@@ -25,12 +25,12 @@ const env = { ALLOWED_ORIGINS: 'https://ntzg.pp.ua', FIREBASE_PROJECT: 'scisense
   PARSE_MODEL: 'claude-sonnet-5-5', ANTHROPIC_API_KEY: 'synthetic', PRICING_APPROVED_AT: 'synthetic-only', PRICING_MODEL_PAIR: `${LOCAL_TRANSCRIBE_MODEL}|claude-sonnet-5-5`,
   INPUT_MICROS_PER_MTOK: 2, OUTPUT_MICROS_PER_MTOK: 10, PILOT_BUDGET: { idFromName: x => x, get: () => ({ fetch: async () => Response.json({ ok: true }) }) } };
 
-async function fixture(t, { key = KEY, ops = true, provider = async () => ({ items: [], unparsed: ['synthetic'] }), maxConcurrent = 2 } = {}) {
+async function fixture(t, { key = KEY, ops = true, opsOverride, problemsOf = j => j, provider = async () => ({ items: [], unparsed: ['synthetic'] }), maxConcurrent = 2 } = {}) {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'ops-problems-'))); chmodSync(dir, 0o700);
   let clock = NOW;
   const journal = openProblemJournal(join(dir, 'problems.sqlite'), { release: RELEASE, now: () => clock });
   const api = createMealApi({ env, keyResolver: publicKey, provider, maxConcurrent,
-    ops: ops ? createOpsProblems({ problems: journal, tokenHash: key ? createHash('sha256').update(key).digest() : null, releaseId: RELEASE, now: () => clock }) : null });
+    ops: opsOverride ?? (ops ? createOpsProblems({ problems: problemsOf(journal), tokenHash: key ? createHash('sha256').update(key).digest() : null, releaseId: RELEASE, now: () => clock }) : null) });
   const address = await api.listen(0), base = `http://${address.address}:${address.port}`;
   t.after(async () => { await api.close(); journal.close(); rmSync(dir, { recursive: true, force: true }); });
   const get = (path = '/meal-api/ops/problems', { method = 'GET', headers = [['Authorization', 'Bearer ' + KEY]] } = {}) => new Promise((resolve, reject) => {
@@ -109,4 +109,22 @@ test('K4 без ops (liveEnabled=false чи v2): маршрут 404, як зар
   const answer = await off.get();
   assert.equal(answer.status, 404);
   assert.equal(answer.text, '{"error":"not_found"}');
+});
+
+test('K5 помилка читання журналу: 200 з journal.ok=false і без рядків, служба живе', async t => {
+  const f = await fixture(t, { problemsOf: j => ({ status: () => j.status(), rows: () => { throw Error('SQLITE_CORRUPT'); } }) });
+  const r = await f.get();
+  assert.equal(r.status, 200);
+  const body = JSON.parse(r.text);
+  assert.deepEqual(body.journal, { ok: false, writeErrors: 0 });
+  assert.deepEqual(body.rows, []);
+  assert.equal((await f.get('/meal-api/health', { headers: [] })).status, 200);
+});
+
+test('K5 будь-який виняток маршруту: 500 без деталей, служба живе', async t => {
+  const f = await fixture(t, { opsOverride: { handle: () => { throw Error('synthetic_private_detail'); } } });
+  const r = await f.get();
+  assert.equal(r.status, 500);
+  assert.equal(r.text, '{"error":"internal"}');
+  assert.equal((await f.get('/meal-api/health', { headers: [] })).status, 200);
 });
