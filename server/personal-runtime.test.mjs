@@ -98,3 +98,37 @@ test('family policy removes aggregate caps but retains bounded physical executio
  assert.equal(PERSONAL_POLICY.cpu,2);assert.equal(PERSONAL_POLICY.memoryBytes,2147483648);assert.equal(PERSONAL_POLICY.swapBytes,0);
  assert.equal(PERSONAL_POLICY.privateProfiles,true);assert.equal(PERSONAL_POLICY.previewBeforeAdd,true);
 });
+
+// COACH-PROBLEMS-01 S4: ключ читання журналу проблем.
+const withOps={...manifest,credentialNames:['groq','personal-state','desktop-y','desktop-w','ops-reader']};
+const opsCredential=(opsValue)=>{const buffers=[],read=[];return {buffers,read,readCredential:name=>{read.push(name);if(name==='ops-reader'){if(opsValue instanceof Error)throw opsValue;const value=Buffer.from(opsValue);buffers.push(value);return value;}const value=name==='groq'?Buffer.from('gsk_'+'x'.repeat(30)):name.startsWith('desktop-')?desktopSecret():Buffer.alloc(32);buffers.push(value);return value;}};};
+const opsRuntime=options=>createPersonalServerRuntime(withOps,{readActivation:()=>activation,openLedger:()=>({binding:{},close(){}}),createTrainer:async()=>({accepts:()=>true,problems:{rows:()=>[],status:()=>({ok:true,writeErrors:0})},close:async()=>{}}),...options});
+test('S4 credentialNames: рівно два списки, 4 імені або ті самі плюс ops-reader у кінці; шаблон пакета з 5 іменами',()=>{
+ validatePersonalManifest(manifest);validatePersonalManifest(withOps);
+ for(const names of [['groq','personal-state','desktop-y','desktop-w','other'],['ops-reader','groq','personal-state','desktop-y','desktop-w'],['groq','personal-state','desktop-y','desktop-w','ops-reader','ops-reader'],['groq','personal-state','desktop-y','ops-reader']])
+  assert.throws(()=>validatePersonalManifest({...manifest,credentialNames:names}));
+ const template=JSON.parse(readFileSync(new URL('./deployment-personal.json',import.meta.url)));
+ assert.deepEqual(template.credentialNames,withOps.credentialNames);assert.equal(template.policyHash,'c1d3a2a2886d68a5254d723bd1aeebbacd8434b5e816616edd22a4e65056b2a6');assert.equal(personalPolicyHash,template.policyHash);
+});
+test('S4 ops-reader: лише sha256, буфер обнулено; маршрут отримує журнал і releaseId',async()=>{
+ const c=opsCredential('o'.repeat(43));let apiOptions;
+ const runtime=await opsRuntime({readCredential:c.readCredential,createApi:value=>(apiOptions=value,{close:async()=>{}})});
+ assert.ok(c.read.includes('ops-reader'));assert.ok(c.buffers.every(value=>value.every(byte=>byte===0)));
+ assert.equal(typeof apiOptions.ops?.handle,'function');assert.equal(JSON.stringify(apiOptions).includes('o'.repeat(43)),false);
+ await runtime.close();
+});
+test('S4 відсутній або невалідний ops-reader не валить старт, маршрут лишається з 401',async()=>{
+ for(const value of [Object.assign(Error('ENOENT'),{code:'ENOENT'}),'short','o'.repeat(42)+'!']){
+  const c=opsCredential(value);let apiOptions;
+  const runtime=await opsRuntime({readCredential:c.readCredential,createApi:options=>(apiOptions=options,{close:async()=>{}})});
+  assert.equal(typeof apiOptions.ops?.handle,'function');assert.equal(apiOptions.ops.handle({method:'GET',url:'/meal-api/ops/problems',rawHeaders:['Authorization','Bearer '+'o'.repeat(43)]}).status,401);
+  assert.ok(c.buffers.every(buffer=>buffer.every(byte=>byte===0)));await runtime.close();
+ }
+});
+test('S4 маніфест з 4 іменами не читає ops-reader; liveEnabled=false маршруту не має',async()=>{
+ const c=opsCredential('o'.repeat(43));let apiOptions;
+ const runtime=await createPersonalServerRuntime(manifest,{readActivation:()=>activation,readCredential:c.readCredential,openLedger:()=>({binding:{},close(){}}),createTrainer:async()=>({accepts:()=>true,close:async()=>{}}),createApi:options=>(apiOptions=options,{close:async()=>{}})});
+ assert.equal(c.read.includes('ops-reader'),false);assert.equal(typeof apiOptions.ops?.handle,'function');await runtime.close();
+ let disabledOptions;await (await createPersonalServerRuntime(disabled,{createApi:options=>(disabledOptions=options,{close:async()=>{},listen:async()=>{}})})).close();
+ assert.equal(disabledOptions.ops??null,null);
+});

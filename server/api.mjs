@@ -31,7 +31,7 @@ export function readBody(req, signal, timeoutMs = 15000) {
 }
 
 // OLS owns TLS/static files. This process exposes only the API on loopback.
-export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, bodyTimeoutMs = 15000, maxConcurrent = 1, trainer = null }) {
+export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, bodyTimeoutMs = 15000, maxConcurrent = 1, trainer = null, ops = null }) {
   if (env?.ALLOWED_ORIGINS !== 'https://ntzg.pp.ua' ||
       !/^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(env?.FIREBASE_PROJECT || '') ||
       env.FIREBASE_PROJECT.startsWith('demo-') || !env.ALLOWED_UIDS ||
@@ -65,6 +65,13 @@ export function createMealApi({ env, provider, keyResolver, deadlineMs = 65000, 
     const route = req.url.split('?')[0];
     if (route === '/meal-api/health' && req.method === 'GET')
       return send(res, closing ? 503 : 200, { ok: !closing, inferenceEnabled: env.LIVE_ENABLED === 'true' });
+    // COACH-PROBLEMS-01 S3: before Origin, closing and user slots; reading takes no slot.
+    if (ops && route === '/meal-api/ops/problems') {
+      if (closing) return send(res, 503, { ok: false, inferenceEnabled: env.LIVE_ENABLED === 'true' });
+      const result = ops.handle({ method: req.method, url: req.url, rawHeaders: req.rawHeaders });
+      if (result.status !== 200) res.shouldKeepAlive = false;
+      return send(res, result.status, result.body);
+    }
     const trainerRoute=trainer && env.TRAINER_ENABLED==='true' && route.startsWith('/meal-api/trainer/');
     if (!trainerRoute && !['/meal-api/transcribe', '/meal-api/analyze'].includes(route)) return reject(404, 'not_found');
     if (!(trainerRoute ? ['GET','PUT','POST','OPTIONS'] : ['POST','OPTIONS']).includes(req.method)) return reject(405, 'method_not_allowed');
