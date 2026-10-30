@@ -23,6 +23,7 @@ import {
   assignPlanItems,
   dailyPlanProgress,
   allocationCounts,
+  percentText,
 } from "../services/planAllocation";
 import PlanAllocationFields from "./PlanAllocationFields";
 import DecimalInput from "./DecimalInput";
@@ -73,6 +74,20 @@ function applyEdits(d, patch = {}) {
     }),
   };
 }
+// The day as the server counts it after saving; the client recomputes nothing.
+function DayNow({ day, status }) {
+  if (status === "loading") return <p className="trainer-day-now">Оновлюю підсумок дня…</p>;
+  if (status !== "ready" || !Number.isFinite(day?.totals?.cal) || !day?.planProgress) return null;
+  const calories = Math.round(day.totals.cal), target = day.targets?.cal;
+  const letters = Object.entries(day.planProgress.letters || {}).sort(([a], [b]) => a.localeCompare(b, "uk"));
+  return <div className="trainer-day-now" data-testid="trainer-day-now">
+    <h4>Зараз за день</h4>
+    <p>{Number.isFinite(target) ? `${calories} з ${target} ккал` : `${calories} ккал`}</p>
+    {letters.length > 0 && <ul>{letters.map(([letter, value]) =>
+      <li key={letter}>{`${letter.toUpperCase()} ${percentText(value.percent)}${value.unknown > 0 ? " · неповно" : ""}`}</li>)}</ul>}
+    {day.planProgress.unallocatedCount > 0 && <p>Без літери: {day.planProgress.unallocatedCount}</p>}
+  </div>;
+}
 function DraftCard({
   draft,
   catalog,
@@ -86,6 +101,8 @@ function DraftCard({
   dayStatus,
   stale,
   onRefresh,
+  day,
+  showDay,
 }) {
   if (draft.state === "saved") {
     const command = draft.save?.command;
@@ -103,6 +120,7 @@ function DraftCard({
       {items.length > 0 && <p>{total.cal} ккал · Б {total.p} · Ж {total.f} · В {total.c}</p>}
       {notes.map(note => <p key={note.itemId || note.noteId}>{note.name} · нотатка</p>)}
       {notes.length > 0 && <p>Нотатки збережено без повного розрахунку калорій.</p>}
+      {showDay && <DayNow day={day} status={dayStatus} />}
       <button onClick={() => onOpenDay(draft.targetDate)}>Відкрити цей день</button>
     </article>;
   }
@@ -1025,9 +1043,15 @@ export default function TrainerChat({
       (view.text.trim() || photos.length);
   const feedback = trainerFeedback({localMessage:error,clientCode:view.error,turn:view.server?.latestTurn});
   const timeline = trainerTimeline(view.server || {});
+  // Only the last receipt of a date, in the order the stream draws them, shows the day now.
+  const latestReceipts = new Map();
+  for (const entry of [...timeline.historyDrafts, ...timeline.entries])
+    if (entry.kind === "draft" && entry.draft.state === "saved") latestReceipts.set(entry.draft.targetDate, entry.draft.draftId);
   function draftCard(entry) {
     const d = entry.draft;
     const card = <DraftCard
+      day={previewDays[d.targetDate]?.day}
+      showDay={d.state === "saved" && latestReceipts.get(d.targetDate) === d.draftId}
       draft={applyEdits(d, edits[d.draftId])}
       catalog={previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.day?.catalog || catalog}
       meals={previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.day?.meals || empty}

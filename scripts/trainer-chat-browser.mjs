@@ -674,6 +674,8 @@ try {
     Object.keys((await readDay(uid, date)).submissionMarkers).length ===
       markers,
   );
+  // 1.9.9 K9b: the last receipt of the date shows the day as the server counts it.
+  await page.waitForFunction(() => !!document.querySelector('[data-testid="trainer-day-now"]'));
   for (const width of [375, 390, 1366]) {
     await page.setViewportSize({ width, height: 844 });
     const timeline = await page.evaluate(() => {
@@ -683,8 +685,11 @@ try {
       const scroll = chat.querySelector('.trainer-scroll').getBoundingClientRect(), composer = chat.querySelector('.trainer-composer').getBoundingClientRect();
       return { saved: saved.length, savedBeforeLatest: saved.every(row => !!(row.compareDocumentPosition(newest) & Node.DOCUMENT_POSITION_FOLLOWING)),
         savedInputs: saved.reduce((n, row) => n + row.querySelectorAll('input,select,textarea').length, 0),
-        overflow: chat.scrollWidth > chat.clientWidth, leftDelta: scroll.left - composer.left, rightDelta: scroll.right - composer.right };
+        overflow: chat.scrollWidth > chat.clientWidth, leftDelta: scroll.left - composer.left, rightDelta: scroll.right - composer.right,
+        dayNow: chat.querySelectorAll('[data-testid="trainer-day-now"]').length, dayNowInLast: !!saved.at(-1)?.querySelector('[data-testid="trainer-day-now"]'),
+        dayNowOverflow: [...chat.querySelectorAll('[data-testid="trainer-day-now"], [data-testid="trainer-day-now"] *')].some(node => node.scrollWidth > node.clientWidth) };
     });
+    check(`Зараз за день лише на останній квитанції дати ${width}`, timeline.dayNow === 1 && timeline.dayNowInLast && !timeline.dayNowOverflow);
     check(`Збережені записи перед новою порадою ${width}`, timeline.saved === 2 && timeline.savedBeforeLatest && timeline.savedInputs === 0);
     check(`Межі чату й поля ${width}`, !timeline.overflow && timeline.leftDelta === 0 && timeline.rightDelta === 0);
     evidence.timeline ||= []; evidence.timeline.push({ width, ...timeline });

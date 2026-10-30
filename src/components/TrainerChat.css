@@ -96,6 +96,10 @@
 .trainer-saved p { margin: 6px 0; overflow-wrap: anywhere; }
 .trainer-saved h3 { font-size: 16px; }
 .trainer-saved .trainer-draft-heading { flex-wrap: wrap; }
+.trainer-day-now { margin: 10px 0 8px; padding-top: 8px; border-top: 1px solid #c5e4d0; }
+.trainer-day-now h4 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+.trainer-day-now ul { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0; padding: 0; list-style: none; }
+.trainer-day-now li { white-space: nowrap; }
 .trainer-older-draft { border: 1px solid #d7dce4; border-radius: 14px; padding: 0 12px; background: #fff; }
 .trainer-older-draft summary { display: flex; align-items: center; color: #165fae; cursor: pointer; }
 .trainer-earlier-drafts { display: grid; gap: 12px; margin-bottom: 16px; }
