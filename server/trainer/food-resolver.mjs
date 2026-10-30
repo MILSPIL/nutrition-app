@@ -33,6 +33,14 @@ function manualWritten(source, texts) {
   return ["p", "f", "c", "cal"].every((k) => written(source.nutrients[k])) &&
     (!basisNeeded || written(source.nutritionBasis.value));
 }
+// A photo bound to a row proves only that row; an unbound one may prove any one
+// row of a proposal (usedPhotos lives for one propose call).
+function labelPhotoFits(photos, usedPhotos, raw) {
+  const photo = photos.find((p) => p.ref === raw.source.photoRef);
+  if (!photo) return false;
+  if (photo.itemId) return photo.itemId === raw.itemId;
+  return !usedPhotos.has(photo.ref) || usedPhotos.get(photo.ref) === raw.itemId;
+}
 function assumptions(list) {
   if (
     !Array.isArray(list) ||
@@ -92,7 +100,7 @@ export function createFoodResolver({
         candidates,
       };
     },
-    resolve(raw, { userText = "", userTexts = [userText] } = {}) {
+    resolve(raw, { userText = "", userTexts = [userText], usedPhotos = new Map() } = {}) {
       if (
         !keys(raw, [
           "itemId",
@@ -162,11 +170,10 @@ export function createFoodResolver({
             "nutrients",
             "portionOrigin",
           ]) ||
-          !photos.some(
-            (p) => p.ref === raw.source.photoRef && p.itemId === raw.itemId,
-          )
+          !labelPhotoFits(photos, usedPhotos, raw)
         )
           fail("label_evidence_missing");
+        usedPhotos.set(raw.source.photoRef, raw.itemId);
         basis = raw.source.nutritionBasis;
         values = raw.source.nutrients;
         // The durable record stores no photo reference or media bytes.

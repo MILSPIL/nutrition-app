@@ -11,7 +11,7 @@ const hints = {
   date_clarification: "Ask one date question; do not create a draft for an ambiguous date.",
   date_change_requires_confirmation: "Keep the existing draft date; date changes require the user's preview edit.",
   consumption_unconfirmed: "This message does not confirm eating; answer or ask one question without a food draft.",
-  label_evidence_missing: "Use the photo binding itemId and photoRef from mediaBindings.",
+  label_evidence_missing: "Use photoRef from mediaBindings: a photo with itemId only for that row, a photo without itemId for any one row.",
   estimate_reason_required: "Set estimateReason to no_matching_source or recipe_estimate with assumptions.",
   assumptions_required: "Provide a short explicit assumption for this estimate.",
   invalid_portion_origin: "Use portionOrigin kind user, catalog_measure or estimate with an assumption.",

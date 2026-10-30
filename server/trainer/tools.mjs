@@ -158,8 +158,8 @@ export function createTrainerTools({
       check(ctx);store.recordDayProof?.(ctx.turn.id,ctx.turn.generation,value.day.freshness);
       const {dayRef,...patch}=input;
       // User numbers may come from this message or from the messages behind the edited draft.
-      const userTexts=[ctx.input.text,...Object.values(previous?.origins||{})].filter(t=>typeof t==="string");
-      return modelDraftAck(store.propose(ctx.turn.id,ctx.turn.generation,{...patch,targetDate,originalText:ctx.input.text},raw=>resolver(ctx).resolve(raw,{userText:ctx.input.text,userTexts})));
+      const userTexts=[ctx.input.text,...Object.values(previous?.origins||{})].filter(t=>typeof t==="string"),usedPhotos=new Map();
+      return modelDraftAck(store.propose(ctx.turn.id,ctx.turn.generation,{...patch,targetDate,originalText:ctx.input.text},raw=>resolver(ctx).resolve(raw,{userText:ctx.input.text,userTexts,usedPhotos})));
     },
     async propose_context_update(input, ctx) {
       check(ctx);

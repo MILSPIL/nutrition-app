@@ -1042,12 +1042,9 @@ export default function TrainerChat({
       <summary>Незавершене прев’ю · {dateLabel(d.targetDate)} · {d.items.length} продуктів</summary>{card}
     </details> : <React.Fragment key={d.draftId}>{card}</React.Fragment>;
   }
+  // The paperclip leaves the photo unbound and the trainer picks its row; the
+  // row's own button has already set photoTarget to that row.
   function choosePhoto(input) {
-    const rows=(view.server?.drafts||[]).filter(d=>d.state==='ready').flatMap(d=>d.items);
-    if(rows.length>1 && !rows.some(item=>item.itemId===photoTarget.current)) {
-      setError('Оберіть «Фото етикетки цього продукту» у потрібному рядку прев’ю.');setShowAttachments(false);return;
-    }
-    photoTarget.current=photoTarget.current || rows[0]?.itemId || photos[0]?.itemId || newId();
     setShowAttachments(false);input.current.click();
   }
   function keys(e) {
