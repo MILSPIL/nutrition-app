@@ -1,6 +1,6 @@
-# SIMPLE-LOGGING-199 (1.9.9): спека в роботі
+# SIMPLE-LOGGING-199 (1.9.9): реалізація і ревʼю
 
-Дата: 2026-10-30, 13:20-13:47 (Київ). IDE: Claude Code (desktop, Code). Модель: Opus 5.5. Сесія e0906c24. Goal `objective_e45aa8ac1aa3`; G02/G03/G05/G07/G11.
+Дата: 2026-10-30, 13:20-15:35 (Київ). IDE: Claude Code (desktop, Code). Модель: Opus 5.5. Сесія e0906c24. Goal `objective_e45aa8ac1aa3`; G02/G03/G05/G07/G11.
 
 ## Мета
 
@@ -22,13 +22,49 @@
 - Запущено пробу спеки свіжим агентом; `npm ci` на Node 24.22.1.
 - Проба 1: 9 «змінює план», закрито правкою спеки (коміт `6fa7995`): у production `snapshot.history` порожній, тому тексти для перевірки цифр беруться з `draft.origins`; бюджет `TRAINER_POLICY` 1500 байт (зараз 1478) не піднімається; для яєць `estimated:false` лише з правилом «кількість = основа». Запущено пробу 2 і базову лінію тестів.
 
+## Реалізація (30.10, після гейту)
+
+- Гейт: Юрій обрав кнопками «Порада разом із чернеткою» (П1) і «Підняти ліміт» (П5); план погоджено через Plan Mode.
+- Коміти: червоне до коду `7b4c056` (сервер 9/9 FAIL, клієнт 6 FAIL з правильних причин, інсценування K11); S1/S2 `369027d`; S5 `3295711`; S3+П5 `b28c589`; S4 `8cd3a25`; S6 `37383c5`; S7 `a06c2a7`; межа в gateway-core `5b7d71d`.
+- Межа 32000 виявилась записаною числом ще в `contract-v1.json`, `contracts.test.mjs`, `coach-backend.test.mjs` (C05), `scripts/hermes-gateway-test.mjs` (capacity-probe) і `gateway-core.test.mjs`; усі переведені на `LIMITS.payloadBytes` / 34000 і внесені в спеку.
+- Перевірки локально: `test:server` 436 / 428 pass / 7 fail (ті самі 7 базових), `test:ci` 382/382, `build` ок, K11 diff порожній.
+- Чернетка PR https://github.com/MILSPIL/nutrition-app/pull/53, Auto-fix увімкнено.
+
+## Ревʼю
+
+- spec-reviewer, коло 1 (на `5b7d71d`): K1-K11 PASS, вердикт «повернути»: 🟡 1 (політика не каже ставити `portionOrigin=estimate`, коли з'їдена кількість не названа), 💭 4 (закомітити журнал; `dayNow` у підсумку браузерного тесту; дата релізу в день публікації; рядок спеки про бюджет 1500 суперечив П5).
+- Codex `gpt-6-astra` / `xhigh`, 246 с, діф гілки проти `47ac923` (25 файлів коду): 5 знахідок (P1 1, P2 4), підтвердилось 5, хибних 0.
+
+| Codex знайшов | Що перевірив | Вердикт |
+|---|---|---|
+| P1: `preparation:"unknown"` ламає відкат на 1.9.7 | `itemMacros` з `47ac923`: `invalid_item` | підтвердилось, виправлено |
+| P2: 240 → 250 → «варені» відхиляє 250 | `tools.mjs`: тексти лише з `origins` | підтвердилось, виправлено (`confirmed`) |
+| P2: `manual` не замінює етикетку з `p:null` | `drafts.mjs` `retainedLabel` | підтвердилось, виправлено |
+| P2: «кава 0 ккал» підтверджує «В 0» | `food-resolver.mjs` загальний набір токенів | підтвердилось для нулів, виправлено; ненульові числа: межа П2 |
+| P2: «Зараз за день» без позначки неповного дня | `TrainerChat.js` `DayNow` | підтвердилось, виправлено |
+
+- Виправлення: коміт `90c57fc` (код і тести K1, K1b, K2, K2c, K2d, K4, K9), спека `2f0b104` (розділ «Ревʼю (фаза 3)»). Червоне доведено на `5b7d71d`: сервер 6 fail, клієнт 1 fail з правильних причин; після: сервер 11/11, клієнт pass.
+- Разова перевірка відкату: стара `mealItems.js` з `47ac923` на нових рядках дає `[]` і макроси 233 та 18 ккал; з `preparation:"unknown"` `invalid_item`.
+- Повторно локально на `2f0b104`: `test:server` 438 / 430 pass / 7 fail (ті самі 7 базових), `test:ci` 383/383, `build` ок, K11 diff exit 0. Проба місця локально не запускається (немає `.agents/runtime/hermes-lab`), доказ у CI. Політика 1979 байт.
+- spec-reviewer, коло 2: запущено на `2f0b104`, вердикт нижче.
+- Радник (Fable 5.1) у сесії викликався до реалізації і перед завершенням (див. відповіді в чаті).
+
+## Змінені файли (повний перелік за гілку)
+
+`server/trainer/food-resolver.mjs`, `tools.mjs`, `tool-errors.mjs`, `drafts.mjs`, `draft-completion.mjs`, `personal-backend.mjs`, `limits.mjs`; `src/services/mealItems.js`, `src/components/TrainerChat.js`, `TrainerChat.css`, `src/data/releases.js`, `package.json`, `package-lock.json`; `scripts/trainer-chat-browser.mjs`, `scripts/hermes-gateway-test.mjs`; тести: `server/trainer/simple-logging-199.test.mjs` (новий), `coach-portions`, `tool-errors`, `personal-tool-errors`, `tools`, `coach-backend`, `contracts` + `fixtures/contract-v1.json`, `gateway-core`, `src/services/mealItems.test.js`, `trainerChatUi.test.js`, `src/components/WelcomeModal.test.js`; документи: спека, `PROJECT-INFO.md`, цей журнал.
+
+## codeindexer 2026-10-30
+
+- Solutions: `sol_5662a3a0d989` (preparation unknown ламає відкат на 1.9.7, як перевірити старим читачем), `sol_06fdff5699ff` (`draft.origins` тримає лише перший текст рядка; `confirmed` для прийнятих `manual`).
+
 ## Наступні кроки
 
-1. Закрити знахідки проби (до двох кругів), «червоне до коду».
-2. План і гейт: Юрій підтверджує план і П1 (порада в тому ж повідомленні, що й чернетка).
-3. Реалізація блоками, ревʼю, публікація лише після окремого «так».
+1. Вердикт spec-reviewer кола 2; CI PR #53 на `2f0b104` (K9b і проба місця лише там).
+2. Публікація лише після окремого «так» Юрія: дата релізу в `releases.js` окремим комітом у день публікації, процедура 1.9.7 (збірка з чистої копії, SHA, сайт/API 200).
+3. K12 з телефона Юрія. Потім окрема спека 1.10.0 (автозапис, правка збереженого).
 
 ## Ризики
 
 - PR #51 змінює `personal-backend.mjs`, версію і `releases.js`: хто зливається другим, той оновлює базу.
 - Поведінку моделі (без питань, порада) доводить лише перевірка з телефона.
+- Ненульові числа `manual` не прив'язані до продукту (межа П2): число іншого продукту з того ж повідомлення пройде перевірку.
