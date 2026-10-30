@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { posix } from "node:path";
-import { nativeDraftCompletion, readyDraftAckInPayload } from "./draft-completion.mjs";
+import { nativeDraftCompletion, readyDraftAckInPayload, draftCompletionText } from "./draft-completion.mjs";
 import { stableJSON, TOOLS } from "./limits.mjs";
 import { MODEL_TOOL_ERRORS, safeToolFailure } from "./tool-errors.mjs";
 
@@ -93,7 +93,7 @@ export function createPersonalBackend({ uid, core, tools, store, releaseTools = 
               completeDraft: store ? async (payload, connection) => {
                 if (!readyDraftAckInPayload(payload, readyAck)) return;
                 store.assertPersonalDraftCompletion(args.turn.id, args.turn.generation, readyAck);
-                return nativeDraftCompletion(connection.model, payload.stream === true);
+                return nativeDraftCompletion(connection.model, payload.stream === true, draftCompletionText(payload));
               } : undefined,
               tools: async (name, parameters, { signal, nativeBinding }) => {
                 bind(nativeBinding);

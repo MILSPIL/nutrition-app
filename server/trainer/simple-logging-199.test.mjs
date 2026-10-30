@@ -209,7 +209,6 @@ test("K5: trainer rules say numbers are data, no needless questions, photos any 
 });
 
 test("K6: the local completion keeps the model's advice and only adds the short Add reminder", async t => {
-  const f = backendFixture(t);
   const cases = [
     ["Молодець: білка й овочів достатньо, вуглеводів поки не було.", "Перевір чернетку й натисни «Додати»."],
     [[{ type: "text", text: "Добрий сніданок, багато білка." }], "Перевір чернетку й натисни «Додати»."],
@@ -217,6 +216,8 @@ test("K6: the local completion keeps the model's advice and only adds the short 
     ["   ", DRAFT_COMPLETION_TEXT],
   ];
   for (const [content, expected] of cases) {
+    // One fresh conversation per case: a second draft for the same date is a different rule.
+    const f = backendFixture(t);
     const row = await f.turn(EGGS, async ({ call, prepared }) => {
       // An existing source kind keeps this check about the completion text only.
       const eggs = { itemId: randomUUID(), name: "Яйця, 3 шт.", preparation: "cooked", quantity: { value: 150, unit: "g" },
