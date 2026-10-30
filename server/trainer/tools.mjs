@@ -52,7 +52,7 @@ export const trainerToolSchemas = {
       targetDate: date,
       meal: { type: "integer", enum: [1, 2, 3, 4] },
       items: { type: "array", maxItems: 20, items: { type: "object", description:
-        "New: {itemId:UUID,name,quantity:{value,unit:g|ml|portion|package|unknown},preparation:raw|cooked|dry|as_sold|unknown,source}. source:{kind:database|personal,recordId,measureIndex?,assumptions?}|{kind:label,photoRef,nutritionBasis:{value,unit},nutrients:{p,f,c,cal}}|{kind:estimate,nutritionBasis,nutrients,estimateReason:no_matching_source|recipe_estimate,assumptions:[reason]}. planMatch?:{referenceId:catalog refId,consumedState:raw|cooked|as_sold|unknown,certainty:matched|uncertain}. estimated?:bool. source.portionOrigin?:{kind:user|catalog_measure|estimate,assumption}. unknown:{kind:unknown}; unknowns=null. Edit quantity:{itemId,quantity}. No other fields." } },
+        "New: {itemId:UUID,name,quantity:{value,unit:g|ml|portion|package|unknown},preparation:raw|cooked|dry|as_sold|unknown,source}. source:{kind:database|personal,recordId,measureIndex?,assumptions?}|{kind:label,photoRef,nutritionBasis:{value,unit},nutrients:{p,f,c,cal}}|{kind:estimate,nutritionBasis,nutrients,estimateReason:no_matching_source|recipe_estimate,assumptions:[reason]}|{kind:manual,nutritionBasis,nutrients}. planMatch?:{referenceId:catalog refId,consumedState:raw|cooked|as_sold|unknown,certainty:matched|uncertain}. estimated?:bool. source.portionOrigin?:{kind:user|catalog_measure|estimate,assumption}. unknown:{kind:unknown}; unknowns=null. Edit quantity:{itemId,quantity}. No other fields." } },
       removeItemIds: { type: "array", items: string, maxItems: 20 },
     },
     ["baseRevision", "dayRef", "meal", "items"],
@@ -157,7 +157,9 @@ export function createTrainerTools({
       const value=await loadConfirmed({readSnapshot,readDay,readPlan},ctx.turn.owner,targetDate,ctx.signal);
       check(ctx);store.recordDayProof?.(ctx.turn.id,ctx.turn.generation,value.day.freshness);
       const {dayRef,...patch}=input;
-      return modelDraftAck(store.propose(ctx.turn.id,ctx.turn.generation,{...patch,targetDate,originalText:ctx.input.text},raw=>resolver(ctx).resolve(raw,{userText:ctx.input.text})));
+      // User numbers may come from this message or from the messages behind the edited draft.
+      const userTexts=[ctx.input.text,...Object.values(previous?.origins||{})].filter(t=>typeof t==="string");
+      return modelDraftAck(store.propose(ctx.turn.id,ctx.turn.generation,{...patch,targetDate,originalText:ctx.input.text},raw=>resolver(ctx).resolve(raw,{userText:ctx.input.text,userTexts})));
     },
     async propose_context_update(input, ctx) {
       check(ctx);

@@ -25,6 +25,7 @@ const hints = {
   draft_already_proposed: "This draft was already proposed in this turn. Do not propose again; answer the user.",
   invalid_food_query: "query: one food, up to 160 characters and 1-12 words; preparation from the enum.",
   date_draft_in_turn: "This turn already proposed another draft for this date; a date gets one draft per turn. Do not propose again now; tell the user which food is not in the card yet and ask them to send it in the next message.",
+  manual_values_not_in_message: "Use source manual only with kcal and all P/F/C numbers the user wrote; otherwise use estimate with assumption: kcal from the user.",
   note_draft_single: "This draft has noteId: it holds exactly one item. Do not add food to it; ask the user to add or fix that card first, then send the food again.",
 };
 // Repairable codes the model may see; anything else aborts the turn instead.

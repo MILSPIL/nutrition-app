@@ -24,6 +24,6 @@ test("draft storage refusals carry exact repair hints for the model", () => {
   };
   for (const [code, hint] of Object.entries(exact))
     assert.deepEqual(safeToolFailure(Object.assign(Error(code), { status: 409 })), { error: code, hint });
-  assert.equal(MODEL_TOOL_ERRORS.size, 25);
+  assert.equal(MODEL_TOOL_ERRORS.size, 26);
   for (const code of MODEL_TOOL_ERRORS) assert.equal(safeToolFailure(Error(code)).error, code);
 });

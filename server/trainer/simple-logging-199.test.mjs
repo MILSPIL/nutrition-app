@@ -160,11 +160,14 @@ test("K2b: a correction in a later message may reuse the numbers of the draft it
   const [draft] = first.complete();
   const second = f.begin("яйця варені");
   const fromOrigin = { ...eggs, source: { kind: "manual", nutritionBasis: { value: 150, unit: "g" }, nutrients: { cal: 233, p: 18.9, f: 15.9, c: 1.7 } } };
+  const invented = { ...fromOrigin, source: { ...fromOrigin.source, nutrients: { cal: 240, p: 18.9, f: 15.9, c: 1.7 } } };
+  // A refused call records nothing, so the same turn may still send the correct numbers.
+  await assert.rejects(() => second.propose([invented], { draftId: draft.draftId, baseRevision: draft.revision }), /manual_values_not_in_message/);
   const ack = await second.propose([fromOrigin], { draftId: draft.draftId, baseRevision: draft.revision });
   assert.equal(ack.state, "ready");
-  const invented = { ...fromOrigin, source: { ...fromOrigin.source, nutrients: { cal: 240, p: 18.9, f: 15.9, c: 1.7 } } };
-  const third = f.begin("ні, 240 ккал");
-  await assert.rejects(() => third.propose([{ ...invented, itemId: randomUUID(), name: "Інші яйця" }], { draftId: draft.draftId, baseRevision: draft.revision }), /manual_values_not_in_message/);
+  const [edited] = second.complete();
+  assert.equal(edited.items[0].source.kind, "manual");
+  assert.equal(edited.items[0].nutritionStatus, "complete");
 });
 
 test("K3: unknown preparation no longer blocks food whose numbers are already given", () => {

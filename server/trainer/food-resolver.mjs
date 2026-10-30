@@ -19,6 +19,20 @@ const quantity = (q) => ({
   value: number(q?.value) && q.value > 0 ? q.value : null,
   unit: units.includes(q?.unit) ? q.unit : "unknown",
 });
+// User-entered numbers must be written by the user, not filled in by the model.
+const numberTokens = (texts) => new Set(texts.flatMap((t) =>
+  (String(t || "").match(/\d+(?:[.,]\d+)?/g) || []).map((x) => Number(x.replace(",", ".")))));
+const manualBasis = (b) =>
+  keys(b, ["value", "unit"]) && number(b.value) && b.value > 0 && ["g", "ml", "portion", "package"].includes(b.unit);
+const manualNutrients = (n) =>
+  keys(n, ["p", "f", "c", "cal"]) && ["p", "f", "c", "cal"].every((k) => number(n[k]));
+function manualWritten(source, texts) {
+  const tokens = numberTokens(texts);
+  const written = (x) => [...tokens].some((t) => Math.abs(t - x) < 1e-9);
+  const basisNeeded = ["g", "ml"].includes(source.nutritionBasis.unit) || source.nutritionBasis.value !== 1;
+  return ["p", "f", "c", "cal"].every((k) => written(source.nutrients[k])) &&
+    (!basisNeeded || written(source.nutritionBasis.value));
+}
 function assumptions(list) {
   if (
     !Array.isArray(list) ||
@@ -78,7 +92,7 @@ export function createFoodResolver({
         candidates,
       };
     },
-    resolve(raw, { userText = "" } = {}) {
+    resolve(raw, { userText = "", userTexts = [userText] } = {}) {
       if (
         !keys(raw, [
           "itemId",
@@ -190,10 +204,26 @@ export function createFoodResolver({
         basis = raw.source.nutritionBasis;
         values = raw.source.nutrients;
         estimated = raw.source.kind === "estimate";
+      } else if (raw.source.kind === "manual") {
+        if (
+          !keys(raw.source, ["kind", "nutritionBasis", "nutrients", "portionOrigin"]) ||
+          !manualBasis(raw.source.nutritionBasis) ||
+          !manualNutrients(raw.source.nutrients)
+        )
+          fail("invalid_food_source");
+        if (!manualWritten(raw.source, userTexts)) fail("manual_values_not_in_message");
+        basis = raw.source.nutritionBasis;
+        values = raw.source.nutrients;
+        source = { kind: "manual", label: "Введено вручну", version: 1 };
+        estimated = false;
       } else fail("invalid_food_source");
       if (portionOrigin?.kind === "catalog_measure" && !["database","personal"].includes(source.kind))
         fail("invalid_household_measure");
-      if (q.value != null && portionOrigin?.kind !== "catalog_measure") {
+      // Numbers given for exactly the eaten portion do not depend on its mass.
+      if (source.kind === "manual" && q.value != null && q.unit === basis.unit && q.value === basis.value &&
+          requestedOrigin?.kind !== "estimate") {
+        portionOrigin = {kind:"user",assumption:"Кількість і цифри названо в повідомленні"};
+      } else if (q.value != null && portionOrigin?.kind !== "catalog_measure") {
         portionOrigin = explicitQuantityInText(q, userText, {itemName:raw.name})
           ? {kind:"user",assumption:"Кількість явно вказана в повідомленні"}
           : {kind:"estimate",assumption:portionOrigin?.kind === "estimate" ? portionOrigin.assumption : "Кількість оцінено за описом; точну масу користувач не вказав"};
@@ -228,9 +258,11 @@ export function createFoodResolver({
         (density != null &&
           ["g", "ml"].includes(q.unit) &&
           ["g", "ml"].includes(b.unit));
+      // Preparation only selects a table row; given numbers already include it.
+      const preparationMissing = raw.preparation === "unknown" && ["database", "personal"].includes(source.kind);
       const complete =
         source.kind !== "unknown" &&
-        raw.preparation !== "unknown" &&
+        !preparationMissing &&
         q.value != null &&
         b.value != null &&
         q.unit !== "unknown" &&
@@ -251,7 +283,7 @@ export function createFoodResolver({
         ...(raw.planMatch ? { planMatch: structuredClone(raw.planMatch) } : {}),
         ...(!complete
           ? {
-              incompleteReason: raw.preparation === "unknown" ? "unknown_food_preparation" : !compatible
+              incompleteReason: preparationMissing ? "unknown_food_preparation" : !compatible
                 ? "unit_mismatch"
                 : "missing_nutrition_or_quantity",
             }

@@ -17,7 +17,7 @@ export function itemProblems(item) {
   if (['p','f','c','cal'].some(k => !finite(n?.[k]) || n[k] < 0)) issues.push('Потрібні ккал і всі БЖВ з джерела');
   if (!SOURCE_LABELS[item?.source?.kind]) issues.push('Уточніть джерело значень');
   if (item?.source && !validFoodProvenance(item.source)) issues.push('Уточніть походження порції та оцінки');
-  if (item?.preparation === 'unknown') issues.push('Уточніть спосіб приготування');
+  if (item?.preparation === 'unknown' && ['database', 'personal'].includes(item?.source?.kind)) issues.push('Уточніть спосіб приготування');
   if (item?.clarification) issues.push(item.clarification);
   return issues;
 }
