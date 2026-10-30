@@ -75,6 +75,18 @@ function applyEdits(d, patch = {}) {
   };
 }
 // The day as the server counts it after saving; the client recomputes nothing.
+// The field grows with its text and scrolls only at its ceiling: a quarter of the
+// visible screen (the keyboard shrinks it), at most 120px. scrollHeight has no border.
+function fitTextarea(field) {
+  if (!field) return;
+  const visible = window.visualViewport?.height || window.innerHeight;
+  const ceiling = Math.max(44, Math.min(120, Math.round(visible / 4)));
+  field.style.overflowY = "hidden";
+  field.style.height = "auto";
+  const next = field.scrollHeight + field.offsetHeight - field.clientHeight;
+  field.style.height = `${Math.min(ceiling, Math.max(44, next))}px`;
+  field.style.overflowY = next > ceiling ? "auto" : "hidden";
+}
 function DayNow({ day, status }) {
   if (status === "loading") return <p className="trainer-day-now">Оновлюю підсумок дня…</p>;
   if (status !== "ready" || !Number.isFinite(day?.totals?.cal) || !day?.planProgress) return null;
@@ -450,17 +462,13 @@ export default function TrainerChat({
     if (voiceClip.current?.url) URL.revokeObjectURL(voiceClip.current.url);
     voiceClip.current = null;
   }
-  useEffect(() => {
-    const field = textarea.current;
-    if (!field) return;
-    field.style.height = "auto";
-    field.style.height = `${Math.min(120, field.scrollHeight || 44)}px`;
-  }, [view.text]);
+  useEffect(() => fitTextarea(textarea.current), [view.text]);
   useEffect(() => {
     const overlay=panel.current?.parentElement, viewport=window.visualViewport;
     const fit=()=>{
       overlay?.style.setProperty('--trainer-visible-height',`${Math.max(1,viewport?.height || window.innerHeight)}px`);
       overlay?.style.setProperty('--trainer-visible-top',`${viewport?.offsetTop || 0}px`);
+      fitTextarea(textarea.current);
     };
     fit();viewport?.addEventListener('resize',fit);viewport?.addEventListener('scroll',fit);window.addEventListener('resize',fit);
     return ()=>{viewport?.removeEventListener('resize',fit);viewport?.removeEventListener('scroll',fit);window.removeEventListener('resize',fit);};
@@ -1416,7 +1424,9 @@ export default function TrainerChat({
           {(["permission", "recording"].includes(recordState) || (recordState === "transcribing" && !voicePreview)) && <button className="trainer-secondary" onClick={cancelRecording}>Скасувати запис</button>}
           {recordState === "transcribing" && <p className="trainer-date-hint" role="status">Розпізнаю голос…</p>}
           {recordState === "permission" && <p className="trainer-date-hint" role="status">Очікую дозволу на мікрофон…</p>}
-          {view.server &&
+          {/* A way out after a failed reply only: always shown, it jumped in under the field on the first letter. */}
+          {feedback &&
+            view.server &&
             view.text.trim() &&
             !activeTurn(turn) &&
             !view.admission && (

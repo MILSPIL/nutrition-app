@@ -454,6 +454,14 @@ try {
       geometry.controls.every((h) => h >= 44),
     );
     await page.screenshot({ path: join(out, `ready-${width}.png`) });
+    // 1.9.9 K13: one typed line neither scrolls inside the field nor makes the composer jump.
+    const composerHeight = () => page.locator('.trainer-composer').evaluate(n => n.getBoundingClientRect().height);
+    const emptyComposer = await composerHeight();
+    await page.locator('#trainer-message').fill('Синтетичний рядок');
+    const line = await page.locator('#trainer-message').evaluate(node => ({ fits: node.scrollHeight <= node.clientHeight, height: node.getBoundingClientRect().height,
+      resize: getComputedStyle(node).resize, noteButton: !!document.querySelector('.trainer-note-fallback') }));
+    check('Один рядок без прокрутки й без стрибка панелі ' + width, line.fits && line.height === 44 && line.resize === 'none' && !line.noteButton && await composerHeight() === emptyComposer);
+    evidence.composer ||= []; evidence.composer.push({ width, emptyComposer, ...line });
     await page.locator('#trainer-message').fill('Синтетичне повідомлення\nДругий рядок\nТретій рядок для перевірки редагування');
     const typed = await page.locator('#trainer-message').evaluate(node => {
       const r = node.getBoundingClientRect(), row = node.closest('.trainer-input-row').getBoundingClientRect();
@@ -461,6 +469,22 @@ try {
     });
     check('Багаторядкове поле ' + width, typed.height > 44 && typed.height <= 120 && typed.overflow === 0);
     await page.screenshot({ path: join(out, `typing-${width}.png`) });
+    if (width === 375) {
+      // 1.9.9 K13: with the keyboard open (visible height 420) the field stops at a quarter of the screen,
+      // Send stays visible, the composer does not scroll and the messages keep their room.
+      await page.setViewportSize({ width, height: 420 });
+      await page.locator('#trainer-message').fill('Синтетичне повідомлення\nДругий рядок\nТретій рядок для перевірки клавіатури');
+      await page.waitForFunction(() => document.querySelector('#trainer-message').getBoundingClientRect().height <= 105, null, { timeout: 3000 }).catch(() => {});
+      const keyboard = await page.evaluate(() => {
+        const r = (s) => document.querySelector(s).getBoundingClientRect(), field = document.querySelector('#trainer-message'), composer = document.querySelector('.trainer-composer');
+        return { field: r('#trainer-message').height, send: r('[aria-label="Надіслати повідомлення"]').bottom <= innerHeight,
+          composerScrolls: composer.scrollHeight > composer.clientHeight, messages: r('.trainer-scroll').height, fieldScroll: getComputedStyle(field).overflowY };
+      });
+      check('Клавіатура 375x420: поле до чверті екрана, «Надіслати» видно, панель без прокрутки', keyboard.field <= 105 && keyboard.send && !keyboard.composerScrolls && keyboard.messages >= 150);
+      evidence.keyboard = keyboard;
+      await page.screenshot({ path: join(out, `typing-keyboard-375.png`) });
+      await page.setViewportSize({ width, height: 844 });
+    }
     await page.locator('#trainer-message').fill('');
     await page
       .getByRole("button", { name: "Закрити чат", exact: true })

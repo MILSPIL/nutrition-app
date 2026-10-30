@@ -77,7 +77,7 @@ test('навіть SHA у build environment не стає видимою вер�
   }
 });
 
-test('1.9.9 K10: what is new names the four simple-logging changes', () => {
+test('1.9.9 K10: what is new names the five simple-logging changes', () => {
   const { RELEASES } = require('../data/releases');
   expect(RELEASES[0].version).toBe('1.9.9');
   expect(RELEASES[0].changes).toEqual([
@@ -85,5 +85,6 @@ test('1.9.9 K10: what is new names the four simple-logging changes', () => {
     'Тренер не питає зайвого, а оцінює й пише припущення',
     'Фото етикетки можна надіслати будь-коли',
     'Після запису видно підсумок дня і пораду',
+    'Поле повідомлення росте разом із текстом, без зайвих прокруток',
   ]);
 });

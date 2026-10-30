@@ -994,4 +994,19 @@ describe("1.9.9 simple logging", () => {
     await render();
     expect(host.textContent).not.toContain("Зараз за день");
   });
+  test("1.9.9 K13: typing shows no note button and keeps the field without its own scroll", async () => {
+    await render();
+    await act(async () => { Simulate.change(host.querySelector("textarea"), { target: { value: "Синтетичне питання" } }); });
+    expect(host.textContent).not.toContain("Зберегти текст як нотатку без оцінки");
+    expect(host.querySelector("textarea").style.overflowY).toBe("hidden");
+  });
+  test("1.9.9 K13: after a failed reply the returned text can still be saved as a note", async () => {
+    server.canonicalHistory = true;
+    server.messages = [{ id: "native-user", turnId: "synthetic-failed-note", role: "user", content: "Синтетична страва" }];
+    server.latestTurn = { turnId: "synthetic-failed-note", state: "failed", error: "trainer_failed", text: "Синтетична страва", targetDate: "2026-01-02", nativeInputClaimed: true };
+    await render();
+    await click("Повернути текст для уточнення");
+    expect(host.querySelector("textarea").value).toBe("Синтетична страва");
+    expect(button("Зберегти текст як нотатку без оцінки")).toBeTruthy();
+  });
 });
