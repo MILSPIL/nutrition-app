@@ -190,7 +190,26 @@ Node 24.22.1, база `47ac923` + документи цієї гілки, Mac (
 
 ## Червоне до коду
 
-(заповнюється першим кроком плану)
+2026-10-30, Node 24.22.1, код застосунку ще не змінений.
+
+Сервер `node --test server/trainer/simple-logging-199.test.mjs`: 9 tests, 0 pass, 9 fail (повний перелік причин):
+- K1, K1b, K2b, K4: `Error: invalid_food_source` (джерела `manual` ще немає).
+- K2: `MODEL_TOOL_ERRORS.has("manual_values_not_in_message")` → false.
+- K3: `nutritionStatus` для `label` з `preparation:"unknown"`: actual `'unknown'`, expected `'complete'`.
+- K5: фрази `User kcal/PFC are data` у `TRAINER_POLICY` немає.
+- K6: actual `'Підготував чернетку. Перевір її та натисни «Додати», щоб зберегти.'`, expected `'Перевір чернетку й натисни «Додати».'` (K6 навмисно на наявному джерелі `estimate`, щоб падати саме на тексті завершення).
+- K7: перші дві відмови проходять, третій виклик (фото без прив'язки для рядка) → `Error: label_evidence_missing`.
+
+Клієнт `CI=true npx react-scripts test --watchAll=false -t "1.9.9 K" src/services/mealItems.test.js src/services/trainerChatUi.test.js src/components/WelcomeModal.test.js`: 6 failed (повний перелік причин):
+- K3: `itemProblems` для `manual` містить «Уточніть спосіб приготування».
+- K8 (два рядки): на сторінці «Оберіть «Фото етикетки цього продукту»…».
+- K8 (один рядок): фото скріпкою отримало `itemId` `"synthetic-fruit"`, expected undefined.
+- K9 (остання квитанція): «Зараз за день» немає; K9 (стани): «546 ккал» немає.
+- K10: `RELEASES[0].version` `"1.9.7"`, expected `"1.9.9"` (і два наявні `toBe('1.9.9')` у `WelcomeModal.test.js`).
+
+K9b (CI) і K12 (телефон) до коду не запускаються: K9b вимагає браузерного сценарію в CI, K12 вимагає публікації.
+
+Інсценування K11: `echo "// synthetic K11 drift" >> firestore.rules` → `git diff --stat --exit-code <merge-base> -- firestore.rules …` → `firestore.rules | 1 +`, exit 1; `git checkout -- firestore.rules`, `cmp` з копією без різниці, повторний diff exit 0.
 
 ## Проба спеки
 

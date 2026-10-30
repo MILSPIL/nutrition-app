@@ -22,7 +22,7 @@ afterEach(async () => {
 
 test('показує одну людську версію та поточні новини', async () => {
   await render();
-  expect(APP_VERSION).toBe('1.9.7');
+  expect(APP_VERSION).toBe('1.9.9');
   expect(require('../../package.json').version).toBe(APP_VERSION);
   expect(container.textContent).toContain(`Версія ${APP_VERSION}`);
   expect(container.textContent).toContain(`Що нового у v${APP_VERSION}`);
@@ -69,10 +69,21 @@ test('навіть SHA у build environment не стає видимою вер�
   process.env.REACT_APP_VERSION = 'bad8217421d0eff859b920885d849e3e121cbf72';
   try {
     jest.isolateModules(() => {
-      expect(require('./WelcomeModal').APP_VERSION).toBe('1.9.7');
+      expect(require('./WelcomeModal').APP_VERSION).toBe('1.9.9');
     });
   } finally {
     if (previous === undefined) delete process.env.REACT_APP_VERSION;
     else process.env.REACT_APP_VERSION = previous;
   }
+});
+
+test('1.9.9 K10: what is new names the four simple-logging changes', () => {
+  const { RELEASES } = require('../data/releases');
+  expect(RELEASES[0].version).toBe('1.9.9');
+  expect(RELEASES[0].changes).toEqual([
+    'Твої цифри калорій і БЖВ рахуються одразу, без нотаток',
+    'Тренер не питає зайвого, а оцінює й пише припущення',
+    'Фото етикетки можна надіслати будь-коли',
+    'Після запису видно підсумок дня і пораду',
+  ]);
 });

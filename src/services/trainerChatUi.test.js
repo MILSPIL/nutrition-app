@@ -890,3 +890,101 @@ describe("1.9.7 card control", () => {
     expect(add.previousElementSibling.textContent).toBe("Щоб записати «Синтетична домашня страва», уточніть кількість або напишіть тренеру, скільки це калорій.");
   });
 });
+
+describe("1.9.9 simple logging", () => {
+  const photo = () => Simulate.change(host.querySelector('input[type="file"]'), { target: { files: [new File(["photo"], "synthetic.jpg", { type: "image/jpeg" })], value: "" } });
+  const sendText = async (text) => {
+    await act(async () => { Simulate.change(host.querySelector("textarea"), { target: { value: text } }); });
+    await click("Надіслати повідомлення");
+  };
+  const twoRows = () => {
+    previewFixture();
+    const draft = server.drafts[0];
+    draft.items = [...draft.items, { ...draft.items[0], itemId: "synthetic-second", name: "Синтетичний сир" }];
+    return draft;
+  };
+  beforeEach(() => {
+    props.photoNormalizer = jest.fn(async () => ({ type: "image/jpeg", data: "synthetic-photo", preview: "data:image/jpeg;base64,c3ludGhldGlj" }));
+  });
+  test("1.9.9 K8: the paperclip sends a photo without a row even when the card has two products", async () => {
+    twoRows();
+    await render();
+    await act(async () => Simulate.click(button("Прикріпити фото")));
+    await act(async () => Simulate.click(button("З галереї")));
+    expect(host.textContent).not.toContain("Оберіть «Фото етикетки цього продукту»");
+    await act(async () => photo());
+    expect(host.querySelectorAll('img[alt="Фото етикетки перед надсиланням"]')).toHaveLength(1);
+    await sendText("Ось етикетка салату");
+    expect(api.send).toHaveBeenCalledTimes(1);
+    expect(api.send.mock.calls[0][0].images).toHaveLength(1);
+    expect(api.send.mock.calls[0][0].images[0].itemId).toBeUndefined();
+  });
+  test("1.9.9 K8: with one product the paperclip photo is not bound to it either; the row button still binds", async () => {
+    previewFixture();
+    await render();
+    await act(async () => Simulate.click(button("Прикріпити фото")));
+    await act(async () => Simulate.click(button("Сфотографувати")));
+    await act(async () => photo());
+    const rowButton = [...host.querySelectorAll("button")].find(b => b.textContent === "Фото етикетки цього продукту");
+    await act(async () => { Simulate.click(rowButton); });
+    await act(async () => Simulate.click(button("З галереї")));
+    await act(async () => photo());
+    await sendText("Ось етикетки");
+    const images = api.send.mock.calls[0][0].images;
+    expect(images).toHaveLength(2);
+    expect(images[0].itemId).toBeUndefined();
+    expect(images[1].itemId).toBe("synthetic-fruit");
+  });
+  const savedDay = (patch = {}) => ({ totals: { cal: 546.4, p: 58.1, f: 21, c: 28.3 }, targets: { cal: 2305 },
+    planProgress: { letters: { ї: { percent: 33, unknown: 1, calories: 18 }, д: { percent: 86.1, unknown: 0, calories: 165 }, е: { percent: 100, unknown: 0, calories: 74 } }, unallocatedCount: 1 }, ...patch });
+  const twoReceipts = (dayPatch) => {
+    const { day } = previewFixture();
+    const first = server.drafts[0];
+    first.state = "saved"; first.save = { command: { items: [first.items[0]], notes: [] } };
+    server.drafts = [first, { ...JSON.parse(JSON.stringify(first)), draftId: "synthetic-draft-later" }];
+    const value = { ...day, ...savedDay(dayPatch) };
+    api.day = jest.fn(async () => value);
+    return value;
+  };
+  test("1.9.9 K9: only the latest receipt of the date shows the day after saving", async () => {
+    twoReceipts();
+    await render();
+    const receipts = host.querySelectorAll('[data-testid="trainer-saved-receipt"]');
+    expect(receipts).toHaveLength(2);
+    expect(receipts[0].textContent).not.toContain("Зараз за день");
+    const block = receipts[1].textContent;
+    expect(block).toContain("Зараз за день");
+    expect(block).toContain("546 з 2305 ккал");
+    expect(block).toContain("Д 86.1%");
+    expect(block).toContain("Е 100%");
+    expect(block).toContain("Ї 33% · неповно");
+    expect(block.indexOf("Д 86.1%")).toBeLessThan(block.indexOf("Е 100%"));
+    expect(block.indexOf("Е 100%")).toBeLessThan(block.indexOf("Ї 33%"));
+    expect(block).toContain("Без літери: 1");
+  });
+  test("1.9.9 K9: without a norm only calories; while reading a waiting line; a failed or partial day shows no block", async () => {
+    twoReceipts({ targets: {} });
+    await render();
+    expect(host.textContent).toContain("546 ккал");
+    expect(host.textContent).not.toContain("546 з");
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    twoReceipts();
+    api.day = jest.fn(() => new Promise(() => {}));
+    await render();
+    expect(host.textContent).toContain("Оновлюю підсумок дня…");
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    twoReceipts();
+    api.day = jest.fn(async () => { throw Error("offline"); });
+    await render();
+    expect(host.textContent).not.toContain("Зараз за день");
+    expect(host.textContent).not.toContain("Оновлюю підсумок дня…");
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    const value = twoReceipts();
+    delete value.totals;
+    await render();
+    expect(host.textContent).not.toContain("Зараз за день");
+  });
+});

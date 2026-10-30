@@ -24,3 +24,16 @@ test('порожній день не підставляє недатовані �
 test('хеш payload незалежний від порядку ключів',()=>expect(stableJson({b:1,a:2})).toBe(stableJson({a:2,b:1})));
 
 test('manual raw/cooked та portion залишаються сумісними після редагування',()=>{const i=catalogItem({name:'Рис',p:7,f:1,c:70,cal:320,coef:3},50,100,'rice');expect(quantityText(i)).toBe('150 г (50 г сир.)');const next=withQuantity(i,100);expect(next.portion).toBe(200);expect(quantityText(next)).toBe('300 г (100 г сир.)');});
+
+describe('1.9.9', () => {
+  test('1.9.9 K3: unknown preparation asks only for table sources, not for food with given numbers', () => {
+    const base = { name: 'Синтетичні яйця', quantity: { value: 150, unit: 'g' }, nutritionBasis: { value: 150, unit: 'g' }, nutrients: { p: 18.9, f: 15.9, c: 1.7, cal: 233 }, preparation: 'unknown' };
+    const ask = 'Уточніть спосіб приготування';
+    expect(itemProblems({ ...base, source: { kind: 'manual' } })).not.toContain(ask);
+    expect(itemProblems({ ...base, source: { kind: 'label' } })).not.toContain(ask);
+    expect(itemProblems({ ...base, source: { kind: 'estimate', estimateReason: 'no_matching_source', assumptions: ['Синтетична оцінка'] } })).not.toContain(ask);
+    expect(itemProblems({ ...base, source: { kind: 'manual' } })).toEqual([]);
+    expect(itemProblems({ ...base, source: { kind: 'database', recordId: 'synthetic' } })).toContain(ask);
+    expect(itemProblems({ ...base, source: { kind: 'personal', recordId: 'synthetic' } })).toContain(ask);
+  });
+});
