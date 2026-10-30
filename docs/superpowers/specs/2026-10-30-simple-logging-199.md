@@ -32,17 +32,19 @@
 
 ## Обсяг (повний перелік)
 
-### S1. Джерело «Введено вручну» для цифр користувача (`food-resolver.mjs`, `tools.mjs`, `tool-errors.mjs`)
+### S1. Джерело «Введено вручну» для цифр користувача (`food-resolver.mjs`, `tools.mjs`, `tool-errors.mjs`, `drafts.mjs`)
 
 - У схемі `propose_food_draft` нове джерело: `{kind:"manual", nutritionBasis:{value,unit}, nutrients:{p,f,c,cal}, portionOrigin?}`. Дозволені ключі (повний перелік): `kind`, `nutritionBasis`, `nutrients`, `portionOrigin`. Будь-який інший ключ (`assumptions`, `estimateReason`, `photoRef`, `recordId`…) або нечислове чи `null` значення в `nutrients`/`nutritionBasis` дає наявну помилку форми `invalid_food_source`.
 - `nutritionBasis` це кількість, на яку користувач назвав цифри (для яєць 150 г; для «на 100 г» 100 г). Перерахунок на спожиту кількість робить код, як для етикетки.
 - «Тексти користувача» для перевірки (повний перелік): поточне повідомлення (`ctx.input.text`) і оригінальні тексти наявної чернетки, яку редагує ця пропозиція (`draft.origins`, `drafts.mjs:118-123`). Історія розмови не використовується: у production `snapshot.history` порожній (`server/trainer/personal-runtime.mjs:173`, `history: []`).
-- Сервер приймає `manual` лише коли кожне з чотирьох значень `nutrients` (p, f, c, cal) і `nutritionBasis.value` є числовим токеном у текстах користувача. Нуль теж має бути написаний («В 0»). Форма правильна, а числа немає: помилка `manual_values_not_in_message`.
+- Сервер приймає `manual` лише коли кожне з чотирьох значень `nutrients` (p, f, c, cal) і `nutritionBasis.value` є числовим токеном у текстах користувача. Нуль теж має бути написаний, і саме поруч зі своїм показником («В 0», «0 г вуглеводів»): нуль іншого продукту в тому ж тексті («кава 0 ккал») не підтверджує «В 0». Форма правильна, а числа немає: помилка `manual_values_not_in_message`.
+- Виняток для правки: рядок чернетки, яку редагує ця пропозиція, що вже має джерело `manual` з тими самими основою і чотирма значеннями (раніше прийнятий сервером), приймається без повторної перевірки токенів. Сценарій: «240 ккал» → «ні, там 250» → «яйця варені»: третій хід лишає 250, хоча 250 є лише в другому повідомленні, а `origins` зберігає перше.
 - `manual_values_not_in_message` входить у `MODEL_TOOL_ERRORS` з підказкою (англійською, до 300 символів) про перехід на `estimate` з припущенням «ккал зі слів користувача». Модель отримує її результатом інструмента, а не «технічним збоєм».
 - Числовий токен `nutritionBasis.value` вимагається лише для одиниць `g` і `ml`; для `portion`/`package` зі значенням 1 («кава 45 ккал, Б 2, Ж 1, В 6» → основа 1 порція) не вимагається. Одиниця `unknown` в основі `manual` дає `invalid_food_source`.
-- Кількість: якщо `quantity` має ту саму одиницю й значення, що `nutritionBasis`, і модель не передала `portionOrigin.kind:"estimate"`, то `portionOrigin = {kind:"user", assumption:"Кількість і цифри названо в повідомленні"}` (ккал тоді дорівнюють цифрам користувача). Інакше наявне правило `explicitQuantityInText` (`food-resolver.mjs:196-200`). Для яєць зі знімка (`quantity` = `nutritionBasis` = 150 г) це дає `estimated:false`; сьогоднішнє правило дало б `estimate` (перевірено пробою: `explicitQuantityInText` повертає false для «3 яйця (150 г)»). Для «на 100 г 18 ккал…» без з'їденої маси модель за правилом S3.4 оцінює масу й передає `portionOrigin.kind:"estimate"`, і мітка лишається «оцінка».
+- Кількість: якщо `quantity` має ту саму одиницю й значення, що `nutritionBasis`, і модель не передала `portionOrigin.kind:"estimate"`, то `portionOrigin = {kind:"user", assumption:"Кількість і цифри названо в повідомленні"}` (ккал тоді дорівнюють цифрам користувача). Інакше наявне правило `explicitQuantityInText` (`food-resolver.mjs:196-200`). Для яєць зі знімка (`quantity` = `nutritionBasis` = 150 г) це дає `estimated:false`; сьогоднішнє правило дало б `estimate` (перевірено пробою: `explicitQuantityInText` повертає false для «3 яйця (150 г)»). Для «на 100 г 18 ккал…» без з'їденої маси модель за правилом S3.4 оцінює масу й передає `portionOrigin.kind:"estimate"`, і мітка лишається «оцінка». Серверний захист на випадок, коли модель цього не зробила: основа, названа в тексті як «на/в/по/per N» або «/N» («на 100 г»), мітку `user` не дає, діє наявне правило `explicitQuantityInText`.
 - Порядок у гілці `manual`: перевірка форми → перевірка токенів → `source` → `estimated` обчислюється як для `label` (не з `raw.estimated`) → правило кількості вище замість блоку `food-resolver.mjs:196-200`.
 - Збережене джерело: `{kind:"manual", label:"Введено вручну", version:1, portionOrigin}`. `estimated` = `portionOrigin.kind === "estimate"`. Тип `manual` уже дозволений у `firestore.rules`, `foodNotes.js`, `SOURCE_LABELS` («Введено вручну»); ці файли не змінюються.
+- Етикетка і `manual`: якщо рядок мав джерело `label` (наприклад з `p:null`, тому `unknown`), а нова пропозиція для того самого `itemId` дає `manual` з усіма чотирма написаними числами, `manual` замінює етикетку. `drafts.mjs` `retainedLabel` має для `manual` той самий виняток, що й для нової етикетки.
 - Передача даних (план реалізації, не поведінка): тексти користувача і облік фото S5 створюються в замиканні `tools.mjs` на кожен виклик `propose_food_draft` (`previous` чернетка з `ctx.snapshot.draft`, повна, з `origins`) і передаються в `resolve(raw, {userText, userTexts, usedPhotos})`.
 - Якщо користувач дав лише частину значень (наприклад лише ккал): модель кладе `estimate` з `estimateReason:"no_matching_source"` і припущенням, що ккал від користувача, а решта оцінена. Сервер це не перевіряє (поведінка моделі, K12).
 
@@ -51,13 +53,14 @@
 - Позиція з джерелом `label`, `manual` або `estimate` і `preparation:"unknown"` стає `complete`, якщо решта умов виконана (кількість, основа, сумісні одиниці, усі чотири значення).
 - `itemProblems` повертає «Уточніть спосіб приготування» лише для джерел `database` і `personal` (для інших, включно з `catalog` і `legacy`, ні). Для `database`/`personal` поведінка не змінюється (resolver не приймає рядок таблиці з іншим способом приготування, а `preparationOf` у `food-data.mjs` ніколи не дає `unknown`).
 - `incompleteReason:"unknown_food_preparation"` лишається лише для `database`/`personal`.
+- `preparation:"unknown"` у результаті resolver не зберігається (поле пропускається). Причина: `itemMacros` версії 1.9.7 кидає `invalid_item` на такий рядок, тож після відкату на 1.9.7 підсумки днів із новими записами ламались би. Правила бази й сервер поле `preparation` не вимагають (`grep preparation firestore.rules` порожній).
 - `itemProblems` спільна: сервер (`drafts.mjs`), чат тренера (`TrainerChat.js`), голосове вікно (`VoiceInputModal.js`), збереження (`mealCommands.js`) і підсумки (`itemMacros` у `mealItems.js`). Зміна діє в усіх цих місцях однаково (так і задумано).
 
 ### S3. Правила моделі (`TRAINER_POLICY` у `tools.mjs`; межа місця в `limits.mjs`)
 
 Правила (повний перелік), формулювання англійською в стилі наявного тексту:
 
-1. Цифри користувача це дані, а не недовірений текст: усі чотири значення є → `manual`; частина → `estimate` з цими значеннями.
+1. Цифри користувача це дані, а не недовірений текст: усі чотири значення є → `manual` (основа = названа кількість; з'їдена кількість не названа → `portionOrigin=estimate`); частина → `estimate` з цими значеннями.
 2. Не питати спосіб приготування, бренд чи фото, коли цифри або розумна оцінка вже є.
 3. Цифри не сходяться і є очевидне прочитання (кДж замість ккал: ккал ≈ 4·Б + 4·В + 9·Ж): взяти ккал, що сходяться, як `estimate` (виправленого числа немає в тексті, тому не `manual`), сказати одним реченням, не питати.
 4. Питати лише коли без відповіді неможлива навіть оцінка; інакше оцінити й одним коротким рядком назвати припущення (користувач виправить у прев'ю). Замінює наявне «Unclear food/preparation or g/ml no density: clarify/unknown» і «else ask size» у правилі про штуки. Зміст про густину зберігається: г/мл без підтвердженої густини → `estimate` з припущеною густиною (так уже дозволяє `food-resolver.mjs` для `estimate`).
@@ -99,10 +102,10 @@
 
 ### S6. Підсумок дня в квитанції (`TrainerChat.js`, `TrainerChat.css`)
 
-- Дані: день, який UI уже перечитує після збереження (`previewDays[targetDate]`, `GET /days/:date`, сервер рахує в `day-snapshot.mjs:22-32`). Поля (повний перелік): `day.totals.cal`, `day.targets.cal`, `day.planProgress.letters` (уже лише літери, вжиті за день), `day.planProgress.unallocatedCount`. Клієнт нічого не перераховує; `ClientApp.js` не змінюється.
+- Дані: день, який UI уже перечитує після збереження (`previewDays[targetDate]`, `GET /days/:date`, сервер рахує в `day-snapshot.mjs:22-32`). Поля (повний перелік): `day.totals.cal`, `day.targets.cal`, `day.incomplete`, `day.planProgress.letters` (уже лише літери, вжиті за день), `day.planProgress.unallocatedCount`. Клієнт нічого не перераховує; `ClientApp.js` не змінюється.
 - Квитанція, яка показує блок: серед квитанцій з тією ж `targetDate` остання в порядку відмальовки стрічки: спершу `historyDrafts`, потім `entries` (`TrainerChat.js:1104-1109`, списки з `trainerTimeline`). Час збереження не використовується (поля `savedAt` немає, `updatedAt` для порядку не годиться, `trainerTimeline.js:1-2`). Інші квитанції тієї ж дати блок не показують.
 - Блок «Зараз за день» під наявним вмістом (повний перелік рядків):
-  - «X з N ккал» (X = `round(day.totals.cal)`, N = `day.targets.cal`); якщо норми немає, лише «X ккал»;
+  - «X з N ккал» (X = `round(day.totals.cal)`, N = `day.targets.cal`); якщо норми немає, лише «X ккал»; якщо `day.incomplete` (у дні є записи без калорій, сервер їх не врахував), у тому ж рядку « · неповно: записи без калорій не враховано»;
   - літери з `day.planProgress.letters` у порядку української абетки, кожна як «<ЛІТЕРА великою> <percentText(percent)>», з « · неповно», якщо `unknown > 0` для цієї літери;
   - «Без літери: K», якщо `unallocatedCount` > 0.
 - Поки день читається: «Оновлюю підсумок дня…». Помилка читання, або в дні немає `totals.cal` (число) чи `planProgress`: блок не показується, квитанція лишається як зараз.
@@ -120,7 +123,7 @@
 
 ## Обмеження й ризики
 
-- Прод: API і сайт спільні для двох профілів (Юрій і дружина). Відкат: попередній реліз (1.9.7 / `36a994f` або 1.9.8, якщо вийде раніше) без відновлення даних; збережені `manual`-записи читаються й старою версією (тип уже дозволений).
+- Прод: API і сайт спільні для двох профілів (Юрій і дружина). Відкат: попередній реліз (1.9.7 / `36a994f` або 1.9.8, якщо вийде раніше) без відновлення даних; збережені `manual`-записи читаються й старою версією (тип уже дозволений, поля `preparation:"unknown"` у них немає; перевірено старою `mealItems.js`, розділ «Ревʼю»).
 - Паралельний PR #51 (COACH-PROBLEMS-01) змінює `personal-backend.mjs`, `gateway.mjs`, `turn-store.mjs`, версію і `releases.js`. Хто зливається другим, той оновлює базу й номер версії. Перед злиттям цього PR повторно прогнати всі K.
 - Текст правил змінює поведінку моделі; модульні тести доводять механіку, а не слухняність моделі. Доказ поведінки лише K12 з телефона.
 - S4 не додає запитів до моделі. Ризик: модель не завжди пише текст разом із викликом інструмента; тоді порада не з'являється (видно на K12). Якщо виклик повернув помилку і модель повторює його з новим текстом, у стрічці можуть бути дві поради.
@@ -129,7 +132,7 @@
 ## Припущення (повний перелік)
 
 - П1. Порада (S4) від моделі в тому ж повідомленні, що й чернетка, з запасним стандартним текстом; цифри дня рахує код (S6). Відкинуті варіанти: окремий запит моделі після чернетки (+1 платний запит, ризик втратити чернетку) і порада з коду за шаблоном (без живого тону). Погоджено Юрієм 2026-10-30.
-- П2. Перевірка `manual` за числовими токенами (S1) відсікає вигадані моделлю «цифри користувача». Хибна відмова (користувач написав «233ккал» разом) лікується розбором токенів, що відокремлює число від букв.
+- П2. Перевірка `manual` за числовими токенами (S1) відсікає вигадані моделлю «цифри користувача». Хибна відмова (користувач написав «233ккал» разом) лікується розбором токенів, що відокремлює число від букв. Межа: числа не прив'язані до продукту, тож ненульове число іншого продукту з того самого повідомлення пройде перевірку; нулі прив'язані до свого показника (S1), бо нуль найчастіше трапляється в чужих рядках. Повна прив'язка до продукту в 1.9.9 не входить.
 - П3. Номер 1.9.9; якщо Юрій вирішить інакше, змінюється лише S7.
 - П4. Підсумок дня лише на останній квитанції дати (S6), щоб старі квитанції не показували «теперішній» день як тодішній.
 - П5. Межа місця старого вимкненого шляху піднімається (S3 «Бюджет місця»), а не скорочуються наявні правила. Погоджено Юрієм 2026-10-30.
@@ -141,17 +144,19 @@
 
 | K | Що | Команда | PASS |
 |---|---|---|---|
-| K1 | Яйця зі знімка (текст «3 яйця (150 г): 233 ккал, Б 18.9, Ж 15.9, В 1.7», `preparation:"unknown"`, `quantity` = `nutritionBasis` = 150 г): `manual` → `complete`, `source.kind:"manual"`, `portionOrigin.kind:"user"`, `estimated:false`, макроси 233/18.9/15.9/1.7 | `node --test --test-name-pattern="^K1:" server/trainer/simple-logging-199.test.mjs` | 1 pass, 0 fail |
-| K1b | «Салат на 100 г: 18 ккал, Б 1.5, Ж 0.1, В 2.8» з `quantity` = основа і `portionOrigin.kind:"estimate"` від моделі → `estimated:true`, мітка оцінки зберігається; «кава 45 ккал, Б 2, Ж 1, В 6» з основою 1 порція → `manual`, без вимоги токена «1» | `node --test --test-name-pattern="^K1b:" server/trainer/simple-logging-199.test.mjs` | pass |
-| K2 | `manual` з числом, якого немає в тексті (233 → 250; «В 0», коли нуля в тексті немає) → `manual_values_not_in_message`; `null` у `nutrients` або зайвий ключ → `invalid_food_source`; код є в `MODEL_TOOL_ERRORS`, підказка до 300 символів | `… --test-name-pattern="^K2:" …` | pass |
+| K1 | Яйця зі знімка (текст «3 яйця (150 г): 233 ккал, Б 18.9, Ж 15.9, В 1.7», `preparation:"unknown"`, `quantity` = `nutritionBasis` = 150 г): `manual` → `complete`, `source.kind:"manual"`, `portionOrigin.kind:"user"`, `estimated:false`, макроси 233/18.9/15.9/1.7, поля `preparation` у результаті немає | `node --test --test-name-pattern="^K1:" server/trainer/simple-logging-199.test.mjs` | 1 pass, 0 fail |
+| K1b | «Салат на 100 г: 18 ккал, Б 1.5, Ж 0.1, В 2.8» з `quantity` = основа і `portionOrigin.kind:"estimate"` від моделі → `estimated:true`, мітка оцінки зберігається; той самий салат без `portionOrigin` від моделі теж `estimated:true` («на 100 г» не з'їдена маса); «кава 45 ккал, Б 2, Ж 1, В 6» з основою 1 порція → `manual`, без вимоги токена «1» | `node --test --test-name-pattern="^K1b:" server/trainer/simple-logging-199.test.mjs` | pass |
+| K2 | `manual` з числом, якого немає в тексті (233 → 250; «В 0», коли нуля в тексті немає; «В 0», коли нуль стоїть лише біля іншого продукту, «кава 0 ккал») → `manual_values_not_in_message`; «вуглеводів 0» підтверджує нуль; `null` у `nutrients` або зайвий ключ → `invalid_food_source`; код є в `MODEL_TOOL_ERRORS`, підказка до 300 символів | `… --test-name-pattern="^K2:" …` | pass |
 | K2b | Правка наявної чернетки іншим повідомленням («яйця варені»): числа з `draft.origins` цієї чернетки приймаються; числа, яких немає ні в поточному тексті, ні в `origins`, ні | `… --test-name-pattern="^K2b:" …` | pass |
+| K2c | Три ходи: «яйця 150 г: 240 ккал…» → «ні, там 250 ккал» → «яйця варені»: третій хід з 250 дає `ready`, у чернетці 250 і `manual` | `… --test-name-pattern="^K2c:" …` | pass |
+| K2d | Рядок з етикетки з `p:null` (`unknown`), потім «салат 100 г: 18 ккал, Б 1.5, Ж 0.1, В 2.8» з `manual` для того самого `itemId` → `source.kind:"manual"`, `complete` | `… --test-name-pattern="^K2d:" …` | pass |
 | K3 | `preparation:"unknown"` з `label`, `manual`, `estimate` → `complete`; `itemProblems` без «Уточніть спосіб приготування» для них і з ним для `database`/`personal` | `node --test --test-name-pattern="^K3:" server/trainer/simple-logging-199.test.mjs` і `CI=true npx react-scripts test --watchAll=false -t "1.9.9 K3:"` | pass |
-| K4 | Сніданок зі знімка через справжній `propose_food_draft` (фікстура нижче, усі `manual`, яйця й салат з `preparation:"unknown"`): 7 продуктів `complete`, команда збереження (`commandFromDraft`) має `notes: []` і 7 `items` | `… --test-name-pattern="^K4:" …` | pass |
+| K4 | Сніданок зі знімка через справжній `propose_food_draft` (фікстура нижче, усі `manual`, яйця й салат з `preparation:"unknown"`): 7 продуктів `complete`, команда збереження (`commandFromDraft`) має `notes: []` і 7 `items`, жоден з `preparation:"unknown"` | `… --test-name-pattern="^K4:" …` | pass |
 | K5 | `TRAINER_POLICY` містить шість правил S3 (перевірка ключових фраз) і не містить вимоги «clarify» для способу приготування при наявних цифрах | `… --test-name-pattern="^K5:" …` | pass |
 | K6 | Повідомлення асистента з викликом `propose_food_draft` і текстом (рядок; масив текстових частин) → завершення «Перевір чернетку й натисни «Додати».» (потік і ні); без тексту, з порожнім або пробільним текстом → наявний `DRAFT_COMPLETION_TEXT`; невалідний ACK, як зараз, локального завершення не дає | `… --test-name-pattern="^K6:" …` | pass |
 | K7 | Фото без прив'язки → `label` для будь-якого рядка; те саме фото для другого рядка → `label_evidence_missing`; фото з прив'язкою для чужого рядка → `label_evidence_missing` | `… --test-name-pattern="^K7:" …` | pass |
 | K8 | Скріпка при чернетці з 2 і з 1 рядком: помилки немає, надіслане фото без `itemId`; кнопка в рядку надсилає `itemId` рядка | `CI=true npx react-scripts test --watchAll=false -t "1.9.9 K8:"` | pass |
-| K9 | Квитанція: блок «Зараз за день» лише на останній квитанції дати; числа з дня-фікстури (ккал/норма, літери з %, «неповно», «Без літери»); стан читання й помилки | `CI=true npx react-scripts test --watchAll=false -t "1.9.9 K9:"` | pass |
+| K9 | Квитанція: блок «Зараз за день» лише на останній квитанції дати; числа з дня-фікстури (ккал/норма, літери з %, «неповно», «Без літери»); `day.incomplete` → «неповно: записи без калорій не враховано»; стан читання й помилки | `CI=true npx react-scripts test --watchAll=false -t "1.9.9 K9:"` | pass |
 | K9b | Браузер 375/390/1366: у сценарії зі збереженою квитанцією (`scripts/trainer-chat-browser.mjs`, де вже є `trainer-saved-receipt`) блок «Зараз за день» є на сторінці на останній квитанції дати, без горизонтальної прокрутки й обрізання (`scrollWidth <= clientWidth` для блоку і сторінки) на кожній з трьох ширин | CI PR на Linux, крок `npm run test:hermes-ui` (`.github/workflows/ci.yml:49`); локальний запуск на Mac доказом не є (розділ «Обмеження й ризики») | крок CI success; у лозі три ширини з блоком |
 | K10 | Версія 1.9.9 і чотири пункти «Що нового» | `CI=true npx react-scripts test --watchAll=false src/components/WelcomeModal.test.js` | pass |
 | K11 (інваріант) | Усі старі тести (з урахуванням змінених за задумом, перелік нижче), збірка й CI зелені; `firestore.rules`, `server/trainer/*.py`, `gateway.mjs`, `hermes-native.mjs`, `internal-process.mjs`, `server/deployment-personal.json`, `VoiceInputModal.js`, `ClientApp.js`, `foodNotes.js` без змін відносно бази гілки | `npm run test:server && npm run test:ci && npm run build && git diff --exit-code $(git merge-base HEAD origin/codex/hermes-personal-server) -- firestore.rules 'server/trainer/*.py' server/trainer/gateway.mjs server/trainer/hermes-native.mjs server/trainer/internal-process.mjs server/deployment-personal.json src/components/VoiceInputModal.js src/pages/ClientApp.js src/services/foodNotes.js`; CI PR (включно з `hermes-resource-check` і `--capacity-probe`) | exit 0; CI success |
@@ -179,9 +184,9 @@
 - `server/trainer/coach-portions.test.mjs` (C03, рядки 71 і 124): `estimate` з `preparation:"unknown"` тепер `complete` (S2); очікування змінюється на `complete`, перевірка, що `database` без відомого способу приготування не приймається, лишається.
 - `server/trainer/tool-errors.test.mjs`: розмір `MODEL_TOOL_ERRORS` 25 → 26.
 - `server/trainer/personal-tool-errors.test.mjs` (список `CODES`, рядки 8-14; перевірка на рядку 35): доповнюється `manual_values_not_in_message`.
-- `server/trainer/tools.test.mjs` тест `policy fits the coach capacity budget`: межа 1500 → 2000 байт з коментарем про П5 (лише якщо Юрій погодив П5).
+- `server/trainer/tools.test.mjs` тест `policy fits the coach capacity budget`: межа 1500 → 2000 байт з коментарем про П5 (П5 погоджено 2026-10-30).
 - Та сама межа 32000 записана числом ще в чотирьох місцях (знайдено під час кроку 3, наслідок П5; повний перелік): `server/trainer/fixtures/contract-v1.json` `maxPayloadTextBytes` → 34000 і `server/trainer/contracts.test.mjs` (з коментарем про рішення 2026-10-30); `server/trainer/coach-backend.test.mjs` C05 (п'ять порівнянь `<=32000` → `<=LIMITS.payloadBytes`); `scripts/hermes-gateway-test.mjs` (`--capacity-probe`, `<=32000` → `<=LIMITS.payloadBytes`); `server/trainer/gateway-core.test.mjs` (три розміри, похідні від 32000: 28000, 33000 у двох тестах і 32000 у тесті знімка → `LIMITS.payloadBytes - 4000`, `LIMITS.payloadBytes + 1000`, `LIMITS.payloadBytes`; знайдено повним прогоном після кроку 6).
-- Тести, що перевіряють дослівні фрази `TRAINER_POLICY`, які S3 замінює (`tools.test.mjs` та інші, знайдені `grep` за кожною заміненою фразою): очікування оновлюються на нові фрази; тест бюджету ≤ 1500 байт не змінюється.
+- Тести, що перевіряють дослівні фрази `TRAINER_POLICY`, які S3 замінює (`tools.test.mjs` та інші, знайдені `grep` за кожною заміненою фразою): очікування оновлюються на нові фрази; бюджет змінюється лише за П5 (рядок про `policy fits the coach capacity budget` вище).
 
 Будь-який інший тест, що падає, означає дефект реалізації, а не очікувану зміну.
 
@@ -234,3 +239,25 @@ K9b (CI) і K12 (телефон) до коду не запускаються: K9
 Точки відкату: кожен коміт; production до публікації не змінюється; після публікації відкат на попередній реліз без відновлення даних (записи `manual` читаються старою версією).
 
 Перевірка зовні: тести й CI вище; після публікації HTTPS 200 сайту й API, версія 1.9.9 у «Що нового» на сайті, K12.
+
+## Ревʼю (фаза 3)
+
+Коло 1 на коміті `5b7d71d` (2026-10-30).
+
+`spec-reviewer` (opus): K1-K11 PASS, вердикт «повернути»: 🟡 1 (політика не каже ставити `portionOrigin=estimate`, коли з'їдена кількість не названа), 💭 4 (закомітити журнал; блок дня в підсумку браузерного тесту; дата релізу в день публікації; рядок «бюджет ≤ 1500 не змінюється» суперечив П5). Виправлено: правило S3.1 і серверний захист «на/в/по N» (S1); `dayNow` у підсумку `scripts/trainer-chat-browser.mjs`; рядок про бюджет; дата релізу лишається кроком перед публікацією.
+
+Codex (`gpt-6-astra`, effort `xhigh`, 246 с, діф гілки проти `47ac923`, 25 файлів коду): 5 знахідок (P1 1, P2 4).
+
+| Codex знайшов | Що перевірив | Вердикт |
+|---|---|---|
+| P1: нові записи з `preparation:"unknown"` ламають відкат на 1.9.7 | `itemMacros` з `47ac923` на такому рядку: `invalid_item` | підтвердилось; виправлено (S2: поле не зберігається) |
+| P2: 240 → 250 → «варені»: третій хід відхиляє 250 | `tools.mjs`: тексти лише з `origins` (перший текст рядка) | підтвердилось; виправлено (S1: виняток для раніше прийнятих `manual`) |
+| P2: `manual` не замінює етикетку з `p:null` | `drafts.mjs` `retainedLabel` повертав стару етикетку для будь-якого нового джерела, крім `label` | підтвердилось; виправлено (S1: виняток для `manual`) |
+| P2: нуль іншого продукту («кава 0 ккал») підтверджує «В 0» | `food-resolver.mjs`: загальний набір числових токенів | підтвердилось для нулів; виправлено (S1: нуль лише поруч зі своїм показником); для ненульових чисел це межа П2 |
+| P2: «Зараз за день» без позначки неповного дня | `TrainerChat.js` `DayNow` не читав `day.incomplete` | підтвердилось; виправлено (S6) |
+
+Хибних знахідок: 0.
+
+Червоне до коду для виправлень: нові перевірки на коді `5b7d71d` (виправлення тимчасово прибрані, файли відновлено, `shasum -c` OK). Сервер `node --test server/trainer/simple-logging-199.test.mjs`: 6 fail (повний перелік): K1 `preparation` є в результаті; K1b «на 100 г» без `portionOrigin` дав `estimated:false`; K2 «кава 0 ккал» не дало `manual_values_not_in_message`; K2c третій хід `Error: manual_values_not_in_message`; K2d джерело лишилось `label`; K4 рядки з `preparation:"unknown"`. Клієнт `-t "1.9.9"` у `trainerChatUi.test.js`: 1 fail, K9 «неповно: записи без калорій не враховано» немає. Після виправлень: сервер 11/11 pass, клієнт pass.
+
+Разова перевірка відкату: `itemProblems` і `itemMacros` з `git show 47ac923:src/services/mealItems.js` на рядках яєць і салату, створених новим resolver: `[]` і `{p:18.9,f:15.9,c:1.7,cal:233}`, `[]` і `{p:1.5,f:0.1,c:2.8,cal:18}`; той самий рядок з `preparation:"unknown"`: `invalid_item`.
