@@ -153,6 +153,10 @@ test("K2: numbers the owner did not write are refused with a repairable code; ma
   assert.throws(() => r.resolve(manual("Філе", 100, { cal: 165, p: 31, f: 3.6, c: 0 }), { userText: "куряче філе 100 г: 165 ккал, Б 31, Ж 3.6" }), /^Error: manual_values_not_in_message$/);
   assert.throws(() => r.resolve(manual("Сир", 100, { cal: 240, p: 20, f: 10, c: 0 }), { userText: "сир 100 г: 240 ккал, Б 20, Ж 10; кава 0 ккал" }), /^Error: manual_values_not_in_message$/);
   assert.equal(r.resolve(manual("Сир", 100, { cal: 240, p: 20, f: 10, c: 0 }), { userText: "сир 100 г: 240 ккал, Б 20, Ж 10, вуглеводів 0" }).source.kind, "manual");
+  // Without commas the zero of «Б 0» is not also a zero for fat; «0 г жиру» still counts.
+  assert.throws(() => r.resolve(manual("Сир", 100, { cal: 100, p: 0, f: 0, c: 20 }), { userText: "сир 100 г 100 ккал Б 0 Ж 5 В 20" }), /^Error: manual_values_not_in_message$/);
+  assert.equal(r.resolve(manual("Сир", 100, { cal: 100, p: 0, f: 5, c: 20 }), { userText: "сир 100 г 100 ккал Б 0 Ж 5 В 20" }).source.kind, "manual");
+  assert.equal(r.resolve(manual("Сир", 100, { cal: 240, p: 20, f: 0, c: 5 }), { userText: "сир 100 г: 240 ккал, Б 20, 0 г жиру, В 5" }).source.kind, "manual");
   assert.throws(() => r.resolve(manual("Яйця", 150, { cal: 233, p: 18.9, f: null, c: 1.7 }), { userText: EGGS }), /^Error: invalid_food_source$/);
   assert.throws(() => r.resolve(manual("Яйця", 150, { cal: 233, p: 18.9, f: 15.9, c: 1.7 }, "unknown", { assumptions: ["x"] }), { userText: EGGS }), /^Error: invalid_food_source$/);
   assert.throws(() => r.resolve({ ...manual("Яйця", 150, { cal: 233, p: 18.9, f: 15.9, c: 1.7 }), source: { kind: "manual", nutritionBasis: { value: 150, unit: "unknown" }, nutrients: { cal: 233, p: 18.9, f: 15.9, c: 1.7 } } }, { userText: EGGS }), /^Error: invalid_food_source$/);

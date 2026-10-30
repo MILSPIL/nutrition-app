@@ -74,7 +74,6 @@ function applyEdits(d, patch = {}) {
     }),
   };
 }
-// The day as the server counts it after saving; the client recomputes nothing.
 // The field grows with its text and scrolls only at its ceiling: a quarter of the
 // visible screen (the keyboard shrinks it), at most 120px. scrollHeight has no border.
 function fitTextarea(field) {
@@ -87,6 +86,7 @@ function fitTextarea(field) {
   field.style.height = `${Math.min(ceiling, Math.max(44, next))}px`;
   field.style.overflowY = next > ceiling ? "auto" : "hidden";
 }
+// The day as the server counts it after saving; the client recomputes nothing.
 function DayNow({ day, status }) {
   if (status === "loading") return <p className="trainer-day-now">Оновлюю підсумок дня…</p>;
   if (status !== "ready" || !Number.isFinite(day?.totals?.cal) || !day?.planProgress) return null;

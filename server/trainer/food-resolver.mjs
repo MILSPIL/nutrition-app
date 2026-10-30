@@ -28,10 +28,12 @@ const manualNutrients = (n) =>
   keys(n, ["p", "f", "c", "cal"]) && ["p", "f", "c", "cal"].every((k) => number(n[k]));
 // A zero proves a value only beside its own marker: "кава 0 ккал" says nothing about carbs.
 const MARKERS = { p: "б|білк\\p{L}*|бел\\p{L}*|protein|p", f: "ж|жир\\p{L}*|fat|f", c: "в|вугл\\p{L}*|угл\\p{L}*|carb\\p{L}*|c", cal: "ккал|кал|kcal|cal|калор\\p{L}*" };
+const ANY_MARKER = Object.values(MARKERS).join("|");
 const zeroBeside = (key, texts) => {
   const m = MARKERS[key];
   const before = new RegExp(`(?:^|[^\\p{L}])(?:${m})\\s*[:=-]?\\s*0(?:[.,]0+)?(?![.,]?\\d)`, "iu");
-  const after = new RegExp(`(?:^|[^\\d.,])0(?:[.,]0+)?\\s*(?:г\\s*|g\\s*)?(?:${m})(?![\\p{L}])`, "iu");
+  // "0 г жиру" counts, but not the zero of "Б 0 Ж 5": a marker written before it already owns it.
+  const after = new RegExp(`(?<![\\d.,])(?<!(?:^|[^\\p{L}])(?:${ANY_MARKER})\\s*[:=-]?\\s*)0(?:[.,]0+)?\\s*(?:г\\s*|g\\s*)?(?:${m})(?![\\p{L}])`, "iu");
   return texts.some((t) => before.test(String(t || "")) || after.test(String(t || "")));
 };
 function manualWritten(source, texts) {
