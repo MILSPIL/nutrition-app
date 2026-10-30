@@ -183,9 +183,13 @@
 
 Будь-який інший тест, що падає, означає дефект реалізації, а не очікувану зміну.
 
+## Базова лінія до коду
+
+Node 24.22.1, база `47ac923` + документи цієї гілки, Mac (локально), 2026-10-30: `npm run test:server` 427 тестів, 419 pass, 7 fail, 1 skipped; `npm run test:ci` 376/376. Сім падінь до будь-яких змін (повний перелік; запуск дочірніх процесів у локальному оточенні): «a replacement with a mismatching selected identity is physically retired before reuse», «aggregate watchdog kills an idle producer between logical model calls», «concurrent startup after idle exit creates one replacement and close is final», «coordinator abort after a healthy turn clears closed producer before the next input», «disabled package rejects empty, incomplete and escaping public archives», «native cleanup rejects active ownership and foreign unproven namespace», «outer deadline physically kills a blocked producer before releasing the turn». Для K11 локально: набір падінь після змін не ширший за цей; повна зеленість доводиться CI на Linux.
+
 ## Червоне до коду
 
-(заповнюється перед реалізацією)
+(заповнюється першим кроком плану)
 
 ## Проба спеки
 
