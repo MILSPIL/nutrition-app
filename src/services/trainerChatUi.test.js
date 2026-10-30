@@ -961,6 +961,13 @@ describe("1.9.9 simple logging", () => {
     expect(block.indexOf("Д 86.1%")).toBeLessThan(block.indexOf("Е 100%"));
     expect(block.indexOf("Е 100%")).toBeLessThan(block.indexOf("Ї 33%"));
     expect(block).toContain("Без літери: 1");
+    expect(block).not.toContain("неповно: записи без калорій");
+  });
+  test("1.9.9 K9: a day with food left out of the calories says so next to the total", async () => {
+    twoReceipts({ incomplete: true });
+    await render();
+    const receipts = host.querySelectorAll('[data-testid="trainer-saved-receipt"]');
+    expect(receipts[1].textContent).toContain("546 з 2305 ккал · неповно: записи без калорій не враховано");
   });
   test("1.9.9 K9: without a norm only calories; while reading a waiting line; a failed or partial day shows no block", async () => {
     twoReceipts({ targets: {} });

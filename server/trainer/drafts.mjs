@@ -164,7 +164,8 @@ export function patchDraft(
         String(patch.originalText || "").normalize("NFKC").toLocaleLowerCase("uk").includes(normalizedName);
       const partialConcrete = old && ["label","database","personal"].includes(old.source?.kind) &&
         ["p","f","c","cal"].some(key => old.nutrients?.[key] == null);
-      const retainedLabel = old?.source?.kind === "label" && updated.source.kind !== "label" && !explicitNewProduct;
+      // The user's own written numbers (manual) may correct a label; model estimates may not.
+      const retainedLabel = old?.source?.kind === "label" && !["label", "manual"].includes(updated.source.kind) && !explicitNewProduct;
       if ((partialConcrete && updated.source.kind === "estimate" && !explicitNewProduct) || retainedLabel) {
         updated = explicitQuantityInText(updated.quantity, patch.originalText, {itemName:old.name, trustedSingleItem:previous?.items?.length === 1 && patch.items.length === 1})
           ? measuredQuantity(old, updated.quantity) : structuredClone(old);

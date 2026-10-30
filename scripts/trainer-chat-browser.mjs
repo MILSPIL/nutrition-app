@@ -734,6 +734,12 @@ try {
         edges: x.edges,
         gutter: x.headingLeft,
       })),
+      dayNow: (evidence.timeline || []).map((x) => ({
+        width: x.width,
+        count: x.dayNow,
+        inLast: x.dayNowInLast,
+        overflow: x.dayNowOverflow,
+      })),
       calls,
       sttCalls,
       analyses,

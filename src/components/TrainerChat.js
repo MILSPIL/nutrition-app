@@ -82,7 +82,7 @@ function DayNow({ day, status }) {
   const letters = Object.entries(day.planProgress.letters || {}).sort(([a], [b]) => a.localeCompare(b, "uk"));
   return <div className="trainer-day-now" data-testid="trainer-day-now">
     <h4>Зараз за день</h4>
-    <p>{Number.isFinite(target) ? `${calories} з ${target} ккал` : `${calories} ккал`}</p>
+    <p>{Number.isFinite(target) ? `${calories} з ${target} ккал` : `${calories} ккал`}{day.incomplete ? " · неповно: записи без калорій не враховано" : ""}</p>
     {letters.length > 0 && <ul>{letters.map(([letter, value]) =>
       <li key={letter}>{`${letter.toUpperCase()} ${percentText(value.percent)}${value.unknown > 0 ? " · неповно" : ""}`}</li>)}</ul>}
     {day.planProgress.unallocatedCount > 0 && <p>Без літери: {day.planProgress.unallocatedCount}</p>}

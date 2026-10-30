@@ -124,6 +124,8 @@ test("K1: the owner's egg numbers count as user-entered food with the owner's po
   assert.equal(item.source.portionOrigin.kind, "user");
   assert.equal(item.estimated, false);
   assert.deepEqual(itemMacros(item), { cal: 233, p: 18.9, f: 15.9, c: 1.7 });
+  // 1.9.7 readers treat preparation "unknown" as invalid food, so it is not stored.
+  assert.equal("preparation" in item, false);
 });
 
 test("K1b: a model mass estimate stays an estimate; a single portion basis needs no number 1 in the text", () => {
@@ -135,6 +137,8 @@ test("K1b: a model mass estimate stays an estimate; a single portion basis needs
   assert.equal(estimated.estimated, true);
   const coffee = { itemId: randomUUID(), name: "Кава", preparation: "as_sold", quantity: { value: 1, unit: "portion" },
     source: { kind: "manual", nutritionBasis: { value: 1, unit: "portion" }, nutrients: { cal: 45, p: 2, f: 1, c: 6 } } };
+  const perHundred = resolver().resolve(manual("Салат", 100, { cal: 18, p: 1.5, f: 0.1, c: 2.8 }), { userText: "Салат на 100 г: 18 ккал, Б 1.5, Ж 0.1, В 2.8" });
+  assert.equal(perHundred.estimated, true, "a label basis «на 100 г» is not an eaten amount");
   const cup = resolver().resolve(coffee, { userText: "кава 45 ккал, Б 2, Ж 1, В 6" });
   assert.equal(cup.source.kind, "manual");
   assert.equal(cup.nutritionStatus, "complete");
@@ -147,6 +151,8 @@ test("K2: numbers the owner did not write are refused with a repairable code; ma
   const r = resolver();
   assert.throws(() => r.resolve(manual("Яйця", 150, { cal: 250, p: 18.9, f: 15.9, c: 1.7 }), { userText: EGGS }), /^Error: manual_values_not_in_message$/);
   assert.throws(() => r.resolve(manual("Філе", 100, { cal: 165, p: 31, f: 3.6, c: 0 }), { userText: "куряче філе 100 г: 165 ккал, Б 31, Ж 3.6" }), /^Error: manual_values_not_in_message$/);
+  assert.throws(() => r.resolve(manual("Сир", 100, { cal: 240, p: 20, f: 10, c: 0 }), { userText: "сир 100 г: 240 ккал, Б 20, Ж 10; кава 0 ккал" }), /^Error: manual_values_not_in_message$/);
+  assert.equal(r.resolve(manual("Сир", 100, { cal: 240, p: 20, f: 10, c: 0 }), { userText: "сир 100 г: 240 ккал, Б 20, Ж 10, вуглеводів 0" }).source.kind, "manual");
   assert.throws(() => r.resolve(manual("Яйця", 150, { cal: 233, p: 18.9, f: null, c: 1.7 }), { userText: EGGS }), /^Error: invalid_food_source$/);
   assert.throws(() => r.resolve(manual("Яйця", 150, { cal: 233, p: 18.9, f: 15.9, c: 1.7 }, "unknown", { assumptions: ["x"] }), { userText: EGGS }), /^Error: invalid_food_source$/);
   assert.throws(() => r.resolve({ ...manual("Яйця", 150, { cal: 233, p: 18.9, f: 15.9, c: 1.7 }), source: { kind: "manual", nutritionBasis: { value: 150, unit: "unknown" }, nutrients: { cal: 233, p: 18.9, f: 15.9, c: 1.7 } } }, { userText: EGGS }), /^Error: invalid_food_source$/);
@@ -168,6 +174,37 @@ test("K2b: a correction in a later message may reuse the numbers of the draft it
   const [edited] = second.complete();
   assert.equal(edited.items[0].source.kind, "manual");
   assert.equal(edited.items[0].nutritionStatus, "complete");
+});
+
+test("K2c: numbers corrected in one message stay accepted when a later message only clarifies", async t => {
+  const f = toolsFixture(t);
+  const first = f.begin("яйця 150 г: 240 ккал, Б 18, Ж 15, В 1");
+  const eggs = manual("Яйця", 150, { cal: 240, p: 18, f: 15, c: 1 });
+  await first.propose([eggs]);
+  let [draft] = first.complete();
+  const second = f.begin("ні, там 250 ккал");
+  const fixed = { ...eggs, source: { ...eggs.source, nutrients: { cal: 250, p: 18, f: 15, c: 1 } } };
+  await second.propose([fixed], { draftId: draft.draftId, baseRevision: draft.revision });
+  [draft] = second.complete();
+  const third = f.begin("яйця варені");
+  assert.equal((await third.propose([fixed], { draftId: draft.draftId, baseRevision: draft.revision })).state, "ready");
+  [draft] = third.complete();
+  assert.equal(draft.items[0].nutrients.cal, 250);
+  assert.equal(draft.items[0].source.kind, "manual");
+});
+
+test("K2d: the user's own full numbers replace a label photo that missed a value", async t => {
+  const f = toolsFixture(t, { text: "Салат, ось етикетка", media: [{ tempRef: "synthetic-label", itemId: "synthetic-salad-row" }] });
+  const first = f.begin();
+  await first.propose([{ itemId: "synthetic-salad-row", name: "Салат", preparation: "unknown", quantity: { value: 100, unit: "g" },
+    source: { kind: "label", photoRef: "synthetic-label", nutritionBasis: { value: 100, unit: "g" }, nutrients: { p: null, f: 0.1, c: 2.8, cal: 18 } } }]);
+  let [draft] = first.complete();
+  assert.equal(draft.items[0].nutritionStatus, "unknown");
+  const second = f.begin("салат 100 г: 18 ккал, Б 1.5, Ж 0.1, В 2.8", []);
+  await second.propose([manual("Салат", 100, { cal: 18, p: 1.5, f: 0.1, c: 2.8 }, "unknown", {})].map(i => ({ ...i, itemId: "synthetic-salad-row" })), { draftId: draft.draftId, baseRevision: draft.revision });
+  [draft] = second.complete();
+  assert.equal(draft.items[0].source.kind, "manual");
+  assert.equal(draft.items[0].nutritionStatus, "complete");
 });
 
 test("K3: unknown preparation no longer blocks food whose numbers are already given", () => {
@@ -197,6 +234,7 @@ test("K4: the whole breakfast from the screenshot is saved as food, with no note
   assert.deepEqual(prepared.command.notes, []);
   assert.equal(prepared.command.items.length, 7);
   assert.equal(Math.round(prepared.command.items.reduce((sum, i) => sum + itemMacros(i).cal, 0)), 546);
+  assert.ok(prepared.command.items.every(i => i.preparation !== "unknown"));
 });
 
 test("K5: trainer rules say numbers are data, no needless questions, photos any time and advice with the draft", () => {

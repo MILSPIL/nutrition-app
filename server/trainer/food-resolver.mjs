@@ -26,13 +26,31 @@ const manualBasis = (b) =>
   keys(b, ["value", "unit"]) && number(b.value) && b.value > 0 && ["g", "ml", "portion", "package"].includes(b.unit);
 const manualNutrients = (n) =>
   keys(n, ["p", "f", "c", "cal"]) && ["p", "f", "c", "cal"].every((k) => number(n[k]));
+// A zero proves a value only beside its own marker: "кава 0 ккал" says nothing about carbs.
+const MARKERS = { p: "б|білк\\p{L}*|бел\\p{L}*|protein|p", f: "ж|жир\\p{L}*|fat|f", c: "в|вугл\\p{L}*|угл\\p{L}*|carb\\p{L}*|c", cal: "ккал|кал|kcal|cal|калор\\p{L}*" };
+const zeroBeside = (key, texts) => {
+  const m = MARKERS[key];
+  const before = new RegExp(`(?:^|[^\\p{L}])(?:${m})\\s*[:=-]?\\s*0(?:[.,]0+)?(?![.,]?\\d)`, "iu");
+  const after = new RegExp(`(?:^|[^\\d.,])0(?:[.,]0+)?\\s*(?:г\\s*|g\\s*)?(?:${m})(?![\\p{L}])`, "iu");
+  return texts.some((t) => before.test(String(t || "")) || after.test(String(t || "")));
+};
 function manualWritten(source, texts) {
   const tokens = numberTokens(texts);
   const written = (x) => [...tokens].some((t) => Math.abs(t - x) < 1e-9);
   const basisNeeded = ["g", "ml"].includes(source.nutritionBasis.unit) || source.nutritionBasis.value !== 1;
-  return ["p", "f", "c", "cal"].every((k) => written(source.nutrients[k])) &&
+  return ["p", "f", "c", "cal"].every((k) => source.nutrients[k] === 0 ? zeroBeside(k, texts) : written(source.nutrients[k])) &&
     (!basisNeeded || written(source.nutritionBasis.value));
 }
+// Numbers already accepted for this row (an earlier user message) stay accepted when unchanged.
+const sameManual = (kept, source) => kept?.source?.kind === "manual" &&
+  kept.nutritionBasis?.value === source.nutritionBasis.value && kept.nutritionBasis?.unit === source.nutritionBasis.unit &&
+  ["p", "f", "c", "cal"].every((k) => kept.nutrients?.[k] === source.nutrients[k]);
+// "на 100 г" names the label basis, not the eaten amount.
+const basisIsPer = (value, texts) => {
+  const number = String(value).replace(".", "[.,]");
+  const per = new RegExp(`(?:^|[^\\p{L}])(?:на|в|по|per|/)\\s*${number}(?![.,]?\\d)`, "iu");
+  return texts.some((t) => per.test(String(t || "")));
+};
 // A photo bound to a row proves only that row; an unbound one may prove any one
 // row of a proposal (usedPhotos lives for one propose call).
 function labelPhotoFits(photos, usedPhotos, raw) {
@@ -100,7 +118,7 @@ export function createFoodResolver({
         candidates,
       };
     },
-    resolve(raw, { userText = "", userTexts = [userText], usedPhotos = new Map() } = {}) {
+    resolve(raw, { userText = "", userTexts = [userText], usedPhotos = new Map(), confirmed = new Map() } = {}) {
       if (
         !keys(raw, [
           "itemId",
@@ -218,7 +236,8 @@ export function createFoodResolver({
           !manualNutrients(raw.source.nutrients)
         )
           fail("invalid_food_source");
-        if (!manualWritten(raw.source, userTexts)) fail("manual_values_not_in_message");
+        if (!sameManual(confirmed.get(raw.itemId), raw.source) && !manualWritten(raw.source, userTexts))
+          fail("manual_values_not_in_message");
         basis = raw.source.nutritionBasis;
         values = raw.source.nutrients;
         source = { kind: "manual", label: "Введено вручну", version: 1 };
@@ -228,7 +247,7 @@ export function createFoodResolver({
         fail("invalid_household_measure");
       // Numbers given for exactly the eaten portion do not depend on its mass.
       if (source.kind === "manual" && q.value != null && q.unit === basis.unit && q.value === basis.value &&
-          requestedOrigin?.kind !== "estimate") {
+          requestedOrigin?.kind !== "estimate" && !basisIsPer(basis.value, userTexts)) {
         portionOrigin = {kind:"user",assumption:"Кількість і цифри названо в повідомленні"};
       } else if (q.value != null && portionOrigin?.kind !== "catalog_measure") {
         portionOrigin = explicitQuantityInText(q, userText, {itemName:raw.name})
@@ -283,7 +302,8 @@ export function createFoodResolver({
         nutritionBasis: b,
         nutrients: n,
         source,
-        preparation: raw.preparation,
+        // An unknown preparation is not stored: 1.9.7 readers count such food as invalid.
+        ...(raw.preparation !== "unknown" ? { preparation: raw.preparation } : {}),
         estimated,
         nutritionStatus: complete ? "complete" : "unknown",
         ...(density ? { density } : {}),
