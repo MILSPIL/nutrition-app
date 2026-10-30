@@ -23,7 +23,8 @@ test('H07/H08: межі закріплені до реалізації', () => {
   assert.deepEqual(contract.allowedTools, ['food_lookup', 'read_confirmed_day', 'read_plan', 'read_trainer_context', 'propose_food_draft', 'propose_context_update']);
   assert.equal(contract.limits.maxSonnetCalls, 3);
   assert.equal(contract.limits.runDeadlineMs, 45000);
-  assert.equal(contract.limits.maxPayloadTextBytes, 32000);
+  // 1.9.9 (owner decision 2026-10-30): old Sonnet path raised for the simple-logging rules.
+  assert.equal(contract.limits.maxPayloadTextBytes, 34000);
 });
 test('H03: негативний контроль не пропускає підміну unknown нулем', () => {
   const mutated = structuredClone(contract.note);
