@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { openTurnStore } from './turn-store.mjs';
+import { LIMITS } from './limits.mjs';
 import { createTrainerGateway } from './gateway.mjs';
 import { createTrainerTools, trainerToolSchemas } from './tools.mjs';
 
@@ -107,12 +108,12 @@ test('C05 required 8000-byte context, 24 foods, four notes,26 refs fit with the 
  const history=Array.from({length:12},(_,i)=>[{id:'u-'+i,role:'user',content:String(i).padStart(2,'0')+'u'.repeat(248)},{id:'a-'+i,role:'assistant',content:String(i).padStart(2,'0')+'a'.repeat(248)}]).flat();
  const s=buildSnapshot({conversationId:randomUUID(),historyRevision:12,context:'x'.repeat(8000),contextRevision:1,draft:[],receipts:[],day,plan,message:'Порада',history,sentAt:'2026-03-29T21:30:00Z',targetDate:'2026-03-30',dateContext:{mode:'default'}});
  assert.equal(s.context.length,8000);assert.equal(s.day.foods.length,24);assert.equal(s.day.notes.length,4);assert.equal(s.plan.catalog.rows.length,26);
- assert.ok(s.history.length>=2&&s.history.length<=12);assert.deepEqual(s.history.slice(-2).map(x=>x.id),['u-11','a-11']);assert.ok(Buffer.byteLength(JSON.stringify(s))<=32000);
+ assert.ok(s.history.length>=2&&s.history.length<=12);assert.deepEqual(s.history.slice(-2).map(x=>x.id),['u-11','a-11']);assert.ok(Buffer.byteLength(JSON.stringify(s))<=LIMITS.payloadBytes);
  const {boundedPayload}=await import('./model-proxy.mjs'),{MODEL}=await import('./limits.mjs'),{decodeModelMeals,projectDayForModel}=await import('./day-snapshot.mjs');
  assert.deepEqual(decodeModelMeals(s.day),projectDayForModel({meals}).meals);
  const {history:kept,...mandatory}=s;
  const result=boundedPayload({model:MODEL,max_tokens:4096,system:JSON.stringify(mandatory),messages:[...kept.map(({role,content})=>({role,content})),{role:'user',content:'Порада'}],tools:Object.values(trainerToolSchemas).map(({name,description,parameters})=>({name,description,input_schema:parameters}))},{history:kept});
- assert.ok(result.textBytes<=32000);assert.ok(result.historyIds.includes('u-11')&&result.historyIds.includes('a-11'));
+ assert.ok(result.textBytes<=LIMITS.payloadBytes);assert.ok(result.historyIds.includes('u-11')&&result.historyIds.includes('a-11'));
 });
 test('C05 actual default plan with 82 references and 24 complete foods fits the real bounded model payload',async t=>{
  const {buildSnapshot}=await import('./snapshot.mjs'),{confirmedSnapshot}=await import('./day-snapshot.mjs');
@@ -121,13 +122,13 @@ test('C05 actual default plan with 82 references and 24 complete foods fits the 
  const day=await confirmedSnapshot(rawDay,plan,'2026-03-30');
  const s=buildSnapshot({conversationId:randomUUID(),historyRevision:12,context:'x'.repeat(8000),contextRevision:1,draft:[],receipts:[],day,plan,message:'Порада',history,sentAt:'2026-03-29T21:30:00Z',targetDate:'2026-03-30',dateContext:{mode:'default'}});
  assert.equal(s.context.length,8000);assert.equal(s.day.foods.length,24);assert.equal(s.day.notes.length,4);assert.equal(s.plan.catalog.rows.length,82);
- assert.ok(s.history.length>=2&&s.history.length<=12);assert.deepEqual(s.history.slice(-2).map(x=>x.id),['u-11','a-11']);assert.ok(Buffer.byteLength(JSON.stringify(s))<=32000);
+ assert.ok(s.history.length>=2&&s.history.length<=12);assert.deepEqual(s.history.slice(-2).map(x=>x.id),['u-11','a-11']);assert.ok(Buffer.byteLength(JSON.stringify(s))<=LIMITS.payloadBytes);
  const {boundedPayload}=await import('./model-proxy.mjs'),{MODEL}=await import('./limits.mjs'),{decodeModelMeals,projectDayForModel}=await import('./day-snapshot.mjs');
  assert.deepEqual(decodeModelMeals(s.day),projectDayForModel({meals}).meals);
  const {history:kept,...mandatory}=s;
  t.diagnostic(JSON.stringify({snapshot:Buffer.byteLength(JSON.stringify(s)),mandatory:Buffer.byteLength(JSON.stringify(mandatory)),plan:Buffer.byteLength(JSON.stringify(s.plan)),day:Buffer.byteLength(JSON.stringify(s.day)),policy:Buffer.byteLength(s.policy),schemas:Buffer.byteLength(JSON.stringify(trainerToolSchemas))}));
  const result=boundedPayload({model:MODEL,max_tokens:4096,system:JSON.stringify(mandatory),messages:[...kept.map(({role,content})=>({role,content})),{role:'user',content:'Порада'}],tools:Object.values(trainerToolSchemas).map(({name,description,parameters})=>({name,description,input_schema:parameters}))},{history:kept});
- assert.ok(result.textBytes<=32000);assert.ok(result.historyIds.includes('u-11')&&result.historyIds.includes('a-11'));
+ assert.ok(result.textBytes<=LIMITS.payloadBytes);assert.ok(result.historyIds.includes('u-11')&&result.historyIds.includes('a-11'));
  const candidates=Array.from({length:5},(_,i)=>({id:'record-'+i,name:'Synthetic household food '+i,preparation:'as_sold',nutritionBasis:{value:100,unit:'g'},nutrients:{p:1,f:2,c:3,cal:60},portions:[{grams:180,amount:1,description:'medium synthetic fruit'}],source:{kind:'database',dataset:'USDA',version:1,recordId:'record-'+i,url:'https://example.test/record/'+i}}));
  const {modelLookup,modelDraftAck}=await import('./tools.mjs');
  const rawProposal={itemId:'synthetic-new-item',name:'Синтетичний плід',preparation:'as_sold',quantity:{value:1,unit:'portion'},source:{kind:'database',recordId:'record-0',measureIndex:0}};
@@ -137,7 +138,7 @@ test('C05 actual default plan with 82 references and 24 complete foods fits the 
  const toolTurns=[{role:'assistant',content:[{type:'tool_use',id:'lookup',name:'food_lookup',input:{query:'synthetic',preparation:'as_sold'}}]},{role:'user',content:[{type:'tool_result',tool_use_id:'lookup',content:JSON.stringify(modelLookup({candidates}))}]},{role:'assistant',content:[{type:'tool_use',id:'draft',name:'propose_food_draft',input:{baseRevision:0,dayRef:'today',meal:1,items:[rawProposal]}}]},{role:'user',content:[{type:'tool_result',tool_use_id:'draft',content:JSON.stringify(modelDraftAck(canonicalDraft))}]}];
  t.diagnostic(JSON.stringify({firstPayloadBytes:result.textBytes,minimumThirdBytes:Buffer.byteLength(JSON.stringify({...result.payload,messages:[...result.payload.messages.filter(m=>!kept.some(h=>h.content===m.content)),...toolTurns]}))}));
  const third=boundedPayload({...result.payload,messages:[...result.payload.messages,...toolTurns]},{history:kept});
- assert.ok(third.textBytes<=32000);assert.ok(third.historyIds.includes('u-11')&&third.historyIds.includes('a-11'));
+ assert.ok(third.textBytes<=LIMITS.payloadBytes);assert.ok(third.historyIds.includes('u-11')&&third.historyIds.includes('a-11'));
  t.diagnostic(JSON.stringify({firstPayloadBytes:result.textBytes,thirdPayloadBytes:third.textBytes,retainedMessages:third.historyIds.length}));
 
 });

@@ -63,12 +63,14 @@ test('C03 label replaces nutrients but never promotes estimated eaten mass to ex
  const merged=mergePhotoItem(first.items[0],{items:[{...photo,nutritionBasis:photo.source.nutritionBasis||{value:100,unit:'g'},nutrients}],unparsed:[]});
  assert.equal(merged.estimated,true);assert.deepEqual(merged.source.portionOrigin,first.items[0].source.portionOrigin);
 });
-test('C03 complete recipe estimate allowed only with reason, known preparation and visible assumptions',()=>{
+test('C03 complete recipe estimate allowed only with reason and visible assumptions; unknown preparation blocks only table rows (1.9.9)',async()=>{
  const r=make();
  assert.equal(r.resolve(estimate({preparation:'cooked',source:{...estimate().source,estimateReason:'recipe_estimate'}})).nutritionStatus,'complete');
  const missing=estimate();delete missing.source.estimateReason;
  assert.throws(()=>r.resolve(missing),/estimate_reason_required/);
- assert.equal(r.resolve(estimate({preparation:'unknown'})).nutritionStatus,'unknown');
+ assert.equal(r.resolve(estimate({preparation:'unknown'})).nutritionStatus,'complete');
+ const table=await offered();
+ assert.throws(()=>table.resolve(raw({preparation:'unknown'})),/food_source_not_offered/);
  assert.throws(()=>r.resolve(estimate({source:{...estimate().source,estimateReason:'invented'}})),/estimate_reason_required/);
 });
 test('C03 partial label cannot be filled with estimated macros, and its note preserves portion provenance',()=>{
@@ -117,13 +119,13 @@ test('C03 provenance normalization is bounded; legacy source remains readable, u
 });
 
 
-test('C03 catalog amount ratio is trusted and an unresolved preparation stays a note after manual quantity',async()=>{
+test('C03 catalog amount ratio is trusted and an estimate with unknown preparation stays complete after manual quantity (1.9.9)',async()=>{
  const r=await offered({index:{lookup:()=>[{...candidate,portions:[{grams:240,amount:2,description:'дві малі штуки'}]}]}});
  const item=r.resolve(raw({source:{kind:'database',recordId:candidate.id,measureIndex:0}}));
  assert.equal(item.quantity.value,120);assert.equal(itemMacros(item).cal,72);
  const u=make();let draft=patchDraft(null,patch(null,[estimate({preparation:'unknown'})]),{resolve:u.resolve});
  draft=patchDraft(draft,patch(draft,[{itemId:raw().itemId,quantity:{value:150,unit:'g'}}]),{manual:true});
- assert.equal(draft.items[0].nutritionStatus,'unknown');assert.ok(itemProblems(draft.items[0]).length);
+ assert.equal(draft.items[0].nutritionStatus,'complete');assert.deepEqual(itemProblems(draft.items[0]),[]);
 });
 test('C03 a partial photographed label also outranks a generic full database candidate',async()=>{
  const r=await offered({photos:[{ref:'photo-synthetic',itemId:raw().itemId}]});

@@ -23,6 +23,7 @@ import {
   assignPlanItems,
   dailyPlanProgress,
   allocationCounts,
+  percentText,
 } from "../services/planAllocation";
 import PlanAllocationFields from "./PlanAllocationFields";
 import DecimalInput from "./DecimalInput";
@@ -73,6 +74,32 @@ function applyEdits(d, patch = {}) {
     }),
   };
 }
+// The field grows with its text and scrolls only at its ceiling: a quarter of the
+// visible screen (the keyboard shrinks it), at most 120px. scrollHeight has no border.
+function fitTextarea(field) {
+  if (!field) return;
+  const visible = window.visualViewport?.height || window.innerHeight;
+  const ceiling = Math.max(44, Math.min(120, Math.round(visible / 4)));
+  field.style.overflowY = "hidden";
+  field.style.height = "auto";
+  const next = field.scrollHeight + field.offsetHeight - field.clientHeight;
+  field.style.height = `${Math.min(ceiling, Math.max(44, next))}px`;
+  field.style.overflowY = next > ceiling ? "auto" : "hidden";
+}
+// The day as the server counts it after saving; the client recomputes nothing.
+function DayNow({ day, status }) {
+  if (status === "loading") return <p className="trainer-day-now">Оновлюю підсумок дня…</p>;
+  if (status !== "ready" || !Number.isFinite(day?.totals?.cal) || !day?.planProgress) return null;
+  const calories = Math.round(day.totals.cal), target = day.targets?.cal;
+  const letters = Object.entries(day.planProgress.letters || {}).sort(([a], [b]) => a.localeCompare(b, "uk"));
+  return <div className="trainer-day-now" data-testid="trainer-day-now">
+    <h4>Зараз за день</h4>
+    <p>{Number.isFinite(target) ? `${calories} з ${target} ккал` : `${calories} ккал`}{day.incomplete ? " · неповно: записи без калорій не враховано" : ""}</p>
+    {letters.length > 0 && <ul>{letters.map(([letter, value]) =>
+      <li key={letter}>{`${letter.toUpperCase()} ${percentText(value.percent)}${value.unknown > 0 ? " · неповно" : ""}`}</li>)}</ul>}
+    {day.planProgress.unallocatedCount > 0 && <p>Без літери: {day.planProgress.unallocatedCount}</p>}
+  </div>;
+}
 function DraftCard({
   draft,
   catalog,
@@ -86,6 +113,8 @@ function DraftCard({
   dayStatus,
   stale,
   onRefresh,
+  day,
+  showDay,
 }) {
   if (draft.state === "saved") {
     const command = draft.save?.command;
@@ -103,6 +132,7 @@ function DraftCard({
       {items.length > 0 && <p>{total.cal} ккал · Б {total.p} · Ж {total.f} · В {total.c}</p>}
       {notes.map(note => <p key={note.itemId || note.noteId}>{note.name} · нотатка</p>)}
       {notes.length > 0 && <p>Нотатки збережено без повного розрахунку калорій.</p>}
+      {showDay && <DayNow day={day} status={dayStatus} />}
       <button onClick={() => onOpenDay(draft.targetDate)}>Відкрити цей день</button>
     </article>;
   }
@@ -432,17 +462,13 @@ export default function TrainerChat({
     if (voiceClip.current?.url) URL.revokeObjectURL(voiceClip.current.url);
     voiceClip.current = null;
   }
-  useEffect(() => {
-    const field = textarea.current;
-    if (!field) return;
-    field.style.height = "auto";
-    field.style.height = `${Math.min(120, field.scrollHeight || 44)}px`;
-  }, [view.text]);
+  useEffect(() => fitTextarea(textarea.current), [view.text]);
   useEffect(() => {
     const overlay=panel.current?.parentElement, viewport=window.visualViewport;
     const fit=()=>{
       overlay?.style.setProperty('--trainer-visible-height',`${Math.max(1,viewport?.height || window.innerHeight)}px`);
       overlay?.style.setProperty('--trainer-visible-top',`${viewport?.offsetTop || 0}px`);
+      fitTextarea(textarea.current);
     };
     fit();viewport?.addEventListener('resize',fit);viewport?.addEventListener('scroll',fit);window.addEventListener('resize',fit);
     return ()=>{viewport?.removeEventListener('resize',fit);viewport?.removeEventListener('scroll',fit);window.removeEventListener('resize',fit);};
@@ -1025,9 +1051,15 @@ export default function TrainerChat({
       (view.text.trim() || photos.length);
   const feedback = trainerFeedback({localMessage:error,clientCode:view.error,turn:view.server?.latestTurn});
   const timeline = trainerTimeline(view.server || {});
+  // Only the last receipt of a date, in the order the stream draws them, shows the day now.
+  const latestReceipts = new Map();
+  for (const entry of [...timeline.historyDrafts, ...timeline.entries])
+    if (entry.kind === "draft" && entry.draft.state === "saved") latestReceipts.set(entry.draft.targetDate, entry.draft.draftId);
   function draftCard(entry) {
     const d = entry.draft;
     const card = <DraftCard
+      day={previewDays[d.targetDate]?.day}
+      showDay={d.state === "saved" && latestReceipts.get(d.targetDate) === d.draftId}
       draft={applyEdits(d, edits[d.draftId])}
       catalog={previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.day?.catalog || catalog}
       meals={previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.day?.meals || empty}
@@ -1042,12 +1074,9 @@ export default function TrainerChat({
       <summary>Незавершене прев’ю · {dateLabel(d.targetDate)} · {d.items.length} продуктів</summary>{card}
     </details> : <React.Fragment key={d.draftId}>{card}</React.Fragment>;
   }
+  // The paperclip leaves the photo unbound and the trainer picks its row; the
+  // row's own button has already set photoTarget to that row.
   function choosePhoto(input) {
-    const rows=(view.server?.drafts||[]).filter(d=>d.state==='ready').flatMap(d=>d.items);
-    if(rows.length>1 && !rows.some(item=>item.itemId===photoTarget.current)) {
-      setError('Оберіть «Фото етикетки цього продукту» у потрібному рядку прев’ю.');setShowAttachments(false);return;
-    }
-    photoTarget.current=photoTarget.current || rows[0]?.itemId || photos[0]?.itemId || newId();
     setShowAttachments(false);input.current.click();
   }
   function keys(e) {
@@ -1395,7 +1424,9 @@ export default function TrainerChat({
           {(["permission", "recording"].includes(recordState) || (recordState === "transcribing" && !voicePreview)) && <button className="trainer-secondary" onClick={cancelRecording}>Скасувати запис</button>}
           {recordState === "transcribing" && <p className="trainer-date-hint" role="status">Розпізнаю голос…</p>}
           {recordState === "permission" && <p className="trainer-date-hint" role="status">Очікую дозволу на мікрофон…</p>}
-          {view.server &&
+          {/* A way out after a failed reply only: always shown, it jumped in under the field on the first letter. */}
+          {feedback &&
+            view.server &&
             view.text.trim() &&
             !activeTurn(turn) &&
             !view.admission && (

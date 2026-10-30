@@ -454,6 +454,14 @@ try {
       geometry.controls.every((h) => h >= 44),
     );
     await page.screenshot({ path: join(out, `ready-${width}.png`) });
+    // 1.9.9 K13: one typed line neither scrolls inside the field nor makes the composer jump.
+    const composerHeight = () => page.locator('.trainer-composer').evaluate(n => n.getBoundingClientRect().height);
+    const emptyComposer = await composerHeight();
+    await page.locator('#trainer-message').fill('Синтетичний рядок');
+    const line = await page.locator('#trainer-message').evaluate(node => ({ fits: node.scrollHeight <= node.clientHeight, height: node.getBoundingClientRect().height,
+      resize: getComputedStyle(node).resize, noteButton: !!document.querySelector('.trainer-note-fallback') }));
+    check('Один рядок без прокрутки й без стрибка панелі ' + width, line.fits && line.height === 44 && line.resize === 'none' && !line.noteButton && await composerHeight() === emptyComposer);
+    evidence.composer ||= []; evidence.composer.push({ width, emptyComposer, ...line });
     await page.locator('#trainer-message').fill('Синтетичне повідомлення\nДругий рядок\nТретій рядок для перевірки редагування');
     const typed = await page.locator('#trainer-message').evaluate(node => {
       const r = node.getBoundingClientRect(), row = node.closest('.trainer-input-row').getBoundingClientRect();
@@ -461,6 +469,22 @@ try {
     });
     check('Багаторядкове поле ' + width, typed.height > 44 && typed.height <= 120 && typed.overflow === 0);
     await page.screenshot({ path: join(out, `typing-${width}.png`) });
+    if (width === 375) {
+      // 1.9.9 K13: with the keyboard open (visible height 420) the field stops at a quarter of the screen,
+      // Send stays visible, the composer does not scroll and the messages keep their room.
+      await page.setViewportSize({ width, height: 420 });
+      await page.locator('#trainer-message').fill('Синтетичне повідомлення\nДругий рядок\nТретій рядок для перевірки клавіатури');
+      await page.waitForFunction(() => document.querySelector('#trainer-message').getBoundingClientRect().height <= 105, null, { timeout: 3000 }).catch(() => {});
+      const keyboard = await page.evaluate(() => {
+        const r = (s) => document.querySelector(s).getBoundingClientRect(), field = document.querySelector('#trainer-message'), composer = document.querySelector('.trainer-composer');
+        return { field: r('#trainer-message').height, send: r('[aria-label="Надіслати повідомлення"]').bottom <= innerHeight,
+          composerScrolls: composer.scrollHeight > composer.clientHeight, messages: r('.trainer-scroll').height, fieldScroll: getComputedStyle(field).overflowY };
+      });
+      check('Клавіатура 375x420: поле до чверті екрана, «Надіслати» видно, панель без прокрутки', keyboard.field <= 105 && keyboard.send && !keyboard.composerScrolls && keyboard.messages >= 150);
+      evidence.keyboard = keyboard;
+      await page.screenshot({ path: join(out, `typing-keyboard-375.png`) });
+      await page.setViewportSize({ width, height: 844 });
+    }
     await page.locator('#trainer-message').fill('');
     await page
       .getByRole("button", { name: "Закрити чат", exact: true })
@@ -674,6 +698,8 @@ try {
     Object.keys((await readDay(uid, date)).submissionMarkers).length ===
       markers,
   );
+  // 1.9.9 K9b: the last receipt of the date shows the day as the server counts it.
+  await page.waitForFunction(() => !!document.querySelector('[data-testid="trainer-day-now"]'));
   for (const width of [375, 390, 1366]) {
     await page.setViewportSize({ width, height: 844 });
     const timeline = await page.evaluate(() => {
@@ -683,8 +709,11 @@ try {
       const scroll = chat.querySelector('.trainer-scroll').getBoundingClientRect(), composer = chat.querySelector('.trainer-composer').getBoundingClientRect();
       return { saved: saved.length, savedBeforeLatest: saved.every(row => !!(row.compareDocumentPosition(newest) & Node.DOCUMENT_POSITION_FOLLOWING)),
         savedInputs: saved.reduce((n, row) => n + row.querySelectorAll('input,select,textarea').length, 0),
-        overflow: chat.scrollWidth > chat.clientWidth, leftDelta: scroll.left - composer.left, rightDelta: scroll.right - composer.right };
+        overflow: chat.scrollWidth > chat.clientWidth, leftDelta: scroll.left - composer.left, rightDelta: scroll.right - composer.right,
+        dayNow: chat.querySelectorAll('[data-testid="trainer-day-now"]').length, dayNowInLast: !!saved.at(-1)?.querySelector('[data-testid="trainer-day-now"]'),
+        dayNowOverflow: [...chat.querySelectorAll('[data-testid="trainer-day-now"], [data-testid="trainer-day-now"] *')].some(node => node.scrollWidth > node.clientWidth) };
     });
+    check(`Зараз за день лише на останній квитанції дати ${width}`, timeline.dayNow === 1 && timeline.dayNowInLast && !timeline.dayNowOverflow);
     check(`Збережені записи перед новою порадою ${width}`, timeline.saved === 2 && timeline.savedBeforeLatest && timeline.savedInputs === 0);
     check(`Межі чату й поля ${width}`, !timeline.overflow && timeline.leftDelta === 0 && timeline.rightDelta === 0);
     evidence.timeline ||= []; evidence.timeline.push({ width, ...timeline });
@@ -728,6 +757,12 @@ try {
         overflow: x.overflow,
         edges: x.edges,
         gutter: x.headingLeft,
+      })),
+      dayNow: (evidence.timeline || []).map((x) => ({
+        width: x.width,
+        count: x.dayNow,
+        inLast: x.dayNowInLast,
+        overflow: x.dayNowOverflow,
       })),
       calls,
       sttCalls,

@@ -12,7 +12,7 @@ export const LIMITS = Object.freeze({
   outputTokens: 4096,
   deadlineMs: 45000,
   userBytes: 8000,
-  payloadBytes: 32000,
+  payloadBytes: 34000,
   historyBytes: 8000,
   historyMessages: 12,
   mediaTtlMs: 300000,
