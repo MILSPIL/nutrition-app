@@ -16,6 +16,7 @@
 
 - 2026-10-31: «убери историю, что можно прикрепить только два изображения… Надо, чтобы можно было выделить массу, там, штук 10 и отдать ему.»
 - 2026-10-31: на пропозицію з трьох змін (зависле повідомлення живе не довше 2 хвилин і сервер сам його знімає; подвійного запису їжі немає, бо їжа пишеться лише через «Додати»; до 10 фото за раз) відповідь «Так, запускай».
+- 2026-10-31, після чесної оцінки часу в чаті («зазвичай 2-2,5 хв, з варіантом Б приблизно 4; якщо тренер не відповідає на зупинку, чат лишиться заблокованим з поясненням і сервер сам повторює спробу»): Р1 = «Б. 180 с», Р2 = «Окрема задача потім». Обіцянка «не довше 2 хвилин» тим самим замінена: типово ~4-4,5 хв від надсилання, гірше ~5,5 хв, без підтвердженої зупинки чат лишається заблокованим з причиною.
 
 ## Терміни
 
@@ -27,40 +28,43 @@
 
 ### S1. Сервер сам знімає зависле повідомлення (`server/trainer/gateway.mjs`)
 
-Звідки береться `unknown` (повний перелік): таймер обробки 90 с (`PERSONAL_LIMITS.deadlineMs`, `personal-limits.mjs:8`; `gateway.mjs:131-134` → catch `:161-170` → `store.fail(id, "execution_unknown", {unknown:true})`), старт сервісу з ходом `running` (`turn-store.mjs:121-124`), `native.status === "unknown"` і втрачене підтвердження в координаторі (`personal-coordinator.mjs:158,163`). Звичайний запит про одну страву 27.10 тривав 88491 мс (`docs/evidence/trainer-normal-use-2026-10-27.json`, `liveControl.elapsedMs`), тобто на межі.
+Звідки береться `unknown` (повний перелік): таймер обробки (90 с до S10, 180 с після) (`PERSONAL_LIMITS.deadlineMs`, `personal-limits.mjs:8`; `gateway.mjs:131-134` → catch `:161-170` → `store.fail(id, "execution_unknown", {unknown:true})`), старт сервісу з ходом `running` (`turn-store.mjs:121-124`), `native.status === "unknown"` і втрачене підтвердження в координаторі (`personal-coordinator.mjs:158,163`). Звичайний запит про одну страву 27.10 тривав 88491 мс (`docs/evidence/trainer-normal-use-2026-10-27.json`, `liveControl.elapsedMs`), тобто на межі.
 
-Новий блок у `maintain()` (`gateway.mjs:193-210`), лише з таймера (`maintain({ settleUnknown: true })` у `setInterval`, `gateway.mjs:211-214`). Старт (`recover()`, `gateway.mjs:436-438`, його чекає `personal-runtime.mjs:174` до `ready`) і `/conversation/delete` (`gateway.mjs:390`) викликають `maintain()` без нього: інакше старт міг би висіти до 90+ с на одному ході.
+Новий блок «зняття завислих» `settleStalled()` у `gateway.mjs`, окремий від `maintain()`. Його запускає лише таймер (`setInterval`, `gateway.mjs:211-214`): тік робить наявний `maintain()`, потім `settleStalled()`. Старт (`recover()`, `gateway.mjs:436-438`, його чекає `personal-runtime.mjs:174` до `ready`) і `/conversation/delete` (`gateway.mjs:390`) викликають лише `maintain()` і `settleStalled()` не чекають: інакше старт висів би до 90 с на одному ході.
 
-- Новий параметр `createTrainerGateway`: `unknownGraceMs = 30000` (ціле, `>= 0`; тести ставлять 0).
-- Кандидати: `store.pending()` зі станом `unknown`, не `expired` (expired обробляє наявний `expiredPending`), і `now() >= turn.deadline + unknownGraceMs`. `deadline` = старт слота + 90 с (`gateway.mjs:127`, `turn-store.mjs:455-457`).
-- Для кожного кандидата (кожен крок у власному try/catch; помилка = пропустити хід до наступного тіку; `maintenanceFault` новий блок не вмикає, бо `maintenanceFault` дає 503 на всі POST, `gateway.mjs:206-209,218-222`):
-  1. `backend.status(turn)` і застосування результату тим самим кодом, що й `/recover` (рядки `gateway.mjs:413-429` виносяться в helper `applyNativeStatus`, який викликають обидва місця): `completed` → `verifyTurn` + `complete`; `failed`/`not_executed` → `fail("trainer_failed")`; `cancelled` → `cancel`.
-  2. Хід усе ще `unknown`: `backend.stop(turn, { explicit: true, signal })` з межею `runDeadlineMs` (90 с, як таймер черги `personal-queue.mjs:26`). `explicit: true` обов'язковий: без нього `personal-backend.mjs:149-150` повертає `{stopped:true}`, не торкаючись нативного процесу, і нативна черга лишається заблокованою.
-  3. `stopped === true`: ще раз `backend.status`; `completed` → `complete` (відповідь встигла між кроками 1 і 2); в усіх інших випадках, включно з винятком, `store.fail(id, "trainer_no_reply")`. Не через `applyNativeStatus`: після зупинки outbox має `cancelled`, і helper зробив би `cancel` без причини.
-  4. Зупинка не підтверджена (виняток або не `stopped`): хід лишається `unknown`, але з кодом `trainer_stop_retrying` (`store.fail(id, "trainer_stop_retrying", { unknown: true })` змінює лише `error`, `turn-store.mjs:625-638`); наступні 2 тіки цей хід не чіпати (лічильник у пам'яті), далі повторити з кроку 1. Хід без підтвердженої зупинки не закривається ніколи: інакше новий ввід стане в нативну чергу за старим і теж зависне (`native-cancel.mjs:26`, журнал `2026-10-27-0133` рядки 14, 29).
-  5. Виняток для ходу без `admissionId` (нативний процес цього входу не має): `personal-backend.mjs:143-144` повертає `{ state: "native_missing" }`, коли `value.state === "unknown" && !value.admissionId` і виконання завершене (`execution.get(id)?.settled !== false`). У `maintain` після 2 тіків поспіль з `native_missing` (без винятку) → `store.fail(id, "trainer_no_reply")` без кроку 2. `/recover` на `native_missing` поводиться як зараз (хід лишається `unknown`).
-- Захист від накладання: `maintainTask` за зразком `cleanupTask` (`gateway.mjs:103-109`): другий виклик `maintain()` під час першого приєднується до нього, а не запускає другий `stop`.
-- Далі в тому ж `maintain()` наявний `await cleanup()`: для `failed` `backend.cleanup` дає `cleaned:true` без перевірки outbox (`personal-backend.mjs:152-164`), job видаляється, блок знято в тому ж тіку.
-- Час до зняття: перша спроба через 30-60 с після `deadline` (тік 30 с + `unknownGraceMs`); `status` до 5 с; `stop` зазвичай секунди, у гіршому разі до 90 с (перезапуск нативного процесу). Від надсилання повідомлення: типово 2-2,5 хв, гірше до 4 хв. Без підтвердженої зупинки чат не звільняється, але користувач бачить причину (S3).
+- Нові параметри `createTrainerGateway` (повний перелік): `unknownGraceMs = 30000` і `settleStopMs = 90000` (цілі, `unknownGraceMs >= 0`, `1 <= settleStopMs <= runDeadlineMs`; тести ставлять `unknownGraceMs: 0`). `runDeadlineMs` наявний параметр, не змінюється сенсом.
+- Захист від накладання: `settleTask` за зразком `cleanupTask` (`gateway.mjs:103-109`). Тік, що прийшов, поки `settleTask` працює, блок пропускає (новий `stop` не починає).
+- Кандидати: `store.pending()` зі станом `unknown`, не `expired` (expired обробляє наявний `expiredPending`), `now() >= turn.deadline + unknownGraceMs` і `now() >= retryAt[id]` (якщо є). `deadline` = старт слота + `runDeadlineMs` (`gateway.mjs:127`, `turn-store.mjs:455-457`).
+- Для кожного кандидата (увесь хід у власному try/catch; `settleStalled()` ніколи не вмикає `maintenanceFault`, бо той дає 503 на всі POST, `gateway.mjs:206-209,218-222`; `/state` показує його клієнту як `maintenanceBlocked`):
+  1. `backend.status(turn)` з межею `boundedOperation` (як `/recover`). Результат застосовується тим самим кодом, що й `/recover` (рядки `gateway.mjs:413-429` виносяться в helper `applyNativeStatus`, який викликають обидва місця): `completed` → `verifyTurn` + `complete` (`stale_snapshot`/`day_unavailable` → `fail(code)`); `failed`/`not_executed` → `fail("trainer_failed")`; `cancelled` → `cancel`. Хід вирішено: далі не йти.
+     - `native_missing` (новий стан, див. крок 5): до кроку 2 не йти.
+     - Виняток у `status` або стан `unknown`/інший: перейти до кроку 2.
+  2. `backend.stop(turn, { explicit: true, signal })` з межею `settleStopMs` (90 с: вистачає на перезапуск нативного процесу; таймер черги `personal-queue.mjs:26`). `explicit: true` обов'язковий: без нього `personal-backend.mjs:149-150` повертає `{stopped:true}`, не торкаючись нативного процесу, і нативна черга лишається заблокованою.
+  3. `stopped === true`: ще раз `backend.status`; `completed` → те саме, що `completed` у кроці 1 (з `verifyTurn`); в усіх інших випадках, включно з винятком, `store.fail(id, "trainer_no_reply")`. Не через `applyNativeStatus` для `cancelled`: після зупинки outbox має `cancelled`, і helper зробив би `cancel` без причини.
+  4. Зупинка не підтверджена (виняток або не `stopped`): хід лишається `unknown` з кодом `trainer_stop_retrying` (`store.fail(id, "trainer_stop_retrying", { unknown: true })` змінює лише `error`, `turn-store.mjs:625-638`); `retryAt[id] = now() + 60000` (у пам'яті; після перезапуску сервісу порожньо). Хід без підтвердженої зупинки не закривається ніколи: інакше новий ввід стане в нативну чергу за старим і теж зависне (`native-cancel.mjs:26`, журнал `2026-10-27-0133` рядки 14, 29).
+  5. Хід без `admissionId` (нативний процес цього входу не має): `personal-backend.mjs:143-144` повертає `{ state: "native_missing" }`, коли `value.state === "unknown" && !value.admissionId` і виконання завершене (`execution.get(id)?.settled !== false`). `settleStalled()` рахує `native_missing` поспіль: перший раз лічильник 1, хід не чіпається; другий раз поспіль → `store.fail(id, "trainer_no_reply")`. `stop` для такого ходу не викликається ніколи (він завжди кидав би `execution_unknown`). Будь-який інший результат або виняток `status` обнуляє лічильник. `/recover` на `native_missing` поводиться як зараз (хід лишається `unknown`).
+- Після блоку `settleStalled()` викликає наявний `cleanup()`: для `failed` `backend.cleanup` дає `cleaned:true` без перевірки outbox (`personal-backend.mjs:152-164`), job видаляється, блок знято в тому ж тіку.
+- Час до зняття (з S10, `runDeadlineMs` 180 с): перша спроба через 30-60 с після `deadline` (тік 30 с + `unknownGraceMs` 30 с); `status` до межі `boundedOperation`; `stop` зазвичай секунди, гірше до 90 с. Від надсилання: типово ~4-4,5 хв, гірше ~5,5 хв. Без підтвердженої зупинки чат не звільняється, але користувач бачить причину (S3) і сервер повторює спробу кожні ~60-90 с.
 - Цей блок переглядає рішення 27.10 «Maintenance не вирішує unknown» (журнал `2026-10-27-0133`). Чому тепер безпечно: старий ввід ніколи не надсилається повторно; `failed` ставиться лише після підтвердженої нативної зупинки; після `failed` пізній нативний результат не може створити чернетку (`propose` вимагає `running`, `drafts.mjs:363-367`; колбеки моделі й інструментів старого входу відхиляє `callbackBinding`, `personal-coordinator.mjs:85-92`), а їжа пишеться лише кнопкою «Додати» (`gateway.mjs:323-350`).
 
 ### S2. Скасоване повідомлення з незавершеним прибиранням (`gateway.mjs`)
 
 - Сценарій: «Зупинити й повернути текст» → `/cancel` ставить `cancelled` і job прибирання одразу (`turn-store.mjs:639-655`), нативна зупинка не підтверджена → 409 `execution_unknown`, job лишається; `backend.cleanup` для `cancelled` повертає `cleaned:false`, поки outbox не terminal (`personal-backend.mjs:155-159`); повторної нативної зупинки ніхто не робить. Клієнт бачить «Завершую попередню обробку» (`cleanupPending`), сервер відповідає `trainer_busy`.
-- У тому ж таймерному блоці: для `store.cleanupJobs()`, де хід `cancelled`, не `expired` і `job.attempts >= 2` (`cleanupAttempt`, `turn-store.mjs:660-664`): `backend.stop(turn, { explicit: true, signal })` з межею `runDeadlineMs`. Стан ходу не змінюється; після нативної зупинки outbox стає terminal (`personal-coordinator.mjs:246-248, 102-105`), і наявний `cleanup()` у тому ж тіку дає `cleaned:true`. Той самий відступ на 2 тіки після невдачі.
+- У `settleStalled()` (той самий `settleTask`): для `store.cleanupJobs()`, де хід `cancelled`, не `expired`, `job.attempts >= 2` (`cleanupAttempt`, `turn-store.mjs:660-664`; кожен `cleanup()` додає спробу, тож це ~1 хв після натискання) і `now() >= retryAt[id]`: `backend.stop(turn, { explicit: true, signal })` з межею `settleStopMs`. Стан ходу не змінюється; після нативної зупинки outbox стає terminal (`personal-coordinator.mjs:246-248, 102-105`), і `cleanup()` наприкінці блоку дає `cleaned:true`. Невдача або виняток: `retryAt[id] = now() + 60000`.
+- Клієнт для такого ходу (`cleanupPending`) лишає «Завершую попередню обробку» і додає той самий рядок-підказку, що й S3.
 
 ### S3. Клієнт (`src/services/trainerApi.js`, `src/components/TrainerChat.js`)
 
 - Нові тексти в `messages` (`trainerApi.js`, повний перелік):
   - `trainer_no_reply`: «Тренер не відповів на це повідомлення. Поверніть текст кнопкою нижче й надішліть ще раз.»
-  - `trainer_stop_retrying`: «Тренер не відповідає. Сервер зупиняє обробку сам; чат звільниться без вашої дії.»
-- Блок завислого ходу (`TrainerChat.js:1152`, `turn.state === "unknown"`): під наявним текстом рядок «Якщо тренер не відповість, чат звільниться сам за кілька хвилин.» Кнопки «Перевірити результат» і «Зупинити й повернути текст» лишаються.
-- «Повернути текст для уточнення» (`TrainerChat.js:1296`): показується для останнього ходу `failed`/`cancelled` з текстом незалежно від того, чи є текст у полі (зараз умова `!view.text.trim()` ховає кнопку, а в Юрія в полі був текст). `returnMessage` уже дописує текст під наявний (`TrainerChat.js:876-889`). Кнопка ховається, коли поле вже містить повернутий текст (`restoredTrainerText(turn)`), щоб друге натискання не дублювало його.
+  - `trainer_stop_retrying`: «Тренер не відповідає, і сервер поки не зміг зупинити обробку. Він повторює спробу сам; текст збережено.»
+- Блок завислого ходу (`TrainerChat.js:1152`, `turn.state === "unknown"`): перший рядок лишається як є (`feedback || "Завершення ще не підтверджене."`); для ходу з `error: "trainer_stop_retrying"` наявний `trainerFeedback` (`trainerApi.js:55-63`, конкретна причина для `unknown`) уже підставляє текст `trainer_stop_retrying` у цей рядок. Під ним новий рядок-підказка (повний текст): «Якщо тренер не відповість, сервер сам спробує зупинити обробку за кілька хвилин.» Та сама підказка під «Завершую попередню обробку» (`cleanupPending`, S2). Кнопки «Перевірити результат» і «Зупинити й повернути текст» лишаються.
+- «Повернути текст для уточнення» (`TrainerChat.js:1296`): показується для `view.server.latestTurn` у стані `failed`/`cancelled` з текстом незалежно від того, чи є текст у полі (зараз умова `!view.text.trim()` ховає кнопку, а в Юрія в полі був текст). `returnMessage` уже дописує текст під наявний (`TrainerChat.js:876-889`). Кнопка ховається, коли `view.text.includes(restoredTrainerText(turn))` (підрядок), щоб друге натискання не дублювало текст; якщо користувач видалив повернутий текст з поля, кнопка з'являється знову (це не дубль).
 - Опитування `/state` кожні 2,5 с (`TrainerChat.js:519-521`) уже є: клієнт побачить знятий хід без нової логіки.
 
 ### S4. Межа 10 фото на всьому шляху тренера
 
-- Одна константа `MAX_TRAINER_IMAGES = 10` (JS: `server/trainer/limits.mjs` як `LIMITS.images`; Python: `hermes_personal_media.py` `MAX_IMAGES = 10`). Місця з числом 2 (повний перелік, шлях тренера):
+- Межа 10 має одне ім'я на кожному боці (повний перелік): сервер JS `LIMITS.images` (`server/trainer/limits.mjs`, імпортують усі серверні місця нижче); Python `MAX_IMAGES = 10` (`hermes_personal_media.py`); клієнт `MAX_TRAINER_PHOTOS = 10` у `TrainerChat.js` (CRA не імпортує `server/`). Місця з числом 2 (повний перелік, шлях тренера):
   - `src/components/TrainerChat.js:920` (`photos.length >= 2`, текст «Можна додати до двох фото.»);
   - `server/trainer/media.mjs:26` (`validateImages`);
   - `server/trainer/personal-desktop-endpoint.mjs:150` (`attachments.length > 2`);
@@ -68,7 +72,8 @@
   - `server/trainer/personal-desktop-adapter.mjs:46` (`imageRefs.length > 2`);
   - `server/trainer/hermes_personal_media.py:99` (`len(images) > 2`);
   - `server/trainer/model-proxy.mjs:83` (`++images > 2`) і `server/trainer/hermes-native.mjs:192` (маніфест медіа `value.length > 2`): старий і лабораторний шляхи, у production вимкнені; міняються для однаковості, щоб вони не відхиляли те, що приймає новий.
-- Пошук інших місць: `grep -rnE "(size|length|count|len\([a-z_]+\)) *(>=|>|===|==) *2\b"` по `server/trainer`, `server/*.mjs`, `TrainerChat.js`, `trainer*.js`, `voiceMedia.js` дав ще лише межі, не пов'язані з фото (`day-snapshot.mjs:75`, `personal-profiles.mjs:14`, `personal-runtime.mjs:28`: два профілі).
+- Пошук інших місць: `grep -rnE "(size|length|count|len\([a-z_]+\)) *(>=|>|===|==) *2\b"` і `grep -rnE "slice\(0, ?2\)|\[:2\]|maxItems|< ?3\b|<= ?2\b"` по `server/trainer/*.{mjs,py}`, `server/*.mjs`, `src/components/TrainerChat.js`, `src/components/TrainerPhoto.js`, `src/services/trainer{Api,Session,Timeline}.js`, `src/services/voiceMedia.js` дали ще лише межі, не пов'язані з фото (`day-snapshot.mjs:75`, `personal-profiles.mjs:14`, `personal-runtime.mjs:28`: два профілі).
+- Основний шлях застосунку (`POST /turns` → `gateway.mjs:248` `media.describe` → `validateImages`) перевіряє тест K19 зі справжнім `createMediaStore`; нативний бік (`stageImages` → `hermes_personal_media.py`) тест K9.
 - 11-те фото відхиляється на кожному серверному рівні тим самим кодом, що й зараз третє (`invalid_image` / `invalid_request`).
 - Клієнт відповідає UI до 10: текст «Можна додати до 10 фото.»
 
@@ -76,36 +81,54 @@
 
 - Поле «З галереї» отримує `multiple`; обробник бере всі `e.target.files`, а не лише `[0]`.
 - «Сфотографувати» (поле з `capture="environment"`) лишається по одному фото: камера телефона знімає одне за раз.
-- Вільних місць `10 - photos.length`; з вибраних додаються перші N за порядком, решта не додається і з'являється текст «Додано N із M фото: більше 10 за раз не можна.» (точний текст у K).
-- Нормалізація (`normalizePhoto`) іде по одному фото послідовно, щоб не тримати 10 полотен 1600 px у пам'яті телефона одночасно. Помилка одного фото (не зображення, завелике) не скасовує решту: додаються вдалі, показується текст помилки.
-- Ліміт рахується від актуального стану (функціональне оновлення `setPhotos`), а не від замикання: два швидкі вибори поспіль не дають 11+ фото.
+- Обробка вибору з M файлів: файли йдуть за порядком, нормалізація (`normalizePhoto`, `src/services/voiceMedia.js`, не змінюється) по одному послідовно, щоб не тримати 10 полотен 1600 px у пам'яті телефона одночасно. Фото додається, якщо після нього фото не більше `MAX_TRAINER_PHOTOS` і сума `data.length` (base64 без префікса `data:`) не більша за бюджет S6; інакше пропускається, а обробка йде далі (менше фото після завеликого ще може вміститись). Помилка нормалізації одного файлу місця не займає й обробку не зупиняє.
+- Межа й бюджет рахуються від актуального стану (функціональне оновлення `setPhotos` з перевіркою всередині), а не від замикання: два швидкі вибори поспіль не дають 11+ фото.
+- Один рядок повідомлення після вибору (повний перелік, перший, що підходить):
+  1. хоч одне фото не вмістилось у бюджет: «Фото завеликі разом. Надішліть решту наступним повідомленням.»;
+  2. хоч один файл не нормалізувався: наявний текст помилки (`voiceError`, напр. «Фото не відкривається. Оберіть JPEG, PNG або WebP з галереї.»);
+  3. додано N < M через межу 10: «Додано N із M фото: більше 10 за раз не можна.» (N = скільки додано, M = скільки вибрано);
+  4. вільних місць уже не було (N = 0 через межу): «Можна додати до 10 фото.»
+- Кнопки «Сфотографувати» і «З галереї» лишаються доступними при 10 фото; вибір тоді дає повідомлення 4.
 - Прив'язка до рядка (`photoTarget`, кнопка «Фото етикетки цього продукту») діє на всі фото цього вибору однаково.
 
 ### S6. Розмір і час надсилання
 
-- Бюджет тіла: сума `data.length` усіх фото повідомлення не більше `MAX_PHOTO_BASE64_TOTAL = 14 * 1024 * 1024` (запас під текст і JSON у межах `MAX_BODY` 15 МБ, `workers/meal-parser/src/schema.js:1`, `server/api.mjs:21,77`). Фото, що перевищує бюджет, не додається, текст «Фото завеликі разом. Надішліть решту наступним повідомленням.»
+- Бюджет тіла: сума `data.length` усіх фото повідомлення не більше `MAX_PHOTO_BASE64_TOTAL = 14 * 1024 * 1024` (константа в `TrainerChat.js`). Причина: `server/api.mjs:21,77` відхиляє будь-який запит до `/meal-api/*`, включно з `/meal-api/trainer/turns`, більший за `MAX_BODY` 15 МБ (константа імпортується з `workers/meal-parser/src/schema.js:1`); 1 МБ запасу під текст і JSON. Як поводиться вибір, див. S5.
 - Тайм-аут запиту `POST /turns` з фото: `15000 + 6000 × кількість фото` мс (10 фото: 75 с); інші запити лишаються 15 с (`src/services/trainerApi.js` `timeoutMs`). Причина: 10 фото це 3-10 МБ, на мобільному каналі вгору це довше 15 с, а клієнтський тайм-аут при надсиланні переводить чат у стан «Перевірте отримання» (поле вводу вимкнене).
 
 ### S7. Смужка мініатюр
 
-- `.trainer-photos` в один рядок з горизонтальною прокруткою всередині смужки (`overflow-x: auto`, `flex-wrap: nowrap`), мініатюри не стискаються. На 375 px десять мініатюр не дають горизонтальної прокрутки сторінки чи панелі і не збільшують висоту панелі вводу більше ніж на висоту одного рядка мініатюр.
+- `.trainer-photos` (`src/components/TrainerChat.css:302-322`) в один рядок з горизонтальною прокруткою всередині смужки (`overflow-x: auto`, `flex-wrap: nowrap`), мініатюри 80×80 не стискаються (`flex: 0 0 auto`). На 375 px десять мініатюр не дають горизонтальної прокрутки сторінки чи панелі, кожна мініатюра 80 px завширшки, смужка в один рядок.
 
 ### S8. Текст без підпису і назви
 
-- Фото без тексту: повідомлення моделі «Фото без підпису: подивись, що на них (їжа чи етикетка).» замість «Уточни харчові значення за фото етикетки відповідного продукту.» (`TrainerChat.js:762`). Причина: основний випадок тепер фото їжі, а не етикетки.
+- Фото без тексту: якщо всі фото прив'язані до рядка (`itemId` у кожного), лишається «Уточни харчові значення за фото етикетки відповідного продукту.»; інакше повідомлення моделі «Фото без підпису: подивись, що на них (їжа чи етикетка).» (`TrainerChat.js:762`). Причина: основний випадок тепер фото їжі, а не етикетки.
 - `alt` мініатюри «Фото перед надсиланням» замість «Фото етикетки перед надсиланням».
 
 ### S9. Версія і «Що нового»
 
 - `package.json`, `package-lock.json`: 1.9.10. `src/data/releases.js`: новий перший запис 1.9.10, дата в день публікації (окремим комітом, як у 1.9.7), зміни (повний перелік):
-  - «Зависле повідомлення більше не блокує тренера: сервер сам його закриває за кілька хвилин»
+  - «Зависле повідомлення тепер зупиняє сервер сам, без кнопок»
+  - «Тренер має до 3 хвилин на довге повідомлення замість 90 секунд»
   - «Можна вибрати до 10 фото за раз»
 - `WelcomeModal.test.js` за зразком попередніх релізів.
+
+### S10. Межа обробки 180 с замість 90 (рішення Юрія Р1 = Б)
+
+Правило: межа обробки `PERSONAL_LIMITS.deadlineMs` 90000 → 180000, і всі межі, виведені з неї, множаться на 2. Місця (повний перелік, знайдені `grep -rnE "90000|90001|225000"` по `server`, `scripts`, `.github`):
+- JS: `server/trainer/personal-limits.mjs:8,10` (`deadlineMs` 180000, `queueWindowMs` 225000 → 450000); `gateway.mjs:57` (межа параметра `runDeadlineMs` 90000 → 180000); `turn-store.mjs:25` (межа `runDeadlineMs` → 180000) і `:361` (`queueWindowMs <= min(runDeadlineMs * 5, 225000)` → `450000`); `internal-process.mjs:19,21` (типове значення й межа `deadlineMs` → 180000: `personal-process.mjs:7` бере типове значення для RPC нативного процесу); `personal-desktop-adapter.mjs:85` (`Date.now() + 225000` → `PERSONAL_LIMITS.queueWindowMs`); `scripts/hermes-personal-joint-fixture.mjs:96` (`queueWindowMs: 225000` → `PERSONAL_LIMITS.queueWindowMs`).
+- Python: `hermes_personal_payer.py:174` і `hermes_worker_lock.py:37` (межа `timeout_ms <= 90000` → 180000); `hermes-personal-systemd-canary.py:69,71` (90000 / 90001 → 180000 / 180001).
+- C: `server/trainer/worker-lock.c:33` (`milliseconds>90000` → 180000; бібліотеку збирає CI з джерела, `scripts/hermes-runtime-export.py:34`, пін `sourceSha256` у пакеті оновлюється сам).
+- Пакет: `scripts/hermes-personal-package.py:165` (`'deadlineMs':90000` у маніфесті → 180000).
+- Політика: `PERSONAL_POLICY.deadlineMs` (`server/personal-runtime.mjs:19`) бере значення з `PERSONAL_LIMITS`, тому `personalPolicyHash` зміниться. Сервер звіряє його з `policyHash` у файлі активації `/etc/scisense/activation.json` (`personal-runtime.mjs:37`). Публікація 1.9.10 включає перезапис цього файлу з новим хешем (дозволена серверна ціль, план 2026-10-23) як окремий названий крок. Без нього сервіс не стартує.
+- Тести, що кодують 90000/225000 як межу: оновлюються на нові значення (перелік з `grep -rln -E "90000|90001|225000"`: `server/personal-runtime.test.mjs`, `server/trainer/personal-gateway.test.mjs`, `server/trainer/simple-logging-199.test.mjs`, `server/trainer/personal-draft-append.test.mjs`, `server/trainer/hermes_personal_payer_test.py`; `server/groq-budget.test.mjs` і `server/linux/telemetry.test.mjs` перевірити: якщо там 90000 не межа тренера, не чіпати).
+- Не змінюються: `postsPerTurn` 12, `maxWaiting` 4, `WatchdogSec`/`Timeout*Sec` у `deploy/personal/*.service` (вони про старт і зупинку процесу, не про обробку).
 
 ## НЕ-цілі (повний перелік)
 
 - Голосове вікно головного екрана і Worker `meal-parser`: межа 2 фото етикетки лишається (інший шлях і інша оплата моделі).
-- Квота фото профілю 256 МБ (`hermes_personal_media.py:13`) і політика зберігання фото «до видалення» не змінюються. Оцінка: при ~0.5 МБ на фото це близько 500 фото; далі сервер відповідає `media_quota`, фото видаляються вручну в історії. Автоочищення старих фото: окрема задача, якщо Юрій захоче.
+- Квота фото профілю 256 МБ (`hermes_personal_media.py:13`) і політика зберігання фото «до видалення» не змінюються (рішення Юрія Р2 «окрема задача потім»). Оцінка: при ~0,5 МБ на фото це близько 500 фото; при 10 фото на прийом і 3 прийомах на день це 2-3 тижні. Далі сервер відповідає `media_quota`, і клієнт показує наявний текст «Місце для фото цього профілю заповнене. Видаліть непотрібні фото або надішліть текст.» (`trainerApi.js`). Автоочищення: окрема задача в черзі.
+- `VoiceInputModal.js` і `src/services/voiceMedia.js` (`normalizePhoto`) не змінюються; нові константи живуть лише в `TrainerChat.js`.
 - Причина конкретного зависання Юрія 31.10 у журналі сервера не з'ясовується (потрібен вхід на сервер); зміна прибирає наслідок для будь-якої причини.
 - Публікація 1.9.8 (PR #51) і злиття з нею.
 
@@ -113,35 +136,45 @@
 
 Базова лінія 1.9.9 (`0ca1e96`, Node 24.11.1, 31.10): `npm run test:server` 7 падінь (ті самі 7 macOS, що в журналі 1.9.9: `disabled package…`, `native cleanup…`, `outer deadline…`, `aggregate watchdog…`, `coordinator abort…`, `concurrent startup…`, `a replacement with a mismatching…`); `npm run test:ci` 385/385.
 
+Команди (скорочення в таблиці):
+- `GW` = `node --test --test-name-pattern="1.9.10" server/trainer/personal-gateway.test.mjs`
+- `PH` = `node --test server/trainer/trainer-photos-1910.test.mjs && node --test --test-name-pattern="1.9.10" server/trainer/personal-desktop-endpoint.test.mjs server/trainer/personal-desktop-adapter.test.mjs server/trainer/gateway-http.test.mjs`
+- `PY` = `cd server/trainer && python3 -m unittest hermes_personal_media_test hermes_personal_payer_test`
+- `UI` = `CI=true npx react-scripts test --watchAll=false src/services/trainerChatUi.test.js src/services/trainerApi.test.js src/components/WelcomeModal.test.js -t "1.9.10|Що нового|WelcomeModal"`
+- `DL` = `node --test server/trainer/trainer-deadline-1910.test.mjs && node --test server/personal-runtime.test.mjs`
+
 | K | Що | Команда | PASS |
 |---|---|---|---|
-| K1 | Завислий хід після `deadline + grace` закривається `failed`/`trainer_no_reply` після підтвердженої зупинки; новий хід приймається | `node --test --test-name-pattern="1.9.10" server/trainer/personal-gateway.test.mjs` | тест K1 ✔ |
-| K2 | Непідтверджена зупинка: хід лишається `unknown` з `trainer_stop_retrying`, новий хід `trainer_busy`, `maintenanceBlocked:false`, 2 тіки відступу, потім повтор | те саме | K2 ✔ |
-| K2b | Інваріант: виняток `status` не вмикає `maintenanceBlocked` | те саме | K2b ✔ (інсценування: прибрати try/catch навколо ходу → FAIL) |
-| K3 | До `deadline + unknownGraceMs` хід не чіпається | те саме | K3 ✔ |
-| K4 | `cancelled` з job прибирання: таймер повторює нативну зупинку, job зникає, новий хід приймається | те саме | K4 ✔ |
-| K5 | Відповідь, що прийшла під час зупинки, публікується (`completed`) | те саме | K5 ✔ |
-| K6 | Без `admissionId`: 2 тіки `native_missing` → `failed`/`trainer_no_reply` без зупинки | те саме | K6 ✔ |
-| K7 | Інваріант: старт (`recover()`) не знімає завислий хід | те саме | K7 ✔ (інсценування: викликати блок і з `recover()` → FAIL) |
-| K8 | Сервер: межа 10 фото (`LIMITS.images`), 11-те відхиляється у `validateImages`, Desktop-ендпоінті (завантаження і `prompt.submit`), Desktop-адаптері | `node --test server/trainer/trainer-photos-1910.test.mjs` і `node --test --test-name-pattern="1.9.10" server/trainer/personal-desktop-endpoint.test.mjs server/trainer/personal-desktop-adapter.test.mjs` | усі ✔ |
-| K9 | Python: 10 фото стейджаться, 11 → `invalid_image` без часткового запису | `cd server/trainer && python3 -m unittest hermes_personal_media_test` | OK |
-| K10 | Клієнт: галерея `multiple`, камера ні; 12 → 10 і текст «Додано 10 із 12 фото…», надсилаються 10; два швидкі вибори ≤ 10; збій одного фото не скасовує решту; бюджет 14 МБ | `CI=true npx react-scripts test --watchAll=false src/services/trainerChatUi.test.js -t "1.9.10"` | K10a-e ✔ |
-| K11 | Тайм-аут `send` з 10 фото 75 с, інші запити 15 с | `CI=true npx react-scripts test --watchAll=false src/services/trainerApi.test.js -t "1.9.10"` | K11 ✔ |
-| K12 | Тексти `trainer_no_reply`/`trainer_stop_retrying`; «Повернути текст» видна при тексті в полі й зникає після повернення; рядок «Якщо тренер не відповість…» у блоці завислого | команди K10 і K11 | K12a-c ✔ |
-| K13 | 10 мініатюр на 375 px: без горизонтальної прокрутки сторінки й панелі, смужка в один рядок | `node scripts/trainer-chat-browser.mjs` (доказ CI Linux, як K13 у 1.9.9) | перевірка «10 photos» ✔ |
-| K14 | Текст без підпису і `alt` нейтральні | команда K10 | K14 ✔ |
-| K15 | Версія 1.9.10 і «Що нового» | `CI=true npx react-scripts test --watchAll=false src/components/WelcomeModal.test.js` | ✔ |
-| K16 | Інваріанти: `test:server` лише 7 базових падінь; `test:ci` усі; `CI=true npm run build` ок; CI PR 4/4 | `npm run test:server`, `npm run test:ci`, `CI=true npm run build` | як сказано |
-| K17 | Production (після публікації, за Юрієм): завислий хід Юрія від 31.10 знімається першим тіком без натискань; нове повідомлення приймається; 10 фото з галереї одним вибором доходять до тренера | `/state` до і після (тимчасовий доступ), телефон Юрія | так |
+| K1 | Завислий хід після `deadline + grace` закривається `failed`/`trainer_no_reply` після підтвердженої зупинки; новий хід приймається | GW | K1 ✔ |
+| K2 | Непідтверджена зупинка: `unknown` + `trainer_stop_retrying`, новий хід `trainer_busy`, `maintenanceBlocked:false`; 60 с відступу, потім повтор і закриття | GW | K2 ✔ |
+| K2b | Виняток `status` веде до зупинки й закриття; `maintenanceBlocked:false` | GW | K2b ✔ |
+| K2c | Тік під час роботи `settleStalled` не починає другу зупинку | GW | K2c ✔ |
+| K3 | До `deadline + unknownGraceMs` хід не чіпається, після нього закривається | GW | K3 ✔ |
+| K4 | `cancelled` з job прибирання: `settleStalled` повторює нативну зупинку, job зникає, новий хід приймається | GW | K4 ✔ |
+| K5 | Відповідь, що прийшла під час зупинки, публікується (`completed`) | GW | K5 ✔ |
+| K6 | Без `admissionId`: 1-й раз `native_missing` хід не чіпається, 2-й поспіль `failed`/`trainer_no_reply`, `stop` не викликається | GW | K6 ✔ |
+| K7 | Інваріант: старт (`recover()`) не знімає завислий хід | GW | K7 ✔ (інсценування після коду: викликати `settleStalled` з `recover()` → FAIL) |
+| K8 | Межа 10 (`LIMITS.images`): `validateImages`, Desktop-ендпоінт (завантаження і `prompt.submit`), Desktop-адаптер приймають 10 і відхиляють 11 | PH | усі ✔ |
+| K9 | Python: 10 фото стейджаться, 11 → `invalid_image` без часткового запису; платник приймає 180000 і відхиляє 180001 | PY | OK |
+| K10 | Клієнт: a) галерея `multiple`, камера ні; b) 12 → 10, текст «Додано 10 із 12 фото: більше 10 за раз не можна.», надсилаються 10; c) два швидкі вибори ≤ 10, «Додано 4 із 6 фото…»; d) збій одного файлу не скасовує решту, текст помилки; e) бюджет 14 МБ: 5 фото по 3 МБ → 4 і «Фото завеликі разом. Надішліть решту наступним повідомленням.»; f) кнопка рядка прив'язує всі фото вибору; g) при 10 фото вибір дає «Можна додати до 10 фото.», скріпка доступна | UI | K10a-g ✔ |
+| K11 | Тайм-аут `send` з 10 фото 75 с, інші запити 15 с | UI | K11 ✔ |
+| K12 | a) «Повернути текст» видна при тексті в полі, дописує під ним і зникає; текст `trainer_no_reply`; b) підказка в блоці завислого; c) тексти `trainer_no_reply`/`trainer_stop_retrying` у `trainerError`; d) `trainer_stop_retrying` у першому рядку блоку завислого, підказка під «Завершую попередню обробку» | UI | K12a-d ✔ |
+| K13 | 10 мініатюр на 375 px: без горизонтальної прокрутки сторінки й панелі, смужка в один рядок, кожна мініатюра 80 px | `node scripts/trainer-chat-browser.mjs` (доказ CI Linux, як K13 у 1.9.9) | перевірка «10 photos» ✔ |
+| K14 | Текст без підпису нейтральний (з прив'язкою до рядків старий), `alt` «Фото перед надсиланням» | UI | K14 ✔ |
+| K15 | Версія 1.9.10 і «Що нового» | UI | ✔ |
+| K16 | Інваріанти: `test:server` лише 7 базових падінь; `test:ci` усі; `CI=true npm run build` ок; CI PR усі перевірки (включно з канаркою `hermes-personal-linux` на 180000/180001) | `npm run test:server`, `npm run test:ci`, `CI=true npm run build`, CI | як сказано |
+| K18 | 180 с: `PERSONAL_LIMITS` 180000/450000; turn-store і gateway приймають 180000 і відхиляють 180001; нативний RPC те саме; у джерелах рантайму немає 90000/225000; `PERSONAL_POLICY.deadlineMs` 180000 | DL | усі ✔ |
+| K19 | Основний шлях: `POST /turns` з 10 фото → 202 і бекенд отримує 10; з 11 → 400 | PH | K19 ✔ |
+| K17 | Production (після публікації, за Юрієм): а) за 5 хв після старту нового релізу завислий хід Юрія від 31.10 знято без натискань, «Надіслати» активна; б) нове повідомлення з 10 фото з галереї одним вибором отримує відповідь тренера (текст або чернетка), без зависання | телефон Юрія; додатково під час вікна публікації читання лише `state`/`error` цього ходу з `turns.sqlite` | так |
 
-### Червоне до коду (31.10, на `0ca1e96` + лише тести)
+### Червоне до коду (31.10, на `0ca1e96` + лише тести; коміти `f7a02b0` і наступний)
 
-- K1-K6: 6 ✖ з правильних причин (`actual: 'unknown', expected: 'failed'`; K2 `actual: 'execution_unknown', expected: 'trainer_stop_retrying'`; K3 `actual: 0, expected: 1`; K4 `actual: 1, expected: 0` job лишився; K5 `actual: 'unknown', expected: 'completed'`). K2b і K7 ✔ (інваріанти; інсценування після коду).
-- K8: 4 ✖ (`LIMITS.images` відсутня; `validateImages` 10 → `invalid_image`; адаптер 10 → `invalid_request`; ендпоінт 3-тє завантаження → `media_quota`).
-- K9: ✖ `RuntimeError: invalid_image` на 10 фото.
-- K10/K12/K14: 8 ✖ (`multiple` false; 1 мініатюра замість 10; 2 замість 10 при двох виборах; 1 замість 2 при збої; 1 замість 4 у бюджеті; `alt` старий, 0 замість 2; тексти відсутні).
-- K11: ✖ фото-запит обірвався на 15 с (`Expected: false, Received: true`). K12c ✖ старий текст `trainer_failed`. K15 ✖ `Received: "1.9.9"`.
-- K13: червоне показує CI на коміті з тестами (локально браузерний прогін не є доказом, як у 1.9.9).
+- GW: K1-K6 і K2b, K2c ✖ з правильних причин (`actual: 'unknown', expected: 'failed'`; K2 `actual: 'execution_unknown', expected: 'trainer_stop_retrying'`; K2c `actual: 0, expected: 1` зупинки немає; K3 `actual: 0, expected: 1`; K4 job лишився `actual: 1, expected: 0`; K5 `actual: 'unknown', expected: 'completed'`; K6 `actual: 'unknown', expected: 'failed'`). K7 ✔ (інваріант; інсценування після коду).
+- PH: K8 4 ✖ (`LIMITS.images` відсутня; `validateImages` 10 → `invalid_image`; адаптер 10 → `invalid_request`; ендпоінт третє завантаження → `media_quota`); K19 ✖ `actual: 400, expected: 202`.
+- PY: ✖ `RuntimeError: invalid_image` на 10 фото; платник ✖ на `timeout_ms=180000`.
+- UI: 13 ✖ (`multiple` false; 1 мініатюра замість 10; 2 замість 10; 1 замість 2; 1 замість 4; K10f 1 фото з 3; K10g 2 замість 10; `alt` старий; K12a/b/d тексти відсутні; K11 фото-запит обірвався на 15 с; K12c старий текст `trainer_failed`); K15 ✖ `Received: "1.9.9"`.
+- DL: 4 ✖ (`actual: 90000`; `trainer_config` на 180000; `invalid_request` на 180000; 90000/225000 у джерелах); `personal-runtime.test.mjs` ✖ `deadlineMs` 90000.
+- K13: червоне покаже CI на коміті з браузерною перевіркою (локально браузерний прогін не є доказом, як у 1.9.9).
 
 ## Що вже перевірено про фото в моделі
 
@@ -150,14 +183,14 @@
 - Модель (лінія `openai-codex`, `server/personal-runtime.mjs:19`) приймає зображення (`codex-model-metadata.json`, `modalities.input` містить `image`).
 - Час обробки повідомлення з фото ніколи не вимірювався (у `docs/evidence/*.json` немає `elapsedMs` для ходу з фото). Єдиний виміряний хід про їжу: 88491 мс при межі 90000.
 
-## Розвилка для Юрія (до плану)
+## Розвилка для Юрія (вирішено 31.10: Р1 = Б, Р2 = окрема задача)
 
 Р1. Межа обробки 90 с. 10 фото, найімовірніше, оброблятимуться довше за звичайний запит, а все, що довше 90 с, стає завислим (S1 тепер закриває його як «тренер не відповів»).
 
 | Варіант | За | Проти |
 |---|---|---|
 | А. Лишити 90 с | Нічого більше не міняємо; зависле знімається за 2-2,5 хв | Довгі повідомлення (фото, багато страв) закінчуються «тренер не відповів», і повторна спроба, ймовірно, теж |
-| Б. Підняти до 180 с | Довгі повідомлення встигають; найімовірніша причина зависання 31.10 зникає | Зависле знімається за 3,5-4 хв замість 2-2,5; ~8 місць JS і Python (`personal-limits.mjs`, `internal-process.mjs`, `personal-queue.mjs:9`, `personal-payer.mjs`, `hermes_personal_payer.py:174`, `hermes_worker_lock.py:37`, канарка, тести, `queueWindowMs`); другий профіль довше чекає спільний слот |
+| Б. Підняти до 180 с | Довгі повідомлення встигають; зникає ймовірна (не перевірена в журналі сервера) причина зависання 31.10 | Зависле знімається за 3,5-4 хв замість 2-2,5; ~8 місць JS і Python (`personal-limits.mjs`, `internal-process.mjs`, `personal-queue.mjs:9`, `personal-payer.mjs`, `hermes_personal_payer.py:174`, `hermes_worker_lock.py:37`, канарка, тести, `queueWindowMs`); другий профіль довше чекає спільний слот |
 | В. Лишити 90 с і виміряти | Мінімум змін зараз | Юрій перевіряє 10 фото на межі, яка може їх не пропустити; потрібна окрема публікація |
 
 Р2. Квота фото 256 МБ без автоочищення (див. НЕ-цілі): лишити як є чи додати окрему задачу на автоочищення старих фото.
@@ -167,7 +200,7 @@
 - П1. Номер 1.9.10 (1.9.8 зайнята PR #51, 1.10.0 під автозапис). Публікація 1.9.10 публікує й непубліковану 1.9.9 (вона в базі гілки, погоджена Юрієм 31.10 о 00:58).
 - П2. Зависле закривається як `failed` з `trainer_no_reply`, не `cancelled`: `cancelled` означає «користувач скасував» і стирає причину (`turn-store.mjs:644-646`).
 - П3. Текст не вставляється в поле автоматично: у полі може бути інший текст (як на знімку Юрія), тому повернення лишається кнопкою, яку тепер видно завжди.
-- П4. Межа очікування `unknownGraceMs` 30 с після `deadline`; відступ після невдалої зупинки 2 тіки (60 с).
+- П4. Межа очікування `unknownGraceMs` 30 с після `deadline`; відступ після невдалої зупинки 60 с (`retryAt`, у пам'яті); межа однієї зупинки `settleStopMs` 90 с.
 - П5. Бюджет фото 14 МБ base64 на повідомлення і тайм-аут `15 + 6 × N` с. Якщо реальний канал Юрія повільніший за ~1 МБ/6 с, надсилання 10 великих фото впаде в «Перевірте отримання» (наявний шлях відновлення, K17 перевіряє на телефоні).
 - П6. Камера знімає по одному; кілька фото за раз лише з галереї.
 - П7. Desktop-канал (Hermes Desktop) отримує ту саму межу 10 для однаковості; його інтерфейс не змінюється.
@@ -175,8 +208,9 @@
 
 ## Ризики
 
-- Нативна зупинка не підтверджується (Hermes лежить): чат лишається заблокованим, але з причиною «Тренер не відповідає. Сервер зупиняє обробку сам…» і повтором кожні 90 с. Свідомо: закрити хід без зупинки означає повісити наступне повідомлення за старим у нативній черзі.
-- Авто-зупинка займає спільний слот до 90 с: другий профіль (дружина) чекає так само, як при ручному «Зупинити».
+- Нативна зупинка не підтверджується (Hermes лежить): чат лишається заблокованим, але з причиною «Тренер не відповідає. Сервер зупиняє обробку сам…» і повтором кожні ~60-90 с. Свідомо: закрити хід без зупинки означає повісити наступне повідомлення за старим у нативній черзі.
+- Авто-зупинка займає спільний слот до 90 с, а звичайна обробка тепер до 180 с: другий профіль (дружина) чекає довше, поки тренер зайнятий іншим профілем.
+- Нова межа 180 с міняє `personalPolicyHash`: без перезапису `/etc/scisense/activation.json` під час публікації сервіс не стартує (S10). Відкат на 1.9.7 вимагає повернути старий файл активації.
 - Мертвий Native: кожна спроба `status`/`stop` піднімає процес; відступ 2 тіки обмежує частоту.
 - Час обробки 10 фото не виміряний (див. Р1).
 - Розмір запиту до ~14 МБ через Cloudflare і OpenLiteSpeed на production не перевірявся (раніше максимум 2 фото); доказ K17.

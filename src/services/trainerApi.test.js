@@ -113,5 +113,5 @@ test("1.9.10 K11: sending photos waits longer than ordinary requests, other requ
 });
 test("1.9.10 K12c: a turn the server closed without a reply has its own text", () => {
   expect(trainerError(Error("trainer_no_reply"))).toBe("Тренер не відповів на це повідомлення. Поверніть текст кнопкою нижче й надішліть ще раз.");
-  expect(trainerError(Error("trainer_stop_retrying"))).toBe("Тренер не відповідає. Сервер зупиняє обробку сам; чат звільниться без вашої дії.");
+  expect(trainerError(Error("trainer_stop_retrying"))).toBe("Тренер не відповідає, і сервер поки не зміг зупинити обробку. Він повторює спробу сам; текст збережено.");
 });

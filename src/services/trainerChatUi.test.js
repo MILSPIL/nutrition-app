@@ -1059,6 +1059,26 @@ describe("1.9.10: up to 10 photos in one pick and a stalled turn never hides the
     expect(thumbnails()).toHaveLength(4);
     expect(host.textContent).toContain("Фото завеликі разом. Надішліть решту наступним повідомленням.");
   });
+  test("K10f: a row's photo button binds every photo of one pick to that row", async () => {
+    previewFixture();
+    await render();
+    const rowButton = [...host.querySelectorAll("button")].find(b => b.textContent === "Фото етикетки цього продукту");
+    await act(async () => { Simulate.click(rowButton); });
+    await pick(files(3));
+    await act(async () => { Simulate.change(host.querySelector("textarea"), { target: { value: "Етикетки" } }); });
+    await click("Надіслати повідомлення");
+    const images = api.send.mock.calls[0][0].images;
+    expect(images).toHaveLength(3);
+    expect(images.every(image => image.itemId === "synthetic-fruit")).toBe(true);
+  });
+  test("K10g: a pick with no free slot says the limit and keeps ten", async () => {
+    await render();
+    await pick(files(10));
+    await pick(files(1, "extra"));
+    expect(thumbnails()).toHaveLength(10);
+    expect(host.textContent).toContain("Можна додати до 10 фото.");
+    expect(button("Прикріпити фото").disabled).toBe(false);
+  });
   test("K14: photos without a caption get a neutral request and a neutral label", async () => {
     await render();
     await pick(files(2));
@@ -1076,9 +1096,22 @@ describe("1.9.10: up to 10 photos in one pick and a stalled turn never hides the
     expect(host.querySelector("textarea").value).toBe("Питання про поперек\nСуші вчора");
     expect(button("Повернути текст для уточнення")).toBeFalsy();
   });
-  test("K12b: a stalled turn tells the user the chat frees itself", async () => {
+  test("K12d: a stalled turn the server cannot stop yet shows that reason, a cancelled cleanup shows the hint", async () => {
+    server.currentTurn = { turnId: "synthetic-turn-id", state: "unknown", error: "trainer_stop_retrying", text: "Суші вчора" };
+    server.latestTurn = server.currentTurn;
+    await render();
+    expect(host.textContent).toContain("Тренер не відповідає, і сервер поки не зміг зупинити обробку.");
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    server.currentTurn = { turnId: "synthetic-cancelled", state: "cancelled", cleanupPending: true };
+    server.latestTurn = server.currentTurn;
+    await render();
+    expect(host.textContent).toContain("Завершую попередню обробку");
+    expect(host.textContent).toContain("Якщо тренер не відповість, сервер сам спробує зупинити обробку за кілька хвилин.");
+  });
+  test("K12b: a stalled turn says the server will try to stop it", async () => {
     server.currentTurn = { turnId: "synthetic-turn-id", state: "unknown", text: "Суші вчора" };
     await render();
-    expect(host.textContent).toContain("Якщо тренер не відповість, чат звільниться сам за кілька хвилин.");
+    expect(host.textContent).toContain("Якщо тренер не відповість, сервер сам спробує зупинити обробку за кілька хвилин.");
   });
 });

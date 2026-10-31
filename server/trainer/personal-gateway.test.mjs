@@ -231,8 +231,8 @@ test("denied Firebase delegation stops before Native, context, or model admissio
 });
 
 // 1.9.10: a stalled (unknown) turn is closed by the timer tick only after a confirmed Native stop.
-// `maintain` is the timer path; optional call keeps the red run a behavioural failure.
-const settleTick = g => g.maintain?.({ settleUnknown: true });
+// `settleStalled` is what the timer runs after `maintain`; optional call keeps the red run a behavioural failure.
+const settleTick = g => g.settleStalled?.();
 async function stalled(t, options = {}) {
   const f = fixture(t, { nativeState: "unknown", gatewayOptions: { unknownGraceMs: 0, ...options } }), input = body();
   await f.g.handle("owner", "/turns", "POST", input);
@@ -253,7 +253,7 @@ test("1.9.10 K1: a stalled turn past its deadline is closed as no reply and a ne
   await f.g.handle("owner", "/turns", "POST", nextTurn(f));
 });
 
-test("1.9.10 K2: an unconfirmed Native stop keeps the block, says why, backs off and retries", async t => {
+test("1.9.10 K2: an unconfirmed Native stop keeps the block, says why, backs off 60 s and retries", async t => {
   const { f, input, calls } = await stalled(t);
   f.core.cancelInput = async () => { calls.stop++; throw Error("execution_unknown"); };
   f.tick(45001); await settleTick(f.g);
@@ -261,21 +261,33 @@ test("1.9.10 K2: an unconfirmed Native stop keeps the block, says why, backs off
   assert.equal(row.state, "unknown"); assert.equal(row.error, "trainer_stop_retrying"); assert.equal(calls.stop, 1);
   await assert.rejects(f.g.handle("owner", "/turns", "POST", nextTurn(f)), /trainer_busy/);
   assert.equal((await (await f.g.handle("owner", "/state", "GET")).json()).maintenanceBlocked, false);
-  await settleTick(f.g); await settleTick(f.g);
+  await settleTick(f.g); f.tick(59000); await settleTick(f.g);
   assert.equal(calls.stop, 1);
   f.core.cancelInput = async () => { calls.stop++; return { stopped: true }; };
-  await settleTick(f.g);
+  f.tick(1001); await settleTick(f.g);
   assert.equal(calls.stop, 2);
   row = f.store.get("owner", input.turnId);
   assert.equal(row.state, "failed"); assert.equal(row.error, "trainer_no_reply");
 });
 
-test("1.9.10 K2b: a throwing Native status never turns maintenance into a 503 for new messages", async t => {
-  const { f, input } = await stalled(t);
-  f.core.status = async () => { throw Error("synthetic_native_down"); };
+test("1.9.10 K2b: a throwing Native status still leads to the stop, and maintenance never becomes a 503", async t => {
+  const { f, input, calls } = await stalled(t);
+  f.core.status = async () => { calls.status++; throw Error("synthetic_native_down"); };
   f.tick(45001); await settleTick(f.g);
-  assert.equal(f.store.get("owner", input.turnId).state, "unknown");
+  const row = f.store.get("owner", input.turnId);
+  assert.equal(calls.stop, 1); assert.equal(row.state, "failed"); assert.equal(row.error, "trainer_no_reply");
   assert.equal((await (await f.g.handle("owner", "/state", "GET")).json()).maintenanceBlocked, false);
+});
+
+test("1.9.10 K2c: a tick during a running settle never starts a second Native stop", async t => {
+  const { f, calls } = await stalled(t);
+  let release; const held = new Promise(resolve => { release = resolve; });
+  f.core.cancelInput = async () => { calls.stop++; await held; return { stopped: true }; };
+  f.tick(45001);
+  const first = settleTick(f.g); await sleep(5);
+  const second = settleTick(f.g); await sleep(5);
+  release(); await Promise.all([first, second]);
+  assert.equal(calls.stop, 1);
 });
 
 test("1.9.10 K3: a stalled turn is not touched before deadline plus grace", async t => {
