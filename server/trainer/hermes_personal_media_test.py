@@ -44,6 +44,11 @@ class PhotoTests(unittest.TestCase):
             self.photos.stage("synthetic-input-0002", images)
         self.assertEqual(list(self.staging.iterdir()), [])
 
+    def test_ten_real_size_images_stage(self):
+        # 1.9.10 K19b: ten ~1.3 MB photos fit the per-image limit and the profile quota.
+        images = [{"type": "image/png", "data": base64.b64encode(PNG + bytes([n]) * (1300 * 1024)).decode()} for n in range(10)]
+        self.assertEqual(len(self.photos.stage(INPUT, images)), 10)
+
     def test_bad_second_image_leaves_no_partial_stage(self):
         with self.assertRaisesRegex(RuntimeError, "invalid_image"):
             self.photos.stage(INPUT, [IMAGE, {"type": "image/jpeg", "data": IMAGE["data"]}])

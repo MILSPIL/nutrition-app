@@ -14,3 +14,9 @@ test("1.9.10 K8: ten photos pass validation and the eleventh is refused", () => 
   assert.equal(validateImages(photos(10)).length, 10);
   assert.throws(() => validateImages(photos(11)), /invalid_image/);
 });
+test("1.9.10 K19b: ten photos of real size (~1.3 MB each) pass validation", () => {
+  const big = n => ({ type: "image/jpeg", data: Buffer.concat([Buffer.from([255, 216, 255, 224, n]), Buffer.alloc(1300 * 1024, n)]).toString("base64") });
+  const images = Array.from({ length: 10 }, (_, n) => big(n));
+  assert.ok(images.reduce((sum, image) => sum + image.data.length, 0) < 14 * 1024 * 1024);
+  assert.equal(validateImages(images).length, 10);
+});
