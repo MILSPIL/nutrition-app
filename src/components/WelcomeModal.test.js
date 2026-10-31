@@ -22,7 +22,7 @@ afterEach(async () => {
 
 test('показує одну людську версію та поточні новини', async () => {
   await render();
-  expect(APP_VERSION).toBe('1.9.9');
+  expect(APP_VERSION).toBe('1.9.10');
   expect(require('../../package.json').version).toBe(APP_VERSION);
   expect(container.textContent).toContain(`Версія ${APP_VERSION}`);
   expect(container.textContent).toContain(`Що нового у v${APP_VERSION}`);

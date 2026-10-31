@@ -211,3 +211,13 @@ test("Desktop photo reads map only own retained native paths; missing photos hav
   assert.equal((await f.http('/api/fs/read-data-url?path='+encodeURIComponent(foreign))).body.error,'desktop_method_forbidden');
  }
 });
+
+test("1.9.10 K8: Desktop submits up to ten photos and refuses the eleventh", async t => {
+  const f = await fixture(t), c = await f.connect();
+  const upload = n => c.rpc("image.attach_bytes", { session_id: "own-session", content_base64: Buffer.from([137,80,78,71,13,10,26,10,n]).toString("base64"), filename: `photo-${n}.png` });
+  const images = []; for (let n = 0; n < 11; n++) images.push(await upload(n));
+  const attachments = images.map(image => ({ path: image.path, mime: image.mime }));
+  await c.rpc("prompt.submit", { session_id: "own-session", submission_id: "ten-photos", text: "Фото", attachments: attachments.slice(0, 10) });
+  assert.equal(f.submitted.at(-1).imageRefs.length, 10);
+  await assert.rejects(c.rpc("prompt.submit", { session_id: "own-session", submission_id: "eleven-photos", text: "Фото", attachments }), /invalid_image/);
+});

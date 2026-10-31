@@ -32,7 +32,7 @@ import { personalQueue } from "./personal-queue.mjs";
 import { stableJSON } from "./limits.mjs";
 import { buildSnapshot } from "./snapshot.mjs";
 
-function fixture(t, { context = "synthetic", nativeState = "completed", malformedResult = false, drain, stageError, staleBeforeVerify = false, memory, authorize = async () => {} } = {}) {
+function fixture(t, { context = "synthetic", nativeState = "completed", malformedResult = false, drain, stageError, staleBeforeVerify = false, memory, authorize = async () => {}, gatewayOptions = {} } = {}) {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "scisense-personal-gateway-"))); chmodSync(dir, 0o700);
   let clock = Date.parse("2026-10-24T20:59:59Z"), revision = 0, starts = 0, verifies = 0;
   const store = openTurnStore(join(dir, "turns.sqlite"), { hmacKey: randomBytes(32), now: () => clock });
@@ -65,9 +65,10 @@ function fixture(t, { context = "synthetic", nativeState = "completed", malforme
     authorizeTurn: (uid, signal) => authorize({ uid, signal, advance() { clock += 10000; } }),
     memoryWriteEnabled: !!memory, contextStore: memory ? { commit: (...args) => memory.commit(...args) } : undefined,
     readContext: async () => memory ? memory.value : ({ text: context, revision: 1 }), readDay: async (_uid, targetDate) => ({ targetDate, revision, meals: {}, notes: [] }), readPlan: async () => ({ planContext: {} }),
+    ...gatewayOptions,
   });
   t.after(async () => { await g.close(); await queue.close(); store.close(); rmSync(dir, { recursive: true, force: true }); });
-  return { g, store, core, queue, snapshots, get starts() { return starts; }, get verifies() { return verifies; }, change() { revision++; clock += 10000; },
+  return { g, store, core, queue, snapshots, get starts() { return starts; }, get verifies() { return verifies; }, change() { revision++; clock += 10000; }, tick(ms) { clock += ms; },
     async settle(id) { for (let n = 0; n < 100; n++) { const row = store.get("owner", id); if (!["running", "queued"].includes(row.state)) return row; await sleep(2); } throw Error("fixture_timeout"); } };
 }
 const body = () => ({ turnId: randomUUID(), baseRevision: 0, text: "Вчора з’їв яблуко", dateContext: { mode: "default" } });
@@ -227,4 +228,100 @@ test("denied Firebase delegation stops before Native, context, or model admissio
   const input = body();
   await assert.rejects(f.g.handle("owner", "/turns", "POST", input), /data_auth_required/);
   assert.equal(f.starts, 0); assert.deepEqual(f.snapshots, []);
+});
+
+// 1.9.10: a stalled (unknown) turn is closed by the timer tick only after a confirmed Native stop.
+// `maintain` is the timer path; optional call keeps the red run a behavioural failure.
+const settleTick = g => g.maintain?.({ settleUnknown: true });
+async function stalled(t, options = {}) {
+  const f = fixture(t, { nativeState: "unknown", gatewayOptions: { unknownGraceMs: 0, ...options } }), input = body();
+  await f.g.handle("owner", "/turns", "POST", input);
+  assert.equal((await f.settle(input.turnId)).state, "unknown");
+  const calls = { status: 0, stop: 0 };
+  f.core.status = async () => { calls.status++; return { state: "unknown", admissionId: "synthetic-admission" }; };
+  f.core.cancelInput = async () => { calls.stop++; return { stopped: true }; };
+  return { f, input, calls };
+}
+const nextTurn = f => ({ ...body(), baseRevision: f.store.conversation("owner").revision });
+
+test("1.9.10 K1: a stalled turn past its deadline is closed as no reply and a new message is admitted", async t => {
+  const { f, input, calls } = await stalled(t);
+  f.tick(45001); await settleTick(f.g);
+  const row = f.store.get("owner", input.turnId);
+  assert.equal(row.state, "failed"); assert.equal(row.error, "trainer_no_reply");
+  assert.equal(calls.stop, 1); assert.equal(f.store.cleanupJobs().length, 0);
+  await f.g.handle("owner", "/turns", "POST", nextTurn(f));
+});
+
+test("1.9.10 K2: an unconfirmed Native stop keeps the block, says why, backs off and retries", async t => {
+  const { f, input, calls } = await stalled(t);
+  f.core.cancelInput = async () => { calls.stop++; throw Error("execution_unknown"); };
+  f.tick(45001); await settleTick(f.g);
+  let row = f.store.get("owner", input.turnId);
+  assert.equal(row.state, "unknown"); assert.equal(row.error, "trainer_stop_retrying"); assert.equal(calls.stop, 1);
+  await assert.rejects(f.g.handle("owner", "/turns", "POST", nextTurn(f)), /trainer_busy/);
+  assert.equal((await (await f.g.handle("owner", "/state", "GET")).json()).maintenanceBlocked, false);
+  await settleTick(f.g); await settleTick(f.g);
+  assert.equal(calls.stop, 1);
+  f.core.cancelInput = async () => { calls.stop++; return { stopped: true }; };
+  await settleTick(f.g);
+  assert.equal(calls.stop, 2);
+  row = f.store.get("owner", input.turnId);
+  assert.equal(row.state, "failed"); assert.equal(row.error, "trainer_no_reply");
+});
+
+test("1.9.10 K2b: a throwing Native status never turns maintenance into a 503 for new messages", async t => {
+  const { f, input } = await stalled(t);
+  f.core.status = async () => { throw Error("synthetic_native_down"); };
+  f.tick(45001); await settleTick(f.g);
+  assert.equal(f.store.get("owner", input.turnId).state, "unknown");
+  assert.equal((await (await f.g.handle("owner", "/state", "GET")).json()).maintenanceBlocked, false);
+});
+
+test("1.9.10 K3: a stalled turn is not touched before deadline plus grace", async t => {
+  const { f, input, calls } = await stalled(t, { unknownGraceMs: 30000 });
+  f.tick(45001); await settleTick(f.g);
+  assert.equal(calls.stop, 0); assert.equal(f.store.get("owner", input.turnId).state, "unknown");
+  f.tick(30000); await settleTick(f.g);
+  assert.equal(calls.stop, 1); assert.equal(f.store.get("owner", input.turnId).state, "failed");
+});
+
+test("1.9.10 K4: a cancelled turn whose Native stop failed is stopped again by maintenance", async t => {
+  const f = fixture(t, { nativeState: "unknown", gatewayOptions: { unknownGraceMs: 0 } }), input = body();
+  await f.g.handle("owner", "/turns", "POST", input); assert.equal((await f.settle(input.turnId)).state, "unknown");
+  let nativeState = "unknown", allow = false;
+  f.core.input = () => ({ state: nativeState, admissionId: "synthetic-admission" });
+  f.core.status = async () => ({ state: nativeState, admissionId: "synthetic-admission" });
+  f.core.cancelInput = async () => { if (!allow) throw Error("execution_unknown"); nativeState = "cancelled"; return { stopped: true }; };
+  await assert.rejects(f.g.handle("owner", `/turns/${input.turnId}/cancel`, "POST", {}), /execution_unknown/);
+  allow = true;
+  await f.g.recover(); await f.g.recover();
+  assert.equal(f.store.cleanupJobs().length, 1);
+  await settleTick(f.g);
+  assert.equal(f.store.cleanupJobs().length, 0); assert.equal(f.store.get("owner", input.turnId).state, "cancelled");
+  await f.g.handle("owner", "/turns", "POST", nextTurn(f));
+});
+
+test("1.9.10 K5: an answer that arrives during the stop is published, not failed", async t => {
+  const { f, input, calls } = await stalled(t);
+  f.core.status = async () => (++calls.status === 1 ? { state: "unknown", admissionId: "synthetic-admission" } : { state: "completed", admissionId: "synthetic-admission", result: { final_response: "Пізня відповідь тренера" } });
+  f.tick(45001); await settleTick(f.g);
+  assert.equal(f.store.get("owner", input.turnId).state, "completed");
+});
+
+test("1.9.10 K6: a turn Native never received is closed after two confirmed misses without a stop", async t => {
+  const { f, input, calls } = await stalled(t);
+  f.core.status = async () => ({ state: "unknown", admissionId: null });
+  f.core.cancelInput = async () => { calls.stop++; throw Error("execution_unknown"); };
+  f.tick(45001); await settleTick(f.g);
+  assert.equal(f.store.get("owner", input.turnId).state, "unknown");
+  await settleTick(f.g);
+  const row = f.store.get("owner", input.turnId);
+  assert.equal(row.state, "failed"); assert.equal(row.error, "trainer_no_reply"); assert.equal(calls.stop, 0);
+});
+
+test("1.9.10 K7: startup recovery does not settle a stalled turn", async t => {
+  const { f, input, calls } = await stalled(t);
+  f.tick(45001); await f.g.recover();
+  assert.equal(calls.stop, 0); assert.equal(f.store.get("owner", input.turnId).state, "unknown");
 });

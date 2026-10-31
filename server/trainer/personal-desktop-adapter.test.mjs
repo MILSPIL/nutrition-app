@@ -107,3 +107,11 @@ test('historical cancellation is bound to an own cancelled app turn and refuses 
  row.state='cancelled';const next=randomUUID();await f.one.submit({inputId:next,sessionId:'own-session',text:'new synthetic',images:[]});
  await assert.rejects(f.one.cancel(row.run_id),/not_found/);
 });
+
+test("1.9.10 K8: the Desktop adapter admits ten photo references and refuses eleven", async t => {
+  const f = fixture(t), images = Array.from({ length: 11 }, (_, n) => ({ type: "image/png", data: Buffer.from([137,80,78,71,13,10,26,10,n]).toString("base64") }));
+  const refs = images.map(image => f.one.hashImage(image));
+  await f.one.submit({ inputId: randomUUID(), sessionId: "own-session", text: "Фото", imageRefs: refs.slice(0, 10), images: images.slice(0, 10) });
+  assert.equal(f.posted.at(-1).images.length, 10);
+  await assert.rejects(f.one.submit({ inputId: randomUUID(), sessionId: "own-session", text: "Фото", imageRefs: refs, images }), /invalid_request/);
+});

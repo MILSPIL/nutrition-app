@@ -1010,3 +1010,75 @@ describe("1.9.9 simple logging", () => {
     expect(button("Зберегти текст як нотатку без оцінки")).toBeTruthy();
   });
 });
+
+describe("1.9.10: up to 10 photos in one pick and a stalled turn never hides the return button", () => {
+  const files = (n, prefix = "synthetic") => Array.from({ length: n }, (_, i) => new File(["photo" + i], `${prefix}-${i}.jpg`, { type: "image/jpeg" }));
+  const inputs = () => [...host.querySelectorAll('input[type="file"]')];
+  const gallery = () => inputs().find(input => !input.hasAttribute("capture"));
+  const camera = () => inputs().find(input => input.hasAttribute("capture"));
+  const pick = async (list, input = gallery()) => act(async () => Simulate.change(input, { target: { files: list, value: "" } }));
+  const thumbnails = () => host.querySelectorAll(".trainer-photos img");
+  beforeEach(() => {
+    props.photoNormalizer = jest.fn(async () => ({ type: "image/jpeg", data: "synthetic-photo", preview: "data:image/jpeg;base64,c3ludGhldGlj" }));
+  });
+  test("K10a: the gallery picker allows many files, the camera stays one shot", async () => {
+    await render();
+    expect(gallery().multiple).toBe(true);
+    expect(camera().multiple).toBe(false);
+  });
+  test("K10b: twelve picked photos add the first ten, say so, and all ten are sent", async () => {
+    await render();
+    await pick(files(12));
+    expect(thumbnails()).toHaveLength(10);
+    expect(host.textContent).toContain("Додано 10 із 12 фото: більше 10 за раз не можна.");
+    await act(async () => { Simulate.change(host.querySelector("textarea"), { target: { value: "Обід" } }); });
+    await click("Надіслати повідомлення");
+    expect(api.send.mock.calls[0][0].images).toHaveLength(10);
+  });
+  test("K10c: two quick picks never exceed ten", async () => {
+    await render();
+    await Promise.all([pick(files(6, "first")), pick(files(6, "second"))]);
+    expect(thumbnails()).toHaveLength(10);
+    expect(host.textContent).toContain("Додано 4 із 6 фото: більше 10 за раз не можна.");
+  });
+  test("K10d: one unreadable photo does not cancel the rest", async () => {
+    props.photoNormalizer = jest.fn(async file => {
+      if (file.name.endsWith("-1.jpg")) throw Error("photo_decode_failed");
+      return { type: "image/jpeg", data: "synthetic-photo", preview: "data:image/jpeg;base64,c3ludGhldGlj" };
+    });
+    await render();
+    await pick(files(3));
+    expect(thumbnails()).toHaveLength(2);
+    expect(host.textContent).toContain("Фото не відкривається");
+  });
+  test("K10e: photos over the shared body budget are refused with a clear text", async () => {
+    const data = "A".repeat(3 * 1024 * 1024);
+    props.photoNormalizer = jest.fn(async () => ({ type: "image/jpeg", data, preview: "data:image/jpeg;base64,c3ludGhldGlj" }));
+    await render();
+    await pick(files(5));
+    expect(thumbnails()).toHaveLength(4);
+    expect(host.textContent).toContain("Фото завеликі разом. Надішліть решту наступним повідомленням.");
+  });
+  test("K14: photos without a caption get a neutral request and a neutral label", async () => {
+    await render();
+    await pick(files(2));
+    expect(host.querySelectorAll('img[alt="Фото перед надсиланням"]')).toHaveLength(2);
+    await click("Надіслати повідомлення");
+    expect(api.send.mock.calls[0][0].text).toBe("Фото без підпису: подивись, що на них (їжа чи етикетка).");
+  });
+  test("K12a: a failed turn offers its text back even when the field already has text, once", async () => {
+    server.canonicalHistory = true;
+    server.composer = { text: "Питання про поперек", revision: 0 };
+    server.latestTurn = { turnId: "synthetic-stalled", state: "failed", error: "trainer_no_reply", text: "Суші вчора", nativeInputClaimed: true };
+    await render();
+    expect(host.textContent).toContain("Тренер не відповів на це повідомлення.");
+    await click("Повернути текст для уточнення");
+    expect(host.querySelector("textarea").value).toBe("Питання про поперек\nСуші вчора");
+    expect(button("Повернути текст для уточнення")).toBeFalsy();
+  });
+  test("K12b: a stalled turn tells the user the chat frees itself", async () => {
+    server.currentTurn = { turnId: "synthetic-turn-id", state: "unknown", text: "Суші вчора" };
+    await render();
+    expect(host.textContent).toContain("Якщо тренер не відповість, чат звільниться сам за кілька хвилин.");
+  });
+});

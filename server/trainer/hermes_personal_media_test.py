@@ -35,6 +35,15 @@ class PhotoTests(unittest.TestCase):
             self.photos.stage(INPUT, [other])
         self.photos.clear(INPUT); self.assertEqual(list(self.staging.iterdir()), [])
 
+    def test_ten_images_stage_and_eleven_are_refused(self):
+        # 1.9.10 K9: the trainer path and Native both allow ten photos per message.
+        images = [{"type": "image/png", "data": base64.b64encode(PNG + bytes([n])).decode()} for n in range(11)]
+        self.assertEqual(len(self.photos.stage(INPUT, images[:10])), 10)
+        self.photos.clear(INPUT)
+        with self.assertRaisesRegex(RuntimeError, "invalid_image"):
+            self.photos.stage("synthetic-input-0002", images)
+        self.assertEqual(list(self.staging.iterdir()), [])
+
     def test_bad_second_image_leaves_no_partial_stage(self):
         with self.assertRaisesRegex(RuntimeError, "invalid_image"):
             self.photos.stage(INPUT, [IMAGE, {"type": "image/jpeg", "data": IMAGE["data"]}])

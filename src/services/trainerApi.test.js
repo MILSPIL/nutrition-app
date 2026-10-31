@@ -92,3 +92,26 @@ test("an actual network failure has its own recovery message", async () => {
   await expect(api.state()).rejects.toThrow("network_unavailable");
   expect(trainerError(Error("network_unavailable"))).toContain("мережу");
 });
+test("1.9.10 K11: sending photos waits longer than ordinary requests, other requests keep 15 s", async () => {
+  jest.useFakeTimers();
+  try {
+    const fetcher = jest.fn((_url, options) => new Promise((_resolve, reject) => options.signal.addEventListener("abort", () => reject(Object.assign(Error("aborted"), { name: "AbortError" })), { once: true })));
+    const api = createTrainerApi("synthetic", { endpoint: "/meal-api", fetcher, getUser: () => ({ uid: "synthetic", getIdToken: async () => "synthetic" }) });
+    const outcome = promise => { const box = { settled: false }; promise.then(() => { box.settled = true; }, error => { box.settled = true; box.error = error; }); return box; };
+    const flush = async () => { for (let n = 0; n < 10; n++) await Promise.resolve(); };
+    const images = Array.from({ length: 10 }, () => ({ type: "image/jpeg", data: "synthetic" }));
+    const photos = outcome(api.send({ turnId: "synthetic-turn", baseRevision: 0, text: "Обід", images }));
+    const plain = outcome(api.state());
+    await flush(); jest.advanceTimersByTime(15001); await flush();
+    expect(plain.error?.message).toBe("client_timeout");
+    expect(photos.settled).toBe(false);
+    jest.advanceTimersByTime(75000 - 15001 - 1); await flush();
+    expect(photos.settled).toBe(false);
+    jest.advanceTimersByTime(2); await flush();
+    expect(photos.error?.message).toBe("client_timeout");
+  } finally { jest.useRealTimers(); }
+});
+test("1.9.10 K12c: a turn the server closed without a reply has its own text", () => {
+  expect(trainerError(Error("trainer_no_reply"))).toBe("Тренер не відповів на це повідомлення. Поверніть текст кнопкою нижче й надішліть ще раз.");
+  expect(trainerError(Error("trainer_stop_retrying"))).toBe("Тренер не відповідає. Сервер зупиняє обробку сам; чат звільниться без вашої дії.");
+});
