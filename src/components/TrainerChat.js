@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { Mic, Square, Camera, Send, X, Paperclip, Image as ImageIcon } from "lucide-react";
 import { createTrainerApi, trainerError, trainerFeedback } from "../services/trainerApi";
 import { createTrainerSession, NETWORK_ERRORS } from "../services/trainerSession";
@@ -32,6 +33,12 @@ import { trainerTimeline } from "../services/trainerTimeline";
 import "./VoiceInputModal.css";
 import "./TrainerChat.css";
 const names = { 1: "Сніданок", 2: "Обід", 3: "Вечеря", 4: "Перекус" };
+// Native Hermes takes up to 10 images per message; the server's request body
+// limit is 15 MB, so photos together keep 1 MB for text and JSON.
+const MAX_TRAINER_PHOTOS = 10;
+const MAX_PHOTO_BASE64_TOTAL = 14 * 1024 * 1024;
+const photoBytes = (list) => list.reduce((sum, p) => sum + (p.data?.length || 0), 0);
+const STALL_HINT = "Якщо тренер не відповість, сервер сам спробує зупинити обробку за кілька хвилин.";
 const empty = {};
 const initial = {
   server: null,
@@ -414,6 +421,7 @@ export default function TrainerChat({
     galleryInput = useRef(),
     attachmentTrigger = useRef(),
     photoTarget = useRef(),
+    photoQueue = useRef(Promise.resolve()),
     session = useRef(),
     alive = useRef(false),
     epoch = useRef(0),
@@ -755,14 +763,17 @@ export default function TrainerChat({
       if (!current(generation)) return;
       id = id || (await startMetric("text"));
       if (!current(generation)) return;
+      const outgoingPhotos = latest.current.photos;
+      // Photos are mostly food now; the label request stays only when every photo has its row.
       const content =
         text ||
         own.get().text ||
-        (photos.length
-          ? "Уточни харчові значення за фото етикетки відповідного продукту."
+        (outgoingPhotos.length
+          ? outgoingPhotos.every((p) => p.itemId)
+            ? "Уточни харчові значення за фото етикетки відповідного продукту."
+            : "Фото без підпису: подивись, що на них (їжа чи етикетка)."
           : "");
       const turnId = newId();
-      const outgoingPhotos = latest.current.photos;
       await metric(
         {
           ownerKey,
@@ -913,22 +924,44 @@ export default function TrainerChat({
       textarea.current?.focus();
     } catch (e) { if (current(generation)) catchError(e); }
   }
-  async function addPhoto(file) {
-    const generation = epoch.current;
-    if (!file) return;
+  // Picks run one after another, in order. The files and the row are taken at
+  // the moment of the pick: the input is cleared right away and the paperclip
+  // resets photoTarget.
+  function addPhotos(files) {
+    if (!files.length) return;
+    const generation = epoch.current, itemId = photoTarget.current;
+    photoQueue.current = photoQueue.current
+      .then(() => addPicked(files, itemId, generation))
+      .catch((e) => { if (current(generation)) catchError(e); });
+  }
+  // One file is normalized at a time, so a phone never holds ten 1600 px
+  // canvases at once. Each photo is committed synchronously, so the current
+  // photos already include this pick's additions and the next pick sees them.
+  async function addPicked(files, itemId, generation) {
+    if (!current(generation)) return;
     setError("");
-    if (photos.length >= 2) {
-      setError("Можна додати до двох фото.");
-      return;
-    }
-    const itemId = photoTarget.current;
-    try {
-      const p = await photoNormalizer(file);
+    let added = 0, overLimit = false, overBudget = false, failure;
+    for (const file of files) {
+      if (latest.current.photos.length >= MAX_TRAINER_PHOTOS) { overLimit = true; continue; }
+      let p;
+      try { p = await photoNormalizer(file); } catch (e) {
+        if (!current(generation)) return;
+        failure ||= e || Error("photo_decode_failed");
+        continue;
+      }
       if (!current(generation)) return;
-      setPhotos((old) => [...old, { ...p, itemId, addedAt: Date.now() }]);
-    } catch (e) {
-      if (current(generation)) catchError(e);
+      const now = latest.current.photos;
+      if (now.length >= MAX_TRAINER_PHOTOS) { overLimit = true; continue; }
+      // A smaller photo after a too large one may still fit.
+      if (photoBytes(now) + (p.data?.length || 0) > MAX_PHOTO_BASE64_TOTAL) { overBudget = true; continue; }
+      const photo = { ...p, itemId, addedAt: Date.now() };
+      flushSync(() => setPhotos((old) => [...old, photo].slice(0, MAX_TRAINER_PHOTOS)));
+      added++;
     }
+    if (overBudget) setError("Фото завеликі разом. Надішліть решту наступним повідомленням.");
+    else if (failure) setError(trainerError(failure));
+    else if (overLimit && added) setError(`Додано ${added} із ${files.length} фото: більше ${MAX_TRAINER_PHOTOS} за раз не можна.`);
+    else if (overLimit) setError(`Можна додати до ${MAX_TRAINER_PHOTOS} фото.`);
   }
   useEffect(() => {
     if (!photos.length) return;
@@ -1150,6 +1183,7 @@ export default function TrainerChat({
             {activeTurn(turn) && (
               <div className="trainer-turn" role="status">
                 <p>{turn.state === "unknown" ? feedback || "Завершення ще не підтверджене." : turn.cleanupPending ? "Завершую попередню обробку" : statuses[turn.state]}</p>
+                {(turn.state === "unknown" ? turn.error !== "trainer_stop_retrying" : turn.cleanupPending) && <p className="trainer-hint">{STALL_HINT}</p>}
                 {turn.state === "unknown" && (
                   <button
                     onClick={() =>
@@ -1293,7 +1327,8 @@ export default function TrainerChat({
               {feedback}
             </p>
           )}
-          {["failed", "cancelled"].includes(view.server?.latestTurn?.state) && view.server.latestTurn.text && !view.text.trim() && !voicePreview && (
+          {/* Shown even with other text in the field; hidden once the returned text is there. */}
+          {["failed", "cancelled"].includes(view.server?.latestTurn?.state) && view.server.latestTurn.text && !view.text.includes(restoredTrainerText(view.server.latestTurn)) && !voicePreview && (
             <button className="trainer-secondary" disabled={busy || !!view.admission}
               onClick={() => void returnMessage(view.server.latestTurn)}>
               Повернути текст для уточнення
@@ -1371,7 +1406,7 @@ export default function TrainerChat({
             <div className="trainer-photos">
               {photos.map((p, i) => (
                 <div key={i}>
-                  <img src={p.preview} alt="Фото етикетки перед надсиланням" />
+                  <img src={p.preview} alt="Фото перед надсиланням" />
                   <button
                     aria-label={`Прибрати фото ${i + 1}`}
                     disabled={busy || !!view.admission}
@@ -1404,11 +1439,11 @@ export default function TrainerChat({
             accept="image/*"
             capture="environment"
             onChange={(e) => {
-              void addPhoto(e.target.files?.[0]);
+              addPhotos(Array.from(e.target.files || []));
               e.target.value = "";
             }}
           />
-          <input ref={galleryInput} className="trainer-file" type="file" accept="image/*" onChange={e=>{void addPhoto(e.target.files?.[0]);e.target.value="";}}/>
+          <input ref={galleryInput} className="trainer-file" type="file" accept="image/*" multiple onChange={e=>{addPhotos(Array.from(e.target.files || []));e.target.value="";}}/>
           {showAttachments && <div className="trainer-attachment-options" role="group" aria-label="Додати фото">
             <button type="button" disabled={busy || !!view.admission} onClick={()=>choosePhoto(fileInput)}><Camera size={18}/>Сфотографувати</button>
             <button type="button" disabled={busy || !!view.admission} onClick={()=>choosePhoto(galleryInput)}><ImageIcon size={18}/>З галереї</button>

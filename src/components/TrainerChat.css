@@ -299,13 +299,17 @@
   margin: 0 0 8px;
   font-size: 13px;
 }
+/* Up to 10 thumbnails stay in one row and scroll inside the strip, never the page. */
 .trainer-photos {
   display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   gap: 10px;
   margin: 8px 0;
 }
 .trainer-photos > div {
   position: relative;
+  flex: 0 0 auto;
 }
 .trainer-photos img {
   width: 80px;

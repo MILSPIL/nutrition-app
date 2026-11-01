@@ -147,7 +147,7 @@ test("cancel voice preview restores existing text without sending or losing phot
   expect(host.querySelector("textarea").value).toBe("Вже набраний текст");
   expect(api.send).not.toHaveBeenCalled();
   expect(button("Почати запис").disabled).toBe(false);
-  expect(host.querySelectorAll('img[alt="Фото етикетки перед надсиланням"]')).toHaveLength(1);
+  expect(host.querySelectorAll('img[alt="Фото перед надсиланням"]')).toHaveLength(1);
 });
 test("cancel before the voice metric ACK never opens the microphone", async () => {
   const pending = deferred();
@@ -814,9 +814,9 @@ describe("1.9.7 card control", () => {
     const photoButtons = [...host.querySelectorAll("button")].filter(b => b.textContent === "Фото етикетки цього продукту");
     await act(async () => { Simulate.click(photoButtons[1]); });
     await act(async () => Simulate.change(host.querySelector('input[type="file"]'), { target: { files: [new File(["photo"], "synthetic.jpg", { type: "image/jpeg" })], value: "" } }));
-    expect(host.querySelectorAll('img[alt="Фото етикетки перед надсиланням"]')).toHaveLength(1);
+    expect(host.querySelectorAll('img[alt="Фото перед надсиланням"]')).toHaveLength(1);
     await click("Прибрати Синтетична домашня страва");
-    expect(host.querySelectorAll('img[alt="Фото етикетки перед надсиланням"]')).toHaveLength(0);
+    expect(host.querySelectorAll('img[alt="Фото перед надсиланням"]')).toHaveLength(0);
     await settle();
   });
   test("review: «Прибрати» is off while «Додати» is saving", async () => {
@@ -913,7 +913,7 @@ describe("1.9.9 simple logging", () => {
     await act(async () => Simulate.click(button("З галереї")));
     expect(host.textContent).not.toContain("Оберіть «Фото етикетки цього продукту»");
     await act(async () => photo());
-    expect(host.querySelectorAll('img[alt="Фото етикетки перед надсиланням"]')).toHaveLength(1);
+    expect(host.querySelectorAll('img[alt="Фото перед надсиланням"]')).toHaveLength(1);
     await sendText("Ось етикетка салату");
     expect(api.send).toHaveBeenCalledTimes(1);
     expect(api.send.mock.calls[0][0].images).toHaveLength(1);
@@ -1037,7 +1037,13 @@ describe("1.9.10: up to 10 photos in one pick and a stalled turn never hides the
   });
   test("K10c: two quick picks never exceed ten", async () => {
     await render();
-    await Promise.all([pick(files(6, "first")), pick(files(6, "second"))]);
+    // Both changes inside one act: two concurrent act() calls leave React's act depth
+    // unbalanced and every later test in the file renders nothing.
+    const input = gallery();
+    await act(async () => {
+      Simulate.change(input, { target: { files: files(6, "first"), value: "" } });
+      Simulate.change(input, { target: { files: files(6, "second"), value: "" } });
+    });
     expect(thumbnails()).toHaveLength(10);
     expect(host.textContent).toContain("Додано 4 із 6 фото: більше 10 за раз не можна.");
   });

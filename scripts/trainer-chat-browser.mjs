@@ -484,6 +484,40 @@ try {
       evidence.keyboard = keyboard;
       await page.screenshot({ path: join(out, `typing-keyboard-375.png`) });
       await page.setViewportSize({ width, height: 844 });
+      // 1.9.10 K13: ten photos from one gallery pick stay in one row of 80 px thumbnails that
+      // scrolls inside the strip; neither the page nor the composer scrolls sideways.
+      const pngs = await page.evaluate(() => Array.from({ length: 10 }, (_, i) => {
+        const c = document.createElement("canvas");
+        c.width = 320;
+        c.height = 240;
+        const x = c.getContext("2d");
+        x.fillStyle = `hsl(${i * 36}, 70%, 60%)`;
+        x.fillRect(0, 0, 320, 240);
+        x.fillStyle = "#000";
+        x.font = "28px sans-serif";
+        x.fillText("СИНТЕТИЧНЕ ФОТО " + (i + 1), 10, 130);
+        return c.toDataURL("image/png").split(",")[1];
+      }));
+      await page.getByRole("button", { name: "Прикріпити фото", exact: true }).click();
+      const tenChooser = page.waitForEvent("filechooser");
+      await page.getByRole("button", { name: "З галереї", exact: true }).click();
+      await (await tenChooser).setFiles(pngs.map((data, i) => ({ name: `synthetic-photo-${i + 1}.png`, mimeType: "image/png", buffer: Buffer.from(data, "base64") })));
+      await page.waitForFunction(() => document.querySelectorAll(".trainer-photos img").length === 10);
+      const strip = await page.evaluate(() => {
+        const composer = document.querySelector(".trainer-composer"),
+          images = [...document.querySelectorAll(".trainer-photos img")].map((n) => n.getBoundingClientRect());
+        return { count: images.length, overflow: document.documentElement.scrollWidth - innerWidth,
+          composerScroll: composer.scrollWidth - composer.clientWidth,
+          rows: new Set(images.map((r) => Math.round(r.top))).size, widths: images.map((r) => r.width) };
+      });
+      evidence.tenPhotos = strip;
+      check("10 photos 375: без горизонтальної прокрутки сторінки й панелі, один рядок, мініатюри 80 px",
+        strip.count === 10 && strip.overflow <= 0 && strip.composerScroll <= 0 && strip.rows === 1 && strip.widths.every((w) => w === 80));
+      await page.screenshot({ path: join(out, "ten-photos-375.png") });
+      // Remove them so the following checks see the composer as before.
+      while (await page.locator(".trainer-photos img").count())
+        await page.getByRole("button", { name: "Прибрати фото 1", exact: true }).click();
+      await page.locator(".trainer-photos").waitFor({ state: "detached" });
     }
     await page.locator('#trainer-message').fill('');
     await page
