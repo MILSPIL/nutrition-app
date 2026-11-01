@@ -78,3 +78,16 @@
 - spec-reviewer коло 1: повернути (🔴 K16 канарка `hermes-personal-linux` на гілці не запускалась; 🟡 K9/K20 команди payer/egress-тестів ніде не запускаються). Виправлено: run 41328166697 на `996f388` success (`timerCycle` 180000/180001, `kernelTimer`); проба PYP у спеці з червоним на 1.9.9. Коміт `22ae936`. Коло 2: `ВЕРДИКТ: done` (💭 2: CI на новій голові перед злиттям; прибрати `server/trainer/__pycache__`).
 - Оператори публікації: `.agents/runtime/deployment/2026-11-01-trainer-unblock-1910/` (поки в worktree, після публікації перенести `mv` в основну копію). `root.py` з Codex `normal-root.py` (нові адаптери і `worker-lock.so`), живий реліз `576d7d1`, старі адаптери `adapters-16a7348`, 26 файлів; `inspect-1910.py` лише читання; `deploy.py` бере реліз з `release.json`. Тимчасових sudo-користувачів на сервері 0 (xCloud, лише читання). Node 24.22.1 для збірки: `~/.local/share/node-pins/` (SHA256 з nodejs.org збігся).
 - `worker-lock.so` брати з артефакту CI на release SHA (`hermes-personal-linux` експортує саме перевірену бібліотеку).
+
+## Злиття і публікація (01.11, 19:00-19:21 Київ, 17:00-17:21 UTC)
+
+Дозволи Юри кнопками: публікувати 1.9.9 + 1.9.10 разом; вимкнути автоархівацію; три дії на GitHub (перенаправити й оновити PR #54, squash у `codex/hermes-personal-server`, закрити #53). Перша спроба `gh pr edit` була заблокована класифікатором дозволів (не було прямої згоди саме на PR); після кнопки пройшла.
+
+- Злиття: CI PR на `aed7466` 4/4 → squash `d5e483b8919bfecf42a30ec4ac7ccc93c89fda59`, дерево = `aed7466`. #53 закрито з коментарем. CI релізу 41329486667 4/4, канарка `hermes-personal-linux` на релізі 41329486686 success.
+- Збірка сайту: чиста копія `d5e483b`, `buildHermesRelease({enabled:true})`, Node 24.22.1: 37 файлів, `main.0e6aa750.js`, `"1.9.10"`, projectId як на живому, асети ідентичні пробній збірці на `aed7466`.
+- `worker-lock.so`: артефакт `hermes-personal-linux` на релізі, ELF x86-64, sha 40fa02fd (дві збірки CI дали однаковий файл), джерело `worker-lock.c` 0d2fa7de.
+- Вікно доступу 17:14:21-17:20:33 UTC (6 хв з 20): prepare/create (provisioned одразу) → preflight → inspect: живий `576d7d1`, 23 робочі файли = Git, `package.json` на сервері інший, `contract-v1.json` і `hermes-personal-systemd-canary.py` відсутні (прибрав з набору, 26 → 23), 1 незавершений хід `unknown` (Юрій) → stage (23 файли, 5 адаптерів, політика 180 с прийнята на сервері) → backup_prepare (AES-GCM 9008040 байт, API зупинявся < 40 с) → backup (розшифровано на Mac, 72 файли) → install (історія, збережена їжа, облік незмінні; turns 87, posts 132) → verify (3 ролі на новій бібліотеці) → frontend-install → public (37 HTTPS SHA, `/` і health 200) → через 2,5 хв inspect: 0 незавершених, PID API той самий → revoke → SSH відхилено, 3 тимчасові секрети видалено, ключ бекапу в Keychain `scisense-trainer-1910-20261101`.
+- Браузер (Playwright headless): https://ntzg.pp.ua/ на 375 і 1366, hostname перевірено, переповнення 0, консоль 0 помилок, скріншоти в теці операторів.
+- Не зроблено: завантажений архів сайту не видалив до revoke (публічні файли, 11 МБ, у домашній теці відкликаного тимчасового користувача). K17 б) з телефона за Юрієм.
+- Оператори і бекап: перенесено в основну копію `.agents/runtime/deployment/2026-11-01-trainer-unblock-1910/` (не в Git).
+- Наслідок для 1.9.8: PR #51 треба перебазувати на `d5e483b`.
