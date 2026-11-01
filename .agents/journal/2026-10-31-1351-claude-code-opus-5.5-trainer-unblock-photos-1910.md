@@ -39,3 +39,14 @@
 - Розмір запиту ~14 МБ через Cloudflare/OLS не перевірявся.
 - PR #51 (1.9.8) і PR #53 (1.9.9) не злиті; конфлікти в `package.json`, `releases.js`.
 - Юрій не сказав, чи натискав «Зупинити й повернути текст»; його завислий хід зніметься лише після публікації.
+
+## Реалізація (01.11, після гейту плану)
+
+- Проба 2: 23 знахідки (10 «змінює план», усі технічні), закриті правкою спеки (`768508a`), додано K19b.
+- План затверджено через Plan Mode. Юрій: «сделай, чтобы все работало, у меня до сих пор не работает приложение».
+- Крок 1 `fd8d2b4`: `LIMITS.images = 10` у 8 місцях + Python `MAX_IMAGES`; K8, K9, K19, K19b ✔; два мої тести виправлено під спеку (base64-розмір у K19b, 11-те завантаження Desktop), червоне на старій межі повторено (`invalid_image`, `media_quota`).
+- Крок 2 `0f18fc3`: 180 с (`PERSONAL_LIMITS`, gateway, turn-store, internal-process, Desktop-адаптер, joint-фікстура, payer/worker_lock Python, `worker-lock.c`, канарка, пакет); новий `personalPolicyHash` `87e4f624…` у `server/deployment-personal.json`; K18 ✔. Python payer тест локально не запускається (`SCISENSE_FIXTURE_ROOT`), доказ CI.
+- Версія `76e8c97`: 1.9.10, «Що нового» з датою 01.11.2026, `WelcomeModal.test.js` 7/7.
+- Чернетка PR https://github.com/MILSPIL/nutrition-app/pull/54 (base `claude/simple-logging-199`), Auto-fix увімкнено.
+- Крок 3 (`settleStalled`) і клієнт (кроки 4-6) роблять фонові агенти без комітів.
+- Знахідка: текст у полі Юрія на знімку збігається з контрольними питаннями K10 задачі Codex coach-knowledge (тека `.agents/runtime/deployment/2026-10-31-coach-knowledge/`, 31.10 11:54-12:34). Гіпотеза: перезапуск сервісу тією роботою перевів хід Юрія в `unknown` (`turn-store.mjs:121-124`). Не перевірено журналом сервера. Перед публікацією звірити, що Codex не працює з сервером.
