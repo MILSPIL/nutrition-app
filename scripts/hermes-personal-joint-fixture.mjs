@@ -93,7 +93,7 @@ try {
   const mediaRoot = join(root, "app-media"); mkdirSync(mediaRoot, { mode: 0o700 });
   const media = createMediaStore(mediaRoot, { hash: appStore.hash });
   app = createTrainerGateway({ ownerUid: "owner", store: appStore, backend, ...reader,
-    readContext: (uid, signal) => core.context(uid, { signal }), runDeadlineMs: PERSONAL_LIMITS.deadlineMs, queueWindowMs: 225000,
+    readContext: (uid, signal) => core.context(uid, { signal }), runDeadlineMs: PERSONAL_LIMITS.deadlineMs, queueWindowMs: PERSONAL_LIMITS.queueWindowMs,
     snapshotFactory: value => buildSnapshot({ ...value, history: [], maxPayloadBytes: 512000 }),
     media, proxy: { cancel() {}, close() {} },
   });

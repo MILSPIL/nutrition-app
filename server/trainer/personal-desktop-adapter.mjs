@@ -1,4 +1,5 @@
 import { LIMITS, stableJSON, requireId } from "./limits.mjs";
+import { PERSONAL_LIMITS } from "./personal-limits.mjs";
 import { validateImages } from "./media.mjs";
 import { abortable } from "./deadline.mjs";
 
@@ -82,7 +83,7 @@ export function createPersonalDesktopAdapter({ uid, channel, profileId, account,
       const pending = admissions.get(inputId);
       if (!pending) return nativeReceipt(inputId);
       const waiting = (async () => {
-        const deadline = Date.now() + 225000;
+        const deadline = Date.now() + PERSONAL_LIMITS.queueWindowMs;
         while (!pending.receipt) {
           check(); signal?.throwIfAborted();
           if (pending.error) throw pending.error;

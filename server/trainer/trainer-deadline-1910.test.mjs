@@ -16,13 +16,11 @@ test("1.9.10 K18: the personal processing limit is 180 s and the queue window do
 });
 test("1.9.10 K18: the turn store and the gateway accept 180 s and refuse more", t => {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "scisense-deadline-"))); chmodSync(dir, 0o700);
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
   const store = openTurnStore(join(dir, "ok.sqlite"), { hmacKey: randomBytes(32), runDeadlineMs: 180000 });
-  t.after(() => store.close());
-  assert.throws(() => openTurnStore(join(dir, "over.sqlite"), { hmacKey: randomBytes(32), runDeadlineMs: 180001 }), /trainer_config/);
   const base = { ownerUid: "owner", store, backend: {}, media: { describe: () => [], stage() {}, load: () => [], remove() {}, sweep: () => ({ faults: 0 }) }, proxy: { cancel() {}, close() {} }, queueWindowMs: 450000 };
   const gateway = createTrainerGateway({ ...base, runDeadlineMs: 180000 });
-  t.after(() => gateway.close());
+  t.after(async () => { await gateway.close(); store.close(); rmSync(dir, { recursive: true, force: true }); });
+  assert.throws(() => openTurnStore(join(dir, "over.sqlite"), { hmacKey: randomBytes(32), runDeadlineMs: 180001 }), /trainer_config/);
   assert.throws(() => createTrainerGateway({ ...base, runDeadlineMs: 180001 }), /trainer_config/);
 });
 test("1.9.10 K18: the native process RPC defaults to the new limit and refuses more", () => {

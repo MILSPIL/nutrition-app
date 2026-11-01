@@ -8,7 +8,7 @@
   "port": 8787,
   "maxConcurrent": 2,
   "activationFile": "/etc/scisense/personal-activation.json",
-  "policyHash": "c1d3a2a2886d68a5254d723bd1aeebbacd8434b5e816616edd22a4e65056b2a6",
+  "policyHash": "87e4f6246e04db528f0617527ce88ed64c0488cb8a4d76f2ffe4ec37f2b19faf",
   "credentialNames": [
     "groq",
     "personal-state",

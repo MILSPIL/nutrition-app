@@ -5,7 +5,8 @@ export const PERSONAL_LIMITS = Object.freeze({
   turns: null,
   posts: null,
   postsPerTurn: 12,
-  deadlineMs: 90000,
+  // 1.9.10: owner decision, a long message or ten photos need more than 90 s.
+  deadlineMs: 180000,
   maxWaiting: 4,
-  queueWindowMs: 225000,
+  queueWindowMs: 450000,
 });
