@@ -222,3 +222,14 @@ test("1.9.10 K8: Desktop submits up to ten photos and refuses the eleventh", asy
   await c.rpc("prompt.submit", { session_id: "own-session", submission_id: "ten-photos", text: "Фото", attachments });
   assert.equal(f.submitted.at(-1).imageRefs.length, 10);
 });
+
+test("1.9.10 K8b: Desktop photos together stay within the web request limit", async t => {
+  // Ten 5 MiB photos would be ~67 MiB of JSON for a 48 MiB internal transport.
+  const f = await fixture(t), c = await f.connect();
+  const big = n => { const bytes = Buffer.alloc(4 * 1024 * 1024); Buffer.from([137,80,78,71,13,10,26,10,n]).copy(bytes); return bytes.toString("base64"); };
+  const upload = n => c.rpc("image.attach_bytes", { session_id: "own-session", content_base64: big(n), filename: `photo-${n}.png` });
+  await upload(0); await upload(1);
+  await assert.rejects(upload(2), /media_quota/);
+  const small = await c.rpc("image.attach_bytes", { session_id: "own-session", content_base64: Buffer.from([137,80,78,71,13,10,26,10,9]).toString("base64"), filename: "small.png" });
+  assert.equal(small.attached, true);
+});
