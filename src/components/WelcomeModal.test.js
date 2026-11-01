@@ -69,7 +69,7 @@ test('навіть SHA у build environment не стає видимою вер�
   process.env.REACT_APP_VERSION = 'bad8217421d0eff859b920885d849e3e121cbf72';
   try {
     jest.isolateModules(() => {
-      expect(require('./WelcomeModal').APP_VERSION).toBe('1.9.9');
+      expect(require('./WelcomeModal').APP_VERSION).toBe('1.9.10');
     });
   } finally {
     if (previous === undefined) delete process.env.REACT_APP_VERSION;
@@ -79,12 +79,22 @@ test('навіть SHA у build environment не стає видимою вер�
 
 test('1.9.9 K10: what is new names the five simple-logging changes', () => {
   const { RELEASES } = require('../data/releases');
-  expect(RELEASES[0].version).toBe('1.9.9');
-  expect(RELEASES[0].changes).toEqual([
+  expect(RELEASES[1].version).toBe('1.9.9');
+  expect(RELEASES[1].changes).toEqual([
     'Твої цифри калорій і БЖВ рахуються одразу, без нотаток',
     'Тренер не питає зайвого, а оцінює й пише припущення',
     'Фото етикетки можна надіслати будь-коли',
     'Після запису видно підсумок дня і пораду',
     'Поле повідомлення росте разом із текстом, без зайвих прокруток',
+  ]);
+});
+
+test('1.9.10 K15: what is new names the stalled-message, 3-minute and ten-photo changes', () => {
+  const { RELEASES } = require('../data/releases');
+  expect(RELEASES[0].version).toBe('1.9.10');
+  expect(RELEASES[0].changes).toEqual([
+    'Зависле повідомлення сервер тепер сам намагається зупинити, без кнопок',
+    'Тренер має до 3 хвилин на довге повідомлення замість 90 секунд',
+    'Можна вибрати до 10 фото за раз',
   ]);
 });
