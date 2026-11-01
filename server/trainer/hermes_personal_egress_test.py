@@ -258,6 +258,14 @@ class EgressTests(unittest.TestCase):
                     guard.proof()
         asyncio.run(check())
 
+    def test_1910_guard_admits_the_180_second_turn_and_refuses_more(self):
+        # 1.9.10 S10: the payer passes the whole remaining turn deadline here.
+        make = lambda seconds: HTTPXEgressGuard(model=MODEL, authorize_post=lambda value: {"accepted": True},
+            credential_guard=SimpleNamespace(ensure_ready=lambda **_k: None), deadline_seconds=seconds)
+        make(180)
+        with self.assertRaisesRegex(BrokerRefusal, "model_payload_invalid"):
+            make(180.001)
+
 
 if __name__ == "__main__":
     unittest.main()
