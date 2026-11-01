@@ -314,6 +314,36 @@ test("1.9.10 K4: a cancelled turn whose Native stop failed is stopped again by m
   await f.g.handle("owner", "/turns", "POST", nextTurn(f));
 });
 
+test("1.9.10 K4b: a cancelled turn Native never received is released after two confirmed misses, without a stop", async t => {
+  const f = fixture(t, { nativeState: "unknown", gatewayOptions: { unknownGraceMs: 0 } }), input = body();
+  await f.g.handle("owner", "/turns", "POST", input); assert.equal((await f.settle(input.turnId)).state, "unknown");
+  let stops = 0;
+  f.core.input = () => ({ state: "unknown", admissionId: null });
+  f.core.status = async () => ({ state: "unknown", admissionId: null });
+  f.core.cancelInput = async () => { stops++; throw Error("execution_unknown"); };
+  await assert.rejects(f.g.handle("owner", `/turns/${input.turnId}/cancel`, "POST", {}), /execution_unknown/);
+  await f.g.recover(); await f.g.recover();
+  assert.equal(f.store.cleanupJobs().length, 1);
+  await settleTick(f.g);
+  assert.equal(f.store.cleanupJobs().length, 1, "one miss is not enough");
+  await assert.rejects(f.g.handle("owner", "/turns", "POST", nextTurn(f)), /trainer_busy/);
+  await settleTick(f.g);
+  assert.equal(f.store.cleanupJobs().length, 0); assert.equal(f.store.get("owner", input.turnId).state, "cancelled");
+  assert.equal(stops, 1, "only the user's own cancel asked Native to stop");
+  await f.g.handle("owner", "/turns", "POST", nextTurn(f));
+});
+
+test("1.9.10 K4c: an ordinary cleanup never releases a cancelled turn whose Native input is unknown", async t => {
+  const f = fixture(t, { nativeState: "unknown", gatewayOptions: { unknownGraceMs: 0 } }), input = body();
+  await f.g.handle("owner", "/turns", "POST", input); assert.equal((await f.settle(input.turnId)).state, "unknown");
+  f.core.input = () => ({ state: "unknown", admissionId: null });
+  f.core.status = async () => ({ state: "unknown", admissionId: "synthetic-admission" });
+  f.core.cancelInput = async () => { throw Error("execution_unknown"); };
+  await assert.rejects(f.g.handle("owner", `/turns/${input.turnId}/cancel`, "POST", {}), /execution_unknown/);
+  for (let i = 0; i < 4; i++) { await f.g.recover(); await settleTick(f.g); f.tick(60001); }
+  assert.equal(f.store.cleanupJobs().length, 1);
+});
+
 test("1.9.10 K5: an answer that arrives during the stop is published, not failed", async t => {
   const { f, input, calls } = await stalled(t);
   f.core.status = async () => (++calls.status === 1 ? { state: "unknown", admissionId: "synthetic-admission" } : { state: "completed", admissionId: "synthetic-admission", result: { final_response: "Пізня відповідь тренера" } });

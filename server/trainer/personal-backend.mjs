@@ -151,14 +151,16 @@ export function createPersonalBackend({ uid, core, tools, store, releaseTools = 
       if (explicit) return core.cancelInput(uid, turn.id, { signal });
       return { stopped: true };
     },
-    async cleanup(turn) {
+    async cleanup(turn, { nativeMissing = false } = {}) {
       if (turn.owner !== uid) throw Error("profile_mismatch");
       if (execution.get(turn.id)?.settled === false) return { cleaned: false };
       if (turn.state === "cancelled") {
         let row;
         try { row = core.input(uid, turn.id); }
         catch { return { cleaned: false }; }
-        if (row && ["dispatching", "admitted", "unknown"].includes(row.state)) return { cleaned: false };
+        // The gateway saw twice that Native has no admission for this input.
+        const missing = nativeMissing && row?.state === "unknown" && !row.admissionId;
+        if (row && ["dispatching", "admitted", "unknown"].includes(row.state) && !missing) return { cleaned: false };
       }
       releaseTools(turn.id); transports.delete(turn.id); execution.delete(turn.id);
       // Canonical Native sessions/DB/media are never deleted as per-turn cleanup.

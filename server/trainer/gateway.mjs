@@ -95,12 +95,16 @@ export function createTrainerGateway({
   let closed = false,
     maintenanceFault = false,
     cleanupTask = null;
+  // Cancelled turns Native confirmed twice it never received (settleCancelled).
+  const nativeMissing = new Set();
   async function cleanupOnce() {
     for (const job of store.cleanupJobs()) {
       try {
         store.cleanupAttempt(job.turn_id);
         const turn = store.internal(job.turn_id);
-        const proof = await boundedOperation(() => backend.cleanup(turn));
+        const proof = await boundedOperation(() =>
+          backend.cleanup(turn, { nativeMissing: nativeMissing.has(turn.id) }),
+        );
         if (proof?.cleaned !== true) continue;
         media.remove(JSON.parse(turn.input).media || []);
         store.cleaned(turn.id);
@@ -298,11 +302,20 @@ export function createTrainerGateway({
     else store.fail(id, "trainer_no_reply");
   }
   // S2: a cancelled turn whose Native stop was never confirmed keeps its
-  // cleanup job; repeat the stop so the outbox becomes terminal.
+  // cleanup job; repeat the stop so the outbox becomes terminal. An input
+  // Native never received has nothing to stop: after two confirmed misses the
+  // cleanup in settleOnce's finally may release its job.
   async function settleCancelled(job) {
     const turn = store.internal(job.turn_id);
     if (turn.state !== "cancelled" || turn.expired || job.attempts < 2) return;
     if (now() < (retryAt.get(turn.id) ?? 0)) return;
+    if ((await nativeStatus(turn))?.state === "native_missing") {
+      const count = (missing.get(turn.id) ?? 0) + 1;
+      if (count < 2) missing.set(turn.id, count);
+      else { missing.delete(turn.id); nativeMissing.add(turn.id); }
+      return;
+    }
+    missing.delete(turn.id);
     if (await nativeStop(turn)) retryAt.delete(turn.id);
     else retryAt.set(turn.id, now() + SETTLE_RETRY_MS);
   }
@@ -310,9 +323,11 @@ export function createTrainerGateway({
     const unknown = new Set(), held = new Set();
     for (const row of store.pending()) if (row.state === "unknown") unknown.add(row.id);
     for (const job of store.cleanupJobs()) held.add(job.turn_id);
-    for (const id of missing.keys()) if (!unknown.has(id)) missing.delete(id);
+    for (const id of missing.keys())
+      if (!unknown.has(id) && !held.has(id)) missing.delete(id);
     for (const id of retryAt.keys())
       if (!unknown.has(id) && !held.has(id)) retryAt.delete(id);
+    for (const id of nativeMissing) if (!held.has(id)) nativeMissing.delete(id);
   }
   async function settleOnce() {
     try {
