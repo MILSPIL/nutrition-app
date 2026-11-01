@@ -50,3 +50,23 @@
 - Чернетка PR https://github.com/MILSPIL/nutrition-app/pull/54 (base `claude/simple-logging-199`), Auto-fix увімкнено.
 - Крок 3 (`settleStalled`) і клієнт (кроки 4-6) роблять фонові агенти без комітів.
 - Знахідка: текст у полі Юрія на знімку збігається з контрольними питаннями K10 задачі Codex coach-knowledge (тека `.agents/runtime/deployment/2026-10-31-coach-knowledge/`, 31.10 11:54-12:34). Гіпотеза: перезапуск сервісу тією роботою перевів хід Юрія в `unknown` (`turn-store.mjs:121-124`). Не перевірено журналом сервера. Перед публікацією звірити, що Codex не працює з сервером.
+- Крок 3 `2d3d322` (фоновий агент, перевірено мною): `settleStalled` у `gateway.mjs`, `native_missing` у `personal-backend.mjs`; GW 9/9 ✔ свіжим прогоном; за звітом агента `test:server` лише 7 базових падінь, інсценування K7 і K2b дали FAIL. Codex-ревʼю серверного дифу (`--base 768508a`, gpt-6-astra/xhigh) запущено у фоні.
+
+## Ревʼю Codex і виправлення (01.11, ~13:50 - 15:00)
+
+- CI PR #54 на `76e8c97`/`abb8da0`: `test-and-build` ✖ (клієнтські тести, ще без клієнта) і `hermes-resource-check` ✖ (перший хід у systemd `failed`). На 1.9.9 `0ca1e96` обидва були ✔.
+- Codex (gpt-6-astra/xhigh, 199 с, `--base 768508a`, 26 файлів коду): 4 знахідки, підтвердились 4, хибних 0.
+
+| Codex знайшов | Що перевірив | Вердикт |
+|---|---|---|
+| P1 платник передає 180 с у HTTP-захист, який пускає ≤ 90 | `hermes_personal_egress.py:204` `deadline_seconds <= 90`; `hermes_personal_payer.py:181-183` передає `timeout_ms/1000`; збігається з падінням CI | підтвердилось |
+| P2 IPC чекає 90 с | `hermes_personal_ipc.py:79` `ask(timeout=90)`, `hermes_personal_worker.py:31` без timeout | підтвердилось |
+| P2 скасований без admission блокує назавжди | `personal-backend.mjs` cleanup відмовляє для рядка `unknown`; `native-cancel.mjs` при промаху lookup кидає `execution_unknown`; `settleCancelled` лише повторював stop | підтвердилось |
+| P2 Desktop 10 × 5 МіБ більше за 48 МіБ транспорту | `personal-desktop-endpoint.mjs` без сумарної межі; `internal-process.mjs` `MAX_BYTES` 48 МіБ | підтвердилось |
+
+- `85e583a`: egress `<= 180`, `Peer.ask(timeout=180)`, тести (K20). Червоне: `model_payload_invalid` на 180, `90 != 180`.
+- `845b5ed`: клієнт від фонового агента (S3, S5-S8, браузерна перевірка «10 photos»). Два дефекти тестів виправлено: три селектори `alt` під текст S8; K10c з двома одночасними `act` ламав усі тести після себе. Нові тести на старому клієнті: 16 ✖ (усі нові K10-K14 + три старі `alt`), на новому 94/94; `test:ci` 399/399; build ок.
+- Скасований хід без admission: `settleCancelled` після двох підтверджених `native_missing` дозволяє прибирання (`backend.cleanup(turn, { nativeMissing: true })`), без повтору зупинки. K4b ✖ → ✔; інваріант K4c, інсценування ✖. GW 29/29.
+- Desktop: сума base64 утримуваних фото ≤ `MAX_BODY` (15 МіБ), як веб-шлях. K8b ✖ → ✔, ендпоінт 13/13.
+- Спека: K4b, K4c, K8b, K20; виправлено запис «червоне до коду» для UI (справжня причина K10d-K12b була в K10c).
+- codeindexer 2026-11-01: solution `sol_b0d26d174dc7` (межа часу в 4 шарах, `git grep -E` без `\b`).
