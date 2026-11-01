@@ -96,7 +96,7 @@
     "maxOutputTokens": 4096,
     "runDeadlineMs": 45000,
     "maxUserBytes": 8000,
-    "maxPayloadTextBytes": 32000,
+    "maxPayloadTextBytes": 34000,
     "historyMessages": 12,
     "historyBytes": 8000,
     "mediaTtlMs": 300000,

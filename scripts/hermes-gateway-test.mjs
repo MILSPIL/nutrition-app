@@ -18,7 +18,7 @@ import { createMediaStore } from "../server/trainer/media.mjs";
 import { createModelProxy } from "../server/trainer/model-proxy.mjs";
 import { createTrainerGateway } from "../server/trainer/gateway.mjs";
 import { createNativeBackend } from "../server/trainer/hermes-native.mjs";
-import { MODEL, TOOLS } from "../server/trainer/limits.mjs";
+import { LIMITS, MODEL, TOOLS } from "../server/trainer/limits.mjs";
 import { createTrainerTools } from "../server/trainer/tools.mjs";
 import { openFoodIndex } from "../server/trainer/food-lookup.mjs";
 import { buildPlanCatalog } from "../src/services/planCatalog.js";
@@ -535,7 +535,7 @@ try {
     assert.equal(snapshot.day.foods.length,24);
     assert.equal(snapshot.day.notes.length,4);
     assert.equal(snapshot.plan.catalog.rows.length,82);
-    assert.ok(summary.modelTextBytes.every(bytes=>bytes<=32000));
+    assert.ok(summary.modelTextBytes.every(bytes=>bytes<=LIMITS.payloadBytes));
     for(const payload of bodies)for(const msg of capacity.history.slice(-2))assert.ok(JSON.stringify(payload).includes(msg.content));
     summary.retainedLatestPairEveryCall=true;
     assert.ok(bodies.every(payload=>!JSON.stringify(payload).includes("# Finishing the job")&&!JSON.stringify(payload).includes("# Parallel tool calls")));

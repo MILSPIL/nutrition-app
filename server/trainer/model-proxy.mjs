@@ -80,7 +80,7 @@ export function boundedPayload(input, { history = [] } = {}) {
         )
           fail("invalid_image");
         const bytes = Buffer.from(source.data, "base64");
-        if (!bytes.length || bytes.length > MAX_IMAGE || ++images > 2)
+        if (!bytes.length || bytes.length > MAX_IMAGE || ++images > LIMITS.images)
           fail("invalid_image");
         return {
           ...value,

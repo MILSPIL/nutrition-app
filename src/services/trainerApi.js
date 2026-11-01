@@ -3,6 +3,8 @@ import { voiceError } from "./voiceApi";
 const messages = {
   native_queue_pending: "У черзі залишилося незавершене повідомлення. Текст збережено; завершіть його перед повтором.",
   trainer_failed: "Тренер не завершив повідомлення. Текст збережено; його можна повернути й уточнити.",
+  trainer_no_reply: "Тренер не відповів на це повідомлення. Поверніть текст кнопкою нижче й надішліть ще раз.",
+  trainer_stop_retrying: "Тренер не відповідає, і сервер поки не зміг зупинити обробку. Він повторює спробу сам; текст збережено.",
   trainer_timeout: "Тренер не встиг завершити відповідь. Повідомлення збережено. Перевірте результат або поверніть текст.",
   trainer_quota: "Обробку цього повідомлення зупинено. Текст збережено; спробуйте описати один прийом їжі або повторіть пізніше.",
   trainer_queue_full: "Тренер завершує інші повідомлення. Текст збережено, спробуйте трохи пізніше.",
@@ -69,13 +71,13 @@ export function createTrainerApi(
     timeoutMs = 15000,
   } = {},
 ) {
-  async function rawRequest(path, method = "GET", body, signal) {
+  async function rawRequest(path, method = "GET", body, signal, timeout = timeoutMs) {
     if (!endpoint) throw Error("live_disabled");
     const c = new AbortController(),
       abort = () => c.abort();
     signal?.addEventListener("abort", abort, { once: true });
     if (signal?.aborted) abort();
-    const timer = setTimeout(abort, timeoutMs);
+    const timer = setTimeout(abort, timeout);
     const owner = () => {
       const user = getUser();
       if (!user || user.uid !== uid) throw Error("unauthorized");
@@ -137,13 +139,13 @@ export function createTrainerApi(
     if (getUser()?.uid !== uid) throw Error("unauthorized");
     return result;
   }
-  async function request(path, method = "GET", body, signal) {
-    try { return await rawRequest(path, method, body, signal); }
+  async function request(path, method = "GET", body, signal, timeout) {
+    try { return await rawRequest(path, method, body, signal, timeout); }
     catch (error) {
       // Server guarantees this refusal precedes admission or draft mutation.
       if (error.message !== "data_auth_required" || path === "/data-session") throw error;
       await connectData(signal);
-      return rawRequest(path, method, body, signal);
+      return rawRequest(path, method, body, signal, timeout);
     }
   }
   return {
@@ -165,7 +167,8 @@ export function createTrainerApi(
     day: (date, s) => request(`/days/${date}`, "GET", undefined, s),
     refreshDraft: (id, revision, s) => request(`/drafts/${id}/refresh`, "PUT", { baseRevision: revision }, s),
     composer: (b, s) => request("/composer", "PUT", b, s),
-    send: (b, s) => request("/turns", "POST", b, s),
+    // Photos go up on a mobile uplink: 6 s more per photo (10 photos: 75 s).
+    send: (b, s) => request("/turns", "POST", b, s, timeoutMs + 6000 * (b?.images?.length || 0)),
     turn: (id, s) => request(`/turns/${id}`, "GET", undefined, s),
     recover: (id, s) => request(`/turns/${id}/recover`, "POST", {}, s),
     cancel: (id, s) => request(`/turns/${id}/cancel`, "POST", {}, s),

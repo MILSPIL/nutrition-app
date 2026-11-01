@@ -2,6 +2,16 @@
 import { stableJSON } from "./limits.mjs";
 import { MODEL } from "./limits.mjs";
 export const DRAFT_COMPLETION_TEXT = "Підготував чернетку. Перевір її та натисни «Додати», щоб зберегти.";
+// The model's advice written beside propose_food_draft is already a visible
+// trainer reply, so the completion only reminds about «Додати».
+export const DRAFT_ADVICE_FOLLOWUP = "Перевір чернетку й натисни «Додати».";
+export function draftCompletionText(payload) {
+  const assistant = payload?.messages?.findLast?.(message => message.role === "assistant");
+  const content = assistant?.content;
+  const text = typeof content === "string" ? content
+    : Array.isArray(content) ? content.filter(part => part?.type === "text").map(part => part.text || "").join("\n") : "";
+  return text.trim() ? DRAFT_ADVICE_FOLLOWUP : DRAFT_COMPLETION_TEXT;
+}
 export function draftCompletionResponse(stream) {
   const message = { id: "scisense_local_draft_completion", type: "message", role: "assistant", model: MODEL,
     content: [{ type: "text", text: DRAFT_COMPLETION_TEXT }], stop_reason: "end_turn", stop_sequence: null,
@@ -20,12 +30,12 @@ export function draftCompletionResponse(stream) {
 }
 
 // Canonical Native assistant message produced locally from a trusted ready ACK.
-export function nativeDraftCompletion(model, stream) {
+export function nativeDraftCompletion(model, stream, text = DRAFT_COMPLETION_TEXT) {
   const base = { id: "scisense_local_draft_completion", object: "chat.completion", created: 0, model,
     usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 } };
   return stream
-    ? { chunks: [{ ...base, object: "chat.completion.chunk", choices: [{ index: 0, delta: { role: "assistant", content: DRAFT_COMPLETION_TEXT }, finish_reason: "stop" }] }] }
-    : { completion: { ...base, choices: [{ index: 0, message: { role: "assistant", content: DRAFT_COMPLETION_TEXT }, finish_reason: "stop" }] } };
+    ? { chunks: [{ ...base, object: "chat.completion.chunk", choices: [{ index: 0, delta: { role: "assistant", content: text }, finish_reason: "stop" }] }] }
+    : { completion: { ...base, choices: [{ index: 0, message: { role: "assistant", content: text }, finish_reason: "stop" }] } };
 }
 
 export function readyDraftAckInPayload(payload, ack) {

@@ -13,7 +13,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { openTurnStore } from "./turn-store.mjs";
 import { createModelProxy, boundedPayload } from "./model-proxy.mjs";
 import { buildSnapshot } from "./snapshot.mjs";
-import { MODEL, TOOLS } from "./limits.mjs";
+import { LIMITS, MODEL, TOOLS } from "./limits.mjs";
 import { localBudget } from "../../scripts/phone-lab/sqlite.mjs";
 
 function fixture(t) {
@@ -228,7 +228,7 @@ test("actual bounded payload is reserved before upstream, output hard cap is 409
 });
 for (const [name, change] of [
   ["model", (b) => ({ ...b, model: "other" })],
-  ["size", (b) => ({ ...b, system: "x".repeat(33000) })],
+  ["size", (b) => ({ ...b, system: "x".repeat(LIMITS.payloadBytes + 1000) })],
   [
     "tools",
     (b) => ({ ...b, tools: [...b.tools.slice(1), { name: "terminal" }] }),
@@ -353,7 +353,7 @@ test("mandatory context is not trimmed, history is a deterministic suffix of com
   assert.equal(s.history.at(-1).id, "19");
   assert.equal(s.context, args.context);
   assert.throws(
-    () => buildSnapshot({ ...args, context: "x".repeat(32000) }),
+    () => buildSnapshot({ ...args, context: "x".repeat(LIMITS.payloadBytes) }),
     /context_too_large/,
   );
 });
@@ -415,14 +415,15 @@ test("actual payload budget drops only oldest complete history pairs", () => {
       { role: "user", content: "u".repeat(2000) },
       { role: "assistant", content: "a".repeat(2000) },
     ];
-  b.system = "x".repeat(28000);
+  // Sizes follow the old-path budget (32000 until 1.9.9, then 34000).
+  b.system = "x".repeat(LIMITS.payloadBytes - 4000);
   b.messages = [...pair, ...b.messages];
   const out = boundedPayload(b, { history: pair });
   assert.equal(out.payload.messages.length, 1);
-  assert.equal(out.payload.system.length, 28000);
+  assert.equal(out.payload.system.length, LIMITS.payloadBytes - 4000);
   assert.throws(
     () =>
-      boundedPayload({ ...b, system: "x".repeat(33000) }, { history: pair }),
+      boundedPayload({ ...b, system: "x".repeat(LIMITS.payloadBytes + 1000) }, { history: pair }),
     /context_too_large/,
   );
 });

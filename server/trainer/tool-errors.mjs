@@ -11,7 +11,7 @@ const hints = {
   date_clarification: "Ask one date question; do not create a draft for an ambiguous date.",
   date_change_requires_confirmation: "Keep the existing draft date; date changes require the user's preview edit.",
   consumption_unconfirmed: "This message does not confirm eating; answer or ask one question without a food draft.",
-  label_evidence_missing: "Use the photo binding itemId and photoRef from mediaBindings.",
+  label_evidence_missing: "Use photoRef from mediaBindings: a photo with itemId only for that row, a photo without itemId for any one row.",
   estimate_reason_required: "Set estimateReason to no_matching_source or recipe_estimate with assumptions.",
   assumptions_required: "Provide a short explicit assumption for this estimate.",
   invalid_portion_origin: "Use portionOrigin kind user, catalog_measure or estimate with an assumption.",
@@ -25,6 +25,7 @@ const hints = {
   draft_already_proposed: "This draft was already proposed in this turn. Do not propose again; answer the user.",
   invalid_food_query: "query: one food, up to 160 characters and 1-12 words; preparation from the enum.",
   date_draft_in_turn: "This turn already proposed another draft for this date; a date gets one draft per turn. Do not propose again now; tell the user which food is not in the card yet and ask them to send it in the next message.",
+  manual_values_not_in_message: "Use source manual only with kcal and all P/F/C numbers the user wrote; otherwise use estimate with assumption: kcal from the user.",
   note_draft_single: "This draft has noteId: it holds exactly one item. Do not add food to it; ask the user to add or fix that card first, then send the food again.",
 };
 // Repairable codes the model may see; anything else aborts the turn instead.

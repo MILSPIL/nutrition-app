@@ -48,13 +48,23 @@ export function createTrainerGateway({
   snapshotFactory = buildSnapshot,
   queueWindowMs = LIMITS.deadlineMs,
   authorizeTurn = async () => {},
+  unknownGraceMs = 30000,
+  settleStopMs = Math.min(90000, runDeadlineMs),
 }) {
   if (typeof ownerUid !== "string" || !ownerUid || ownerUid.length > 128)
     fail("trainer_config", 503);
   if (
     !Number.isInteger(runDeadlineMs) ||
     runDeadlineMs < 1 ||
-    runDeadlineMs > 90000
+    runDeadlineMs > 180000
+  )
+    fail("trainer_config", 503);
+  if (
+    !Number.isInteger(unknownGraceMs) ||
+    unknownGraceMs < 0 ||
+    !Number.isInteger(settleStopMs) ||
+    settleStopMs < 1 ||
+    settleStopMs > runDeadlineMs
   )
     fail("trainer_config", 503);
   const fresh=(uid,date,signal)=>boundedOperation(s=>loadConfirmed({readSnapshot,readDay,readPlan},uid,date,s),5000,signal);
@@ -85,12 +95,16 @@ export function createTrainerGateway({
   let closed = false,
     maintenanceFault = false,
     cleanupTask = null;
+  // Cancelled turns Native confirmed twice it never received (settleCancelled).
+  const nativeMissing = new Set();
   async function cleanupOnce() {
     for (const job of store.cleanupJobs()) {
       try {
         store.cleanupAttempt(job.turn_id);
         const turn = store.internal(job.turn_id);
-        const proof = await boundedOperation(() => backend.cleanup(turn));
+        const proof = await boundedOperation(() =>
+          backend.cleanup(turn, { nativeMissing: nativeMissing.has(turn.id) }),
+        );
         if (proof?.cleaned !== true) continue;
         media.remove(JSON.parse(turn.input).media || []);
         store.cleaned(turn.id);
@@ -190,6 +204,37 @@ export function createTrainerGateway({
       }).finally(() => { running.delete(id); controllers.delete(id); });
     running.set(id, task);
   };
+  // A known Native answer for an unknown turn. A stale day or context is a
+  // known failure; any other error propagates to the caller.
+  async function publishCompleted(turnId, turn, result, signal) {
+    try {
+      await verifyTurn(turn, signal);
+      store.complete(turnId, turn.generation, result);
+    } catch (error) {
+      if (["stale_snapshot", "day_unavailable"].includes(error?.message))
+        store.fail(turnId, error.message);
+      else throw error;
+    }
+  }
+  // Shared by HTTP /recover and settleStalled.
+  const readNativeStatus = (turn) =>
+    boundedOperation(() =>
+      backend.status(turn, {
+        onRun: (ids) => {
+          if (!store.internal(turn.id).run_id)
+            store.bindRun(turn.id, turn.generation, ids);
+        },
+      }),
+    );
+  // Only a terminal Native state changes the turn; unknown, native_missing or
+  // anything else leaves it as it is.
+  async function applyNativeStatus(turnId, turn, result, signal) {
+    if (result?.state === "completed")
+      await publishCompleted(turnId, turn, result.result, signal);
+    else if (["failed", "not_executed"].includes(result?.state))
+      store.fail(turnId, "trainer_failed");
+    else if (result?.state === "cancelled") store.cancel(turn.owner, turnId);
+  }
   async function maintain() {
     try {
       store.maintainRetention();
@@ -208,8 +253,115 @@ export function createTrainerGateway({
       maintenanceFault = true;
     }
   }
+  // Stalled-turn settlement (1.9.10). Runs only from the timer, never from
+  // startup recover() or /conversation/delete, because one Native stop can take
+  // settleStopMs. Failures stay per turn and never set maintenanceFault.
+  const SETTLE_RETRY_MS = 60000;
+  const retryAt = new Map(), missing = new Map();
+  let settleTask = null;
+  const nativeStatus = (turn) => readNativeStatus(turn).catch(() => undefined);
+  const nativeStop = (turn) =>
+    boundedOperation(
+      (signal) => backend.stop(turn, { explicit: true, signal }),
+      settleStopMs,
+    ).then((proof) => proof?.stopped === true, () => false);
+  // S1: an unknown turn past deadline + grace. It is closed only after Native
+  // confirms the stop, otherwise a new input would queue behind the old one.
+  async function settleUnknown(id) {
+    let turn = store.internal(id);
+    if (turn.state !== "unknown" || turn.expired) return;
+    if (now() < turn.deadline + unknownGraceMs || now() < (retryAt.get(id) ?? 0)) return;
+    const status = await nativeStatus(turn);
+    if (status?.state === "native_missing") {
+      // Native never received this input, so there is nothing to stop.
+      const count = (missing.get(id) ?? 0) + 1;
+      if (count < 2) { missing.set(id, count); return; }
+      missing.delete(id);
+      if (store.internal(id).state === "unknown") store.fail(id, "trainer_no_reply");
+      return;
+    }
+    missing.delete(id);
+    if (["completed", "failed", "not_executed", "cancelled"].includes(status?.state)) {
+      turn = store.internal(id);
+      if (turn.state === "unknown") await applyNativeStatus(id, turn, status);
+      return;
+    }
+    if (!(await nativeStop(store.internal(id)))) {
+      if (store.internal(id).state === "unknown")
+        store.fail(id, "trainer_stop_retrying", { unknown: true });
+      retryAt.set(id, now() + SETTLE_RETRY_MS);
+      return;
+    }
+    retryAt.delete(id);
+    // The answer may have landed between the first status and the stop. After
+    // the stop the outbox says cancelled, which is not the user's cancel.
+    const after = await nativeStatus(store.internal(id));
+    turn = store.internal(id);
+    if (turn.state !== "unknown") return;
+    if (after?.state === "completed") await publishCompleted(id, turn, after.result);
+    else store.fail(id, "trainer_no_reply");
+  }
+  // S2: a cancelled turn whose Native stop was never confirmed keeps its
+  // cleanup job; repeat the stop so the outbox becomes terminal. An input
+  // Native never received has nothing to stop: after two confirmed misses the
+  // cleanup in settleOnce's finally may release its job.
+  async function settleCancelled(job) {
+    const turn = store.internal(job.turn_id);
+    if (turn.state !== "cancelled" || turn.expired || job.attempts < 2) return;
+    if (now() < (retryAt.get(turn.id) ?? 0)) return;
+    if ((await nativeStatus(turn))?.state === "native_missing") {
+      const count = (missing.get(turn.id) ?? 0) + 1;
+      if (count < 2) missing.set(turn.id, count);
+      else { missing.delete(turn.id); nativeMissing.add(turn.id); }
+      return;
+    }
+    missing.delete(turn.id);
+    if (await nativeStop(turn)) retryAt.delete(turn.id);
+    else retryAt.set(turn.id, now() + SETTLE_RETRY_MS);
+  }
+  function forgetSettled() {
+    const unknown = new Set(), held = new Set();
+    for (const row of store.pending()) if (row.state === "unknown") unknown.add(row.id);
+    for (const job of store.cleanupJobs()) held.add(job.turn_id);
+    for (const id of missing.keys())
+      if (!unknown.has(id) && !held.has(id)) missing.delete(id);
+    for (const id of retryAt.keys())
+      if (!unknown.has(id) && !held.has(id)) retryAt.delete(id);
+    for (const id of nativeMissing) if (!held.has(id)) nativeMissing.delete(id);
+  }
+  async function settleOnce() {
+    try {
+      for (const row of store.pending()) {
+        if (closed) return;
+        if (row.state !== "unknown") continue;
+        try { await settleUnknown(row.id); }
+        catch { /* stale_result or a race: the turn is retried next tick */ }
+      }
+      for (const job of store.cleanupJobs()) {
+        if (closed) return;
+        try { await settleCancelled(job); }
+        catch { /* the durable job remains for the next tick */ }
+      }
+    } catch {
+      /* a store read failed; the next tick starts over */
+    } finally {
+      // A failed job is removed in the same tick, so the chat unblocks at once.
+      if (!closed) {
+        try { await cleanup(); } catch { /* the durable job remains */ }
+        try { forgetSettled(); } catch { /* pruned next tick */ }
+      }
+    }
+  }
+  function settleStalled() {
+    if (closed) return Promise.resolve();
+    if (!settleTask)
+      settleTask = settleOnce().finally(() => {
+        settleTask = null;
+      });
+    return settleTask;
+  }
   const timer = setInterval(() => {
-    void maintain();
+    void maintain().then(settleStalled);
   }, 30000);
   timer.unref();
   return {
@@ -410,23 +562,8 @@ export function createTrainerGateway({
         }
         if (method === "POST" && match[2] === "/recover") {
           const turn = store.internal(turnId);
-          if (turn.state === "unknown") {
-            const result = await boundedOperation(() =>
-              backend.status(turn, {
-                onRun: (ids) => {
-                  if (!store.internal(turnId).run_id)
-                    store.bindRun(turnId, turn.generation, ids);
-                },
-              }),
-            );
-            if (result?.state === "completed") {
-              try {await verifyTurn(turn,signal);store.complete(turnId,turn.generation,result.result);}
-              catch(error){if(["stale_snapshot","day_unavailable"].includes(error?.message))store.fail(turnId,error.message);else throw error;}
-            }
-            else if (["failed", "not_executed"].includes(result?.state))
-              store.fail(turnId, "trainer_failed");
-            else if (result?.state === "cancelled") store.cancel(uid, turnId);
-          }
+          if (turn.state === "unknown")
+            await applyNativeStatus(turnId, turn, await readNativeStatus(turn), signal);
           await cleanup();
           return reply(store.get(uid, turnId));
         }
@@ -436,6 +573,7 @@ export function createTrainerGateway({
     async recover() {
       await maintain();
     },
+    settleStalled,
     async close() {
       closed = true;
       clearInterval(timer);

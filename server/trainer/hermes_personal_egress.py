@@ -201,7 +201,7 @@ class HTTPXEgressGuard:
     def __init__(self, *, model, authorize_post, credential_guard, deadline_seconds=45, timeout_options=None, clock=time.monotonic):
         if httpx.__version__ != "0.28.1":
             raise BrokerRefusal("trainer_unavailable")
-        if not isinstance(model, str) or not model or len(model) > 160 or not callable(authorize_post) or not 0 < deadline_seconds <= 90:
+        if not isinstance(model, str) or not model or len(model) > 160 or not callable(authorize_post) or not 0 < deadline_seconds <= 180:
             raise BrokerRefusal("model_payload_invalid")
         self.model, self.authorize_post, self.credential_guard = model, authorize_post, credential_guard
         self.clock, self.deadline = clock, clock() + deadline_seconds

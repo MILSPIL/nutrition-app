@@ -22,7 +22,7 @@ export function openTurnStore(
 ) {
   if (!Buffer.isBuffer(hmacKey) || hmacKey.length < 32)
     fail("trainer_config", 503);
-  if (!Number.isInteger(runDeadlineMs) || runDeadlineMs < 1 || runDeadlineMs > 90000) fail("trainer_config", 503);
+  if (!Number.isInteger(runDeadlineMs) || runDeadlineMs < 1 || runDeadlineMs > 180000) fail("trainer_config", 503);
   file = resolve(file);
   const directory = dirname(file),
     dir = lstatSync(directory);
@@ -358,7 +358,7 @@ export function openTurnStore(
       });
     },
     admit(uid, id, input, snapshot, {dayProof=snapshot.day?.freshness, queueWindowMs=runDeadlineMs}={}) {
-      if (!Number.isInteger(queueWindowMs) || queueWindowMs < runDeadlineMs || queueWindowMs > Math.min(runDeadlineMs * 5, 225000)) fail("invalid_request");
+      if (!Number.isInteger(queueWindowMs) || queueWindowMs < runDeadlineMs || queueWindowMs > Math.min(runDeadlineMs * 5, 450000)) fail("invalid_request");
       requireId(input.turnId);
       return tx(() => {
         if (retention.gone(input.turnId)) fail("turn_gone", 410);

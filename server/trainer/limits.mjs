@@ -12,10 +12,12 @@ export const LIMITS = Object.freeze({
   outputTokens: 4096,
   deadlineMs: 45000,
   userBytes: 8000,
-  payloadBytes: 32000,
+  payloadBytes: 34000,
   historyBytes: 8000,
   historyMessages: 12,
   mediaTtlMs: 300000,
+  // Photos per message on the trainer path; Hermes Native allows the same ten.
+  images: 10,
   retentionMs: 30 * 86400000,
 });
 export function fail(code, status = 400) {

@@ -147,7 +147,7 @@ test("cancel voice preview restores existing text without sending or losing phot
   expect(host.querySelector("textarea").value).toBe("Вже набраний текст");
   expect(api.send).not.toHaveBeenCalled();
   expect(button("Почати запис").disabled).toBe(false);
-  expect(host.querySelectorAll('img[alt="Фото етикетки перед надсиланням"]')).toHaveLength(1);
+  expect(host.querySelectorAll('img[alt="Фото перед надсиланням"]')).toHaveLength(1);
 });
 test("cancel before the voice metric ACK never opens the microphone", async () => {
   const pending = deferred();
@@ -814,9 +814,9 @@ describe("1.9.7 card control", () => {
     const photoButtons = [...host.querySelectorAll("button")].filter(b => b.textContent === "Фото етикетки цього продукту");
     await act(async () => { Simulate.click(photoButtons[1]); });
     await act(async () => Simulate.change(host.querySelector('input[type="file"]'), { target: { files: [new File(["photo"], "synthetic.jpg", { type: "image/jpeg" })], value: "" } }));
-    expect(host.querySelectorAll('img[alt="Фото етикетки перед надсиланням"]')).toHaveLength(1);
+    expect(host.querySelectorAll('img[alt="Фото перед надсиланням"]')).toHaveLength(1);
     await click("Прибрати Синтетична домашня страва");
-    expect(host.querySelectorAll('img[alt="Фото етикетки перед надсиланням"]')).toHaveLength(0);
+    expect(host.querySelectorAll('img[alt="Фото перед надсиланням"]')).toHaveLength(0);
     await settle();
   });
   test("review: «Прибрати» is off while «Додати» is saving", async () => {
@@ -888,5 +888,236 @@ describe("1.9.7 card control", () => {
     const add = button("Додати");
     expect(add.disabled).toBe(true);
     expect(add.previousElementSibling.textContent).toBe("Щоб записати «Синтетична домашня страва», уточніть кількість або напишіть тренеру, скільки це калорій.");
+  });
+});
+
+describe("1.9.9 simple logging", () => {
+  const photo = () => Simulate.change(host.querySelector('input[type="file"]'), { target: { files: [new File(["photo"], "synthetic.jpg", { type: "image/jpeg" })], value: "" } });
+  const sendText = async (text) => {
+    await act(async () => { Simulate.change(host.querySelector("textarea"), { target: { value: text } }); });
+    await click("Надіслати повідомлення");
+  };
+  const twoRows = () => {
+    previewFixture();
+    const draft = server.drafts[0];
+    draft.items = [...draft.items, { ...draft.items[0], itemId: "synthetic-second", name: "Синтетичний сир" }];
+    return draft;
+  };
+  beforeEach(() => {
+    props.photoNormalizer = jest.fn(async () => ({ type: "image/jpeg", data: "synthetic-photo", preview: "data:image/jpeg;base64,c3ludGhldGlj" }));
+  });
+  test("1.9.9 K8: the paperclip sends a photo without a row even when the card has two products", async () => {
+    twoRows();
+    await render();
+    await act(async () => Simulate.click(button("Прикріпити фото")));
+    await act(async () => Simulate.click(button("З галереї")));
+    expect(host.textContent).not.toContain("Оберіть «Фото етикетки цього продукту»");
+    await act(async () => photo());
+    expect(host.querySelectorAll('img[alt="Фото перед надсиланням"]')).toHaveLength(1);
+    await sendText("Ось етикетка салату");
+    expect(api.send).toHaveBeenCalledTimes(1);
+    expect(api.send.mock.calls[0][0].images).toHaveLength(1);
+    expect(api.send.mock.calls[0][0].images[0].itemId).toBeUndefined();
+  });
+  test("1.9.9 K8: with one product the paperclip photo is not bound to it either; the row button still binds", async () => {
+    previewFixture();
+    await render();
+    await act(async () => Simulate.click(button("Прикріпити фото")));
+    await act(async () => Simulate.click(button("Сфотографувати")));
+    await act(async () => photo());
+    const rowButton = [...host.querySelectorAll("button")].find(b => b.textContent === "Фото етикетки цього продукту");
+    await act(async () => { Simulate.click(rowButton); });
+    await act(async () => Simulate.click(button("З галереї")));
+    await act(async () => photo());
+    await sendText("Ось етикетки");
+    const images = api.send.mock.calls[0][0].images;
+    expect(images).toHaveLength(2);
+    expect(images[0].itemId).toBeUndefined();
+    expect(images[1].itemId).toBe("synthetic-fruit");
+  });
+  const savedDay = (patch = {}) => ({ totals: { cal: 546.4, p: 58.1, f: 21, c: 28.3 }, targets: { cal: 2305 },
+    planProgress: { letters: { ї: { percent: 33, unknown: 1, calories: 18 }, д: { percent: 86.1, unknown: 0, calories: 165 }, е: { percent: 100, unknown: 0, calories: 74 } }, unallocatedCount: 1 }, ...patch });
+  const twoReceipts = (dayPatch) => {
+    const { day } = previewFixture();
+    const first = server.drafts[0];
+    first.state = "saved"; first.save = { command: { items: [first.items[0]], notes: [] } };
+    server.drafts = [first, { ...JSON.parse(JSON.stringify(first)), draftId: "synthetic-draft-later" }];
+    const value = { ...day, ...savedDay(dayPatch) };
+    api.day = jest.fn(async () => value);
+    return value;
+  };
+  test("1.9.9 K9: only the latest receipt of the date shows the day after saving", async () => {
+    twoReceipts();
+    await render();
+    const receipts = host.querySelectorAll('[data-testid="trainer-saved-receipt"]');
+    expect(receipts).toHaveLength(2);
+    expect(receipts[0].textContent).not.toContain("Зараз за день");
+    const block = receipts[1].textContent;
+    expect(block).toContain("Зараз за день");
+    expect(block).toContain("546 з 2305 ккал");
+    expect(block).toContain("Д 86.1%");
+    expect(block).toContain("Е 100%");
+    expect(block).toContain("Ї 33% · неповно");
+    expect(block.indexOf("Д 86.1%")).toBeLessThan(block.indexOf("Е 100%"));
+    expect(block.indexOf("Е 100%")).toBeLessThan(block.indexOf("Ї 33%"));
+    expect(block).toContain("Без літери: 1");
+    expect(block).not.toContain("неповно: записи без калорій");
+  });
+  test("1.9.9 K9: a day with food left out of the calories says so next to the total", async () => {
+    twoReceipts({ incomplete: true });
+    await render();
+    const receipts = host.querySelectorAll('[data-testid="trainer-saved-receipt"]');
+    expect(receipts[1].textContent).toContain("546 з 2305 ккал · неповно: записи без калорій не враховано");
+  });
+  test("1.9.9 K9: without a norm only calories; while reading a waiting line; a failed or partial day shows no block", async () => {
+    twoReceipts({ targets: {} });
+    await render();
+    expect(host.textContent).toContain("546 ккал");
+    expect(host.textContent).not.toContain("546 з");
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    twoReceipts();
+    api.day = jest.fn(() => new Promise(() => {}));
+    await render();
+    expect(host.textContent).toContain("Оновлюю підсумок дня…");
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    twoReceipts();
+    api.day = jest.fn(async () => { throw Error("offline"); });
+    await render();
+    expect(host.textContent).not.toContain("Зараз за день");
+    expect(host.textContent).not.toContain("Оновлюю підсумок дня…");
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    const value = twoReceipts();
+    delete value.totals;
+    await render();
+    expect(host.textContent).not.toContain("Зараз за день");
+  });
+  test("1.9.9 K13: typing shows no note button and keeps the field without its own scroll", async () => {
+    await render();
+    await act(async () => { Simulate.change(host.querySelector("textarea"), { target: { value: "Синтетичне питання" } }); });
+    expect(host.textContent).not.toContain("Зберегти текст як нотатку без оцінки");
+    expect(host.querySelector("textarea").style.overflowY).toBe("hidden");
+  });
+  test("1.9.9 K13: after a failed reply the returned text can still be saved as a note", async () => {
+    server.canonicalHistory = true;
+    server.messages = [{ id: "native-user", turnId: "synthetic-failed-note", role: "user", content: "Синтетична страва" }];
+    server.latestTurn = { turnId: "synthetic-failed-note", state: "failed", error: "trainer_failed", text: "Синтетична страва", targetDate: "2026-01-02", nativeInputClaimed: true };
+    await render();
+    await click("Повернути текст для уточнення");
+    expect(host.querySelector("textarea").value).toBe("Синтетична страва");
+    expect(button("Зберегти текст як нотатку без оцінки")).toBeTruthy();
+  });
+});
+
+describe("1.9.10: up to 10 photos in one pick and a stalled turn never hides the return button", () => {
+  const files = (n, prefix = "synthetic") => Array.from({ length: n }, (_, i) => new File(["photo" + i], `${prefix}-${i}.jpg`, { type: "image/jpeg" }));
+  const inputs = () => [...host.querySelectorAll('input[type="file"]')];
+  const gallery = () => inputs().find(input => !input.hasAttribute("capture"));
+  const camera = () => inputs().find(input => input.hasAttribute("capture"));
+  const pick = async (list, input = gallery()) => act(async () => Simulate.change(input, { target: { files: list, value: "" } }));
+  const thumbnails = () => host.querySelectorAll(".trainer-photos img");
+  beforeEach(() => {
+    props.photoNormalizer = jest.fn(async () => ({ type: "image/jpeg", data: "synthetic-photo", preview: "data:image/jpeg;base64,c3ludGhldGlj" }));
+  });
+  test("K10a: the gallery picker allows many files, the camera stays one shot", async () => {
+    await render();
+    expect(gallery().multiple).toBe(true);
+    expect(camera().multiple).toBe(false);
+  });
+  test("K10b: twelve picked photos add the first ten, say so, and all ten are sent", async () => {
+    await render();
+    await pick(files(12));
+    expect(thumbnails()).toHaveLength(10);
+    expect(host.textContent).toContain("Додано 10 із 12 фото: більше 10 за раз не можна.");
+    await act(async () => { Simulate.change(host.querySelector("textarea"), { target: { value: "Обід" } }); });
+    await click("Надіслати повідомлення");
+    expect(api.send.mock.calls[0][0].images).toHaveLength(10);
+  });
+  test("K10c: two quick picks never exceed ten", async () => {
+    await render();
+    // Both changes inside one act: two concurrent act() calls leave React's act depth
+    // unbalanced and every later test in the file renders nothing.
+    const input = gallery();
+    await act(async () => {
+      Simulate.change(input, { target: { files: files(6, "first"), value: "" } });
+      Simulate.change(input, { target: { files: files(6, "second"), value: "" } });
+    });
+    expect(thumbnails()).toHaveLength(10);
+    expect(host.textContent).toContain("Додано 4 із 6 фото: більше 10 за раз не можна.");
+  });
+  test("K10d: one unreadable photo does not cancel the rest", async () => {
+    props.photoNormalizer = jest.fn(async file => {
+      if (file.name.endsWith("-1.jpg")) throw Error("photo_decode_failed");
+      return { type: "image/jpeg", data: "synthetic-photo", preview: "data:image/jpeg;base64,c3ludGhldGlj" };
+    });
+    await render();
+    await pick(files(3));
+    expect(thumbnails()).toHaveLength(2);
+    expect(host.textContent).toContain("Фото не відкривається");
+  });
+  test("K10e: photos over the shared body budget are refused with a clear text", async () => {
+    const data = "A".repeat(3 * 1024 * 1024);
+    props.photoNormalizer = jest.fn(async () => ({ type: "image/jpeg", data, preview: "data:image/jpeg;base64,c3ludGhldGlj" }));
+    await render();
+    await pick(files(5));
+    expect(thumbnails()).toHaveLength(4);
+    expect(host.textContent).toContain("Фото завеликі разом. Надішліть решту наступним повідомленням.");
+  });
+  test("K10f: a row's photo button binds every photo of one pick to that row", async () => {
+    previewFixture();
+    await render();
+    const rowButton = [...host.querySelectorAll("button")].find(b => b.textContent === "Фото етикетки цього продукту");
+    await act(async () => { Simulate.click(rowButton); });
+    await pick(files(3));
+    await act(async () => { Simulate.change(host.querySelector("textarea"), { target: { value: "Етикетки" } }); });
+    await click("Надіслати повідомлення");
+    const images = api.send.mock.calls[0][0].images;
+    expect(images).toHaveLength(3);
+    expect(images.every(image => image.itemId === "synthetic-fruit")).toBe(true);
+  });
+  test("K10g: a pick with no free slot says the limit and keeps ten", async () => {
+    await render();
+    await pick(files(10));
+    await pick(files(1, "extra"));
+    expect(thumbnails()).toHaveLength(10);
+    expect(host.textContent).toContain("Можна додати до 10 фото.");
+    expect(button("Прикріпити фото").disabled).toBe(false);
+  });
+  test("K14: photos without a caption get a neutral request and a neutral label", async () => {
+    await render();
+    await pick(files(2));
+    expect(host.querySelectorAll('img[alt="Фото перед надсиланням"]')).toHaveLength(2);
+    await click("Надіслати повідомлення");
+    expect(api.send.mock.calls[0][0].text).toBe("Фото без підпису: подивись, що на них (їжа чи етикетка).");
+  });
+  test("K12a: a failed turn offers its text back even when the field already has text, once", async () => {
+    server.canonicalHistory = true;
+    server.composer = { text: "Питання про поперек", revision: 0 };
+    server.latestTurn = { turnId: "synthetic-stalled", state: "failed", error: "trainer_no_reply", text: "Суші вчора", nativeInputClaimed: true };
+    await render();
+    expect(host.textContent).toContain("Тренер не відповів на це повідомлення.");
+    await click("Повернути текст для уточнення");
+    expect(host.querySelector("textarea").value).toBe("Питання про поперек\nСуші вчора");
+    expect(button("Повернути текст для уточнення")).toBeFalsy();
+  });
+  test("K12d: a stalled turn the server cannot stop yet shows that reason, a cancelled cleanup shows the hint", async () => {
+    server.currentTurn = { turnId: "synthetic-turn-id", state: "unknown", error: "trainer_stop_retrying", text: "Суші вчора" };
+    server.latestTurn = server.currentTurn;
+    await render();
+    expect(host.textContent).toContain("Тренер не відповідає, і сервер поки не зміг зупинити обробку.");
+    await act(async () => root.unmount());
+    root = createRoot(host);
+    server.currentTurn = { turnId: "synthetic-cancelled", state: "cancelled", cleanupPending: true };
+    server.latestTurn = server.currentTurn;
+    await render();
+    expect(host.textContent).toContain("Завершую попередню обробку");
+    expect(host.textContent).toContain("Якщо тренер не відповість, сервер сам спробує зупинити обробку за кілька хвилин.");
+  });
+  test("K12b: a stalled turn says the server will try to stop it", async () => {
+    server.currentTurn = { turnId: "synthetic-turn-id", state: "unknown", text: "Суші вчора" };
+    await render();
+    expect(host.textContent).toContain("Якщо тренер не відповість, сервер сам спробує зупинити обробку за кілька хвилин.");
   });
 });

@@ -23,7 +23,7 @@ const signature = (b, type) =>
           b.subarray(8, 12).toString() === "WEBP"
         : false;
 export function validateImages(images) {
-  if (!Array.isArray(images) || images.length > 2) fail("invalid_image");
+  if (!Array.isArray(images) || images.length > LIMITS.images) fail("invalid_image");
   return images.map((image) => {
     if (
       !image ||

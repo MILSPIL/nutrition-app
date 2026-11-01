@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { Mic, Square, Camera, Send, X, Paperclip, Image as ImageIcon } from "lucide-react";
 import { createTrainerApi, trainerError, trainerFeedback } from "../services/trainerApi";
 import { createTrainerSession, NETWORK_ERRORS } from "../services/trainerSession";
@@ -23,6 +24,7 @@ import {
   assignPlanItems,
   dailyPlanProgress,
   allocationCounts,
+  percentText,
 } from "../services/planAllocation";
 import PlanAllocationFields from "./PlanAllocationFields";
 import DecimalInput from "./DecimalInput";
@@ -31,6 +33,12 @@ import { trainerTimeline } from "../services/trainerTimeline";
 import "./VoiceInputModal.css";
 import "./TrainerChat.css";
 const names = { 1: "Сніданок", 2: "Обід", 3: "Вечеря", 4: "Перекус" };
+// Native Hermes takes up to 10 images per message; the server's request body
+// limit is 15 MB, so photos together keep 1 MB for text and JSON.
+const MAX_TRAINER_PHOTOS = 10;
+const MAX_PHOTO_BASE64_TOTAL = 14 * 1024 * 1024;
+const photoBytes = (list) => list.reduce((sum, p) => sum + (p.data?.length || 0), 0);
+const STALL_HINT = "Якщо тренер не відповість, сервер сам спробує зупинити обробку за кілька хвилин.";
 const empty = {};
 const initial = {
   server: null,
@@ -73,6 +81,32 @@ function applyEdits(d, patch = {}) {
     }),
   };
 }
+// The field grows with its text and scrolls only at its ceiling: a quarter of the
+// visible screen (the keyboard shrinks it), at most 120px. scrollHeight has no border.
+function fitTextarea(field) {
+  if (!field) return;
+  const visible = window.visualViewport?.height || window.innerHeight;
+  const ceiling = Math.max(44, Math.min(120, Math.round(visible / 4)));
+  field.style.overflowY = "hidden";
+  field.style.height = "auto";
+  const next = field.scrollHeight + field.offsetHeight - field.clientHeight;
+  field.style.height = `${Math.min(ceiling, Math.max(44, next))}px`;
+  field.style.overflowY = next > ceiling ? "auto" : "hidden";
+}
+// The day as the server counts it after saving; the client recomputes nothing.
+function DayNow({ day, status }) {
+  if (status === "loading") return <p className="trainer-day-now">Оновлюю підсумок дня…</p>;
+  if (status !== "ready" || !Number.isFinite(day?.totals?.cal) || !day?.planProgress) return null;
+  const calories = Math.round(day.totals.cal), target = day.targets?.cal;
+  const letters = Object.entries(day.planProgress.letters || {}).sort(([a], [b]) => a.localeCompare(b, "uk"));
+  return <div className="trainer-day-now" data-testid="trainer-day-now">
+    <h4>Зараз за день</h4>
+    <p>{Number.isFinite(target) ? `${calories} з ${target} ккал` : `${calories} ккал`}{day.incomplete ? " · неповно: записи без калорій не враховано" : ""}</p>
+    {letters.length > 0 && <ul>{letters.map(([letter, value]) =>
+      <li key={letter}>{`${letter.toUpperCase()} ${percentText(value.percent)}${value.unknown > 0 ? " · неповно" : ""}`}</li>)}</ul>}
+    {day.planProgress.unallocatedCount > 0 && <p>Без літери: {day.planProgress.unallocatedCount}</p>}
+  </div>;
+}
 function DraftCard({
   draft,
   catalog,
@@ -86,6 +120,8 @@ function DraftCard({
   dayStatus,
   stale,
   onRefresh,
+  day,
+  showDay,
 }) {
   if (draft.state === "saved") {
     const command = draft.save?.command;
@@ -103,6 +139,7 @@ function DraftCard({
       {items.length > 0 && <p>{total.cal} ккал · Б {total.p} · Ж {total.f} · В {total.c}</p>}
       {notes.map(note => <p key={note.itemId || note.noteId}>{note.name} · нотатка</p>)}
       {notes.length > 0 && <p>Нотатки збережено без повного розрахунку калорій.</p>}
+      {showDay && <DayNow day={day} status={dayStatus} />}
       <button onClick={() => onOpenDay(draft.targetDate)}>Відкрити цей день</button>
     </article>;
   }
@@ -384,6 +421,7 @@ export default function TrainerChat({
     galleryInput = useRef(),
     attachmentTrigger = useRef(),
     photoTarget = useRef(),
+    photoQueue = useRef(Promise.resolve()),
     session = useRef(),
     alive = useRef(false),
     epoch = useRef(0),
@@ -432,17 +470,13 @@ export default function TrainerChat({
     if (voiceClip.current?.url) URL.revokeObjectURL(voiceClip.current.url);
     voiceClip.current = null;
   }
-  useEffect(() => {
-    const field = textarea.current;
-    if (!field) return;
-    field.style.height = "auto";
-    field.style.height = `${Math.min(120, field.scrollHeight || 44)}px`;
-  }, [view.text]);
+  useEffect(() => fitTextarea(textarea.current), [view.text]);
   useEffect(() => {
     const overlay=panel.current?.parentElement, viewport=window.visualViewport;
     const fit=()=>{
       overlay?.style.setProperty('--trainer-visible-height',`${Math.max(1,viewport?.height || window.innerHeight)}px`);
       overlay?.style.setProperty('--trainer-visible-top',`${viewport?.offsetTop || 0}px`);
+      fitTextarea(textarea.current);
     };
     fit();viewport?.addEventListener('resize',fit);viewport?.addEventListener('scroll',fit);window.addEventListener('resize',fit);
     return ()=>{viewport?.removeEventListener('resize',fit);viewport?.removeEventListener('scroll',fit);window.removeEventListener('resize',fit);};
@@ -729,14 +763,17 @@ export default function TrainerChat({
       if (!current(generation)) return;
       id = id || (await startMetric("text"));
       if (!current(generation)) return;
+      const outgoingPhotos = latest.current.photos;
+      // Photos are mostly food now; the label request stays only when every photo has its row.
       const content =
         text ||
         own.get().text ||
-        (photos.length
-          ? "Уточни харчові значення за фото етикетки відповідного продукту."
+        (outgoingPhotos.length
+          ? outgoingPhotos.every((p) => p.itemId)
+            ? "Уточни харчові значення за фото етикетки відповідного продукту."
+            : "Фото без підпису: подивись, що на них (їжа чи етикетка)."
           : "");
       const turnId = newId();
-      const outgoingPhotos = latest.current.photos;
       await metric(
         {
           ownerKey,
@@ -887,22 +924,44 @@ export default function TrainerChat({
       textarea.current?.focus();
     } catch (e) { if (current(generation)) catchError(e); }
   }
-  async function addPhoto(file) {
-    const generation = epoch.current;
-    if (!file) return;
+  // Picks run one after another, in order. The files and the row are taken at
+  // the moment of the pick: the input is cleared right away and the paperclip
+  // resets photoTarget.
+  function addPhotos(files) {
+    if (!files.length) return;
+    const generation = epoch.current, itemId = photoTarget.current;
+    photoQueue.current = photoQueue.current
+      .then(() => addPicked(files, itemId, generation))
+      .catch((e) => { if (current(generation)) catchError(e); });
+  }
+  // One file is normalized at a time, so a phone never holds ten 1600 px
+  // canvases at once. Each photo is committed synchronously, so the current
+  // photos already include this pick's additions and the next pick sees them.
+  async function addPicked(files, itemId, generation) {
+    if (!current(generation)) return;
     setError("");
-    if (photos.length >= 2) {
-      setError("Можна додати до двох фото.");
-      return;
-    }
-    const itemId = photoTarget.current;
-    try {
-      const p = await photoNormalizer(file);
+    let added = 0, overLimit = false, overBudget = false, failure;
+    for (const file of files) {
+      if (latest.current.photos.length >= MAX_TRAINER_PHOTOS) { overLimit = true; continue; }
+      let p;
+      try { p = await photoNormalizer(file); } catch (e) {
+        if (!current(generation)) return;
+        failure ||= e || Error("photo_decode_failed");
+        continue;
+      }
       if (!current(generation)) return;
-      setPhotos((old) => [...old, { ...p, itemId, addedAt: Date.now() }]);
-    } catch (e) {
-      if (current(generation)) catchError(e);
+      const now = latest.current.photos;
+      if (now.length >= MAX_TRAINER_PHOTOS) { overLimit = true; continue; }
+      // A smaller photo after a too large one may still fit.
+      if (photoBytes(now) + (p.data?.length || 0) > MAX_PHOTO_BASE64_TOTAL) { overBudget = true; continue; }
+      const photo = { ...p, itemId, addedAt: Date.now() };
+      flushSync(() => setPhotos((old) => [...old, photo].slice(0, MAX_TRAINER_PHOTOS)));
+      added++;
     }
+    if (overBudget) setError("Фото завеликі разом. Надішліть решту наступним повідомленням.");
+    else if (failure) setError(trainerError(failure));
+    else if (overLimit && added) setError(`Додано ${added} із ${files.length} фото: більше ${MAX_TRAINER_PHOTOS} за раз не можна.`);
+    else if (overLimit) setError(`Можна додати до ${MAX_TRAINER_PHOTOS} фото.`);
   }
   useEffect(() => {
     if (!photos.length) return;
@@ -1025,9 +1084,15 @@ export default function TrainerChat({
       (view.text.trim() || photos.length);
   const feedback = trainerFeedback({localMessage:error,clientCode:view.error,turn:view.server?.latestTurn});
   const timeline = trainerTimeline(view.server || {});
+  // Only the last receipt of a date, in the order the stream draws them, shows the day now.
+  const latestReceipts = new Map();
+  for (const entry of [...timeline.historyDrafts, ...timeline.entries])
+    if (entry.kind === "draft" && entry.draft.state === "saved") latestReceipts.set(entry.draft.targetDate, entry.draft.draftId);
   function draftCard(entry) {
     const d = entry.draft;
     const card = <DraftCard
+      day={previewDays[d.targetDate]?.day}
+      showDay={d.state === "saved" && latestReceipts.get(d.targetDate) === d.draftId}
       draft={applyEdits(d, edits[d.draftId])}
       catalog={previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.day?.catalog || catalog}
       meals={previewDays[edits[d.draftId]?.targetDate || d.targetDate]?.day?.meals || empty}
@@ -1042,12 +1107,9 @@ export default function TrainerChat({
       <summary>Незавершене прев’ю · {dateLabel(d.targetDate)} · {d.items.length} продуктів</summary>{card}
     </details> : <React.Fragment key={d.draftId}>{card}</React.Fragment>;
   }
+  // The paperclip leaves the photo unbound and the trainer picks its row; the
+  // row's own button has already set photoTarget to that row.
   function choosePhoto(input) {
-    const rows=(view.server?.drafts||[]).filter(d=>d.state==='ready').flatMap(d=>d.items);
-    if(rows.length>1 && !rows.some(item=>item.itemId===photoTarget.current)) {
-      setError('Оберіть «Фото етикетки цього продукту» у потрібному рядку прев’ю.');setShowAttachments(false);return;
-    }
-    photoTarget.current=photoTarget.current || rows[0]?.itemId || photos[0]?.itemId || newId();
     setShowAttachments(false);input.current.click();
   }
   function keys(e) {
@@ -1121,6 +1183,7 @@ export default function TrainerChat({
             {activeTurn(turn) && (
               <div className="trainer-turn" role="status">
                 <p>{turn.state === "unknown" ? feedback || "Завершення ще не підтверджене." : turn.cleanupPending ? "Завершую попередню обробку" : statuses[turn.state]}</p>
+                {(turn.state === "unknown" ? turn.error !== "trainer_stop_retrying" : turn.cleanupPending) && <p className="trainer-hint">{STALL_HINT}</p>}
                 {turn.state === "unknown" && (
                   <button
                     onClick={() =>
@@ -1264,7 +1327,8 @@ export default function TrainerChat({
               {feedback}
             </p>
           )}
-          {["failed", "cancelled"].includes(view.server?.latestTurn?.state) && view.server.latestTurn.text && !view.text.trim() && !voicePreview && (
+          {/* Shown even with other text in the field; hidden once the returned text is there. */}
+          {["failed", "cancelled"].includes(view.server?.latestTurn?.state) && view.server.latestTurn.text && !view.text.includes(restoredTrainerText(view.server.latestTurn)) && !voicePreview && (
             <button className="trainer-secondary" disabled={busy || !!view.admission}
               onClick={() => void returnMessage(view.server.latestTurn)}>
               Повернути текст для уточнення
@@ -1342,7 +1406,7 @@ export default function TrainerChat({
             <div className="trainer-photos">
               {photos.map((p, i) => (
                 <div key={i}>
-                  <img src={p.preview} alt="Фото етикетки перед надсиланням" />
+                  <img src={p.preview} alt="Фото перед надсиланням" />
                   <button
                     aria-label={`Прибрати фото ${i + 1}`}
                     disabled={busy || !!view.admission}
@@ -1375,11 +1439,11 @@ export default function TrainerChat({
             accept="image/*"
             capture="environment"
             onChange={(e) => {
-              void addPhoto(e.target.files?.[0]);
+              addPhotos(Array.from(e.target.files || []));
               e.target.value = "";
             }}
           />
-          <input ref={galleryInput} className="trainer-file" type="file" accept="image/*" onChange={e=>{void addPhoto(e.target.files?.[0]);e.target.value="";}}/>
+          <input ref={galleryInput} className="trainer-file" type="file" accept="image/*" multiple onChange={e=>{addPhotos(Array.from(e.target.files || []));e.target.value="";}}/>
           {showAttachments && <div className="trainer-attachment-options" role="group" aria-label="Додати фото">
             <button type="button" disabled={busy || !!view.admission} onClick={()=>choosePhoto(fileInput)}><Camera size={18}/>Сфотографувати</button>
             <button type="button" disabled={busy || !!view.admission} onClick={()=>choosePhoto(galleryInput)}><ImageIcon size={18}/>З галереї</button>
@@ -1395,7 +1459,9 @@ export default function TrainerChat({
           {(["permission", "recording"].includes(recordState) || (recordState === "transcribing" && !voicePreview)) && <button className="trainer-secondary" onClick={cancelRecording}>Скасувати запис</button>}
           {recordState === "transcribing" && <p className="trainer-date-hint" role="status">Розпізнаю голос…</p>}
           {recordState === "permission" && <p className="trainer-date-hint" role="status">Очікую дозволу на мікрофон…</p>}
-          {view.server &&
+          {/* A way out after a failed reply only: always shown, it jumped in under the field on the first letter. */}
+          {feedback &&
+            view.server &&
             view.text.trim() &&
             !activeTurn(turn) &&
             !view.admission && (

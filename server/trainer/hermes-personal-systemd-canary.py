@@ -66,9 +66,9 @@ for line in sys.stdin:
     if kind == 'setup':
         result = results
     elif kind == 'timerCycle':
-        arm_deadline('normal-use', int(time.time()*1000)+90000, 90000); end_deadline('normal-use')
+        arm_deadline('normal-use', int(time.time()*1000)+180000, 180000); end_deadline('normal-use')
         try:
-            arm_deadline('over-maximum', int(time.time()*1000)+90001, 90001)
+            arm_deadline('over-maximum', int(time.time()*1000)+180001, 180001)
             raise AssertionError('unbounded worker timer')
         except RuntimeError as error:
             assert str(error) == 'invalid_request'

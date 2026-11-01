@@ -1,4 +1,5 @@
 """Failure paths in the bounded profile-to-parent pipe, without native imports."""
+import inspect
 import json
 import os
 from pathlib import Path
@@ -38,6 +39,10 @@ class PeerTests(unittest.TestCase):
         self.assertEqual(packets[0]["id"], packets[1]["id"])
         self.assertEqual(packets[0]["timeoutMs"], 10)
         self.assertEqual(self.peer.pending, {})
+
+    def test_1910_default_wait_covers_the_180_second_turn(self):
+        # 1.9.10 S10: the worker asks without a timeout, so the default is the turn limit.
+        self.assertEqual(inspect.signature(Peer.ask).parameters["timeout"].default, 180)
 
     def test_orphaned_pipe_wakes_parent_waiter_as_unknown(self):
         self.peer.start(); errors = []

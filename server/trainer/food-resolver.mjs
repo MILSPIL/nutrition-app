@@ -19,6 +19,48 @@ const quantity = (q) => ({
   value: number(q?.value) && q.value > 0 ? q.value : null,
   unit: units.includes(q?.unit) ? q.unit : "unknown",
 });
+// User-entered numbers must be written by the user, not filled in by the model.
+const numberTokens = (texts) => new Set(texts.flatMap((t) =>
+  (String(t || "").match(/\d+(?:[.,]\d+)?/g) || []).map((x) => Number(x.replace(",", ".")))));
+const manualBasis = (b) =>
+  keys(b, ["value", "unit"]) && number(b.value) && b.value > 0 && ["g", "ml", "portion", "package"].includes(b.unit);
+const manualNutrients = (n) =>
+  keys(n, ["p", "f", "c", "cal"]) && ["p", "f", "c", "cal"].every((k) => number(n[k]));
+// A zero proves a value only beside its own marker: "кава 0 ккал" says nothing about carbs.
+const MARKERS = { p: "б|білк\\p{L}*|бел\\p{L}*|protein|p", f: "ж|жир\\p{L}*|fat|f", c: "в|вугл\\p{L}*|угл\\p{L}*|carb\\p{L}*|c", cal: "ккал|кал|kcal|cal|калор\\p{L}*" };
+const ANY_MARKER = Object.values(MARKERS).join("|");
+const zeroBeside = (key, texts) => {
+  const m = MARKERS[key];
+  const before = new RegExp(`(?:^|[^\\p{L}])(?:${m})\\s*[:=-]?\\s*0(?:[.,]0+)?(?![.,]?\\d)`, "iu");
+  // "0 г жиру" counts, but not the zero of "Б 0 Ж 5": a marker written before it already owns it.
+  const after = new RegExp(`(?<![\\d.,])(?<!(?:^|[^\\p{L}])(?:${ANY_MARKER})\\s*[:=-]?\\s*)0(?:[.,]0+)?\\s*(?:г\\s*|g\\s*)?(?:${m})(?![\\p{L}])`, "iu");
+  return texts.some((t) => before.test(String(t || "")) || after.test(String(t || "")));
+};
+function manualWritten(source, texts) {
+  const tokens = numberTokens(texts);
+  const written = (x) => [...tokens].some((t) => Math.abs(t - x) < 1e-9);
+  const basisNeeded = ["g", "ml"].includes(source.nutritionBasis.unit) || source.nutritionBasis.value !== 1;
+  return ["p", "f", "c", "cal"].every((k) => source.nutrients[k] === 0 ? zeroBeside(k, texts) : written(source.nutrients[k])) &&
+    (!basisNeeded || written(source.nutritionBasis.value));
+}
+// Numbers already accepted for this row (an earlier user message) stay accepted when unchanged.
+const sameManual = (kept, source) => kept?.source?.kind === "manual" &&
+  kept.nutritionBasis?.value === source.nutritionBasis.value && kept.nutritionBasis?.unit === source.nutritionBasis.unit &&
+  ["p", "f", "c", "cal"].every((k) => kept.nutrients?.[k] === source.nutrients[k]);
+// "на 100 г" names the label basis, not the eaten amount.
+const basisIsPer = (value, texts) => {
+  const number = String(value).replace(".", "[.,]");
+  const per = new RegExp(`(?:^|[^\\p{L}])(?:на|в|по|per|/)\\s*${number}(?![.,]?\\d)`, "iu");
+  return texts.some((t) => per.test(String(t || "")));
+};
+// A photo bound to a row proves only that row; an unbound one may prove any one
+// row of a proposal (usedPhotos lives for one propose call).
+function labelPhotoFits(photos, usedPhotos, raw) {
+  const photo = photos.find((p) => p.ref === raw.source.photoRef);
+  if (!photo) return false;
+  if (photo.itemId) return photo.itemId === raw.itemId;
+  return !usedPhotos.has(photo.ref) || usedPhotos.get(photo.ref) === raw.itemId;
+}
 function assumptions(list) {
   if (
     !Array.isArray(list) ||
@@ -78,7 +120,7 @@ export function createFoodResolver({
         candidates,
       };
     },
-    resolve(raw, { userText = "" } = {}) {
+    resolve(raw, { userText = "", userTexts = [userText], usedPhotos = new Map(), confirmed = new Map() } = {}) {
       if (
         !keys(raw, [
           "itemId",
@@ -148,11 +190,10 @@ export function createFoodResolver({
             "nutrients",
             "portionOrigin",
           ]) ||
-          !photos.some(
-            (p) => p.ref === raw.source.photoRef && p.itemId === raw.itemId,
-          )
+          !labelPhotoFits(photos, usedPhotos, raw)
         )
           fail("label_evidence_missing");
+        usedPhotos.set(raw.source.photoRef, raw.itemId);
         basis = raw.source.nutritionBasis;
         values = raw.source.nutrients;
         // The durable record stores no photo reference or media bytes.
@@ -190,10 +231,27 @@ export function createFoodResolver({
         basis = raw.source.nutritionBasis;
         values = raw.source.nutrients;
         estimated = raw.source.kind === "estimate";
+      } else if (raw.source.kind === "manual") {
+        if (
+          !keys(raw.source, ["kind", "nutritionBasis", "nutrients", "portionOrigin"]) ||
+          !manualBasis(raw.source.nutritionBasis) ||
+          !manualNutrients(raw.source.nutrients)
+        )
+          fail("invalid_food_source");
+        if (!sameManual(confirmed.get(raw.itemId), raw.source) && !manualWritten(raw.source, userTexts))
+          fail("manual_values_not_in_message");
+        basis = raw.source.nutritionBasis;
+        values = raw.source.nutrients;
+        source = { kind: "manual", label: "Введено вручну", version: 1 };
+        estimated = false;
       } else fail("invalid_food_source");
       if (portionOrigin?.kind === "catalog_measure" && !["database","personal"].includes(source.kind))
         fail("invalid_household_measure");
-      if (q.value != null && portionOrigin?.kind !== "catalog_measure") {
+      // Numbers given for exactly the eaten portion do not depend on its mass.
+      if (source.kind === "manual" && q.value != null && q.unit === basis.unit && q.value === basis.value &&
+          requestedOrigin?.kind !== "estimate" && !basisIsPer(basis.value, userTexts)) {
+        portionOrigin = {kind:"user",assumption:"Кількість і цифри названо в повідомленні"};
+      } else if (q.value != null && portionOrigin?.kind !== "catalog_measure") {
         portionOrigin = explicitQuantityInText(q, userText, {itemName:raw.name})
           ? {kind:"user",assumption:"Кількість явно вказана в повідомленні"}
           : {kind:"estimate",assumption:portionOrigin?.kind === "estimate" ? portionOrigin.assumption : "Кількість оцінено за описом; точну масу користувач не вказав"};
@@ -228,9 +286,11 @@ export function createFoodResolver({
         (density != null &&
           ["g", "ml"].includes(q.unit) &&
           ["g", "ml"].includes(b.unit));
+      // Preparation only selects a table row; given numbers already include it.
+      const preparationMissing = raw.preparation === "unknown" && ["database", "personal"].includes(source.kind);
       const complete =
         source.kind !== "unknown" &&
-        raw.preparation !== "unknown" &&
+        !preparationMissing &&
         q.value != null &&
         b.value != null &&
         q.unit !== "unknown" &&
@@ -244,14 +304,15 @@ export function createFoodResolver({
         nutritionBasis: b,
         nutrients: n,
         source,
-        preparation: raw.preparation,
+        // An unknown preparation is not stored: 1.9.7 readers count such food as invalid.
+        ...(raw.preparation !== "unknown" ? { preparation: raw.preparation } : {}),
         estimated,
         nutritionStatus: complete ? "complete" : "unknown",
         ...(density ? { density } : {}),
         ...(raw.planMatch ? { planMatch: structuredClone(raw.planMatch) } : {}),
         ...(!complete
           ? {
-              incompleteReason: raw.preparation === "unknown" ? "unknown_food_preparation" : !compatible
+              incompleteReason: preparationMissing ? "unknown_food_preparation" : !compatible
                 ? "unit_mismatch"
                 : "missing_nutrition_or_quantity",
             }

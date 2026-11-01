@@ -486,3 +486,15 @@ test("same-origin browser GET without Origin works; foreign reads and unsafe mis
   );
   assert.equal(f.calls.start, 0);
 });
+
+test("1.9.10 K19: the main app path admits ten photos to the backend and refuses eleven", async (t) => {
+  let seen = null;
+  const f = await fixture(t, { backend: { async start(args) { seen = args.images?.length ?? args.input?.images?.length ?? null; args.onRun({ runId: randomUUID(), sessionId: randomUUID() }); return { text: "Синтетичний результат" }; } } });
+  const photo = n => ({ type: "image/png", data: Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), Buffer.from([n]), randomBytes(64)]).toString("base64") });
+  const ten = input({ images: Array.from({ length: 10 }, (_, n) => photo(n)) });
+  assert.equal((await f.send("/turns", "POST", ten)).status, 202);
+  assert.equal((await settled(f, ten.turnId)).state, "completed");
+  assert.equal(seen, 10);
+  const eleven = input({ baseRevision: 1, images: Array.from({ length: 11 }, (_, n) => photo(n)) });
+  assert.equal((await f.send("/turns", "POST", eleven)).status, 400);
+});

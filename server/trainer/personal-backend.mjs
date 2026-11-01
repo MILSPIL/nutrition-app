@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { posix } from "node:path";
-import { nativeDraftCompletion, readyDraftAckInPayload } from "./draft-completion.mjs";
+import { nativeDraftCompletion, readyDraftAckInPayload, draftCompletionText } from "./draft-completion.mjs";
 import { stableJSON, TOOLS } from "./limits.mjs";
 import { MODEL_TOOL_ERRORS, safeToolFailure } from "./tool-errors.mjs";
 
@@ -93,7 +93,7 @@ export function createPersonalBackend({ uid, core, tools, store, releaseTools = 
               completeDraft: store ? async (payload, connection) => {
                 if (!readyDraftAckInPayload(payload, readyAck)) return;
                 store.assertPersonalDraftCompletion(args.turn.id, args.turn.generation, readyAck);
-                return nativeDraftCompletion(connection.model, payload.stream === true);
+                return nativeDraftCompletion(connection.model, payload.stream === true, draftCompletionText(payload));
               } : undefined,
               tools: async (name, parameters, { signal, nativeBinding }) => {
                 bind(nativeBinding);
@@ -141,6 +141,8 @@ export function createPersonalBackend({ uid, core, tools, store, releaseTools = 
       if (turn.owner !== uid) throw Error("profile_mismatch");
       const value = await core.status(uid, turn.id);
       if (value.state === "queued" && !value.admissionId && execution.get(turn.id)?.settled !== false) return { state: "not_executed" };
+      // Native has no admission for this input, so a stop can never be confirmed.
+      if (value.state === "unknown" && !value.admissionId && execution.get(turn.id)?.settled !== false) return { state: "native_missing" };
       return value.state === "completed" ? { state: "completed", result: answer(value) } : { state: value.state };
     },
     async stop(turn, { explicit = false, signal } = {}) {
@@ -149,14 +151,16 @@ export function createPersonalBackend({ uid, core, tools, store, releaseTools = 
       if (explicit) return core.cancelInput(uid, turn.id, { signal });
       return { stopped: true };
     },
-    async cleanup(turn) {
+    async cleanup(turn, { nativeMissing = false } = {}) {
       if (turn.owner !== uid) throw Error("profile_mismatch");
       if (execution.get(turn.id)?.settled === false) return { cleaned: false };
       if (turn.state === "cancelled") {
         let row;
         try { row = core.input(uid, turn.id); }
         catch { return { cleaned: false }; }
-        if (row && ["dispatching", "admitted", "unknown"].includes(row.state)) return { cleaned: false };
+        // The gateway saw twice that Native has no admission for this input.
+        const missing = nativeMissing && row?.state === "unknown" && !row.admissionId;
+        if (row && ["dispatching", "admitted", "unknown"].includes(row.state) && !missing) return { cleaned: false };
       }
       releaseTools(turn.id); transports.delete(turn.id); execution.delete(turn.id);
       // Canonical Native sessions/DB/media are never deleted as per-turn cleanup.

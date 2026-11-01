@@ -5,6 +5,8 @@ import { dirname, join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { WebSocketServer } from "ws";
 import { validateImages } from "./media.mjs";
+import { LIMITS } from "./limits.mjs";
+import { MAX_BODY } from "../../workers/meal-parser/src/schema.js";
 
 const MAX_FRAME = 8 * 1024 * 1024;
 const SOURCE_PIN = "3f2afed3eb813cb00bd381d29b084d0e01de048f";
@@ -137,7 +139,12 @@ export function createPersonalDesktopEndpoint({ runtime, uid, token, socketPath,
       try {
         validateImages([image]);
         const ref = adapter.hashImage(image);
-        if (!temporary.has(ref) && temporary.size >= 2) throw error("media_quota");
+        if (!temporary.has(ref) && temporary.size >= LIMITS.images) throw error("media_quota");
+        // Held photos together stay within the web request limit; ten 5 MiB
+        // photos would overflow the 48 MiB internal transport.
+        let held = p.content_base64.length;
+        for (const [key, item] of temporary) if (key !== ref) held += Math.ceil(item.data.length / 3) * 4;
+        if (held > MAX_BODY) throw error("media_quota");
         const old = temporary.get(ref); if (old) erase(old);
         temporary.set(ref, { data: bytes, type, sessionId: history.session_id, until: monotonicNow() + 295000 });
         return { attached: true, path: "scisense-image:" + ref, mime: type, filename: "photo" };
@@ -147,7 +154,7 @@ export function createPersonalDesktopEndpoint({ runtime, uid, token, socketPath,
       if (!exact(p, ["session_id", "submission_id", "input_id", "text", "attachments"]) || typeof p.session_id !== "string" ||
           p.submission_id && p.input_id && p.submission_id !== p.input_id || !Array.isArray(p.attachments ?? [])) throw error("desktop_method_forbidden");
       const attachments = p.attachments ?? [];
-      if (attachments.length > 2 || attachments.some(a => !exact(a, ["path", "mime"]) || !/^scisense-image:[a-f0-9]{64}$/.test(a.path))) throw error("invalid_image");
+      if (attachments.length > LIMITS.images || attachments.some(a => !exact(a, ["path", "mime"]) || !/^scisense-image:[a-f0-9]{64}$/.test(a.path))) throw error("invalid_image");
       const refs = attachments.map(a => a.path.slice(15)); sweep();
       const captured = refs.map(ref => temporary.get(ref));
       const staged = refs.map((ref, index) => {

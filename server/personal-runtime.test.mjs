@@ -94,7 +94,7 @@ test('a Desktop bind failure closes partial ingress and drains trainer without r
 
 test('family policy removes aggregate caps but retains bounded physical execution', () => {
  assert.equal(PERSONAL_POLICY.version,2);assert.equal(PERSONAL_POLICY.turns,null);assert.equal(PERSONAL_POLICY.posts,null);
- assert.equal(PERSONAL_POLICY.postsPerTurn,12);assert.equal(PERSONAL_POLICY.deadlineMs,90000);
+ assert.equal(PERSONAL_POLICY.postsPerTurn,12);assert.equal(PERSONAL_POLICY.deadlineMs,180000);
  assert.equal(PERSONAL_POLICY.cpu,2);assert.equal(PERSONAL_POLICY.memoryBytes,2147483648);assert.equal(PERSONAL_POLICY.swapBytes,0);
  assert.equal(PERSONAL_POLICY.privateProfiles,true);assert.equal(PERSONAL_POLICY.previewBeforeAdd,true);
 });

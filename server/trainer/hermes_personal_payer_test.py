@@ -20,11 +20,11 @@ class NativePayerTests(unittest.TestCase):
         payer = self.start()
         payload = {"model": MODEL, "messages": [{"role": "user", "content": "synthetic"}]}
         with patch.object(httpx.HTTPTransport, "handle_request", lambda _transport, request: self.transport(request)):
-            result = payer.invoke(payload, client_options={}, timeout_ms=90000)
+            result = payer.invoke(payload, client_options={}, timeout_ms=180000)
         self.assertTrue(result["proof"]["rawTerminalModelVerified"])
         self.assertEqual(len(self.calls), 1)
         with self.assertRaisesRegex(RuntimeError, "trainer_timeout"):
-            payer.invoke(payload, client_options={}, timeout_ms=90001)
+            payer.invoke(payload, client_options={}, timeout_ms=180001)
         self.assertEqual(len(self.calls), 1)
 
     def setUp(self):
