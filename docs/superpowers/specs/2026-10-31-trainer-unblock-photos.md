@@ -142,7 +142,8 @@
 Команди (скорочення в таблиці):
 - `GW` = `node --test --test-name-pattern="1.9.10" server/trainer/personal-gateway.test.mjs`
 - `PH` = `node --test server/trainer/trainer-photos-1910.test.mjs && node --test --test-name-pattern="1.9.10" server/trainer/personal-desktop-endpoint.test.mjs server/trainer/personal-desktop-adapter.test.mjs server/trainer/gateway-http.test.mjs`
-- `PY` = `cd server/trainer && python3 -m unittest hermes_personal_media_test hermes_personal_payer_test`
+- `PY` = `cd server/trainer && python3 -m unittest hermes_personal_media_test hermes_personal_payer_test` (`hermes_personal_payer_test` і `hermes_personal_egress_test` повністю запускаються лише через `scripts/hermes-personal-owner-check.py` на macOS із закріпленим Hermes `3f2afed`; локально і в CI їх немає, тому межу 180 с для них доводить `PYP`)
+- `PYP` = пряма проба меж Python-шару: блок коду в розділі «Після ревʼю spec-reviewer (01.11)», запускати з кореня репозиторію
 - `UI` = `CI=true npx react-scripts test --watchAll=false src/services/trainerChatUi.test.js src/services/trainerApi.test.js src/components/WelcomeModal.test.js -t "1.9.10|Що нового|WelcomeModal"`
 - `DL` = `node --test server/trainer/trainer-deadline-1910.test.mjs && node --test server/personal-runtime.test.mjs`
 
@@ -158,20 +159,20 @@
 | K6 | Без `admissionId`: 1-й раз `native_missing` хід не чіпається, 2-й поспіль `failed`/`trainer_no_reply`, `stop` не викликається | GW | K6 ✔ |
 | K7 | Інваріант: старт (`recover()`) не знімає завислий хід | GW | K7 ✔ (інсценування після коду: викликати `settleStalled` з `recover()` → FAIL) |
 | K8 | Межа 10 (`LIMITS.images`): `validateImages`, Desktop-ендпоінт (завантаження і `prompt.submit`), Desktop-адаптер приймають 10 і відхиляють 11 | PH | усі ✔ |
-| K9 | Python: 10 фото стейджаться, 11 → `invalid_image` без часткового запису; платник приймає 180000 і відхиляє 180001 | PY | OK |
+| K9 | Python: 10 фото стейджаться, 11 → `invalid_image` без часткового запису; платник приймає 180000 і відхиляє 180001 | PY (media), PYP | OK; PYP ✔ (01.11) |
 | K10 | Клієнт: a) галерея `multiple`, камера ні; b) 12 → 10, текст «Додано 10 із 12 фото: більше 10 за раз не можна.», надсилаються 10; c) два швидкі вибори ≤ 10, «Додано 4 із 6 фото…»; d) збій одного файлу не скасовує решту, текст помилки; e) бюджет 14 МБ: 5 фото по 3 МБ → 4 і «Фото завеликі разом. Надішліть решту наступним повідомленням.»; f) кнопка рядка прив'язує всі фото вибору; g) при 10 фото вибір дає «Можна додати до 10 фото.», скріпка доступна | UI | K10a-g ✔ |
 | K11 | Тайм-аут `send` з 10 фото 75 с, інші запити 15 с | UI | K11 ✔ |
 | K12 | a) «Повернути текст» видна при тексті в полі, дописує під ним і зникає; текст `trainer_no_reply`; b) підказка в блоці завислого; c) тексти `trainer_no_reply`/`trainer_stop_retrying` у `trainerError`; d) `trainer_stop_retrying` у першому рядку блоку завислого, підказка під «Завершую попередню обробку» | UI | K12a-d ✔ |
 | K13 | 10 мініатюр на 375 px: без горизонтальної прокрутки сторінки й панелі, смужка в один рядок, кожна мініатюра 80 px | `node scripts/trainer-chat-browser.mjs` (доказ CI Linux, як K13 у 1.9.9) | перевірка «10 photos» ✔ |
 | K14 | Текст без підпису нейтральний (з прив'язкою до рядків старий), `alt` «Фото перед надсиланням» | UI | K14 ✔ |
 | K15 | Версія 1.9.10 і «Що нового» | UI | ✔ |
-| K16 | Інваріанти: `test:server` лише 7 базових падінь; `test:ci` усі; `CI=true npm run build` ок; CI PR усі перевірки (включно з канаркою `hermes-personal-linux` на 180000/180001) | `npm run test:server`, `npm run test:ci`, `CI=true npm run build`, CI | як сказано |
+| K16 | Інваріанти: `test:server` лише 7 базових падінь; `test:ci` усі; `CI=true npm run build` ок; CI PR усі перевірки (включно з канаркою `hermes-personal-linux` на 180000/180001) | `npm run test:server`, `npm run test:ci`, `CI=true npm run build`, CI, `gh workflow run hermes-personal-linux.yml --ref <гілка>` | як сказано; канарка run 41328166697 на `996f388` ✔ (01.11) |
 | K18 | 180 с: `PERSONAL_LIMITS` 180000/450000; turn-store і gateway приймають 180000 і відхиляють 180001; нативний RPC те саме; у джерелах рантайму немає 90000/225000; `PERSONAL_POLICY.deadlineMs` 180000 | DL | усі ✔ |
 | K19 | Основний шлях: `POST /turns` з 10 фото → 202 і бекенд отримує 10; з 11 → 400; b) 10 фото по ~1,3 МБ проходять `validateImages` і Python-стейдж | PH, PY | K19, K19b ✔ |
 | K4b | Скасований хід, якого Hermes не отримав (`unknown` без `admissionId`): 1-й промах job лишається і новий хід `trainer_busy`, 2-й поспіль job зникає, зупинка не повторюється, новий хід приймається | GW | K4b ✔ |
 | K4c | Інваріант: без двох підтверджених промахів звичайне прибирання не знімає скасований хід з нативним `unknown` | GW | K4c ✔ (інсценування: бекенд без вимоги промахів → FAIL) |
 | K8b | Desktop: фото разом не більші за межу запиту веб-шляху (`MAX_BODY` 15 МіБ base64), третє фото по 4 МіБ → `media_quota`, маленьке після нього приймається | PH | K8b ✔ |
-| K20 | Python: захист HTTP моделі (`HTTPXEgressGuard`) приймає 180 с і відхиляє 180,001; `Peer.ask` за замовчуванням чекає 180 с; CI `hermes-resource-check` зелений | `cd server/trainer && python3 -m unittest hermes_personal_ipc_test`; egress-тест і реальний Hermes лише в CI (`openai` локально немає) | OK; CI ✔ |
+| K20 | Python: захист HTTP моделі (`HTTPXEgressGuard`) приймає 180 с і відхиляє 180,001; `Peer.ask` за замовчуванням чекає 180 с; CI `hermes-resource-check` зелений | `cd server/trainer && python3 -m unittest hermes_personal_ipc_test`, PYP, CI `hermes-resource-check` (реальний хід через egress) | OK; PYP ✔; CI ✔ |
 | K17 | Production (після публікації, за Юрієм): а) за 5 хв після старту нового релізу завислий хід Юрія від 31.10 знято без натискань, «Надіслати» активна (якщо нативна зупинка не підтверджується, це не дефект коду, але мету не досягнуто: видно `trainer_stop_retrying`, далі розбір журналу сервера); б) нове повідомлення з 10 фото з галереї одним вибором отримує відповідь тренера (текст або чернетка), без зависання | телефон Юрія; додатково під час вікна публікації читання лише `state`/`error` цього ходу з `turns.sqlite` | так |
 
 ### Червоне до коду (31.10, на `0ca1e96` + лише тести; коміти `f7a02b0` і наступний)
@@ -240,3 +241,53 @@
 
 - Коло 1 (31.10): 23 знахідки, з них «змінює план» більшість; закриті правками (окремий `settleStalled`, відступ, `native_missing`, тексти, порядок повідомлень фото, S10).
 - Коло 2 (31.10): 23 знахідки, 10 «змінює план», усі технічні, закриті правками без питань до Юрія (файли S1, тестовий метод `settleStalled`, `cleanup()` і спроби, гонки, `deadline` завжди задане, типове `settleStopMs`, черга виборів фото, повнота S10 і автоматичні місця, межі байтів і K19b, порядок перезапису активації). Третього кола за правилом немає.
+
+## Після ревʼю spec-reviewer (01.11)
+
+Вердикт першого кола: повернути (🔴 1, 🟡 1, 💭 5).
+
+- 🔴 K16: канарку `hermes-personal-linux` на гілці не запускали (workflow стартує лише від push у `codex/hermes-personal-server`). Запущено вручну: `gh workflow run hermes-personal-linux.yml --ref claude/trainer-inactive-image-limit-ecb2b1`, run 41328166697 на `996f388`, `isolated-systemd` success; у виводі `"passed":true`, `"kernelTimer":true`. Канарка `server/trainer/hermes-personal-systemd-canary.py` (`timerCycle`) взводить таймер на 180000 і вимагає `invalid_request` на 180001.
+- 🟡 K9/K20: `hermes_personal_payer_test` і `hermes_personal_egress_test` не запускаються ні локально, ні в CI (лише `scripts/hermes-personal-owner-check.py` на macOS із закріпленим Hermes). Доказ межі тепер `PYP`, пряма проба тих самих перевірок коду:
+
+```python
+import sys
+sys.path.insert(0, sys.argv[1])
+from hermes_personal_egress import HTTPXEgressGuard
+from hermes_personal_provider import BrokerRefusal
+from hermes_personal_payer import NativePayer
+def guard(seconds):
+    return HTTPXEgressGuard(model='m', authorize_post=lambda *a, **k: None, credential_guard=None, deadline_seconds=seconds)
+for seconds in (180, 180.001):
+    try:
+        guard(seconds); print('egress', seconds, 'accepted')
+    except BrokerRefusal as error:
+        print('egress', seconds, 'refused', error)
+payer = object.__new__(NativePayer); payer.closed = payer.selection_changed = False; payer.model = 'm'
+for timeout in (180000, 180001):
+    try:
+        payer.invoke({}, client_options={}, timeout_ms=timeout); print('payer', timeout, 'returned')
+    except BrokerRefusal as error:
+        print('payer', timeout, 'refused', error)
+    except Exception as error:
+        print('payer', timeout, 'past the limit check:', type(error).__name__)
+```
+
+Запуск: `uv run --no-project --with httpx==0.28.1 python <файл з блоку> server/trainer`. Вивід на `996f388`:
+
+```text
+egress 180 accepted
+egress 180.001 refused model_payload_invalid
+payer 180000 past the limit check: ModuleNotFoundError
+payer 180001 refused trainer_timeout
+```
+
+Червоне на 1.9.9 (`0ca1e96`, `git archive` у scratchpad):
+
+```text
+egress 180 refused model_payload_invalid
+egress 180.001 refused model_payload_invalid
+payer 180000 refused trainer_timeout
+payer 180001 refused trainer_timeout
+```
+
+- 💭 прийнято до відома: локальний Node 24.11.1 проти `.nvmrc` 24.22.1 (базова лінія знята на тому самому 24.11.1, CI бере `.nvmrc`); дата в «Що нового» 01.11 (публікація в той самий день); K13 без окремого червоного коміту; `close()` у `gateway.mjs` не чекає `settleTask` (помилки ловляться, окрема картка); список файлів у `trainer-deadline-1910.test.mjs` без `gateway.mjs`, `turn-store.mjs`, `personal-limits.mjs` (ручний `git grep -w` чистий).
