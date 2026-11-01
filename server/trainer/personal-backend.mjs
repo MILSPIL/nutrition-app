@@ -141,6 +141,8 @@ export function createPersonalBackend({ uid, core, tools, store, releaseTools = 
       if (turn.owner !== uid) throw Error("profile_mismatch");
       const value = await core.status(uid, turn.id);
       if (value.state === "queued" && !value.admissionId && execution.get(turn.id)?.settled !== false) return { state: "not_executed" };
+      // Native has no admission for this input, so a stop can never be confirmed.
+      if (value.state === "unknown" && !value.admissionId && execution.get(turn.id)?.settled !== false) return { state: "native_missing" };
       return value.state === "completed" ? { state: "completed", result: answer(value) } : { state: value.state };
     },
     async stop(turn, { explicit = false, signal } = {}) {
