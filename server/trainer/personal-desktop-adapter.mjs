@@ -1,4 +1,4 @@
-import { stableJSON, requireId } from "./limits.mjs";
+import { LIMITS, stableJSON, requireId } from "./limits.mjs";
 import { validateImages } from "./media.mjs";
 import { abortable } from "./deadline.mjs";
 
@@ -43,7 +43,7 @@ export function createPersonalDesktopAdapter({ uid, channel, profileId, account,
       requireId(inputId);
       if (typeof sessionId !== "string" || !sessionId || sessionId.length > 160 ||
           typeof text !== "string" || Buffer.byteLength(text) > 8000 || !Array.isArray(imageRefs) ||
-          imageRefs.length > 2 || imageRefs.some(ref => !/^[a-f0-9]{64}$/.test(ref))) throw Error("invalid_request");
+          imageRefs.length > LIMITS.images || imageRefs.some(ref => !/^[a-f0-9]{64}$/.test(ref))) throw Error("invalid_request");
       text = text.trim() || (imageRefs.length ? "Фото їжі" : "");
       if (!text) throw Error("invalid_request");
       const fingerprint = stableJSON([sessionId, text, imageRefs]);

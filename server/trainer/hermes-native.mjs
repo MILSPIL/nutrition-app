@@ -189,7 +189,7 @@ export function createNativeBackend({
     const value = JSON.parse(readFileSync(file));
     if (
       !Array.isArray(value) ||
-      value.length > 2 ||
+      value.length > LIMITS.images ||
       value.some(
         (m) =>
           !/^[a-f0-9]{64}$/.test(m.sha256) ||

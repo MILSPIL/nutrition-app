@@ -16,6 +16,8 @@ export const LIMITS = Object.freeze({
   historyBytes: 8000,
   historyMessages: 12,
   mediaTtlMs: 300000,
+  // Photos per message on the trainer path; Hermes Native allows the same ten.
+  images: 10,
   retentionMs: 30 * 86400000,
 });
 export function fail(code, status = 400) {

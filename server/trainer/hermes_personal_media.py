@@ -12,6 +12,8 @@ import time
 
 PHOTO_QUOTA = 256 * 1024 * 1024
 IMAGE_MAX = 5 * 1024 * 1024
+# Photos per message; matches LIMITS.images in limits.mjs and Hermes Native.
+MAX_IMAGES = 10
 _EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 
 
@@ -96,7 +98,7 @@ class ProfilePhotos:
             _sync(self.staging)
 
     def stage(self, input_id, images):
-        if not isinstance(input_id, str) or not re.fullmatch(r"[A-Za-z0-9-]{16,80}", input_id) or not isinstance(images, list) or len(images) > 2:
+        if not isinstance(input_id, str) or not re.fullmatch(r"[A-Za-z0-9-]{16,80}", input_id) or not isinstance(images, list) or len(images) > MAX_IMAGES:
             raise RuntimeError("invalid_image")
         decoded = []
         for index, image in enumerate(images):
