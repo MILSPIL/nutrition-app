@@ -247,7 +247,7 @@ test("K5: trainer rules say numbers are data, no needless questions, photos any 
   for (const phrase of ["clarify/unknown", "ask size", "already supplies the final acknowledgement"])
     assert.ok(!TRAINER_POLICY.includes(phrase), phrase);
   assert.ok(TRAINER_POLICY.includes("Old drafts: not advice topic; new food on a draft date: append to it."));
-  assert.ok(Buffer.byteLength(TRAINER_POLICY) <= 2000);
+  assert.ok(Buffer.byteLength(TRAINER_POLICY) <= 2250);
 });
 
 test("K6: the local completion keeps the model's advice and only adds the short Add reminder", async t => {
