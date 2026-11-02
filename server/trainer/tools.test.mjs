@@ -288,5 +288,13 @@ test("policy fits the coach capacity budget", () => {
   // CI capacity probe (hermes-gateway-test --capacity-probe) keeps the latest history pair
   // within LIMITS.payloadBytes. At 32000 a 1425-byte policy had 96 bytes of slack; 1.9.9
   // raised the old (disabled in production) path to 34000 for the simple-logging rules.
-  assert.ok(Buffer.byteLength(TRAINER_POLICY) <= 2000);
+  // The voice rules (2222 bytes) leave about 50 bytes before the probe needs more budget.
+  assert.ok(Buffer.byteLength(TRAINER_POLICY) <= 2250);
+});
+test("policy keeps food logging short and asks for a detailed, warm, context-first voice on advice", () => {
+  const [first] = TRAINER_POLICY.split("\n");
+  for (const phrase of ["Food log: short.", "warm spoken coach", "what, why, how in real life", "vary openings", "danger signs: serious", "Base answers on context first", "no invented numbers", "One question max."])
+    assert.ok(first.includes(phrase), phrase);
+  assert.ok(!first.includes("concise"));
+  assert.ok(TRAINER_POLICY.includes("advice in the same message as propose: 1-2 sentences"));
 });
